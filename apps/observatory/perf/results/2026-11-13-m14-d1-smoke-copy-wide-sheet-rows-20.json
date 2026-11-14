@@ -1,0 +1,548 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d1-smoke-copy",
+  "metric": "copy",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-20",
+    "label": "~710 cells",
+    "cells": 710,
+    "rowHeight": 20,
+    "textSize": 11,
+    "columnWidth": 68
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "copies": {
+    "block": "the visible block, by a drag",
+    "week": "Jan 1–7, columns 3–9",
+    "sheet": "Cmd+A, declined, then confirmed"
+  },
+  "scroll": {
+    "y": -37500,
+    "speed": 18750
+  },
+  "restMs": 300,
+  "copyCategories": [
+    "blink.user_timing",
+    "toplevel",
+    "benchmark"
+  ],
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "block": {
+            "cells": 656,
+            "bytes": 4294,
+            "startedMs": 10.29,
+            "copiedMs": 13.8,
+            "writtenMs": 34.9,
+            "writtenMsRuns": [
+              34.9
+            ],
+            "reads": 0,
+            "busyMs": 18,
+            "outsideFramesMs": 12.6
+          },
+          "week": {
+            "cells": 74424,
+            "bytes": 346361,
+            "startedMs": 9.13,
+            "copiedMs": 1040.6,
+            "writtenMs": 1045.1,
+            "writtenMsRuns": [
+              1045.1
+            ],
+            "reads": 8,
+            "busyMs": 65.7,
+            "outsideFramesMs": 52.6
+          },
+          "sheet": {
+            "cells": 3912576,
+            "bytes": 18865525,
+            "startedMs": 5.11,
+            "copiedMs": 1700.4,
+            "writtenMs": 1766.3,
+            "writtenMsRuns": [
+              1766.3
+            ],
+            "reads": 8,
+            "busyMs": 621.6,
+            "outsideFramesMs": 606.8
+          },
+          "declinedMs": 0.38,
+          "scroll": {
+            "drewPct": 96.7,
+            "workP50Ms": 5.93,
+            "workP95Ms": 11.86,
+            "latePct": 2.6,
+            "outsideFramesMs": 63.1,
+            "restMs": 2121
+          },
+          "scrollCopying": {
+            "drewPct": 99.2,
+            "workP50Ms": 5.07,
+            "workP95Ms": 7.05,
+            "latePct": 0,
+            "outsideFramesMs": 598.2,
+            "restMs": 2303.7,
+            "coveredPct": 89.4
+          }
+        },
+        "runs": [
+          {
+            "copies": {
+              "block": {
+                "cells": 656,
+                "bytes": 4294,
+                "startedMs": 10.289999961853027,
+                "copiedMs": 13.804999351501465,
+                "writtenMs": 34.94499969482422,
+                "reads": 0,
+                "busyMs": 17.968,
+                "outsideFramesMs": 12.565999999999999
+              },
+              "week": {
+                "cells": 74424,
+                "bytes": 346361,
+                "startedMs": 9.130000114440918,
+                "copiedMs": 1040.6150007247925,
+                "writtenMs": 1045.0750007629395,
+                "reads": 8,
+                "busyMs": 65.68399999999998,
+                "outsideFramesMs": 52.615999999999985
+              },
+              "sheet": {
+                "cells": 3912576,
+                "bytes": 18865525,
+                "startedMs": 5.1050004959106445,
+                "copiedMs": 1700.4450006484985,
+                "writtenMs": 1766.3050003051758,
+                "reads": 8,
+                "busyMs": 621.5879999999948,
+                "outsideFramesMs": 606.8059999999948
+              }
+            },
+            "declined": {
+              "ms": 0.38000011444091797,
+              "marks": [
+                "contender:copy-declined"
+              ]
+            },
+            "scroll": {
+              "drew": 117,
+              "share": 0.9669421487603306,
+              "workP50Ms": 5.925000190734863,
+              "workP95Ms": 11.855000495910645,
+              "latePct": 2.608695652173913,
+              "busyMs": 994.6349999999711,
+              "outsideFramesMs": 63.134999999971,
+              "restMs": 2121.0300006866455
+            },
+            "scrollCopying": {
+              "drew": 121,
+              "share": 0.9918032786885246,
+              "workP50Ms": 5.074999809265137,
+              "workP95Ms": 7.050000190734863,
+              "latePct": 0,
+              "busyMs": 1324.4619999999693,
+              "outsideFramesMs": 598.1809999999693,
+              "restMs": 2303.720000267029,
+              "coveredPct": 89.36252030189647
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "block": {
+            "cells": 656,
+            "bytes": 4294,
+            "startedMs": 0.86,
+            "copiedMs": 1.1,
+            "writtenMs": 6,
+            "writtenMsRuns": [
+              6
+            ],
+            "reads": 0,
+            "busyMs": 1.9,
+            "outsideFramesMs": 1.8
+          },
+          "week": {
+            "cells": 74424,
+            "bytes": 346361,
+            "startedMs": 10.31,
+            "copiedMs": 1040.2,
+            "writtenMs": 1042.2,
+            "writtenMsRuns": [
+              1042.2
+            ],
+            "reads": 8,
+            "busyMs": 92.9,
+            "outsideFramesMs": 79.7
+          },
+          "sheet": {
+            "cells": 3912576,
+            "bytes": 18865525,
+            "startedMs": 8.95,
+            "copiedMs": 1663.6,
+            "writtenMs": 1713.7,
+            "writtenMsRuns": [
+              1713.7
+            ],
+            "reads": 8,
+            "busyMs": 1353.5,
+            "outsideFramesMs": 1335
+          },
+          "declinedMs": 0.53,
+          "scroll": {
+            "drewPct": 34.4,
+            "workP50Ms": 26.57,
+            "workP95Ms": 41.95,
+            "latePct": 100,
+            "outsideFramesMs": 103.9,
+            "restMs": 2131.4
+          },
+          "scrollCopying": {
+            "drewPct": 17.5,
+            "workP50Ms": 30.63,
+            "workP95Ms": 39.06,
+            "latePct": 100,
+            "outsideFramesMs": 1351.4,
+            "restMs": 2294.3,
+            "coveredPct": 88.8
+          }
+        },
+        "runs": [
+          {
+            "copies": {
+              "block": {
+                "cells": 656,
+                "bytes": 4294,
+                "startedMs": 0.8599996566772461,
+                "copiedMs": 1.0900001525878906,
+                "writtenMs": 5.989999771118164,
+                "reads": 0,
+                "busyMs": 1.919999999999999,
+                "outsideFramesMs": 1.820999999999999
+              },
+              "week": {
+                "cells": 74424,
+                "bytes": 346361,
+                "startedMs": 10.3149995803833,
+                "copiedMs": 1040.210000038147,
+                "writtenMs": 1042.210000038147,
+                "reads": 8,
+                "busyMs": 92.85600000000014,
+                "outsideFramesMs": 79.65000000000013
+              },
+              "sheet": {
+                "cells": 3912576,
+                "bytes": 18865525,
+                "startedMs": 8.945000648498535,
+                "copiedMs": 1663.5550003051758,
+                "writtenMs": 1713.670000076294,
+                "reads": 8,
+                "busyMs": 1353.4709999999914,
+                "outsideFramesMs": 1334.9859999999915
+              }
+            },
+            "declined": {
+              "ms": 0.5349998474121094,
+              "marks": [
+                "contender:copy-declined"
+              ]
+            },
+            "scroll": {
+              "drew": 42,
+              "share": 0.3442622950819672,
+              "workP50Ms": 26.573,
+              "workP95Ms": 41.952,
+              "latePct": 100,
+              "busyMs": 1219.7029999999472,
+              "outsideFramesMs": 103.88499999994724,
+              "restMs": 2131.4399995803833
+            },
+            "scrollCopying": {
+              "drew": 21,
+              "share": 0.175,
+              "workP50Ms": 30.627,
+              "workP95Ms": 39.06,
+              "latePct": 100,
+              "busyMs": 2008.0619999999903,
+              "outsideFramesMs": 1351.3709999999905,
+              "restMs": 2294.2750005722046,
+              "coveredPct": 88.79690404516062
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "block": {
+            "cells": 656,
+            "bytes": 4294,
+            "startedMs": 26.64,
+            "copiedMs": 29.1,
+            "writtenMs": 60.6,
+            "writtenMsRuns": [
+              60.6
+            ],
+            "reads": 0,
+            "busyMs": 59.8,
+            "outsideFramesMs": 35.8
+          },
+          "week": {
+            "cells": 74424,
+            "bytes": 346361,
+            "startedMs": 34.94,
+            "copiedMs": 1025.2,
+            "writtenMs": 1033.5,
+            "writtenMsRuns": [
+              1033.5
+            ],
+            "reads": 8,
+            "busyMs": 198.9,
+            "outsideFramesMs": 178.6
+          },
+          "sheet": {
+            "cells": 3912576,
+            "bytes": 18865525,
+            "startedMs": 17.27,
+            "copiedMs": 2979.2,
+            "writtenMs": 3162,
+            "writtenMsRuns": [
+              3162
+            ],
+            "reads": 8,
+            "busyMs": 2364.2,
+            "outsideFramesMs": 2258.6
+          },
+          "declinedMs": 0.95,
+          "scroll": {
+            "drewPct": 45.9,
+            "workP50Ms": 30.49,
+            "workP95Ms": 43.39,
+            "latePct": 88.9,
+            "outsideFramesMs": 99.1,
+            "restMs": 2133.4
+          },
+          "scrollCopying": {
+            "drewPct": 46.7,
+            "workP50Ms": 26.38,
+            "workP95Ms": 41.2,
+            "latePct": 87.3,
+            "outsideFramesMs": 468.4,
+            "restMs": 2184.6,
+            "coveredPct": 100
+          }
+        },
+        "runs": [
+          {
+            "copies": {
+              "block": {
+                "cells": 656,
+                "bytes": 4294,
+                "startedMs": 26.640000343322754,
+                "copiedMs": 29.09000015258789,
+                "writtenMs": 60.614999771118164,
+                "reads": 0,
+                "busyMs": 59.752,
+                "outsideFramesMs": 35.806
+              },
+              "week": {
+                "cells": 74424,
+                "bytes": 346361,
+                "startedMs": 34.9350004196167,
+                "copiedMs": 1025.2399997711182,
+                "writtenMs": 1033.5150003433228,
+                "reads": 8,
+                "busyMs": 198.91000000000028,
+                "outsideFramesMs": 178.63500000000028
+              },
+              "sheet": {
+                "cells": 3912576,
+                "bytes": 18865525,
+                "startedMs": 17.274999618530273,
+                "copiedMs": 2979.239999771118,
+                "writtenMs": 3161.994999885559,
+                "reads": 8,
+                "busyMs": 2364.1539999999973,
+                "outsideFramesMs": 2258.579999999997
+              }
+            },
+            "declined": {
+              "ms": 0.9549999237060547,
+              "marks": [
+                "contender:copy-declined"
+              ]
+            },
+            "scroll": {
+              "drew": 56,
+              "share": 0.45901639344262296,
+              "workP50Ms": 30.489999771118164,
+              "workP95Ms": 43.390000343322754,
+              "latePct": 88.88888888888889,
+              "busyMs": 2040.9199999999846,
+              "outsideFramesMs": 99.05699999998478,
+              "restMs": 2133.414999961853
+            },
+            "scrollCopying": {
+              "drew": 57,
+              "share": 0.4672131147540984,
+              "workP50Ms": 26.38499927520752,
+              "workP95Ms": 41.204999923706055,
+              "latePct": 87.27272727272727,
+              "busyMs": 2243.232999999991,
+              "outsideFramesMs": 468.4109999999914,
+              "restMs": 2184.6449995040894,
+              "coveredPct": 100
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "block": {
+            "cells": 656,
+            "bytes": 4294,
+            "startedMs": 4.43,
+            "copiedMs": 5.9,
+            "writtenMs": 18.6,
+            "writtenMsRuns": [
+              18.6
+            ],
+            "reads": 0,
+            "busyMs": 8.5,
+            "outsideFramesMs": 8
+          },
+          "week": {
+            "cells": 74424,
+            "bytes": 346361,
+            "startedMs": 45.05,
+            "copiedMs": 1066.2,
+            "writtenMs": 1072.4,
+            "writtenMsRuns": [
+              1072.4
+            ],
+            "reads": 8,
+            "busyMs": 287,
+            "outsideFramesMs": 252.8
+          },
+          "sheet": {
+            "cells": 3912576,
+            "bytes": 18865525,
+            "startedMs": 58.67,
+            "copiedMs": 5419.9,
+            "writtenMs": 5677.2,
+            "writtenMsRuns": [
+              5677.2
+            ],
+            "reads": 8,
+            "busyMs": 5642.7,
+            "outsideFramesMs": 5479.2
+          },
+          "declinedMs": 4.01,
+          "scroll": {
+            "drewPct": 10.4,
+            "workP50Ms": 146.93,
+            "workP95Ms": 245.96,
+            "latePct": 100,
+            "outsideFramesMs": 192.4,
+            "restMs": 2396.6
+          },
+          "scrollCopying": {
+            "drewPct": 8.5,
+            "workP50Ms": 123.35,
+            "workP95Ms": 153.76,
+            "latePct": 100,
+            "outsideFramesMs": 1336.7,
+            "restMs": 2609.6,
+            "coveredPct": 100
+          }
+        },
+        "runs": [
+          {
+            "copies": {
+              "block": {
+                "cells": 656,
+                "bytes": 4294,
+                "startedMs": 4.429999351501465,
+                "copiedMs": 5.944999694824219,
+                "writtenMs": 18.639999389648438,
+                "reads": 0,
+                "busyMs": 8.483999999999996,
+                "outsideFramesMs": 7.955999999999996
+              },
+              "week": {
+                "cells": 74424,
+                "bytes": 346361,
+                "startedMs": 45.045000076293945,
+                "copiedMs": 1066.1949996948242,
+                "writtenMs": 1072.4399995803833,
+                "reads": 8,
+                "busyMs": 287.0330000000003,
+                "outsideFramesMs": 252.7660000000003
+              },
+              "sheet": {
+                "cells": 3912576,
+                "bytes": 18865525,
+                "startedMs": 58.67499923706055,
+                "copiedMs": 5419.89999961853,
+                "writtenMs": 5677.239999771118,
+                "reads": 8,
+                "busyMs": 5642.697000000039,
+                "outsideFramesMs": 5479.195000000039
+              }
+            },
+            "declined": {
+              "ms": 4.0149993896484375,
+              "marks": [
+                "contender:copy-declined"
+              ]
+            },
+            "scroll": {
+              "drew": 14,
+              "share": 0.1037037037037037,
+              "workP50Ms": 146.925,
+              "workP95Ms": 245.959,
+              "latePct": 100,
+              "busyMs": 2242.2770000000023,
+              "outsideFramesMs": 192.40800000000218,
+              "restMs": 2396.6349992752075
+            },
+            "scrollCopying": {
+              "drew": 12,
+              "share": 0.0851063829787234,
+              "workP50Ms": 123.349,
+              "workP95Ms": 153.76,
+              "latePct": 100,
+              "busyMs": 2711.544000000006,
+              "outsideFramesMs": 1336.731000000006,
+              "restMs": 2609.6450004577637,
+              "coveredPct": 100
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

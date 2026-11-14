@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`reorder`, next, opening with its research), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`copy`'s fixture, asked for by the observatory's wide sheet on 2026-11-12, built the same day), then M15 (`reorder`, built 2026-11-13), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -32,9 +32,10 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M11 | The flash's frames, cheap: the cells' text from one element | Done 2026-11-04 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | `format`: a number column's shown text set by its host | Done 2026-11-05 ([`docs/milestones.md`](docs/milestones.md)) |
 | M13 | `follow`'s `let_go`: following turned off by the host | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
-| M14 | `reorder`: drag a column to move it | Planned |
-| M15 | `context-menu`: right- and double-click events | Planned |
-| M16 | `group-headers`: header rows over column groups | Planned |
+| M14 | `copy`'s fixture: a selection → its text, and the limits | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
+| M15 | `reorder`: drag a column to move it | Done 2026-11-13 ([`docs/milestones.md`](docs/milestones.md)) |
+| M16 | `context-menu`: right- and double-click events | Planned |
+| M17 | `group-headers`: header rows over column groups | Planned |
 
 One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features"; its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
 
@@ -74,7 +75,7 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 |---|---|---|---|---|---|
 | `resize` | Drag a header edge to set a column's width, within a min and max; a double-click fits it; an event with the new widths, for a host to keep | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged`; `fit_col` (0.8.0) | — (it adds the column-width model the rest build on) | No | Column sizing (`columnResizeMode`) |
 | `pin` | The first *n* columns fixed at the left while the rest scroll sideways (M9's research) | `ColumnFixed::Left`, `fixed_left` (`ColumnFixed::Right`, `fixed_right`, since 0.9.1: "Right-pinned columns", below) | — (`resize` moves its edge) | No | Column pinning (left and right), with the first *n* ids |
-| `reorder` | Drag a header to move its column; with `pin`, a drag across the run's edge pins or unpins it (the count by one), for its research to settle | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
+| `reorder` | Drag a header to move its column; with `pin`, a drag across the run's edge pins or unpins it (the count by the columns that crossed); with `select`, a selected range moves whole (M15's research) | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
 | `group-headers` | Header rows spanning column groups | `group_headers`, `ColumnGroup` | `pin`, `reorder` (a group must move and pin whole) | No | Header groups |
 
 ### Selection
@@ -152,6 +153,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `follow`'s `let_go` (M13, built) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | A press reported (a draft: "Asked for by Kirkwood") | Kirkwood: the same row pressed again flies the camera back to it | [`apps/kirkwood/PLAN.md`](../../apps/kirkwood/PLAN.md), "Waiting on" |
+| `copy`'s fixture (M14, built) | Observatory: the wide sheet's TanStack copy, ported against it (its M14 part C2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order
@@ -165,13 +167,14 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 - **`density` moved up (2026-10-30)** ahead of `reorder`: the observatory's next scenario, the wide sheet, waits on it, and the rest of the run (`reorder`, `context-menu`, `group-headers`) has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`format` moves up (2026-11-04)** ahead of `reorder`: the observatory's market watch (its M10) waits on it from its part B, and `reorder`'s run has no app waiting ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **`follow`'s `let_go` first (2026-11-09),** ahead of `reorder`, as M13 (`reorder` and the two after it moved down one, to M14–M16): a follow-up to a built feature, small, and the observatory's live tail waits on it before it ships (its M11 part E2).
+- **`copy`'s fixture first (2026-11-12),** ahead of `reorder`, as M14 (`reorder` and the two after it moved down one, to M15–M17): a follow-up to a built feature, small, and the observatory's wide sheet ports the copy to its TanStack contender against it (its M14 part C2; [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 - **The flash's frames first (2026-11-04),** then `format`: market watch's spike found a flash redraws the whole table every frame, which sinks the bare host on a slow device; the observatory measures market watch only on the improved component ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 ---
 
 ## Active milestone
 
-None: M13 (`follow`'s `let_go`) closed 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)). M14 (`reorder`) is next, opening with its research ("Next milestones").
+None: M15 (`reorder`) closed 2026-11-13 ([`docs/milestones.md`](docs/milestones.md)). Next: M16 (`context-menu`), opening with its research ("Next milestones").
 
 ---
 
@@ -193,9 +196,7 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-M14's (`reorder`) is written after its research, which opens it; until then its spec is its row under "Features".
-
-**Carried into M14's cost check, from the gpui-kit 0.9.1 bump** (2026-11-10, [its note](perf/results/2026-11-10-gpui-kit-0.9.1.md)): gpui-pre 0.3.12 resets the cursor on every mouse and scroll event, a `document.body.style.cursor` write each on the web, and the base's frame work wasn't measured after it. M14's `perf` on the base (both shapes, reference and throttled, median of 10) also runs against a gpui-kit 0.9.0 build of the base (the commit before the bump, in a worktree with its own `target/`), with the `resize` and `select` drags (a pointer move every 8 ms) among the segments read, so the bump's cost is told apart from `reorder`'s, in M14's results note; a milestone of its own only if it moved.
+M16's (`context-menu`) is written after its research, which opens it; until then its spec is its row under "Features".
 
 ---
 

@@ -1,0 +1,112 @@
+{
+  "date": "2026-11-12",
+  "label": "m14-b-sizes",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "cargo": {
+    "panelAlone": false,
+    "panelWithTycho": true
+  },
+  "shipped": {
+    "file": "tall_table_gpui_bg-CsWRz_iG.wasm",
+    "features": [],
+    "cargoFeatures": [
+      "fonts"
+    ],
+    "rawKiB": 9875.3,
+    "brotliKiB": 2773.5,
+    "panel": false,
+    "homePaths": 0
+  },
+  "levels": {
+    "base": {
+      "file": "tall_table_gpui_bg-CsWRz_iG.wasm",
+      "features": [],
+      "cargoFeatures": [
+        "fonts"
+      ],
+      "rawKiB": 9875.3,
+      "brotliKiB": 2773.5,
+      "panel": false,
+      "homePaths": 0
+    },
+    "wide": {
+      "file": "tall_table_gpui_bg-81ZcJYH1.wasm",
+      "features": [
+        "custom-cells",
+        "pin",
+        "density",
+        "resize",
+        "select",
+        "copy"
+      ],
+      "cargoFeatures": [
+        "wide"
+      ],
+      "rawKiB": 9946.9,
+      "brotliKiB": 2798.6,
+      "panel": false,
+      "homePaths": 0
+    },
+    "market": {
+      "file": "tall_table_gpui_bg-BhyWwNrM.wasm",
+      "features": [
+        "custom-cells",
+        "live",
+        "format"
+      ],
+      "cargoFeatures": [
+        "market"
+      ],
+      "rawKiB": 9931.7,
+      "brotliKiB": 2794.1,
+      "panel": false,
+      "homePaths": 0
+    },
+    "tail": {
+      "file": "tall_table_gpui_bg-CQPMb8J1.wasm",
+      "features": [
+        "custom-cells",
+        "follow",
+        "live",
+        "format",
+        "density"
+      ],
+      "cargoFeatures": [
+        "tail"
+      ],
+      "rawKiB": 9934.1,
+      "brotliKiB": 2793.7,
+      "panel": false,
+      "homePaths": 0
+    },
+    "wall": {
+      "file": "tall_table_gpui_bg-CIqHcuMv.wasm",
+      "features": [
+        "custom-cells",
+        "live",
+        "format",
+        "density"
+      ],
+      "cargoFeatures": [
+        "wall"
+      ],
+      "rawKiB": 9945.5,
+      "brotliKiB": 2799.5,
+      "panel": false,
+      "homePaths": 0
+    }
+  },
+  "untrimmedHomePaths": null,
+  "variants": null,
+  "failures": []
+}

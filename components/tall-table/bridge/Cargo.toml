@@ -33,6 +33,8 @@ pin = ["seiza-tall-table/pin"]
 density = ["seiza-tall-table/density"]
 # The table's format, forwarded for a host's build.
 format = ["seiza-tall-table/format"]
+# The table's order, forwarded for a host's build.
+reorder = ["seiza-tall-table/reorder"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

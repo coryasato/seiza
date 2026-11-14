@@ -494,3 +494,70 @@ Results: [`perf/results/2026-11-09-m13-a.md`](../perf/results/2026-11-09-m13-a.m
 **Surprises:**
 - A size comparison that shared one cargo target directory between a worktree at the parent and the working tree read the two `follow` builds as identical, and then failed to build the working tree at all (`let_go` not found). The worktree's files, checked out after this tree's edits, were newer, so cargo's mtime check took the parent's build of the table as fresh for both. A tree measured against another needs a target directory of its own (as `size --against` does), or every source touched before its build.
 - Most of the build's 2 KiB brotli is the bare host's script hook, not the call (the call +320 B after wasm-opt, the hook +2,725): the `follow` build had no hook before, so its first one brings the machinery (a `Closure`, a global, the entry into GPUI). A feature's added bytes in the bare host can be mostly the host's.
+
+## M14: `copy`'s fixture (part A, 2026-11-12)
+
+No results note: nothing measured. The build's check was a byte comparison of the `copy` build's wasm before and after.
+
+**Surprises:**
+- A tests-only control can still move the release build's code: its stand-in outside the tests (`Writer`, a zero-sized type whose methods are the rules, inlined) emitted nothing, but its `impl` block, placed mid-file, renumbered the file's later `impl`s in their mangled names, which reordered functions in the wasm: 1,673 bytes of the code section moved at the same size. At the file's end it renumbers nothing, and the shipped wasm differs from before only in 13 bytes, the panic locations' line numbers below the lines the turn gained.
+- A table in a test window reads at the window's default size first: `add_window_view` draws before a test resizes it, so the fixture's 10-row source was read whole before a copy could find a page unloaded. The fixture's table opens at 0 rows and is given its rows once the window has its size.
+- A rule written two ways isn't always the same code: the header's length passed to `least_bytes` as `|line| writer.bytes(line)` (a zero-sized `Writer` whose `bytes` is `len`) in place of `String::len` made `start_copy` 29 bytes smaller before wasm-opt and the shipped wasm 13. The review's fix for the `utf16-bytes` control there was dropped: the control is half-applied in a case no fixture has.
+
+## M14 follow-up: `copy`'s fixture's known bugs (2026-11-12)
+
+No results note: nothing measured. The build's check was a byte comparison against HEAD's.
+
+**Surprises:**
+- The rule the review dropped for its bytes went in for none: the header's length through a `Writer` method taking the `Option` (`header.as_ref().map(String::len)` inside, inlined) built byte-identical, where a closure at the call had changed `start_copy`. And two doc comments a line longer, on the tests-only `Control`, moved the shipped wasm by shifting the panic locations below them; kept to one line each, nothing moved.
+
+## M15: `reorder` (part A, 2026-11-13)
+
+**Results:** none (no spike); the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "`reorder`".
+
+**Surprises:**
+- `DataTable` moves its columns through the delegate, so a source that reads by column index reorders its own data. Here that would read every loaded page again for a gesture that changes no value. Keeping the order in the table splits a column's number in two, its place and its index, and the work was sorting the table's numbers into which follows the screen (selection, the pin count, copy's order) and which follows the column (page reads, flashes, the sort, the widths event). The sort needs no remapping at all, since it already names the column a source sorts.
+- `DataTable` leaves its selection's index where it was after a move, so a selected column's selection lands on its neighbor. Its header drag and a selection drag can't share a header either; Google Sheets' rule (drag a selected range to move it) settles both and gives block moves for free.
+- `pin`'s count, chosen so the drawn order stays the index order, turned out to fit a move across the edge better than `DataTable`'s flags: its refusal exists only because flags would go stale, and with a count the crossing is the pin gesture itself.
+
+## M15: `reorder` (part B, 2026-11-13)
+
+**Results:** [`perf/results/2026-11-13-m15-b.md`](../perf/results/2026-11-13-m15-b.md).
+
+**Surprises:**
+- The places-and-indices split stayed small: with the laid-out columns already in drawn order and each holding its index (`LaidOutColumn::index(place)`, the place itself without the feature), every hit test, `select`, and `pin` read as before, and the change was the dozen sites that read a page or a column's settings. Two the research didn't list: `resize`'s drag and `sort`'s pressed and hovered arrow, which a host's move mid-gesture would have moved onto the neighbor, held by index now.
+- A control that only a few cases catch is at the mercy of steps placed later. The random test's moves, placed after every other stream so no draw changed, still made the default seed's one case that catches `HoldingWithoutEnd` pass: a placed `set_order` cleared the `Cells` selection its copy needed. The control was caught at 200 cases and under seeds 1 to 3 with the moves in; another constant for the moves' stream kept the default seed's catch. A control caught by one case in 48 is a thin net; the random test's controls don't count their catching cases.
+- Invariant 5 could check the drawn cells' columns only because the cells' text element already records what it drew in the tests (`drawn_text`); its recorded column had to stay the column's index under the control that reads by place, or the check would have compared the control with itself.
+- M14's lesson came back in another form: a new `impl` block for a method the base also builds (`LaidOutColumn::index`, the stand-in), placed above `column.rs`'s other `impl`s, left the base the same length after wasm-opt but 1.1 KiB more brotli, its functions reordered by the renumbered mangled names. A stand-in that builds in the base goes at its file's end from the start; a size run that reads "0 after wasm-opt" with brotli moved is worth a byte comparison before calling it noise.
+
+
+## M15: `reorder` (part C, 2026-11-13)
+
+**Results:** none (nothing measured; part E measures the drag).
+
+**Surprises:**
+- The gap and the move had two pictures of the run: the gap goes by the run drawn (the pointer's side of the edge), the move by the host's count. They agree until the half-width cap cuts the run; there the pointer's side made `move_columns_pinned` refuse a move whose line was drawn. The gap now passes the pointer's side only at the count's end, and shows only where its move changes something.
+- Escape needed no key context switched on for the drag: GPUI hands a propagated action's key to the next binding that matches, so a binding that wants the key only sometimes propagates the rest of the time.
+- The fixture's controls name cases, and four gap cases first had the move cases' names (`into-the-run`, `pin-in-place`, …): in a build without `pin` the `no-edge-gap` control "passed" the move case of the same name. The controls' test now refuses a name used twice.
+- Every new window test passed at its first run, so each was checked against a mutation of what it covers (Escape never cancelling, the threshold inclusive, no selection at a release that didn't drag, a frame at every pointer move, the wheel not finding the gap again, the pointer's side ignored, the side always the pointer's): each mutation failed its test, after two first tries that mutated nothing (a no-op edit, and the wrong file).
+- The code review found what the window tests couldn't have asked: a release whose own x picked another gap than the line drawn, a line left stale by a host's `set_pinned`, a right button's release dropping the block, and Escape's clear undone by the release of a press that hadn't dragged. Each now has a test that fails without its fix. And the test helper draws every frame whatever was asked, so "a frame asked for" is read from the table's notifications, not from what was drawn.
+
+## M15: `reorder` (part D, 2026-11-13)
+
+**Results:** none yet (the smoke check isn't a measurement; part E measures).
+
+**Surprises:**
+- A build's features list names what was asked for, not what it turns on: a `copy` build has `select` on, but the smoke check's `select` flag reads `build.json` and was false, so the reorder run pressed a header without selecting it first, and the table did as it should with `select` on: drag-selected. It looked like a drag that failed to start. The reorder check counts `copy` as `select`; the other features' checks still skip their `select` steps on a `copy` build.
+- gpui-pre-web counts clicks with `Date.now()` when it handles each press, not the event's time, so the 400 ms double-click window can't be waited out for sure by a script on a busy machine. A press that selects a header and the drag's press that follows land 8 px apart instead, past its 5 px.
+- The drawn cells' check needed the source's exact values in a `reorder` build (the host's `__tallTableExact`, built only with `copy` or `sort` before) and its drawn cells (`?probe-cells`, likewise): both now build with `reorder` too, in the host only.
+- The code review found what the browsers couldn't: `set_columns` reset the order without an event, so the bridge's published order would go stale in a host that loads a new list after a move (Tycho, once it adopts). The bare host never calls `set_columns`, so no smoke run could show it; it's now an event, with a window test that fails without it.
+
+## M15: `reorder` (part E, 2026-11-13)
+
+**Results:** [`perf/results/2026-11-13-m15-e.md`](../perf/results/2026-11-13-m15-e.md)
+
+**Surprises:**
+- A reversed order isn't the same screen: the narrow shape's columns differ in width, and reversed one more fits at the left (308 cells against 280), so its segments read 3–6% over the base for the drawing alone. The wide shape, every column alike, is the clean read of the order's own cost: none. An order's cost has to be read where the order changes nothing else on screen.
+- The bump's cursor write on every mouse and scroll event, flagged as a risk to the drags, costs nothing a frame shows, at 0.9.1 against 0.9.0, in either profile. The throttled wide resize drag's late frames, which looked like the bump at first (3.9% against 0%), are a per-run coin toss in both versions (clean, or 6–44% late, at the same work): ten runs can't separate them, and the work can.
+- `perf.ts` records gpui-kit from the tree's lock, not from the build it serves, so a build from another commit served in its place is labelled with this tree's version. The 0.9.0 files were corrected by hand; a script that serves another tree's build would read its own `build.json`'s version, as the observatory's metric scripts do (`wasmCrateVersion`).
+- The narrow reference scroll moves with its place in the session: 4.01 ms for the base at 0.9.1 and 4.38 for the base at 0.9.0 three runs later, the same table code, a spread of ~0.4 ms across places, wider than within one run of ten. Reading a feature against that spread, not against one base run, is what kept `reorder`'s +0.31 there from reading as a cost.

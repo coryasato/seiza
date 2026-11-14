@@ -530,6 +530,28 @@
   background: var(--down);
 }
 
+/* The monitoring wall drawn small: eight tables, four across in two rows,
+   each a small drawing of its own (`gallery.ts`'s `wallDrawing`). */
+.observatory-wall {
+  display: grid;
+  /* Its columns, half its tables: set on the drawing (`gallery.ts`). */
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  height: 100%;
+}
+
+.observatory-wall .observatory-drawing {
+  min-height: 0;
+  padding: 4px;
+  row-gap: 2px;
+  border-radius: 4px;
+}
+
+.observatory-wall .observatory-drawing > span {
+  gap: 2px;
+  height: 5px;
+}
+
 /* Live tail's newest row: outlined, its request just in. */
 .observatory-drawing .observatory-newest i {
   outline: 1px solid var(--ring);

@@ -45,6 +45,10 @@ density = ["seiza-tall-table/density", "tall-table-bridge/density"]
 # the narrow shape's `spkid` grouped, the page answering 3 decimals on every
 # fourth row; `?format=off` builds the feature with no column formatted.
 format = ["seiza-tall-table/format", "tall-table-bridge/format"]
+# Every column movable (the table's default); `?order=reverse` draws the
+# columns reversed from the first frame, `?order=` alone or absent in the
+# list's own order (the control).
+reorder = ["seiza-tall-table/reorder", "tall-table-bridge/reorder"]
 
 [dependencies]
 gpui-kit.workspace = true

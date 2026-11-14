@@ -276,7 +276,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// Every change but a drag's own: if `selection` is new, a drag
     /// selecting ends (its flags were for the range it started), and the
     /// change is emitted.
-    fn replace_selection(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
+    pub(super) fn replace_selection(
+        &mut self,
+        selection: Option<TallTableSelection>,
+        cx: &mut Context<Self>,
+    ) {
         if self.selection_state.current != selection {
             self.selection_state.selecting = None;
             self.set_selection(selection, cx);
@@ -370,6 +374,17 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.replace_selection(None, cx);
     }
 
+    /// A new order was set (`reorder`'s `set_order`): a `Columns` or `Cells`
+    /// range goes (its places are other columns now); a `Rows` one stays.
+    #[cfg(feature = "reorder")]
+    pub(super) fn order_selection(&mut self, cx: &mut Context<Self>) {
+        let kept = self
+            .selection_state
+            .current
+            .filter(|selection| selection.kind() == Kind::Rows);
+        self.replace_selection(kept, cx);
+    }
+
     /// Whether a drag is selecting: no tooltip meanwhile.
     pub(super) fn is_selecting(&self) -> bool {
         self.selection_state.selecting.is_some()
@@ -379,7 +394,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// The cell nearest `position` (window pixels): the pointer's clamped
     /// to the visible cells, and past the last column to the last.
-    fn cell_clamped(&self, position: Point<Pixels>) -> Option<Cell> {
+    pub(super) fn cell_clamped(&self, position: Point<Pixels>) -> Option<Cell> {
         let last_row = self.scroll.rows().checked_sub(1)?;
         let last_column = self.columns.len().checked_sub(1)?;
         let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();

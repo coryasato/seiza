@@ -1,0 +1,58 @@
+/* The monitoring wall's grid (src/wall.ts): two rows of N / 2 tables, the
+   scenario's gap between them and from the frame's edge, on the sidebar's
+   color (wall-theme.css, generated), each table its desk's title over the
+   contender's table at the grid's density: the tall table's boxes at
+   `--row` and `--pad`, as the wide level's (wide.css). The numbers are
+   `wallCss`'s variables, from the scenario; so is the phone's one column
+   (the frame scrolled, each table's own scroller chaining into it). Market
+   watch's signs and flash are market.css's. Imported only by the wall
+   level's build (`./level.css`, `vite.config.ts`). */
+
+@import './market.css';
+@import './wall-theme.css';
+
+/* The page's padding is the grid's own. */
+.page.wall-page { padding: 0; }
+
+.wall {
+  box-sizing: border-box;
+  height: 100%;
+  padding: var(--wall-gap);
+  display: flex;
+  flex-direction: column;
+  gap: var(--wall-gap);
+  background: var(--sidebar);
+}
+.wall > .line { flex: 1; min-height: 0; display: flex; gap: var(--wall-gap); }
+.wall .desk { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+/* A desk's title row (the GPUI host's `px_2`, the text at the grid's size). */
+.wall .title {
+  flex: none;
+  box-sizing: border-box;
+  height: var(--wall-title);
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: var(--wall-text);
+  color: var(--foreground);
+}
+.wall .box { flex: 1; min-height: 0; }
+
+/* The table at the grid's density. */
+.wall .frame { font-size: var(--wall-text); }
+/* The tall table's room for its horizontal scrollbar, kept under the rows
+   whether it scrolls sideways or not, so the rows shown are the GPUI
+   side's: `--wall-bar` (`wallCss`) less what the scroller's own bar takes,
+   `--wall-room`, which `wall.ts`'s `keepBarRoom` sets (a classic bar, when
+   the columns overflow, sits in the room; an overlay bar takes none). */
+.wall .scroller { height: calc(100% - var(--wall-room, var(--wall-bar))); }
+.wall .head, .wall .row { height: var(--row); }
+.wall .num, .wall .cell { padding: 0 var(--pad); line-height: var(--row); }
+/* Each clear of the line under its row (the header's, the rows'). */
+.wall .num, .wall .cell { height: calc(var(--row) - 1px); }
+.wall .failed { line-height: var(--row); }
+/* The header and the rows span the frame, as the tall table draws them,
+   when the columns are narrower than it (every stop on a bare page). */
+.wall .head, .wall .spacer { min-width: 100%; }

@@ -1,0 +1,451 @@
+{
+  "date": "2026-11-10",
+  "label": "m13-c2-wall",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "gpui": {
+    "fold": {
+      "2000-light": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 0,
+        "first": []
+      },
+      "2000-dark": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 0,
+        "first": []
+      },
+      "1999-light": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 7,
+        "first": [
+          "table 0 PRDW Last: exact 102.69, the fold's 102.68",
+          "table 0 PRDW Last: shown 102.69, the format's 102.68",
+          "table 0 PRDW Chg %: exact 0.009738994935713776, the fold's 0.0",
+          "table 0 PRDW Chg %: shown +0.01%, the format's 0.00%",
+          "table 0 PRDW Chg %: a zero drawn in a sign's color 16,136,60"
+        ]
+      },
+      "1999-dark": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 7,
+        "first": [
+          "table 0 PRDW Last: exact 102.69, the fold's 102.68",
+          "table 0 PRDW Last: shown 102.69, the format's 102.68",
+          "table 0 PRDW Chg %: exact 0.009738994935713776, the fold's 0.0",
+          "table 0 PRDW Chg %: shown +0.01%, the format's 0.00%",
+          "table 0 PRDW Chg %: a zero drawn in a sign's color 104,226,133"
+        ]
+      }
+    },
+    "flash": {
+      "flashing": 96,
+      "tables": 6,
+      "columns": [
+        "Last"
+      ],
+      "off": 0
+    },
+    "marks": {
+      "4": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 154,
+        "sampled": 22,
+        "presented": 22,
+        "batches": 155,
+        "gaps": 0,
+        "ticks": 23851,
+        "visible": 155,
+        "reached": 155,
+        "sendToMarkMs": {
+          "p50": 13.4,
+          "max": 22.3
+        },
+        "stateTables": 4
+      },
+      "6": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 153,
+        "sampled": 22,
+        "presented": 22,
+        "batches": 156,
+        "gaps": 0,
+        "ticks": 35998,
+        "visible": 156,
+        "reached": 155,
+        "sendToMarkMs": {
+          "p50": 14.3,
+          "max": 24.4
+        },
+        "stateTables": 6
+      },
+      "8": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 155,
+        "sampled": 23,
+        "presented": 23,
+        "batches": 156,
+        "gaps": 0,
+        "ticks": 47994,
+        "visible": 156,
+        "reached": 155,
+        "sendToMarkMs": {
+          "p50": 16.5,
+          "max": 24.7
+        },
+        "stateTables": 8
+      }
+    },
+    "phone": {
+      "tableScrolled": true,
+      "columnHeld": true,
+      "columnMoved": true
+    },
+    "grids": {
+      "4": [
+        [
+          42,
+          59
+        ],
+        [
+          758,
+          59
+        ],
+        [
+          42,
+          505
+        ],
+        [
+          758,
+          505
+        ]
+      ],
+      "6": [
+        [
+          42,
+          59
+        ],
+        [
+          519,
+          59
+        ],
+        [
+          997,
+          59
+        ],
+        [
+          42,
+          505
+        ],
+        [
+          519,
+          505
+        ],
+        [
+          997,
+          505
+        ]
+      ],
+      "8": [
+        [
+          42,
+          59
+        ],
+        [
+          400,
+          59
+        ],
+        [
+          758,
+          59
+        ],
+        [
+          1116,
+          59
+        ],
+        [
+          42,
+          505
+        ],
+        [
+          400,
+          505
+        ],
+        [
+          758,
+          505
+        ],
+        [
+          1116,
+          505
+        ]
+      ],
+      "phone": [
+        [
+          42,
+          59
+        ],
+        [
+          42,
+          279
+        ],
+        [
+          42,
+          499
+        ],
+        [
+          42,
+          719
+        ]
+      ]
+    }
+  },
+  "tanstack": {
+    "fold": {
+      "2000-light": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 0,
+        "first": []
+      },
+      "2000-dark": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 0,
+        "first": []
+      },
+      "1999-light": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 7,
+        "first": [
+          "table 0 PRDW Last: exact 102.69, the fold's 102.68",
+          "table 0 PRDW Last: shown 102.69, the format's 102.68",
+          "table 0 PRDW Chg %: exact 0.009738994935713776, the fold's 0.0",
+          "table 0 PRDW Chg %: shown +0.01%, the format's 0.00%",
+          "table 0 PRDW Chg %: a zero drawn in a sign's color 16,136,60"
+        ]
+      },
+      "1999-dark": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 7,
+        "first": [
+          "table 0 PRDW Last: exact 102.69, the fold's 102.68",
+          "table 0 PRDW Last: shown 102.69, the format's 102.68",
+          "table 0 PRDW Chg %: exact 0.009738994935713776, the fold's 0.0",
+          "table 0 PRDW Chg %: shown +0.01%, the format's 0.00%",
+          "table 0 PRDW Chg %: a zero drawn in a sign's color 104,226,133"
+        ]
+      }
+    },
+    "flash": {
+      "flashing": 102,
+      "tables": 6,
+      "columns": [
+        "Last"
+      ],
+      "off": 0
+    },
+    "marks": {
+      "4": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 149,
+        "sampled": 22,
+        "presented": 0,
+        "batches": 153,
+        "gaps": 0,
+        "ticks": 23968,
+        "visible": 153,
+        "reached": 152,
+        "sendToMarkMs": {
+          "p50": 10.7,
+          "max": 47.4
+        },
+        "stateTables": 4
+      },
+      "6": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 152,
+        "sampled": 22,
+        "presented": 0,
+        "batches": 152,
+        "gaps": 0,
+        "ticks": 35838,
+        "visible": 152,
+        "reached": 152,
+        "sendToMarkMs": {
+          "p50": 11.5,
+          "max": 19.7
+        },
+        "stateTables": 6
+      },
+      "8": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 152,
+        "sampled": 22,
+        "presented": 0,
+        "batches": 153,
+        "gaps": 0,
+        "ticks": 47904,
+        "visible": 153,
+        "reached": 152,
+        "sendToMarkMs": {
+          "p50": 12.1,
+          "max": 21
+        },
+        "stateTables": 8
+      }
+    },
+    "phone": {
+      "tableScrolled": true,
+      "columnHeld": true,
+      "columnMoved": true
+    },
+    "grids": {
+      "4": [
+        [
+          42,
+          59
+        ],
+        [
+          758,
+          59
+        ],
+        [
+          42,
+          505
+        ],
+        [
+          758,
+          505
+        ]
+      ],
+      "6": [
+        [
+          42,
+          59
+        ],
+        [
+          519.328125,
+          59
+        ],
+        [
+          996.671875,
+          59
+        ],
+        [
+          42,
+          505
+        ],
+        [
+          519.328125,
+          505
+        ],
+        [
+          996.671875,
+          505
+        ]
+      ],
+      "8": [
+        [
+          42,
+          59
+        ],
+        [
+          400,
+          59
+        ],
+        [
+          758,
+          59
+        ],
+        [
+          1116,
+          59
+        ],
+        [
+          42,
+          505
+        ],
+        [
+          400,
+          505
+        ],
+        [
+          758,
+          505
+        ],
+        [
+          1116,
+          505
+        ]
+      ],
+      "phone": [
+        [
+          42,
+          59
+        ],
+        [
+          42,
+          279
+        ],
+        [
+          42,
+          499
+        ],
+        [
+          42,
+          719
+        ]
+      ]
+    }
+  },
+  "same": {
+    "fold": {
+      "tables": 8,
+      "cells": 1600,
+      "differ": 0,
+      "gridDiffers": 0,
+      "controlDiffers": 3
+    },
+    "grids": {
+      "4": {
+        "differ": 0,
+        "controlTablesDiffer": 4
+      },
+      "6": {
+        "differ": 0,
+        "controlTablesDiffer": 6
+      },
+      "8": {
+        "differ": 0,
+        "controlTablesDiffer": 8
+      },
+      "phone": {
+        "differ": 0,
+        "controlTablesDiffer": 4
+      }
+    }
+  },
+  "failures": []
+}

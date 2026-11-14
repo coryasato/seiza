@@ -1,0 +1,346 @@
+{
+  "date": "2026-11-11",
+  "label": "m13-d2-data",
+  "metric": "data",
+  "scenario": "monitoring-wall",
+  "stop": {
+    "id": "6",
+    "label": "6 tables",
+    "tables": 6
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "ms": 188,
+          "openMs": 579.9,
+          "filledMarkMs": 188
+        },
+        "runs": [
+          {
+            "openMs": 595.6000003814697,
+            "ms": 187.39999961853027,
+            "filledMarkMs": 187.39999961853027,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 581.8899993896484,
+            "ms": 215.96000003814697,
+            "filledMarkMs": 215.96000003814697,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 580.1750001907349,
+            "ms": 187.26500034332275,
+            "filledMarkMs": 187.26500034332275,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 577.5499992370605,
+            "ms": 186.69500064849854,
+            "filledMarkMs": 186.69500064849854,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 583.6799993515015,
+            "ms": 186.44500064849854,
+            "filledMarkMs": 186.44500064849854,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 578.1849994659424,
+            "ms": 187.73500061035156,
+            "filledMarkMs": 187.73500061035156,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 578.8599996566772,
+            "ms": 192.125,
+            "filledMarkMs": 192.125,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 579.6449995040894,
+            "ms": 189.4000005722046,
+            "filledMarkMs": 189.4000005722046,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 576.875,
+            "ms": 194.0299997329712,
+            "filledMarkMs": 194.0299997329712,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 586.920000076294,
+            "ms": 188.21000003814697,
+            "filledMarkMs": 188.21000003814697,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "ms": 201.8,
+          "openMs": 489.3,
+          "filledMarkMs": 185.1
+        },
+        "runs": [
+          {
+            "openMs": 488.1550006866455,
+            "ms": 201.82999992370605,
+            "filledMarkMs": 185.06999969482422,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 490.4750003814697,
+            "ms": 201.69499969482422,
+            "filledMarkMs": 185.14000034332275,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 479.38999938964844,
+            "ms": 202.11500072479248,
+            "filledMarkMs": 185.5,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 487.5,
+            "ms": 201.14999961853027,
+            "filledMarkMs": 184.94999980926514,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 493.6049995422363,
+            "ms": 199.2750005722046,
+            "filledMarkMs": 183.1500005722046,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 491.48499965667725,
+            "ms": 202.72500038146973,
+            "filledMarkMs": 186.51999950408936,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 500.42500019073486,
+            "ms": 200.60499954223633,
+            "filledMarkMs": 184.38499927520752,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 500.64499950408936,
+            "ms": 201.125,
+            "filledMarkMs": 184.8400001525879,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 484.70999908447266,
+            "ms": 201.85500049591064,
+            "filledMarkMs": 185.73000049591064,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 482.039999961853,
+            "ms": 202.60500049591064,
+            "filledMarkMs": 186.64000034332275,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "ms": 1293.5,
+          "openMs": 9815.6,
+          "filledMarkMs": 1293.5
+        },
+        "runs": [
+          {
+            "openMs": 9807.240000724792,
+            "ms": 1287.619999885559,
+            "filledMarkMs": 1287.619999885559,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9815.954999923706,
+            "ms": 1285.7699995040894,
+            "filledMarkMs": 1285.7699995040894,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9824.47500038147,
+            "ms": 1293.3050003051758,
+            "filledMarkMs": 1293.3050003051758,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9835.79999923706,
+            "ms": 1305.7700004577637,
+            "filledMarkMs": 1305.7700004577637,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9815.744999885559,
+            "ms": 1288.954999923706,
+            "filledMarkMs": 1288.954999923706,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9814.430000305176,
+            "ms": 1300.5749998092651,
+            "filledMarkMs": 1300.5749998092651,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9813.884999275208,
+            "ms": 1293.6950006484985,
+            "filledMarkMs": 1293.6950006484985,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9829.435000419617,
+            "ms": 1295.9799995422363,
+            "filledMarkMs": 1295.9799995422363,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9815.375,
+            "ms": 1286.4250001907349,
+            "filledMarkMs": 1286.4250001907349,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 9805.380000114441,
+            "ms": 1296.6149997711182,
+            "filledMarkMs": 1296.6149997711182,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "ms": 1332.9,
+          "openMs": 6891.8,
+          "filledMarkMs": 1297.4
+        },
+        "runs": [
+          {
+            "openMs": 6875.765000343323,
+            "ms": 1324.630000114441,
+            "filledMarkMs": 1289.170000076294,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6877.029999732971,
+            "ms": 1320.494999885559,
+            "filledMarkMs": 1285.0550003051758,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6895.005000114441,
+            "ms": 1322.1949996948242,
+            "filledMarkMs": 1285.6449995040894,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6893.8200006484985,
+            "ms": 1360.3499994277954,
+            "filledMarkMs": 1322.8399991989136,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6869.795000076294,
+            "ms": 1333.6549997329712,
+            "filledMarkMs": 1298.2349996566772,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6894.305000305176,
+            "ms": 1338.715000152588,
+            "filledMarkMs": 1302.630000114441,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6882.9900007247925,
+            "ms": 1332.0599994659424,
+            "filledMarkMs": 1296.630000114441,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6889.739999771118,
+            "ms": 1335.5250005722046,
+            "filledMarkMs": 1299.295000076294,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6902.474999427795,
+            "ms": 1342.164999961853,
+            "filledMarkMs": 1306.1850004196167,
+            "rows": 96,
+            "failures": []
+          },
+          {
+            "openMs": 6903.199999809265,
+            "ms": 1330.534999847412,
+            "filledMarkMs": 1294.369999885559,
+            "rows": 96,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

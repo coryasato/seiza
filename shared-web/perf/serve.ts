@@ -162,11 +162,13 @@ function lanIPv4(): string {
  * machine's LAN address alone, not localhost, and `url` is there: `http`
  * off localhost, an insecure context (no `navigator.clipboard`, COOP and
  * COEP ignored). It fails on a machine with no LAN address. `mode` is
- * Vite's, for a config that builds more than one way.
+ * Vite's, for a config that builds more than one way; `outDir` serves
+ * another build than the config's (an A/B's, kept aside), what the config
+ * serves beside its build (its own mounts) still the config's.
  */
-export async function serveApp(given: string | undefined, options: { webDir: string; port: number; data?: DataServer; lan?: boolean; mode?: string }): Promise<AppServer> {
+export async function serveApp(given: string | undefined, options: { webDir: string; port: number; data?: DataServer; lan?: boolean; mode?: string; outDir?: string }): Promise<AppServer> {
   if (given) return { url: given, proxy: null, close: async () => {} };
-  const { webDir, port, data, lan, mode } = options;
+  const { webDir, port, data, lan, mode, outDir } = options;
   // Before starting anything: a machine without one fails here.
   const host = lan ? lanIPv4() : 'localhost';
   // Before starting anything: a dev server already there would otherwise
@@ -177,7 +179,9 @@ export async function serveApp(given: string | undefined, options: { webDir: str
   let proxy: CountingProxy | null = null;
   try {
     if (data) proxy = await startCountingProxy(data.proxyPort, data.port);
-    const server = await preview({ root: webDir, ...(mode ? { mode } : {}), preview: { port, strictPort: true, ...(lan ? { host } : {}) }, logLevel: 'warn' });
+    // `outDir`: another build of the app than its config's (an A/B's kept
+    // build); Vite's inline config wins over the config file's.
+    const server = await preview({ root: webDir, ...(mode ? { mode } : {}), ...(outDir ? { build: { outDir } } : {}), preview: { port, strictPort: true, ...(lan ? { host } : {}) }, logLevel: 'warn' });
     return {
       url: `http://${host}:${port}/`,
       proxy,

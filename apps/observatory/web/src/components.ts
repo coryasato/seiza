@@ -16,7 +16,8 @@
 import { createElement as h } from 'react';
 import type { Side } from '../../contenders/contract.ts';
 import { contenderBase, OBSERVATORY } from '../../contenders/paths.ts';
-import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type RateStop, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { DESK_ROWS } from '../../contenders/wall/desks.ts';
+import { ADMIN_TABLE, BIG_FILE, LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, SCENARIOS, WIDE_SHEET, type DensityStop, type Level, type RateStop, type Scenario, type Stop, type TablesStop } from '../../contenders/scenarios.ts';
 
 export interface Contender {
   side: Side;
@@ -150,6 +151,17 @@ const COPY: Record<string, ScenarioCopy> = {
     capabilities: true,
     fonts: true,
   },
+  'monitoring-wall': {
+    dataLabel: 'Simulated stock prices',
+    lead: () => 'Several live tables in one frame. Turn up the tables.',
+    dial: { label: 'Tables', about: `Each stop sets how many tables share the frame, each a desk of ${DESK_ROWS} instruments fed at the same rate: the same feed on both sides.` },
+    // The design canvas's: cost per cell and garbage under churn, across N
+    // tables; and the platform, TanStack ready sooner and downloading less
+    // (as market watch's and live tail's add it).
+    leans: ['cells', 'gc', 'platform'],
+    synthetic: true,
+    made: { what: 'The feed (seeded, generated here)', filled: 'in its own worker' },
+  },
 };
 
 export const scenarioCopy = (scenario: Scenario): ScenarioCopy => {
@@ -180,7 +192,7 @@ export const COMPONENTS: Component[] = [
 /** The scenarios whose cold numbers the page shows: `cold.ts` resolves
  *  each one's, and fails the build on a missing value. A scenario joins
  *  once its numbers part has run. */
-const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id, MARKET_WATCH.id, LIVE_TAIL.id, ADMIN_TABLE.id];
+const COLD: readonly string[] = [BIG_FILE.id, WIDE_SHEET.id, MARKET_WATCH.id, LIVE_TAIL.id, ADMIN_TABLE.id, MONITORING_WALL.id];
 
 /** Whether the page has a scenario's cold numbers: without them its status
  *  bar has no cold rows, its Compare is off, and it has no description. */
@@ -197,14 +209,16 @@ export const SCENARIO_LINK = 'data-scenario-link';
 export const isDensity = (stop: Stop): stop is DensityStop => 'cells' in stop;
 /** A rate's stop: market watch's updates or live tail's rows a second. */
 export const isRate = (stop: Stop): stop is RateStop => 'rate' in stop;
+/** A tables' stop: the monitoring wall's tables in one frame. */
+export const isTables = (stop: Stop): stop is TablesStop => 'tables' in stop;
 
 /** A scenario under a feed: its frames keep this tab's Shown in
  *  (`?readout`), and the page records every frame from its first rows. */
-export const feeds = (scenario: Scenario): boolean => scenario.level === 'market' || scenario.level === 'tail';
+export const feeds = (scenario: Scenario): boolean => scenario.level === 'market' || scenario.level === 'tail' || scenario.level === 'wall';
 
-/** A stop as the dial names it ("~710", "1k"): the keeps-up verdict and
- *  the panel's stops name it so too. */
-export const stopShort = (stop: Stop): string => (isDensity(stop) ? `~${stop.cells}` : isRate(stop) ? stop.id : stop.label);
+/** A stop as the dial names it ("~710", "1k", "6"): the keeps-up verdict
+ *  and the panel's stops name it so too. */
+export const stopShort = (stop: Stop): string => (isDensity(stop) ? `~${stop.cells}` : isRate(stop) || isTables(stop) ? stop.id : stop.label);
 
 /** What a stop sets, in its title and the dial's explainer; `rows`, its
  *  scenario's file's. */
@@ -216,7 +230,13 @@ export const stopSets = (scenario: Scenario, stop: Stop, rows: number): string =
       : scenario.level === 'tail' && isRate(stop)
         ? // What a frame takes in at a 60 Hz display, to two figures: ~17, ~170, ~830, ~1,700.
           `~${Number((stop.rate / 60).toPrecision(2)).toLocaleString('en-US')} rows a frame at 60 Hz`
-        : '';
+        : scenario.level === 'wall' && isTables(stop)
+          ? // The canvas's "each at 2k updates/s", and the feed's whole rate.
+            `each at ${compact(scenario.rate)} updates/s, ${compact(scenario.rate * stop.tables)} in all`
+          : '';
+
+/** A rate as the dial writes one: "2k", "12k". */
+export const compact = (rate: number): string => (rate >= 1000 && rate % 1000 === 0 ? `${rate / 1000}k` : rate.toLocaleString('en-US'));
 
 /** Items in a sentence: "a and b", "a, b, or c" (the wins, the Overview's rule). */
 export const listOf = (items: readonly string[], conjunction: 'and' | 'or'): string =>

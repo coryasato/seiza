@@ -49,6 +49,9 @@ pub struct TallTableColumn {
     /// How its numbers are written (`format`); `None` for the automatic.
     #[cfg(feature = "format")]
     pub(crate) format: Option<crate::NumberFormat>,
+    /// Whether a drag of its header can move it (`reorder`).
+    #[cfg(feature = "reorder")]
+    pub(crate) movable: bool,
 }
 
 /// A set width's least and most, unless a column sets its own (`resize`):
@@ -85,7 +88,17 @@ impl TallTableColumn {
             sortable: false,
             #[cfg(feature = "format")]
             format: None,
+            #[cfg(feature = "reorder")]
+            movable: true,
         }
+    }
+
+    /// Whether a drag of its header can move it (`reorder`): on unless
+    /// set. Other columns still move around it, and the host's
+    /// `move_columns` and `set_order` move it.
+    #[cfg(feature = "reorder")]
+    pub fn movable(self, movable: bool) -> Self {
+        Self { movable, ..self }
     }
 
     /// How its numbers are written (`format`): a float's value, and an
@@ -293,6 +306,31 @@ pub(crate) struct LaidOutColumn {
     /// Its format, its suffix measured (`format`; a numeric column's only).
     #[cfg(feature = "format")]
     pub(crate) format: Option<crate::format::ColumnFormat>,
+    /// Its index in `set_columns`' list, which a page reads it by
+    /// (`reorder`): set by [`in_order`].
+    #[cfg(feature = "reorder")]
+    pub(crate) index: usize,
+}
+
+/// `columns`, laid out in index order, put in `order` (`order[place]` the
+/// index drawn there), each its index set and its left edge summed again
+/// from 0; also returns their total width (`reorder`). `order` is a
+/// permutation of the columns' indices.
+#[cfg(feature = "reorder")]
+pub(crate) fn in_order(columns: Vec<LaidOutColumn>, order: &[usize]) -> (Vec<LaidOutColumn>, f32) {
+    let mut slots: Vec<Option<LaidOutColumn>> = columns.into_iter().map(Some).collect();
+    let mut x = 0.0;
+    let columns = order
+        .iter()
+        .map(|&index| {
+            let mut column = slots[index].take().expect("an order is a permutation");
+            column.index = index;
+            column.x = x;
+            x += column.width;
+            column
+        })
+        .collect();
+    (columns, x)
 }
 
 /// A cell's horizontal padding (`px_2` on each side).
@@ -445,12 +483,34 @@ pub(crate) fn layout_columns(
                 budget,
                 #[cfg(feature = "format")]
                 format: None,
+                // Set by `in_order`, which every layout with the feature
+                // goes through.
+                #[cfg(feature = "reorder")]
+                index: 0,
             };
             x += width;
             laid_out
         })
         .collect();
     (columns, x)
+}
+
+// At the file's end: an `impl` block above others renumbers theirs in
+// their mangled names, which reorders the base's wasm (`docs/LESSONS.md`).
+impl LaidOutColumn {
+    /// Its index in `set_columns`' list, which a page, its paint, and its
+    /// decimals read it by, given `place`, where it's drawn: the same
+    /// without `reorder`.
+    #[inline(always)]
+    pub(crate) fn index(&self, place: usize) -> usize {
+        #[cfg(feature = "reorder")]
+        {
+            let _ = place;
+            self.index
+        }
+        #[cfg(not(feature = "reorder"))]
+        place
+    }
 }
 
 #[cfg(test)]

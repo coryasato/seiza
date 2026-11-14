@@ -52,6 +52,10 @@ impl<D: TallTableDelegate> RenderOnce for TallTable<D> {
             .on_action(window.listener_for(&self.state, TallTableState::scroll_to_end));
         #[cfg(feature = "select")]
         let element = crate::state::select::on_actions(element, &self.state, window);
+        // Escape during a column drag (`reorder`).
+        #[cfg(feature = "reorder")]
+        let element =
+            element.on_action(window.listener_for(&self.state, TallTableState::cancel_move));
         element
             .on_mouse_down(
                 MouseButton::Left,

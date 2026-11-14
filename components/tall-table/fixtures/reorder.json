@@ -1,0 +1,773 @@
+{
+  "moves": [
+    {
+      "name": "one-right",
+      "why": "A column moved two places right: the columns it passes shift left one.",
+      "columns": 6,
+      "block": [1, 1],
+      "to": 3,
+      "count": 0,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 2, 3, 1, 4, 5],
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "one-left",
+      "why": "A column moved three places left: the columns it passes shift right one.",
+      "columns": 6,
+      "block": [4, 4],
+      "to": 1,
+      "count": 0,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 4, 1, 2, 3, 5],
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "block-right",
+      "why": "A block of two moved right: `to` is the block's first place in the order after the move, among the rest.",
+      "columns": 6,
+      "block": [1, 2],
+      "to": 3,
+      "count": 0,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 3, 4, 1, 2, 5],
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "to-the-end",
+      "why": "The first column moved to the last place.",
+      "columns": 6,
+      "block": [0, 0],
+      "to": 5,
+      "count": 0,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [1, 2, 3, 4, 5, 0],
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "to-its-own-place",
+      "why": "A block moved to where it is changes nothing: no move.",
+      "columns": 6,
+      "block": [2, 3],
+      "to": 2,
+      "count": 0,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": null,
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "to-past-the-end",
+      "why": "`to` past the columns less the block's length (6 − 2 = 4): no move.",
+      "columns": 6,
+      "block": [4, 5],
+      "to": 5,
+      "count": 0,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": null,
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "block-past-the-columns",
+      "why": "A block reaching past the last column: no move.",
+      "columns": 6,
+      "block": [5, 6],
+      "to": 0,
+      "count": 0,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": null,
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "into-the-run",
+      "why": "Count 2; a scrolled column moved to place 1, inside the run: it pins, the count up by one.",
+      "columns": 6,
+      "block": [4, 4],
+      "to": 1,
+      "count": 2,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 4, 1, 2, 3, 5],
+        "count": 3,
+        "selection": null
+      }
+    },
+    {
+      "name": "out-of-the-run",
+      "why": "Count 3; the first column moved to place 4, among the scrolled: it unpins, the count down by one. The run's other columns (r = 2) stay pinned.",
+      "columns": 6,
+      "block": [0, 0],
+      "to": 4,
+      "count": 3,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [1, 2, 3, 4, 0, 5],
+        "count": 2,
+        "selection": null
+      }
+    },
+    {
+      "name": "within-the-run",
+      "why": "Count 3; a pinned column moved within the run (to 2, the run's end r = 2, on its own side: it was pinned): the count kept.",
+      "columns": 6,
+      "block": [0, 0],
+      "to": 2,
+      "count": 3,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [1, 2, 0, 3, 4, 5],
+        "count": 3,
+        "selection": null
+      }
+    },
+    {
+      "name": "within-the-scrolled",
+      "why": "Count 2; a scrolled column moved among the scrolled: the count kept.",
+      "columns": 6,
+      "block": [3, 3],
+      "to": 5,
+      "count": 2,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 1, 2, 4, 5, 3],
+        "count": 2,
+        "selection": null
+      }
+    },
+    {
+      "name": "run-end-first-columns-side",
+      "why": "Count 2; a scrolled column moved to place 2, the run's end (r = 2), by `move_columns`: it keeps its first column's side, scrolled, the count kept.",
+      "columns": 6,
+      "block": [4, 4],
+      "to": 2,
+      "count": 2,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 1, 4, 2, 3, 5],
+        "count": 2,
+        "selection": null
+      }
+    },
+    {
+      "name": "run-end-pinned",
+      "why": "As run-end-first-columns-side, by `move_columns_pinned` with the pinned side: it joins the run at its end, the count 3.",
+      "columns": 6,
+      "block": [4, 4],
+      "to": 2,
+      "count": 2,
+      "side": "pinned",
+      "selection": null,
+      "expect": {
+        "order": [0, 1, 4, 2, 3, 5],
+        "count": 3,
+        "selection": null
+      }
+    },
+    {
+      "name": "run-end-scrolled",
+      "why": "Count 2; the first column moved to place 1, the run's end (r = 1), on the scrolled side: it unpins as the first scrolled column, the count 1.",
+      "columns": 6,
+      "block": [0, 0],
+      "to": 1,
+      "count": 2,
+      "side": "scrolled",
+      "selection": null,
+      "expect": {
+        "order": [1, 0, 2, 3, 4, 5],
+        "count": 1,
+        "selection": null
+      }
+    },
+    {
+      "name": "pin-in-place",
+      "why": "Count 2; the first scrolled column (place 2) moved to its own place on the pinned side: the order kept, the count 3. A move that only pins.",
+      "columns": 6,
+      "block": [2, 2],
+      "to": 2,
+      "count": 2,
+      "side": "pinned",
+      "selection": null,
+      "expect": {
+        "order": [0, 1, 2, 3, 4, 5],
+        "count": 3,
+        "selection": null
+      }
+    },
+    {
+      "name": "unpin-in-place",
+      "why": "Count 2; the last pinned column (place 1) moved to its own place on the scrolled side: the order kept, the count 1.",
+      "columns": 6,
+      "block": [1, 1],
+      "to": 1,
+      "count": 2,
+      "side": "scrolled",
+      "selection": null,
+      "expect": {
+        "order": [0, 1, 2, 3, 4, 5],
+        "count": 1,
+        "selection": null
+      }
+    },
+    {
+      "name": "other-side-refused",
+      "why": "Count 2; `to` 1 is inside the run (r = 2), but the side given is scrolled: no move.",
+      "columns": 6,
+      "block": [4, 4],
+      "to": 1,
+      "count": 2,
+      "side": "scrolled",
+      "selection": null,
+      "expect": {
+        "order": null,
+        "count": 2,
+        "selection": null
+      }
+    },
+    {
+      "name": "count-past-the-columns-kept",
+      "why": "Count 9 over 6 columns; a move with every column pinned before and after: nothing crossed, so the host's count is kept as it was, past the columns.",
+      "columns": 6,
+      "block": [1, 1],
+      "to": 3,
+      "count": 9,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 2, 3, 1, 4, 5],
+        "count": 9,
+        "selection": null
+      }
+    },
+    {
+      "name": "count-past-the-columns-crossing",
+      "why": "Count 9 over 6 columns; the first column moved to the run's end (r = 5) on the scrolled side: one left the run, a change on the count clamped to the columns, 6 − 1.",
+      "columns": 6,
+      "block": [0, 0],
+      "to": 5,
+      "count": 9,
+      "side": "scrolled",
+      "selection": null,
+      "expect": {
+        "order": [1, 2, 3, 4, 5, 0],
+        "count": 5,
+        "selection": null
+      }
+    },
+    {
+      "name": "straddling-block-in",
+      "why": "Count 3; a block of places 2 (pinned) and 3 (scrolled) moved to place 0: it lands pinned, the scrolled one joining, the count 4.",
+      "columns": 6,
+      "block": [2, 3],
+      "to": 0,
+      "count": 3,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [2, 3, 0, 1, 4, 5],
+        "count": 4,
+        "selection": null
+      }
+    },
+    {
+      "name": "straddling-block-out",
+      "why": "Count 3; the same block moved to place 4: it lands scrolled, the pinned one leaving, the count 2.",
+      "columns": 6,
+      "block": [2, 3],
+      "to": 4,
+      "count": 3,
+      "side": null,
+      "selection": null,
+      "expect": {
+        "order": [0, 1, 4, 5, 2, 3],
+        "count": 2,
+        "selection": null
+      }
+    },
+    {
+      "name": "selection-moves-with-its-block",
+      "why": "A `columns` range of the block moved follows it: Google Sheets' gesture leaves the block selected at its new places.",
+      "columns": 6,
+      "block": [1, 2],
+      "to": 3,
+      "count": 0,
+      "side": null,
+      "selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 2]},
+      "expect": {
+        "order": [0, 3, 4, 1, 2, 5],
+        "count": 0,
+        "selection": {"kind": "columns", "anchor": [0, 3], "head": [0, 4]}
+      }
+    },
+    {
+      "name": "selection-outside-kept",
+      "why": "A `cells` range right of the places a move shifts is as it was.",
+      "columns": 6,
+      "block": [0, 1],
+      "to": 1,
+      "count": 0,
+      "side": null,
+      "selection": {"kind": "cells", "anchor": [5, 4], "head": [9, 5]},
+      "expect": {
+        "order": [2, 0, 1, 3, 4, 5],
+        "count": 0,
+        "selection": {"kind": "cells", "anchor": [5, 4], "head": [9, 5]}
+      }
+    },
+    {
+      "name": "selection-shifted",
+      "why": "A `cells` range inside the places a move shifts (2..3, the column from 4 put at 1) shifts right by the block's length, its rows kept.",
+      "columns": 6,
+      "block": [4, 4],
+      "to": 1,
+      "count": 0,
+      "side": null,
+      "selection": {"kind": "cells", "anchor": [2, 2], "head": [3, 3]},
+      "expect": {
+        "order": [0, 4, 1, 2, 3, 5],
+        "count": 0,
+        "selection": {"kind": "cells", "anchor": [2, 3], "head": [3, 4]}
+      }
+    },
+    {
+      "name": "selection-holding-block-and-shifted",
+      "why": "A `columns` range holding the block and every place it shifts holds the same places after.",
+      "columns": 6,
+      "block": [1, 1],
+      "to": 4,
+      "count": 0,
+      "side": null,
+      "selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 4]},
+      "expect": {
+        "order": [0, 2, 3, 4, 1, 5],
+        "count": 0,
+        "selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 4]}
+      }
+    },
+    {
+      "name": "selection-split-cleared",
+      "why": "A range whose columns are no longer side by side (place 2 moved out of 1..2) is cleared.",
+      "columns": 6,
+      "block": [2, 2],
+      "to": 4,
+      "count": 0,
+      "side": null,
+      "selection": {"kind": "columns", "anchor": [0, 1], "head": [0, 2]},
+      "expect": {
+        "order": [0, 1, 3, 4, 2, 5],
+        "count": 0,
+        "selection": null
+      }
+    },
+    {
+      "name": "selection-direction-kept",
+      "why": "A `cells` range whose anchor is right of its head keeps it so: the anchor at the run's right end, the head at its left.",
+      "columns": 6,
+      "block": [2, 3],
+      "to": 0,
+      "count": 0,
+      "side": null,
+      "selection": {"kind": "cells", "anchor": [7, 3], "head": [2, 2]},
+      "expect": {
+        "order": [2, 3, 0, 1, 4, 5],
+        "count": 0,
+        "selection": {"kind": "cells", "anchor": [7, 1], "head": [2, 0]}
+      }
+    },
+    {
+      "name": "rows-kept",
+      "why": "A `rows` range is kept, its cells' columns as they were.",
+      "columns": 6,
+      "block": [2, 2],
+      "to": 4,
+      "count": 0,
+      "side": null,
+      "selection": {"kind": "rows", "anchor": [3, 2], "head": [5, 2]},
+      "expect": {
+        "order": [0, 1, 3, 4, 2, 5],
+        "count": 0,
+        "selection": {"kind": "rows", "anchor": [3, 2], "head": [5, 2]}
+      }
+    }
+  ],
+  "gaps": [
+    {
+      "name": "by-center-right",
+      "why": "Right of column 2's center (250) and left of column 3's (350): the gap before 3, so the column lands at 2 among the rest.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [1, 1],
+      "x": 349,
+      "expect": {
+        "gap": 3,
+        "to": 2,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "by-center-left",
+      "why": "Right of column 0's center (50) and left of column 1's (150): the gap before 1.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [4, 4],
+      "x": 140,
+      "expect": {
+        "gap": 1,
+        "to": 1,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "short-of-a-center",
+      "why": "A pixel short of column 2's center: the gap is still before it.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [0, 0],
+      "x": 249,
+      "expect": {
+        "gap": 2,
+        "to": 1,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "beside-right",
+      "why": "The gap right after the block: no move, no gap.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [2, 2],
+      "x": 340,
+      "expect": {
+        "gap": null
+      }
+    },
+    {
+      "name": "beside-left",
+      "why": "The gap right before the block: no move, no gap.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [2, 2],
+      "x": 160,
+      "expect": {
+        "gap": null
+      }
+    },
+    {
+      "name": "inside-the-block",
+      "why": "A gap inside a block of three: none.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [1, 3],
+      "x": 250,
+      "expect": {
+        "gap": null
+      }
+    },
+    {
+      "name": "left-of-the-cells",
+      "why": "Left of the cells (over the row numbers): the region's first gap.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [3, 3],
+      "x": -20,
+      "expect": {
+        "gap": 0,
+        "to": 0,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "past-the-last",
+      "why": "Past the last column: the gap after it.",
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [1, 1],
+      "x": 700,
+      "expect": {
+        "gap": 6,
+        "to": 5,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "scrolled-left-of-the-cells",
+      "why": "Scrolled 300 px over 200 px columns: column 1 is half out of view at the left, and left of the cells the gap is before it, the first visible.",
+      "widths": [200, 200, 200, 200, 200, 200],
+      "cells_width": 600,
+      "scroll_x": 300,
+      "count": 0,
+      "block": [4, 4],
+      "x": -10,
+      "expect": {
+        "gap": 1,
+        "to": 1,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "scrolled-by-centers",
+      "why": "Scrolled: the centers on screen (column 1's at 0, column 2's at 200) decide, not the content's.",
+      "widths": [200, 200, 200, 200, 200, 200],
+      "cells_width": 600,
+      "scroll_x": 300,
+      "count": 0,
+      "block": [4, 4],
+      "x": 150,
+      "expect": {
+        "gap": 2,
+        "to": 2,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "scrolled-past-the-view",
+      "why": "Right of the view, column 4 the last visible (its center at 600): the gap after it, column 5 out of view.",
+      "widths": [200, 200, 200, 200, 200, 200],
+      "cells_width": 600,
+      "scroll_x": 300,
+      "count": 0,
+      "block": [0, 0],
+      "x": 620,
+      "expect": {
+        "gap": 5,
+        "to": 4,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "drag-into-the-run",
+      "why": "Two pinned (the run's edge at 200): in the run, the gap by its centers, and the block lands pinned.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [4, 4],
+      "x": 140,
+      "expect": {
+        "gap": 1,
+        "to": 1,
+        "side": "pinned"
+      }
+    },
+    {
+      "name": "drag-out-of-the-run",
+      "why": "A pinned column dragged right among the scrolled ones lands scrolled.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [0, 0],
+      "x": 450,
+      "expect": {
+        "gap": 4,
+        "to": 3,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "drag-unpin-in-place",
+      "why": "The last pinned column, just right of the edge: the run's end beside the block, across the edge, unpins it where it is.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [1, 1],
+      "x": 210,
+      "expect": {
+        "gap": 2,
+        "to": 1,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "drag-pin-in-place",
+      "why": "The first scrolled column, just left of the edge: the run's end beside the block, across the edge, pins it where it is.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [2, 2],
+      "x": 190,
+      "expect": {
+        "gap": 2,
+        "to": 2,
+        "side": "pinned"
+      }
+    },
+    {
+      "name": "run-end-pinned-side",
+      "why": "At the run's end from the run's side: the block joins the run at its end.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [4, 4],
+      "x": 190,
+      "expect": {
+        "gap": 2,
+        "to": 2,
+        "side": "pinned"
+      }
+    },
+    {
+      "name": "run-end-scrolled-side",
+      "why": "At the run's end from the scrolled side: the block is the first scrolled column.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [4, 4],
+      "x": 210,
+      "expect": {
+        "gap": 2,
+        "to": 2,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "beside-off-the-edge",
+      "why": "Beside the block but not at the run's end: no gap, pin or not.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [3, 3],
+      "x": 340,
+      "expect": {
+        "gap": null
+      }
+    },
+    {
+      "name": "straddling-beside-the-edge",
+      "why": "A block across the edge (columns 1 and 2) beside itself at the run's end: not wholly on one side, so no gap.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [1, 2],
+      "x": 310,
+      "expect": {
+        "gap": null
+      }
+    },
+    {
+      "name": "run-left-of-the-cells",
+      "why": "Left of the cells with a run: the run's region, its first gap.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 2,
+      "block": [3, 3],
+      "x": -10,
+      "expect": {
+        "gap": 0,
+        "to": 0,
+        "side": "pinned"
+      }
+    },
+    {
+      "name": "capped-run",
+      "why": "A count of 4 cut to 2 by the half (4 \u00d7 100 px past 300): right of the edge is the scrolled region, but the gap before column 3 is inside the count's run, so the block pins.",
+      "features": ["pin"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "cells_width": 500,
+      "scroll_x": 0,
+      "count": 4,
+      "block": [5, 5],
+      "x": 330,
+      "expect": {
+        "gap": 3,
+        "to": 3,
+        "side": "pinned"
+      }
+    }
+  ],
+  "controls": [
+    {
+      "name": "count-kept",
+      "why": "A move across pin's edge leaves the count as it was: the block pins or unpins nothing.",
+      "fails": ["into-the-run", "out-of-the-run", "run-end-pinned", "run-end-scrolled", "pin-in-place", "unpin-in-place", "count-past-the-columns-crossing", "straddling-block-in", "straddling-block-out"]
+    },
+    {
+      "name": "recount",
+      "why": "The count recounted from the columns (clamped, then changed by what crossed) even when nothing crossed: a host's count past the columns is lost.",
+      "fails": ["count-past-the-columns-kept"]
+    },
+    {
+      "name": "selection-unmoved",
+      "why": "The selection left at its places: it selects the columns now there.",
+      "fails": ["selection-moves-with-its-block", "selection-shifted", "selection-split-cleared", "selection-direction-kept"]
+    },
+    {
+      "name": "gap-by-left-edge",
+      "why": "The gap after the last column whose left edge, not its center, is left of the pointer.",
+      "fails": ["by-center-right", "by-center-left", "short-of-a-center", "scrolled-left-of-the-cells"]
+    },
+    {
+      "name": "beside-the-block",
+      "why": "A gap beside the block is a gap: the line drawn at a move to the block's own place.",
+      "fails": ["beside-right", "beside-left", "beside-off-the-edge"]
+    },
+    {
+      "name": "no-edge-gap",
+      "why": "The run's end beside the block refused too: a column can't be pinned or unpinned where it is.",
+      "fails": ["drag-unpin-in-place", "drag-pin-in-place"]
+    }
+  ]
+}

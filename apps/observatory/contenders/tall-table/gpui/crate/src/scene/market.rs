@@ -45,10 +45,10 @@ const PRICED: [usize; 6] = [LAST, CHANGE, BID, ASK, HIGH, LOW];
 
 /// Change and Change % by sign: a fall at 0, a zero at 0.5, a rise at 1.
 /// The width only keeps a zero exact: every change is a whole tick.
-const SIGN_DOMAIN: f64 = 1e-9;
+pub(crate) const SIGN_DOMAIN: f64 = 1e-9;
 
 /// Change %'s decimals (the canvas's "+1.23%").
-const PCT_DECIMALS: u8 = 2;
+pub(crate) const PCT_DECIMALS: u8 = 2;
 
 /// The numbers the JS host hands in before the instruments' decimals:
 /// the flash's ms and mix, then the rise and the fall in Oklch, light then
@@ -126,7 +126,7 @@ impl Market {
 
     /// The colors each theme draws, once: the stops are `fn` pointers and
     /// capture nothing, so they read them from here.
-    fn install(&self) {
+    pub(crate) fn install(&self) {
         COLORS.get_or_init(|| {
             let [light_up, light_down, dark_up, dark_down] = self.signs.map(crate::scene::oklch);
             let flash = |color: Hsla| Hsla {
@@ -191,7 +191,7 @@ fn flash(theme: &Theme, rise: bool) -> Hsla {
 }
 
 /// The text by sign: the fall, the foreground, the rise.
-fn sign_ramp() -> Ramp {
+pub(crate) fn sign_ramp() -> Ramp {
     Ramp::new(&[
         |theme| sign(theme, false),
         |theme| theme.foreground,
@@ -201,7 +201,7 @@ fn sign_ramp() -> Ramp {
 
 /// The flash: a fall at 0, a rise at 1 (any other change between them),
 /// each at the scenario's mix.
-fn flash_ramp() -> Ramp {
+pub(crate) fn flash_ramp() -> Ramp {
     Ramp::new(&[|theme| flash(theme, false), |theme| flash(theme, true)])
 }
 

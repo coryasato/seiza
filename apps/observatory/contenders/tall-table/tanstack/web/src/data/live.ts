@@ -1,6 +1,7 @@
 /**
- * The table's `live` (market watch's level): rows invalidated in the source
- * are read again, a loaded page drawn as it is until its re-read lands. A
+ * The table's `live` (market watch's, live tail's, and the monitoring
+ * wall's levels): rows invalidated in the source are read again, a loaded
+ * page drawn as it is until its re-read lands. A
  * port of the tall table's re-read paths (`components/tall-table/src/`
  * `pages.rs`'s `Live` and `state.rs`'s `invalidate_rows`,
  * `load_after_update`, `answered`, `page_done`), decision for decision:
@@ -10,9 +11,10 @@
  * watch's bundle carries none of them.
  *
  * `pages.ts` and `paging.ts` call in here only behind the build constant
- * (`__LEVEL__ === 'market' || __LEVEL__ === 'tail'`), so no other level's
- * bundle carries any of it; what only `live` does is a function here over the cache or the
- * paging, never a method of theirs (a method would stay in every bundle).
+ * (`__LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ ===
+ * 'wall'`), so no other level's bundle carries any of it; what only `live`
+ * does is a function here over the cache or the paging, never a method of
+ * theirs (a method would stay in every bundle).
  * The functions reach their private members through a typed view of them
  * (`CacheInside`, `PagingInside`), so the classes keep them private to
  * every other caller.

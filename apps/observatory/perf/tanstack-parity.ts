@@ -45,13 +45,18 @@
 //   the edge a scrolled one; Shift+wheel scrolls sideways as a horizontal
 //   wheel does; a vertical wheel holds the header and its pinned names to
 //   the pixel, the pinned cells at their place in the new rows. Control:
-//   the screenshot of a region that scrolls differs.
+//   the screenshot of a region that scrolls differs. Then its tools
+//   (`perf/parity-tools.ts`): the resize bands' place and cursor, a drag
+//   (live, clamped, back at the press, the sideways scroll held to the
+//   release), the fit within a pixel of GPUI's, the selection's presses,
+//   Shift, drag, and keys giving GPUI's selection and top row (a page key
+//   each side's own page), and the tint where GPUI draws it.
 // - The market level (all three; market watch at its default stop, `?cells`,
 //   light and dark): under the feed, Change and Change % drawn in the rise's
 //   or the fall's color by sign (`scenarios.ts`'s, within one 8-bit step), a
 //   zero in neither; cells flashing, only in the scenario's columns, each in
-//   the rise's or the fall's color at no more than its mix; and the fade
-//   ending once a short feed stops (`?ticks`), no cell left lit. In the
+//   the rise's or the fall's color at no more than its mix; and a short
+//   feed (`?ticks`) lighting cells whose fade ends, no cell left lit. In the
 //   light theme, the tooltip as the table's under `format`: a cell whose
 //   fitted text the format rounded (a Change % at 2 decimals) shows its
 //   exact text, one it only dressed (a Last at its decimals) shows none.
@@ -66,25 +71,40 @@
 //   time in the muted foreground (`theme.css`'s), an error status in the
 //   scenario's error color (within one 8-bit step), any other status and
 //   the request and bytes unpainted.
+// - The wall level (all three; the monitoring wall, `?cells`): the grid,
+//   at each stop at 1440×900 and a phone's column (390×844, 4 tables),
+//   DPR 1, in each browser at its defaults (no scrollbar width), each
+//   table's frame and cells where the GPUI contender's are (its wall build,
+//   Chromium), its columns at the same x and width, and the same rows shown
+//   (`wall-grid.ts`'s `gridDiffers`; the controls, the tables moved 2 px
+//   and each showing one more row, differing in every table); then at the default stop, light and dark, under the feed in
+//   every table, Chg % drawn in the rise's or the fall's color by sign
+//   (within one 8-bit step), a zero in neither; Last alone flashing, in
+//   every table, in the rise's or the fall's color at no more than the
+//   mix; and a short feed (`?ticks`) lighting cells whose fade ends, no
+//   cell left lit in any table.
 //
 // Usage: node apps/observatory/perf/tanstack-parity.ts [--browsers chromium,firefox,webkit] [--firefox] [--label <name>]
 // Needs `just observatory data`; run `just observatory tanstack-build`,
 // `tanstack-build wide`, `tanstack-build market`, `tanstack-build tail`,
-// `gpui-build`, and `gpui-build wide` first.
+// `tanstack-build wall`, `gpui-build`, `gpui-build wide`, and
+// `gpui-build wall` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, firefox, webkit, type Browser, type BrowserType, type Page } from '@playwright/test';
+import { chromium, firefox, type Browser, type Page } from '@playwright/test';
 import { flag, localDate, machineInfo, option } from '../../../shared-web/perf/protocol.ts';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
 import { ROW_HEIGHT } from '../contenders/tall-table/tanstack/web/src/layout.ts';
 import { PAGING } from '../contenders/tall-table/tanstack/web/src/data/paging.ts';
 import { TOOLTIP_DELAY, TOOLTIP_GRACE } from '../contenders/tall-table/tanstack/web/src/tooltip.ts';
-import { LIVE_TAIL, MARKET_WATCH, WIDE_SHEET, type Oklch } from '../contenders/scenarios.ts';
+import { LIVE_TAIL, MARKET_WATCH, MONITORING_WALL, WIDE_SHEET, type Oklch } from '../contenders/scenarios.ts';
 import { fromOklch } from '../contenders/tall-table/tanstack/web/src/paint.ts';
 import { COLUMNS } from '../contenders/market/feed.ts';
-import { MARKS, dataFile, dataPath, mutedForeground, nativeDuckDB, perfDir, problems, protocolContext, serveGpui, serveTanstack, tailError } from './harness.ts';
+import { BROWSER_TYPES, KNOWN_WARNINGS, MARKS, dataFile, dataPath, frames, mutedForeground, nativeDuckDB, near, perfDir, problems, protocolContext, serveGpui, serveTanstack, tailError } from './harness.ts';
 import { DATA_FILE } from '../contenders/tail/data.ts';
+import { toolsParity } from './parity-tools.ts';
+import { PHONE, WALL_COLUMNS, controlHolds, flashOff, gridDiffers, oneMoreRow, signWrong, wallTables, type WallTable } from './wall-grid.ts';
 
 const PORT = 4319;
 const GPUI_PORT = 4320;
@@ -95,16 +115,15 @@ const GPUI_WIDE_PORT = 4352;
 const MARKET_PORT = 4364;
 /** The tail level's build. */
 const TAIL_PORT = 4374;
+/** The wall level's builds. */
+const WALL_PORT = 4391;
+const GPUI_WALL_PORT = 4392;
 /** The row height (both contenders': `layout.ts` pins it to GPUI's), the
  *  tooltip's delay and grace, and the drag settle, from the contender. */
 const ROW = ROW_HEIGHT;
 const DELAY = TOOLTIP_DELAY;
 const GRACE = TOOLTIP_GRACE;
 const DRAG_SETTLE = PAGING.dragSettleMs;
-/** DuckDB-Wasm's own `eh` bundle warns in Firefox (the engine's, not the
- *  view's), and Firefox warns of the scroll model's content placed from its
- *  scroll listener, which is its design (`docs/dom-scroll-model.md`). */
-const KNOWN_WARNINGS = [/WebAssembly exception handling 'try' instruction is deprecated/, /appears to use a scroll-linked positioning effect/];
 
 const label = option('label');
 const browsers = (option('browsers') ?? 'chromium,firefox,webkit').split(',');
@@ -114,8 +133,6 @@ const check = (ok: boolean, problem: string) => {
   if (!ok) failures.push(problem);
   return ok;
 };
-const types: Record<string, BrowserType> = { chromium, firefox, webkit };
-const near = (a: number, b: number, tolerance: number) => Math.abs(a - b) <= tolerance;
 
 // --- the file, from native DuckDB ---
 
@@ -146,7 +163,7 @@ const launch = (name: string, headed = false): Promise<Browser> =>
     ? chromium.launch({ channel: 'chromium', ignoreDefaultArgs: ['--hide-scrollbars'] })
     : name === 'firefox'
       ? firefox.launch({ headless: !headed, firefoxUserPrefs: { 'ui.useOverlayScrollbars': 0 } })
-      : types[name]!.launch();
+      : BROWSER_TYPES[name]!.launch();
 
 /** The TanStack contender, open, row 0 drawn with data, its calls logged. */
 async function openTanstack(browser: Browser) {
@@ -183,7 +200,6 @@ async function openTanstack(browser: Browser) {
 const top = (page: Page) => page.evaluate(() => (globalThis as Global).__tanstackProbe!.paging.top());
 const log = (page: Page, since = 0) => page.evaluate((since) => (globalThis as Global).__log!.filter((entry) => entry.at >= since), since);
 const now = (page: Page) => page.evaluate(() => performance.now());
-const frames = (page: Page, n = 2) => page.evaluate((n) => new Promise<void>((resolve) => { const step = (k: number) => (k === 0 ? resolve() : requestAnimationFrame(() => step(k - 1))); step(n); }), n);
 /** Waits for `read` to settle: the same value two frames apart. */
 async function settled(page: Page, read: () => Promise<number>, timeout = 2_000): Promise<number> {
   const until = Date.now() + timeout;
@@ -940,6 +956,7 @@ async function borderPixel(page: Page): Promise<number[]> {
       }
     }
     output.wide = wide;
+    output.wideTools = await toolsParity(browsers, wideTanstack.url, wideGpui.url, (what) => check(false, what));
   } finally {
     await wideTanstack?.close();
     await wideGpui?.close();
@@ -1015,6 +1032,7 @@ async function borderPixel(page: Page): Promise<number[]> {
           const ended = await quiet
             .waitForFunction(() => !((globalThis as { __contender?: { cells?: { flash: unknown }[] } }).__contender?.cells ?? []).some((cell) => cell.flash), null, { timeout: 5_000, polling: 100 })
             .then(() => true, () => false);
+          check(lit > 0, `${at}: no cell lit by a 200-tick feed, so its fade proves nothing`);
           check(ended, `${at}: a flash still lit 5 s after a 200-tick feed`);
           // The tooltip under the format, once the short feed is still.
           let tooltips: Record<string, unknown> | null = null;
@@ -1158,6 +1176,138 @@ async function borderPixel(page: Page): Promise<number[]> {
     output.tail = tailOut;
   } finally {
     await tail?.close();
+  }
+}
+
+// --- the wall level: the grid, the sign colors, and the flash, in every table ---
+
+{
+  let wallTanstack: Awaited<ReturnType<typeof serveTanstack>> | null = null;
+  let wallGpui: Awaited<ReturnType<typeof serveGpui>> | null = null;
+  try {
+    wallTanstack = await serveTanstack(WALL_PORT, undefined, 'wall');
+    wallGpui = await serveGpui(GPUI_WALL_PORT, undefined, 'wall');
+    const at = (stop: string) => `?scenario=${MONITORING_WALL.id}&stop=${stop}&cells`;
+    const grids = [...MONITORING_WALL.stops.map((stop) => ({ key: stop.id, stop: stop.id, viewport: { width: 1440, height: 900 } })), { key: 'phone', stop: '4', viewport: PHONE }];
+    /** The tables at a grid, light, DPR 1. Read in a browser at its
+     *  defaults, the GPUI reference's too: headless, none of them gives a
+     *  scrollbar width (this script's `launch` shows classic scrollbars,
+     *  which would narrow a phone's column on the DOM side alone). */
+    const tablesAt = async (browser: Browser, url: string, grid: (typeof grids)[number]) => {
+      const context = await browser.newContext({ viewport: grid.viewport, deviceScaleFactor: 1 });
+      try {
+        const page = await context.newPage();
+        const found = problems(page);
+        await page.goto(`${url}${at(grid.stop)}&theme=light`);
+        await waitMark(page, MARKS.filled, 0, 60_000);
+        await page.waitForTimeout(300);
+        // The cells too: the rows each table shows are compared.
+        return { tables: await wallTables(page), found };
+      } finally {
+        await context.close();
+      }
+    };
+    const plain = (name: string): Promise<Browser> => (name === 'chromium' ? chromium.launch({ channel: 'chromium' }) : BROWSER_TYPES[name]!.launch());
+    // GPUI's grids, the reference (Chromium).
+    const reference: Record<string, WallTable[]> = {};
+    {
+      const browser = await plain('chromium');
+      try {
+        for (const grid of grids) {
+          const { tables, found } = await tablesAt(browser, wallGpui.url, grid);
+          reference[grid.key] = tables;
+          for (const problem of found) check(false, `GPUI wall grid ${grid.key}: ${problem}`);
+        }
+      } finally {
+        await browser.close();
+      }
+    }
+    const wallOut: Record<string, unknown> = {};
+    for (const name of browsers) {
+      // The grid at each stop and on a phone, with its control.
+      const gridOut: Record<string, { differ: number; controlTablesDiffer: number; rowsControlTablesDiffer: number }> = {};
+      {
+        const browser = await plain(name);
+        try {
+          for (const grid of grids) {
+            const { tables, found } = await tablesAt(browser, wallTanstack.url, grid);
+            const wrong = gridDiffers(reference[grid.key]!, tables);
+            const control = controlHolds(reference[grid.key]!, tables);
+            const rows = controlHolds(reference[grid.key]!, tables, oneMoreRow);
+            gridOut[grid.key] = { differ: wrong.length, controlTablesDiffer: control.differ, rowsControlTablesDiffer: rows.differ };
+            check(wrong.length === 0, `${name} wall grid ${grid.key}: ${wrong.slice(0, 4).join('; ')}`);
+            check(control.holds, `${name} wall grid ${grid.key}: the control (moved 2 px) differs in ${control.differ} of ${tables.length} tables`);
+            check(rows.holds, `${name} wall grid ${grid.key}: the rows' control (one more row shown) differs in ${rows.differ} of ${tables.length} tables`);
+            for (const problem of found.filter((problem) => !KNOWN_WARNINGS.some((warning) => warning.test(problem)))) check(false, `${name} wall grid ${grid.key}: ${problem}`);
+          }
+        } finally {
+          await browser.close();
+        }
+      }
+      console.log(`${name} wall grid: ${Object.entries(gridOut).map(([key, { differ, controlTablesDiffer, rowsControlTablesDiffer }]) => `${key} ${differ ? `${differ} off` : 'as GPUI'} (controls: ${controlTablesDiffer} and ${rowsControlTablesDiffer} tables differ)`).join(', ')}`);
+      wallOut[`${name}-grid`] = gridOut;
+      const browser = await launch(name);
+      try {
+        for (const theme of ['light', 'dark'] as const) {
+          const where = `${name} wall ${theme}`;
+          const context = await protocolContext(browser, { dpr: name === 'chromium' ? 2 : 1 });
+          const page = await context.newPage();
+          await page.emulateMedia({ colorScheme: theme });
+          const found = problems(page);
+          await page.goto(`${wallTanstack.url}${at(MONITORING_WALL.defaultStop)}&theme=${theme}`);
+          await waitMark(page, MARKS.filled, 0, 60_000);
+          await page.waitForTimeout(1000);
+          const tables = await wallTables(page);
+          // The sign colors, every table.
+          let rises = 0;
+          let falls = 0;
+          const wrongSign: string[] = [];
+          const cells = tables.flatMap(({ cells = [] }, table) => cells.map((cell) => ({ ...cell, table })));
+          for (const cell of cells.filter((cell) => WALL_COLUMNS[cell.column] === 'Chg %')) {
+            const value = Number(cell.exact);
+            if (value > 0) rises++;
+            if (value < 0) falls++;
+            const wrong = signWrong(theme, cell.exact, cell.text);
+            if (wrong) wrongSign.push(`table ${cell.table} row ${cell.row}: ${wrong}`);
+          }
+          check(rises > 0 && falls > 0, `${where}: ${rises} rises and ${falls} falls under the feed, want both`);
+          check(wrongSign.length === 0, `${where}: sign colors off: ${wrongSign.slice(0, 4).join('; ')}`);
+          // The flash: Last alone, every table, at the mix.
+          const flashing = cells.filter((cell) => cell.flash);
+          const flashingTables = new Set(flashing.map((cell) => cell.table)).size;
+          const wrongColumn = [...new Set(flashing.map((cell) => WALL_COLUMNS[cell.column]!))].filter((column) => column !== 'Last');
+          const offColor = flashing.filter((cell) => flashOff(theme, cell.flash!));
+          check(flashingTables === tables.length && tables.length > 0, `${where}: ${flashingTables} of ${tables.length} tables flashing under the feed`);
+          check(wrongColumn.length === 0, `${where}: ${wrongColumn.join(', ')} flashing`);
+          check(offColor.length === 0, `${where}: ${offColor.length} flashes off the rise's or the fall's color at the mix, e.g. ${JSON.stringify(offColor[0])}`);
+          await context.close();
+          // The fade ends: a short feed lights cells, then none is lit in any table.
+          const short = await protocolContext(browser, { dpr: name === 'chromium' ? 2 : 1 });
+          const quiet = await short.newPage();
+          await quiet.emulateMedia({ colorScheme: theme });
+          await quiet.goto(`${wallTanstack.url}${at(MONITORING_WALL.defaultStop)}&theme=${theme}&ticks=200`);
+          await waitMark(quiet, MARKS.filled, 0, 60_000);
+          await quiet.waitForTimeout(300);
+          const lit = (await wallTables(quiet)).flatMap(({ cells = [] }) => cells).filter((cell) => cell.flash).length;
+          const ended = await quiet
+            .waitForFunction(() => !((globalThis as { __contender?: { tables?: { cells?: { flash: unknown }[] }[] } }).__contender?.tables ?? []).some(({ cells = [] }) => cells.some((cell) => cell.flash)), null, { timeout: 5_000, polling: 100 })
+            .then(() => true, () => false);
+          check(lit > 0, `${where}: no cell lit by a 200-tick feed, so its fade proves nothing`);
+          check(ended, `${where}: a flash still lit 5 s after a 200-tick feed`);
+          await short.close();
+          const real = found.filter((problem) => !KNOWN_WARNINGS.some((warning) => warning.test(problem)));
+          for (const problem of real) check(false, `${where}: ${problem}`);
+          wallOut[`${name}-${theme}`] = { tables: tables.length, cells: cells.length, rises, falls, flashing: flashing.length, flashingTables, wrongSign: wrongSign.length, offColor: offColor.length, litAfterShortFeed: lit, ended };
+          console.log(`${where}: ${tables.length} tables, ${cells.length} cells; ${rises} rises, ${falls} falls in their colors${wrongSign.length ? ` (${wrongSign.length} off)` : ''}; ${flashing.length} flashing in ${flashingTables} tables, in ${[...new Set(flashing.map((cell) => WALL_COLUMNS[cell.column]))].join(', ')}${offColor.length ? `, ${offColor.length} off color` : ''}; a short feed's ${lit} lit cells ${ended ? 'faded' : 'still lit'}`);
+        }
+      } finally {
+        await browser.close();
+      }
+    }
+    output.wall = wallOut;
+  } finally {
+    await wallTanstack?.close();
+    await wallGpui?.close();
   }
 }
 

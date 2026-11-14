@@ -7,6 +7,7 @@
  * it (`test/view.test.ts`).
  */
 
+import type { CopyLayer } from './wide-tools.ts';
 import type { DensityStop, WideScenario } from '../../../../scenarios.ts';
 import { resolveSizes } from './density.ts';
 import { layOutAll, type ColumnSpec, type LaidOutColumn, type Sizes } from './layout.ts';
@@ -53,6 +54,9 @@ export interface WideScene {
   columnWidth: number;
   /** The heat's domain: the ramp's ends and its middle. */
   domain: Domain;
+  /** The copy (`copy.ts`), loaded after first paint with the data layer:
+   *  set before the table opens (`main.ts`). */
+  copy?: CopyLayer;
 }
 
 /** The scenario at `stop`. */
@@ -68,10 +72,18 @@ export function wideScene(scenario: WideScenario, stop: DensityStop): WideScene 
 }
 
 /** The file's columns laid out at the scene: the painted ones at its set
- *  width, the rest by kind at its density. */
-export function sceneColumns(columns: readonly ColumnSpec[], scene: WideScene): LaidOutColumn[] {
+ *  width, the rest by kind at its density; a column a reader resized or
+ *  fitted (`resize`) at the width it set, `widths`. */
+export function sceneColumns(columns: readonly ColumnSpec[], scene: WideScene, widths: readonly (number | undefined)[] = []): LaidOutColumn[] {
   return layOutAll(
-    columns.map((column, index) => (index >= scene.heatFrom ? { ...column, width: scene.columnWidth } : column)),
+    columns.map((column, index) => {
+      const width = setWidthOf(scene, widths, index);
+      return width === undefined ? column : { ...column, width };
+    }),
     scene.sizes,
   );
 }
+
+/** Column `index`'s set width at the scene: the one a reader set
+ *  (`widths`), else a painted column's, else none (its kind's). */
+export const setWidthOf = (scene: WideScene, widths: readonly (number | undefined)[], index: number): number | undefined => widths[index] ?? (index >= scene.heatFrom ? scene.columnWidth : undefined);

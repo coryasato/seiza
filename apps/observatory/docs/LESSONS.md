@@ -567,3 +567,123 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - A scenario that no side builds yet still costs every contender bytes. `pickScenario` reads `ALL_SCENARIOS`, so the wall's entry rides in every level's first-paint JS (141–185 B brotli) from the day it joins the list, before any build of its own.
 - "Market watch's feed unchanged" holds for its ticks, not its worker's bytes. Widening `Feed` adds 33 B to the market level's worker, while `write.ts --check` proves its output byte-identical. A check that a level is unchanged has to say which: its wasm, its JS, or what it sends.
 - In `prep.ts`, a cache declared below the top-level `await`s isn't initialized yet when they run: `let` and `const` there are in their temporal dead zone. A memo shared by two builds has to live above them, or on the function itself.
+
+## M13 part B2: the GPUI contender at the wall level (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-b2.md`](../perf/results/2026-11-10-m13-b2.md).
+
+**Surprises:**
+- A byte-identical level is a question of which files carry panic locations, and they're few. Market watch's wasm names only four of the crate's files in its strings, so the wall could change `lib.rs`, `scene.rs`, `feed.rs`, and `readout.rs` freely and keep those four's lines in place. The wide level, whose heat has a panic site in `scene.rs`, moved by one byte for it.
+- Keeping lines in place isn't enough: a semantically neutral wrapper changed the codegen. Passing the state's `Object` through a by-value `fn(Object) -> Object`, even `#[inline(always)]` and returning it untouched, made market watch's wasm 10 bytes larger. A move of a type with `Drop` isn't free after LTO. The by-reference wrapper compiled to nothing.
+- The phone's 196 px tables, counted from the canvas in A3, showed 5⅓ rows: the tall table keeps its horizontal scrollbar's 16 px whether or not it scrolls sideways. A board's height for a GPUI table has to count the room the table keeps, not only what it draws.
+
+## M13 part C1: the TanStack contender at the wall level (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-c1.md`](../perf/results/2026-11-10-m13-c1.md).
+
+**Surprises:**
+- Widening the build constant's branches (`'market' || 'tail'` to `|| 'wall'`) in 20 places, adding a `Load` variant, and adding branches to `App`, `Table`, `TableContract`, and `main.ts` left every other level's bundle byte-identical. The minifier folds a constant comparison and drops its branch whole, so on the DOM side the habits were enough: no line-keeping as on the GPUI side, where panic locations carry line numbers.
+- One generated color would have moved every level. The sidebar's color isn't in `theme.css`, and regenerating it with one more variable changes every level's CSS. A second generated file, which only the wall's CSS imports, kept them all.
+- The tall table draws its header and rows to the frame's edge, past its last column, and the DOM side didn't. No earlier level showed it, since their columns overflow the frame. Live tail's (about 880 px of columns in a 1,408 px frame) likely differs the same way, unchecked.
+- The pooled pairing is the shape of a React tree, not a choice: one `flushSync` over every table's state commits them all, so a batch's tables draw it in one frame by construction. Each table's own frame callback (market watch's way, copied N times) would make N commits a frame, and the wall's question would read React's scheduling.
+
+## M13 part C2: the same on both sides at the wall level (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-c2.md`](../perf/results/2026-11-10-m13-c2.md).
+
+**Surprises:**
+- The grid can't be found in the pixels. In the light theme the table's header and its striped rows are the sidebar's color (`#fafafa`), so a scan for the gaps' color runs into the tables. The tall table already reported where its cells are (`TallTableLayout`, window coordinates), and gpui's `on_children_prepainted` gives a table's frame. The DOM side reads the same from its scroller and its `.frame`.
+- A size measured against the baseline's build isn't a change's size. The first version was reported as +1.5 KiB against B2's baseline; against HEAD built the same day it was +0.7 KiB, and this tree's wall wasm built from HEAD is 0.8 KiB over that baseline with no Rust changed since. The review's fix, which left out the bridge's layout to save bytes, came to +1.2 KiB with the frame's box. A size effect is this tree against HEAD, built and measured the same way.
+- A control has to fail for the reason the check exists. Comparing GPUI's grid at 6 tables with TanStack's at 8 always differed, on the table count, whatever the comparison of places did; the same tables moved 2 px differ only if each place is compared. The same holds for "the flash fades": it passes on a feed that never lit anything.
+- One tick short changes 3 cells' text, while each side's fixture check reports 7 differences for the same control. The fixture check counts each wrong attribute (exact text, shown text, color) on its own, the cross-side check counts cells. Neither count is the size of a change.
+
+## M13 part D1: the metrics at the wall level (2026-11-10)
+
+**Results:** [`perf/results/2026-11-10-m13-d1.md`](../perf/results/2026-11-10-m13-d1.md).
+
+**Surprises:**
+- The sides showed different rows, and only a metric found it. C2's grid check compared where each table and its cells sit, never how many rows show, and both sides placed them identically. `metric data` counts the visible rows it waits for and read 96 on GPUI and 102 on TanStack: the tall table keeps 16 px under its rows for a scrollbar it doesn't draw, and the DOM's scroller keeps none. A sliver of a 17th row, 3 px, is a sixteenth more cells for TanStack to paint every frame of the feed.
+- A new check passed until its control ran. The rows-shown comparison passed at every grid on the first run, because `perf/wall.ts` stripped the cells from the grids' tables (only places were compared), so there were no rows to compare. The one-more-row control, which must differ in every table, differed in none.
+- Market watch's one-pass pairing rested on a property the wall doesn't have. With one table, each batch's frame comes no earlier than the last batch's, so one cursor serves both. On the wall a later batch can tick other tables than an earlier one, and its frame can come first. The rewrite keeps a cursor only over the send times, and a random check pinned it to the old pairing on market watch's batches.
+- No headless browser here draws a scrollbar with height, so a fix for a classic scrollbar can't be seen by any check as it stands. Showing scrollbars isn't enough: Chromium (scrollbars shown or hidden) and Firefox with classic bars set both reported a 0 px bar on an overflowing table. A `::-webkit-scrollbar` style forces one, but only where `--hide-scrollbars` is off: the check's first run measured 0 px and failed on its guard, not on its result.
+
+## M13 part D2: the monitoring wall's runs (2026-11-11)
+
+**Results:** [`perf/results/2026-11-11-m13-d2.md`](../perf/results/2026-11-11-m13-d2.md).
+
+**Surprises:**
+- A metric's results file is named for its label, scenario, and stop, not the metric. With one label for the feed and the once-a-scenario metrics, each later metric would have overwritten the feed's 6-table file. Each metric needs its own label (`m13-d2-feed`, `-usable`, …), as M10's runs had; the scripts now refuse an existing file.
+- On a slow device the contenders moved further apart than the spike's pages did, GPUI up and TanStack down, with the edges where the spike put them. The spike had no paging, no re-reads, and no engine loaded.
+- At the reference Shown in takes one of two values on both sides, run by run. Its send → presentation part takes one of two values a frame's half apart: the feed's 16 ms batches against the display's frames, phased at each cold start. A median of 10 lands on whichever value most runs drew, so a stop's card can move by a frame's worth between suites with nothing changed.
+- `machineInfo` read the versions from the lockfile, not from the build being measured, so an A/B's other build was recorded as the tree's. The build names its own: under `trim-paths` a wasm's panic locations keep `gpui-kit-<version>/`, exactly one, which the metric scripts now record.
+- Two A/Bs, one back to back and one interleaved, both put sideways work +3.7–3.9% on 0.9.1 by the sets' medians, and pairing the interleaved rounds put it at +1%, either way. The reading takes one of two values a run, so a set's median follows how many runs drew which. A two-valued reading spreads past the quiet gate on a quiet machine, and only a paired comparison reads it.
+
+## M13 part E: the monitoring wall on the page (2026-11-11)
+
+**Results:** [`perf/results/2026-11-11-m13-e.md`](../perf/results/2026-11-11-m13-e.md).
+
+**Surprises:**
+- A build directory isn't the tree's build until it's rebuilt. The GPUI contender's market and tail directories predated part B1, though every part since had built other levels, so comparing "before" and "after" first showed this part changing their wasm. B2's recorded hash settled it. Rebuild every level before comparing any.
+- The page needed no new reading for N tables. The frame's ring is pooled across the tables on both sides, so the page reads it as market watch's, and the status bar and panel are market watch's cards with the wall's words.
+- This tab's Smooth read 66.7 % on TanStack in the check, right after the flip, on a window of a few frames; read for 15 s it held at 100 %. A single early reading says little; the check asks only for a number.
+- Chrome's Responsive mode isn't a narrow window for GPUI. Under its emulated DPR the canvas's backing store comes out half the size, so GPUI lays out for half the frame's width (one column of tables from about twice the breakpoint) and reads the pointer in that half-size layout. The same frame without emulation (a resized window) lays out and scrolls correctly. Check narrow layouts by resizing the window.
+- The stacked view's scrolling needed a person's hands. Every check passed: a wheel over a gap moved the column, over a table didn't. In use, an incremental scroll or a trackpad fling between two tables lands on the next table within a few events, and 8 px sides can't be aimed at. Only a review with a trackpad found it.
+- In GPUI, as in CSS, `flex_1` on an item and its siblings splits the row evenly, so a `max_w` on a share smaller than the cap never applies: the first try drew 130 px tables on a phone. A width that's the item's own is its basis (`flex_basis`, no grow).
+
+## M13 part F: the monitoring wall shipped (2026-11-11)
+
+**Results:** [`perf/results/2026-11-11-m13-f.md`](../perf/results/2026-11-11-m13-f.md).
+
+**Surprises:**
+- The wall is light on the wire. Its uses peaked at 60 and 107 requests in 10 s, under market watch's: eight tables are one file, read once a frame in a few requests, and the feed runs in the frame. What reaches the zone's limit is still reloading a scenario whose file is read by range.
+- Read under the protocol's overlap rule, an update's time to show is even at every stop on a fast device, though GPUI's median is the lower at each. Both sides' runs take one of two values, so the ranges overlap.
+
+## M14 part A1: the wide sheet's later steps, specced (2026-11-12)
+
+**Results:** none measured; the spec and the file's sizing are in `PLAN.md`'s part A1, the decisions in [`DECISIONS.md`](DECISIONS.md), "Measurement" and "Scenarios", 2026-11-12.
+
+**Surprises:**
+- The table has no copy fixture. Every other feature a scenario ports has one, but `copy`'s text is tested only inside the crate, where a DOM port can't reach it. M14 asked the table for one before the port, rather than writing it here.
+- The whole sheet is copyable. At ~18 MiB of TSV for 3.9 M cells, it passes the key's 100,000-cell limit forty times over but fits the 64 MiB cap, so a confirmed select-all copies every page. It's the one copy that makes both sides read the whole file while the view must keep up.
+- A few columns cost a whole file. A week of days is under the key's limit, but a page is the source's unit, so it reads all 11 pages: the copy's paging, not its text, is what the week measures.
+
+## M14 part B: the GPUI side at the grown wide level (2026-11-12)
+
+**Results:** [`perf/results/2026-11-12-m14-b.md`](../perf/results/2026-11-12-m14-b.md).
+
+**Surprises:**
+- A same-origin frame can take the parent's click as its clipboard gesture, but Chromium also wants its document focused. Firefox and WebKit wrote the button's copy at once; Chromium refused it until the frame focused its own window first, in the click's task.
+- The layout global costs a measured run nothing per frame by construction. The table emits `Layout` only when the layout changes, not when the view moves, so the frame-work A/B the spec allowed for had nothing to measure: the object stays the same through a scroll.
+- `cold --write-baseline` on a level dropped that level's TanStack baseline. It replaced the level's entry whole, where the base's merge keeps the TanStack side's. Nothing had rewritten a level's GPUI baseline since that entry was added.
+- The tools cost what the table's bare host measured, the host's code included: +18.9 KiB brotli against its +20.2. Brotli moved the wasm up to 1.6 KiB for under half a KiB of raw code, so a size read before a build's last fix needs reading again.
+
+## M14 part C1: the TanStack side's resize and selection (2026-11-12)
+
+**Results:** [`perf/results/2026-11-12-m14-c1.md`](../perf/results/2026-11-12-m14-c1.md).
+
+**Surprises:**
+- A resize would have rebuilt the scroll model every frame. The view's model, contract, and tooltip were keyed by the laid-out columns, which never changed until a width could. They're now keyed by the file's columns, and read the laid-out ones through a ref.
+- TanStack Virtual doesn't see a column's new width through `estimateSize`. Its measurements are memoized on the item keys, so the column virtualizer's key function now changes with the widths. It also asks for the view's rect only once: the review found that narrowing a pinned column left a blank strip at the right until the view was told again.
+- The table's selection tint covers the rows' lines; DOM cells stop a pixel short of them. Matching it took selected cells that reach over the line, and key columns and row numbers that always do and draw the line themselves, or a selected cell scrolled under the run would tint the line there.
+- A key's scroll on the DOM lands a frame later. The review found that two keys before the scroll event both measured from the old top and overshot. Nothing else in the contender reads the top right after moving it.
+- Sharing the set width's clamp from `layout.ts` moved the base's bundle. Rollup kept the helper as a top-level function and renamed React's internals around it. `layOut` keeps its inline copy, and the test pins the two equal.
+- The view's page is its own. In headless runs the DOM's overlay scrollbar takes no height, so TanStack's view holds 42.3 rows against GPUI's 41.5, and Page Down moves 41 rows against 40. The base parity already allowed for this, so the tools' parity reads each side's page from its own End.
+
+## M14 part C2: the TanStack side's copy (2026-11-12)
+
+**Results:** [`perf/results/2026-11-12-m14-c2.md`](../perf/results/2026-11-12-m14-c2.md).
+
+**Surprises:**
+- An import whose code is all dropped can still move other builds. `data/copy.ts` imported `number.ts`'s `f32Text` for the fixture's float32s. Nothing of the copy reached market watch's, live tail's, or the wall's bundles, but `number.ts` moved earlier in their chunks, and market watch's grew a byte. `data/copy.ts` keeps its own five-line copy.
+- The writer's ordering depends on when GPUI delivers events, and the DOM delivers them at once. A writer that can't open the clipboard cancels at `Started`. Told synchronously, that cancel would run before the copy existed, and the copy would go on reading. So the port queues its events until the call that emitted them ends, then plans the reads, as GPUI's update and `defer` do.
+
+## M14 part D1: the metrics (2026-11-13)
+
+**Results:** [`perf/results/2026-11-13-m14-d1.md`](../perf/results/2026-11-13-m14-d1.md).
+
+**Surprises:**
+- `domDrawn`'s 1 ms of animate, set for scrolls, undercounts a drag. A selection's commit over few cells runs in 0.55–0.9 ms of animate, so TanStack's select drag read 63% of frames drawn when it drew nearly all of them. A frame that drew is one that painted; the idle frame in the window painted nothing.
+- Hovering draws. The drag's control first ran its resize moves along the header with no button, and both sides drew 23 frames: the pointer crossed the next days' bands, whose hover highlights. The control now runs in the cells, where hovering draws nothing on either side.
+- The page never sees DuckDB's reads. Its worker reads the file by synchronous XHRs, so counting data requests read 0 for a copy that reads 8 pages. A page read is a page query's message to the worker.
+- Cmd+A on a cold view selects nothing of the sheet on either side (`rows [0,0]`) until a cell has been pressed, and the replay's jump moves the selection to the row it lands on. A script that keeps a selection across a jump selects it again.
+- One A/B round can point either way. The first smoke round read TanStack's grown level well under M9's (38% of frames drawn against 53% on the scroll down); the rerun, after the review's fixes, read it over (37% against 31%). TanStack's scroll at `rows-20` swings that much run to run on this machine, so nothing is read from a round, and the 10 rounds decide.

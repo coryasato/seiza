@@ -68,10 +68,13 @@ export interface Sheet {
 const runAt = (columns: readonly LaidOutColumn[], pinned: number, cellsWidth: number): Pin => new Pin(columns, inEffect(columns, pinned, cellsWidth), cellsWidth);
 
 /** The pin and the scrolled columns' virtualizer, following the scroller's
- *  size (the run in effect is cut at half the cells' width). */
-export function useSheet(scrollerRef: RefObject<HTMLDivElement | null>, columns: readonly LaidOutColumn[], scene: WideScene, gutter: number): Sheet {
+ *  size (the run in effect is cut at half the cells' width; `hold`, a
+ *  resize's, keeps the run it had at the press until the release). */
+export function useSheet(scrollerRef: RefObject<HTMLDivElement | null>, columns: readonly LaidOutColumn[], scene: WideScene, gutter: number, hold: number | null = null): Sheet {
   const [size, setSize] = useState({ cellsWidth: 0, bar: 0 });
-  const pin = useMemo(() => runAt(columns, scene.pinned, size.cellsWidth), [columns, scene.pinned, size.cellsWidth]);
+  /** The run in effect at `cellsWidth`: the held one during a resize. */
+  const runFor = useCallback((cellsWidth: number) => (hold === null ? runAt(columns, scene.pinned, cellsWidth) : new Pin(columns, hold, cellsWidth)), [columns, scene.pinned, hold]);
+  const pin = useMemo(() => runFor(size.cellsWidth), [runFor, size.cellsWidth]);
   const from = pin.columns;
   const firstX = columns[from]?.x ?? 0;
   const measure = useCallback(() => {
@@ -80,17 +83,26 @@ export function useSheet(scrollerRef: RefObject<HTMLDivElement | null>, columns:
     const cellsWidth = Math.max(0, scroller.clientWidth - gutter);
     const bar = Math.max(0, scroller.offsetHeight - scroller.clientHeight);
     setSize((was) => (was.cellsWidth === cellsWidth && was.bar === bar ? was : { cellsWidth, bar }));
-    return { width: Math.max(0, cellsWidth - runAt(columns, scene.pinned, cellsWidth).edge), height: scroller.clientHeight };
-  }, [scrollerRef, gutter, columns, scene.pinned]);
+    return { width: Math.max(0, cellsWidth - runFor(cellsWidth).edge), height: scroller.clientHeight };
+  }, [scrollerRef, gutter, runFor]);
+  // TanStack asks for the view's rect once, when the scroll element is set:
+  // its observer reads the latest `measure`, and a new run or new widths (a
+  // resize, a fit) tell it the view again.
+  const measureRef = useRef(measure);
+  measureRef.current = measure;
+  const notifyRect = useRef<((rect: { width: number; height: number }) => void) | null>(null);
   // Before the first paint: the first frame already draws the run.
-  useLayoutEffect(() => void measure(), [measure]);
+  useLayoutEffect(() => {
+    const rect = measure();
+    if (rect) notifyRect.current?.(rect);
+  }, [measure]);
   const virtualizer = useVirtualizer({
     horizontal: true,
     count: Math.max(0, columns.length - from),
     getScrollElement: () => scrollerRef.current,
     estimateSize: (index) => columns[from + index]!.width,
-    // A new run lays the scrolled columns out again.
-    getItemKey: useCallback((index: number) => from + index, [from]),
+    // A new run, or new widths (a resize), lays the scrolled columns out again.
+    getItemKey: useCallback((index: number) => from + index, [from, columns]),
     overscan: OVERSCAN_COLUMNS,
     // Told only of sideways moves: TanStack's own listener hears every
     // scroll of the shared scroller, so each vertical gesture would flip its
@@ -118,14 +130,18 @@ export function useSheet(scrollerRef: RefObject<HTMLDivElement | null>, columns:
     observeElementRect: (_instance, notify) => {
       const scroller = scrollerRef.current;
       if (!scroller) return;
+      notifyRect.current = notify;
       const update = () => {
-        const rect = measure();
+        const rect = measureRef.current();
         if (rect) notify(rect);
       };
       update();
       const observer = new ResizeObserver(update);
       observer.observe(scroller);
-      return () => observer.disconnect();
+      return () => {
+        observer.disconnect();
+        notifyRect.current = null;
+      };
     },
   });
   const items: VirtualItem[] = virtualizer.getVirtualItems();
@@ -139,19 +155,21 @@ export function useSheet(scrollerRef: RefObject<HTMLDivElement | null>, columns:
 const pinnedStyle = (column: LaidOutColumn, gutter: number): CSSProperties => ({ width: column.width, left: gutter + column.x });
 
 /** The header: the row numbers' corner, the pinned names, the scrolled ones
- *  drawn. */
-export function WideHead({ columns, sheet, gutter, width, sizes }: { columns: readonly LaidOutColumn[]; sheet: Sheet; gutter: number; width: number; sizes: Sizes }): ReactNode {
+ *  drawn; the selected columns' names tinted (`select`), and the scrolled
+ *  columns' resize bands (`resize`, `wide-tools.ts`). */
+export function WideHead({ columns, sheet, gutter, width, sizes, selected, bands }: { columns: readonly LaidOutColumn[]; sheet: Sheet; gutter: number; width: number; sizes: Sizes; selected: readonly [number, number] | null; bands: ReactNode[] }): ReactNode {
   const cells: ReactNode[] = [];
+  const sel = (index: number) => (selected && index >= selected[0] && index <= selected[1] ? ' sel' : '');
   for (let index = 0; index < sheet.pin.columns; index++) {
     const column = columns[index]!;
-    cells.push(h('div', { key: column.name, className: `cell pin ${column.align}${index === sheet.pin.columns - 1 ? ' last' : ''}`, style: pinnedStyle(column, gutter), role: 'columnheader', 'aria-colindex': index + 1 }, column.name));
+    cells.push(h('div', { key: column.name, className: `cell pin ${column.align}${index === sheet.pin.columns - 1 ? ' last' : ''}${sel(index)}`, style: pinnedStyle(column, gutter), role: 'columnheader', 'aria-colindex': index + 1 }, column.name));
   }
   cells.push(h('div', { key: ' gap', className: 'gap', style: { width: sheet.gap } }));
   for (let index = sheet.first; index <= sheet.last; index++) {
     const column = columns[index]!;
-    cells.push(h('div', { key: column.name, className: `cell ${column.align}`, style: { width: column.width }, role: 'columnheader', 'aria-colindex': index + 1 }, column.name));
+    cells.push(h('div', { key: column.name, className: `cell ${column.align}${sel(index)}`, style: { width: column.width }, role: 'columnheader', 'aria-colindex': index + 1 }, column.name));
   }
-  return h('div', { className: 'head', style: { width, height: sizes.row }, ...HEAD_ARIA }, h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }), cells);
+  return h('div', { className: 'head', style: { width, height: sizes.row }, ...HEAD_ARIA }, h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }), cells, bands);
 }
 
 /** A row, by its page and its index in it (null and no failure: not loaded
@@ -177,10 +195,18 @@ interface WideRowProps {
    *  long ago reports no new paint (`docs/contender-contract.md`,
    *  "Reading the metrics"). */
   measured: boolean;
+  /** The selection in this row (`select`): its columns, `-1` for none;
+   *  whether it's the range's first and last row (edged there); the active
+   *  cell's column while the table has focus, else `-1`. */
+  selFrom: number;
+  selTo: number;
+  selTop: boolean;
+  selBottom: boolean;
+  active: number;
 }
 
 export const WideRow = /* @__PURE__ */ memo(function WideRow(props: WideRowProps): ReactNode {
-  const { row, top, page, index, failed, columns, pinned, first, last, gap, gutter, scene, frame, heat, measured } = props;
+  const { row, top, page, index, failed, columns, pinned, first, last, gap, gutter, scene, frame, heat, measured, selFrom, selTo, selTop, selBottom, active } = props;
   const kind = row % 2 === 1 ? 'odd' : 'even';
   // The scrolled columns whose cells were created with the row's page: set
   // when the page arrives, narrowed as columns leave (a column that comes
@@ -197,9 +223,14 @@ export const WideRow = /* @__PURE__ */ memo(function WideRow(props: WideRowProps
   const cell = (column: number): ReactNode => {
     const laidOut = columns[column]!;
     const pin = column < pinned;
-    const base = `cell ${laidOut.align}${pin ? ` pin${column === pinned - 1 ? ' last' : ''}` : ''}`;
+    const selected = column >= selFrom && column <= selTo;
+    const base = `cell ${laidOut.align}${pin ? ` pin${column === pinned - 1 ? ' last' : ''}` : ''}${selected ? ' sel' : ''}`;
     const style: CSSProperties = pin ? pinnedStyle(laidOut, gutter) : { width: laidOut.width };
     if (failed !== null) return null;
+    if (selected) {
+      const edges = selectionEdges(column, pinned, selFrom, selTo, selTop, selBottom, column === active);
+      if (edges) style.boxShadow = edges;
+    }
     if (!page) {
       // Keyed apart from the loaded cells, so a row that loads gets new cells (Element Timing).
       return h('div', { key: `pending:${column}`, className: `${base} pending`, style, 'data-column': column, role: 'cell', 'aria-colindex': column + 1 }, h('div', { className: 'bar' }));
@@ -213,7 +244,8 @@ export const WideRow = /* @__PURE__ */ memo(function WideRow(props: WideRowProps
       const fill = rampCss(HEAT, at);
       const mixed = rampAt(heat, at);
       if (fill && mixed) {
-        style.background = fill;
+        // Selected: the tint over the fill, which stays clear of the row's line.
+        style.background = selected ? `linear-gradient(var(--table-active), var(--table-active)), linear-gradient(${fill}, ${fill}) 0 0 / 100% calc(100% - 1px) no-repeat` : fill;
         if (frame.textOver(mixed, kind) === 'background') className += ' on-fill';
       }
     }
@@ -228,12 +260,26 @@ export const WideRow = /* @__PURE__ */ memo(function WideRow(props: WideRowProps
   return h(
     'div',
     { className: `row ${kind}`, 'data-row': row, style: { transform: `translateY(${top}px)` }, ...rowAria(row) },
-    h('div', { className: 'num', style: { width: gutter }, ...GUTTER_ARIA }, formatCount(row + 1)),
+    h('div', { className: selFrom >= 0 ? 'num sel' : 'num', style: { width: gutter }, ...GUTTER_ARIA }, formatCount(row + 1)),
     pinnedCells,
     h('div', { key: ' gap', className: 'gap', style: { width: gap } }),
     scrolled,
   );
 });
+
+/** A selected cell's edges, as the table's tint and active cell draw them
+ *  (`render_selection`): the range's 1 px border where the cell is on its
+ *  side (split at the run's edge, each piece edged), the active cell's 2 px. */
+function selectionEdges(column: number, pinned: number, from: number, to: number, top: boolean, bottom: boolean, active: boolean): string | undefined {
+  const color = 'var(--table-active-border)';
+  const edges: string[] = [];
+  if (active) edges.push(`inset 0 0 0 2px ${color}`);
+  if (top) edges.push(`inset 0 1px 0 0 ${color}`);
+  if (bottom) edges.push(`inset 0 -1px 0 0 ${color}`);
+  if (column === from || (column === pinned && from < pinned)) edges.push(`inset 1px 0 0 0 ${color}`);
+  if (column === to || (column === pinned - 1 && to >= pinned)) edges.push(`inset -1px 0 0 0 ${color}`);
+  return edges.length ? edges.join(', ') : undefined;
+}
 
 /** The pinned run's edge: a 1 px line over the frame at its right, through
  *  the header and the body, above the horizontal scrollbar (the table's

@@ -1,0 +1,275 @@
+{
+  "date": "2026-11-12",
+  "label": "m14-b-wide-tools",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "viewport": "1440x900",
+  "deviceScaleFactor": 2,
+  "dprNote": "the tools' page and touch sections ran at DPR 1, in the browsers they name",
+  "scenario": "wide-sheet",
+  "results": {
+    "gpui": {
+      "rows-26": {
+        "stop": "rows-26",
+        "theme": "light",
+        "rowHeight": 26,
+        "dayWidth": 96,
+        "textSize": 13,
+        "pinned": 2,
+        "rows": 32,
+        "columns": 12,
+        "cells": 384,
+        "heatFills": 127,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "rows-26 dark": {
+        "stop": "rows-26",
+        "theme": "dark",
+        "rowHeight": 26,
+        "dayWidth": 96,
+        "textSize": 13,
+        "pinned": 2,
+        "rows": 32,
+        "columns": 12,
+        "cells": 384,
+        "heatFills": 111,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "rows-22": {
+        "stop": "rows-22",
+        "theme": "light",
+        "rowHeight": 22,
+        "dayWidth": 80,
+        "textSize": 12,
+        "pinned": 2,
+        "rows": 38,
+        "columns": 15,
+        "cells": 570,
+        "heatFills": 155,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "rows-22 dark": {
+        "stop": "rows-22",
+        "theme": "dark",
+        "rowHeight": 22,
+        "dayWidth": 80,
+        "textSize": 12,
+        "pinned": 2,
+        "rows": 38,
+        "columns": 15,
+        "cells": 570,
+        "heatFills": 135,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "rows-20": {
+        "stop": "rows-20",
+        "theme": "light",
+        "rowHeight": 20,
+        "dayWidth": 68,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 42,
+        "columns": 17,
+        "cells": 714,
+        "heatFills": 173,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "rows-20 dark": {
+        "stop": "rows-20",
+        "theme": "dark",
+        "rowHeight": 20,
+        "dayWidth": 68,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 42,
+        "columns": 17,
+        "cells": 714,
+        "heatFills": 151,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "rows-18": {
+        "stop": "rows-18",
+        "theme": "light",
+        "rowHeight": 18,
+        "dayWidth": 56,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 47,
+        "columns": 20,
+        "cells": 940,
+        "heatFills": 195,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "rows-18 dark": {
+        "stop": "rows-18",
+        "theme": "dark",
+        "rowHeight": 18,
+        "dayWidth": 56,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 47,
+        "columns": 20,
+        "cells": 940,
+        "heatFills": 168,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "default": {
+        "stop": "rows-20",
+        "theme": "light",
+        "rowHeight": 20,
+        "dayWidth": 68,
+        "textSize": 11,
+        "pinned": 2,
+        "rows": 42,
+        "columns": 17,
+        "cells": 714,
+        "heatFills": 173,
+        "heatChecked": 40,
+        "heatMatched": 40,
+        "controlMatched": 0
+      },
+      "an unknown stop": "failed",
+      "an unknown scenario": "failed",
+      "the wide sheet on the base build": "failed",
+      "Big file on the base build, by default": "filled",
+      "tools": {
+        "window": {
+          "resize": {
+            "dayWidth": 68,
+            "dragged": 128,
+            "fitted": 46,
+            "placeHeldAt": 511,
+            "pinnedEdge": 668,
+            "cellsWidth": 1336
+          },
+          "copy": {
+            "layoutHeldThroughScroll": true,
+            "weekCells": 74424,
+            "weekChars": 346361,
+            "weekSame": true,
+            "weekMarks": [
+              "contender:copy-started",
+              "contender:copied",
+              "contender:copy-written"
+            ],
+            "blockSame": true,
+            "declinedMarks": [
+              "contender:copy-declined"
+            ],
+            "sheetBytes": 18865525,
+            "sheetSame": true,
+            "sheetMarks": [
+              "contender:copy-started",
+              "contender:copied",
+              "contender:copy-written"
+            ],
+            "declinedAgainMarks": [
+              "contender:copy-declined"
+            ],
+            "ctrlC": true,
+            "cmdShiftCMarks": []
+          },
+          "unmeasured": []
+        },
+        "touch": {
+          "deviceScaleFactor": 1,
+          "tapSelected": true,
+          "bandDragResized": false,
+          "width": 68
+        },
+        "page-chromium": {
+          "browser": "chromium",
+          "version": "153.0.8010.12",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 21.355000495910645
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        },
+        "page-firefox": {
+          "browser": "firefox",
+          "version": "155.0",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 2.5599999999999454
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        },
+        "page-webkit": {
+          "browser": "webkit",
+          "version": "26.6",
+          "deviceScaleFactor": 1,
+          "readout": {
+            "messages": 6,
+            "states": [
+              null,
+              null,
+              null,
+              "copying",
+              "writing",
+              "written"
+            ],
+            "pasted": true,
+            "ms": 5
+          },
+          "bare": {
+            "messages": 0,
+            "exported": false
+          }
+        }
+      }
+    }
+  },
+  "failures": []
+}

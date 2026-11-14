@@ -1,8 +1,9 @@
-//! `copy`'s native tests (no fixture: TanStack Table has no copy, so no DOM
-//! contender builds it). The table's element in a window of GPUI's test
-//! app, so the keys go through its contexts, over a source whose reads
-//! answer at once or when a test says, each value a function of its row and
-//! column (and the source's version, for `live`).
+//! `copy`'s native tests: what `fixtures/copy.json` doesn't pin (the
+//! reads, the turns, the cancels, the events' order). The table's element
+//! in a window of GPUI's test app, so the keys go through its contexts,
+//! over a source whose reads answer at once or when a test says, each
+//! value a function of its row and column (and the source's version, for
+//! `live`).
 
 use std::cell::{Cell as Counter, RefCell};
 use std::ops::{Range, RangeInclusive};

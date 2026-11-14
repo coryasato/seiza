@@ -1,0 +1,2279 @@
+{
+  "date": "2026-11-11",
+  "label": "gpui-kit-ab-interleaved-0.9.0-response",
+  "metric": "response",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "inputsPerKind": 6,
+  "wheelPx": 300,
+  "wheel": "mouse.wheel",
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "key": {
+            "ms": 12.9,
+            "realMs": 12.9,
+            "guarded": "60/60",
+            "types": [
+              "KEY_PRESSED"
+            ]
+          },
+          "track": {
+            "ms": 13.4,
+            "realMs": 13.7,
+            "guarded": "60/60",
+            "types": [
+              "MOUSE_PRESSED"
+            ]
+          },
+          "wheel": {
+            "ms": 34.9,
+            "realMs": 34.9,
+            "guarded": "60/60",
+            "types": [
+              "MOUSE_WHEEL"
+            ]
+          }
+        },
+        "runs": [
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 17.92,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 17.92,
+                  "agrees": true
+                },
+                "realMs": 17.92
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 14.09,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.09,
+                  "agrees": true
+                },
+                "realMs": 14.09
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.51,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.51,
+                  "agrees": true
+                },
+                "realMs": 13.51
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 5.88,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 5.88,
+                  "agrees": true
+                },
+                "realMs": 5.88
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.48,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.48,
+                  "agrees": true
+                },
+                "realMs": 13.48
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.22,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.22,
+                  "agrees": true
+                },
+                "realMs": 13.22
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 9.96,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 9.96,
+                  "agrees": true
+                },
+                "realMs": 80.31
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 9.81,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 9.81,
+                  "agrees": true
+                },
+                "realMs": 60.72
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 12.97,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.97,
+                  "agrees": true
+                },
+                "realMs": 12.97
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 19.09,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 19.09,
+                  "agrees": true
+                },
+                "realMs": 19.09
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.28,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.28,
+                  "agrees": true
+                },
+                "realMs": 13.28
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 12.54,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.54,
+                  "agrees": true
+                },
+                "realMs": 12.54
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 37.71,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 37.71,
+                  "agrees": true
+                },
+                "realMs": 37.71
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 44.73,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 44.73,
+                  "agrees": true
+                },
+                "realMs": 44.73
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 32.14,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 32.14,
+                  "agrees": true
+                },
+                "realMs": 32.14
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 35.04,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 35.04,
+                  "agrees": true
+                },
+                "realMs": 35.04
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 37.51,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 37.51,
+                  "agrees": true
+                },
+                "realMs": 37.51
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 32.59,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 32.59,
+                  "agrees": true
+                },
+                "realMs": 32.59
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 7.01,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.01,
+                  "agrees": true
+                },
+                "realMs": 7.01
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.92,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.92,
+                  "agrees": true
+                },
+                "realMs": 13.92
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.47,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.47,
+                  "agrees": true
+                },
+                "realMs": 13.47
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.57,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.57,
+                  "agrees": true
+                },
+                "realMs": 12.57
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.89,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.89,
+                  "agrees": true
+                },
+                "realMs": 12.89
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.95,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.95,
+                  "agrees": true
+                },
+                "realMs": 12.95
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 16.36,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 16.36,
+                  "agrees": true
+                },
+                "realMs": 80.15
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 7.78,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.78,
+                  "agrees": true
+                },
+                "realMs": 37.57
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.43,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.43,
+                  "agrees": true
+                },
+                "realMs": 13.43
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 25.02,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 25.02,
+                  "agrees": true
+                },
+                "realMs": 25.02
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.36,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.36,
+                  "agrees": true
+                },
+                "realMs": 13.36
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 14.28,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.28,
+                  "agrees": true
+                },
+                "realMs": 14.28
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 38.34,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 38.34,
+                  "agrees": true
+                },
+                "realMs": 38.34
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 43.45,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 43.45,
+                  "agrees": true
+                },
+                "realMs": 43.45
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.77,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.77,
+                  "agrees": true
+                },
+                "realMs": 33.77
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 35.24,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 35.24,
+                  "agrees": true
+                },
+                "realMs": 35.24
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 32.47,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 32.47,
+                  "agrees": true
+                },
+                "realMs": 32.47
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.72,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.72,
+                  "agrees": true
+                },
+                "realMs": 36.72
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 19.19,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 19.19,
+                  "agrees": true
+                },
+                "realMs": 19.19
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.68,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.68,
+                  "agrees": true
+                },
+                "realMs": 13.68
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.79,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.79,
+                  "agrees": true
+                },
+                "realMs": 13.79
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 10.34,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 10.34,
+                  "agrees": true
+                },
+                "realMs": 10.34
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.45,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.45,
+                  "agrees": true
+                },
+                "realMs": 12.45
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.01,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.01,
+                  "agrees": true
+                },
+                "realMs": 13.01
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.95,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.95,
+                  "agrees": true
+                },
+                "realMs": 77.54
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 9.3,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 9.3,
+                  "agrees": true
+                },
+                "realMs": 43.62
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.11,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.11,
+                  "agrees": true
+                },
+                "realMs": 13.11
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 12.46,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.46,
+                  "agrees": true
+                },
+                "realMs": 12.46
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 12.63,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.63,
+                  "agrees": true
+                },
+                "realMs": 12.63
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 14.49,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.49,
+                  "agrees": true
+                },
+                "realMs": 14.49
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.63,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.63,
+                  "agrees": true
+                },
+                "realMs": 33.63
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 42.4,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 42.4,
+                  "agrees": true
+                },
+                "realMs": 42.4
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 31.86,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 31.86,
+                  "agrees": true
+                },
+                "realMs": 31.86
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 38.77,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 38.77,
+                  "agrees": true
+                },
+                "realMs": 38.77
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.04,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.04,
+                  "agrees": true
+                },
+                "realMs": 33.04
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.82,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.82,
+                  "agrees": true
+                },
+                "realMs": 33.82
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 7.18,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.18,
+                  "agrees": true
+                },
+                "realMs": 7.18
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.58,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.58,
+                  "agrees": true
+                },
+                "realMs": 13.58
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.69,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.69,
+                  "agrees": true
+                },
+                "realMs": 13.69
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.44,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.44,
+                  "agrees": true
+                },
+                "realMs": 12.44
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.79,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.79,
+                  "agrees": true
+                },
+                "realMs": 12.79
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.01,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.01,
+                  "agrees": true
+                },
+                "realMs": 13.01
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.7,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.7,
+                  "agrees": true
+                },
+                "realMs": 79.22
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.2,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.2,
+                  "agrees": true
+                },
+                "realMs": 83.8
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 8.82,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 8.82,
+                  "agrees": true
+                },
+                "realMs": 8.82
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.78,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.78,
+                  "agrees": true
+                },
+                "realMs": 13.78
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.54,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.54,
+                  "agrees": true
+                },
+                "realMs": 13.54
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 21.01,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 21.01,
+                  "agrees": true
+                },
+                "realMs": 21.01
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 24.65,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 24.65,
+                  "agrees": true
+                },
+                "realMs": 24.65
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 42.19,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 42.19,
+                  "agrees": true
+                },
+                "realMs": 42.19
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.88,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.88,
+                  "agrees": true
+                },
+                "realMs": 36.88
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.85,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.85,
+                  "agrees": true
+                },
+                "realMs": 33.85
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.2,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.2,
+                  "agrees": true
+                },
+                "realMs": 36.2
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.17,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.17,
+                  "agrees": true
+                },
+                "realMs": 36.17
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 6.93,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 6.93,
+                  "agrees": true
+                },
+                "realMs": 6.93
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 14.11,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.11,
+                  "agrees": true
+                },
+                "realMs": 14.11
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.68,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.68,
+                  "agrees": true
+                },
+                "realMs": 13.68
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.66,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.66,
+                  "agrees": true
+                },
+                "realMs": 13.66
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.98,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.98,
+                  "agrees": true
+                },
+                "realMs": 12.98
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.03,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.03,
+                  "agrees": true
+                },
+                "realMs": 13.03
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 21.04,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 21.04,
+                  "agrees": true
+                },
+                "realMs": 64.84
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.57,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.57,
+                  "agrees": true
+                },
+                "realMs": 82.53
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 14.04,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.04,
+                  "agrees": true
+                },
+                "realMs": 14.04
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 7.71,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.71,
+                  "agrees": true
+                },
+                "realMs": 7.71
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 7.07,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.07,
+                  "agrees": true
+                },
+                "realMs": 7.07
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 21.48,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 21.48,
+                  "agrees": true
+                },
+                "realMs": 21.48
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.61,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.61,
+                  "agrees": true
+                },
+                "realMs": 34.61
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 43.08,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 43.08,
+                  "agrees": true
+                },
+                "realMs": 43.08
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.33,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.33,
+                  "agrees": true
+                },
+                "realMs": 34.33
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.33,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.33,
+                  "agrees": true
+                },
+                "realMs": 34.33
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.69,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.69,
+                  "agrees": true
+                },
+                "realMs": 36.69
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 35,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 35,
+                  "agrees": true
+                },
+                "realMs": 35
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 6.99,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 6.99,
+                  "agrees": true
+                },
+                "realMs": 6.99
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.73,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.73,
+                  "agrees": true
+                },
+                "realMs": 13.73
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.52,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.52,
+                  "agrees": true
+                },
+                "realMs": 13.52
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.96,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.96,
+                  "agrees": true
+                },
+                "realMs": 12.96
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.09,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.09,
+                  "agrees": true
+                },
+                "realMs": 13.09
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.06,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.06,
+                  "agrees": true
+                },
+                "realMs": 13.06
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 16.56,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 16.56,
+                  "agrees": true
+                },
+                "realMs": 79.21
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.55,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.55,
+                  "agrees": true
+                },
+                "realMs": 83.76
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.66,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.66,
+                  "agrees": true
+                },
+                "realMs": 13.66
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 7.58,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.58,
+                  "agrees": true
+                },
+                "realMs": 7.58
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 6.74,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 6.74,
+                  "agrees": true
+                },
+                "realMs": 6.74
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 23.71,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 23.71,
+                  "agrees": true
+                },
+                "realMs": 23.71
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 28.87,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 28.87,
+                  "agrees": true
+                },
+                "realMs": 28.87
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 41.61,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 41.61,
+                  "agrees": true
+                },
+                "realMs": 41.61
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 35.45,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 35.45,
+                  "agrees": true
+                },
+                "realMs": 35.45
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.35,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.35,
+                  "agrees": true
+                },
+                "realMs": 34.35
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.91,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.91,
+                  "agrees": true
+                },
+                "realMs": 36.91
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.36,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.36,
+                  "agrees": true
+                },
+                "realMs": 36.36
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 6.72,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 6.72,
+                  "agrees": true
+                },
+                "realMs": 6.72
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 14.03,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.03,
+                  "agrees": true
+                },
+                "realMs": 14.03
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.5,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.5,
+                  "agrees": true
+                },
+                "realMs": 13.5
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 11.19,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 11.19,
+                  "agrees": true
+                },
+                "realMs": 11.19
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.61,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.61,
+                  "agrees": true
+                },
+                "realMs": 12.61
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.1,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.1,
+                  "agrees": true
+                },
+                "realMs": 13.1
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.67,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.67,
+                  "agrees": true
+                },
+                "realMs": 82.52
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.19,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.19,
+                  "agrees": true
+                },
+                "realMs": 83.31
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 12.77,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.77,
+                  "agrees": true
+                },
+                "realMs": 12.77
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 14.09,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.09,
+                  "agrees": true
+                },
+                "realMs": 14.09
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 9.37,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 9.37,
+                  "agrees": true
+                },
+                "realMs": 9.37
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.45,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.45,
+                  "agrees": true
+                },
+                "realMs": 13.45
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 35.68,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 35.68,
+                  "agrees": true
+                },
+                "realMs": 35.68
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 43.95,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 43.95,
+                  "agrees": true
+                },
+                "realMs": 43.95
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.9,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.9,
+                  "agrees": true
+                },
+                "realMs": 33.9
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.18,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.18,
+                  "agrees": true
+                },
+                "realMs": 34.18
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 36.83,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 36.83,
+                  "agrees": true
+                },
+                "realMs": 36.83
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.79,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.79,
+                  "agrees": true
+                },
+                "realMs": 34.79
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 7.48,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.48,
+                  "agrees": true
+                },
+                "realMs": 7.48
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.78,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.78,
+                  "agrees": true
+                },
+                "realMs": 13.78
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.31,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.31,
+                  "agrees": true
+                },
+                "realMs": 13.31
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.82,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.82,
+                  "agrees": true
+                },
+                "realMs": 12.82
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.65,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.65,
+                  "agrees": true
+                },
+                "realMs": 12.65
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 18.63,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 18.63,
+                  "agrees": true
+                },
+                "realMs": 18.63
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 16.25,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 16.25,
+                  "agrees": true
+                },
+                "realMs": 83.51
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 14.73,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.73,
+                  "agrees": true
+                },
+                "realMs": 87.77
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 6.04,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 6.04,
+                  "agrees": true
+                },
+                "realMs": 6.04
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.61,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.61,
+                  "agrees": true
+                },
+                "realMs": 13.61
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.82,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.82,
+                  "agrees": true
+                },
+                "realMs": 13.82
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 21.67,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 21.67,
+                  "agrees": true
+                },
+                "realMs": 21.67
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.23,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.23,
+                  "agrees": true
+                },
+                "realMs": 33.23
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 37.17,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 37.17,
+                  "agrees": true
+                },
+                "realMs": 37.17
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 39.42,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 39.42,
+                  "agrees": true
+                },
+                "realMs": 39.42
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.68,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.68,
+                  "agrees": true
+                },
+                "realMs": 34.68
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.03,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.03,
+                  "agrees": true
+                },
+                "realMs": 34.03
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.29,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.29,
+                  "agrees": true
+                },
+                "realMs": 33.29
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 7.19,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.19,
+                  "agrees": true
+                },
+                "realMs": 7.19
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.73,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.73,
+                  "agrees": true
+                },
+                "realMs": 13.73
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.13,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.13,
+                  "agrees": true
+                },
+                "realMs": 13.13
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.39,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.39,
+                  "agrees": true
+                },
+                "realMs": 13.39
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.66,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.66,
+                  "agrees": true
+                },
+                "realMs": 12.66
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.09,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.09,
+                  "agrees": true
+                },
+                "realMs": 13.09
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 15.63,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 15.63,
+                  "agrees": true
+                },
+                "realMs": 86.28
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 14.23,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.23,
+                  "agrees": true
+                },
+                "realMs": 85.09
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 9.54,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 9.54,
+                  "agrees": true
+                },
+                "realMs": 9.54
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 6.73,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 6.73,
+                  "agrees": true
+                },
+                "realMs": 6.73
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 12.74,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.74,
+                  "agrees": true
+                },
+                "realMs": 12.74
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.98,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.98,
+                  "agrees": true
+                },
+                "realMs": 13.98
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 39.36,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 39.36,
+                  "agrees": true
+                },
+                "realMs": 39.36
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 44.51,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 44.51,
+                  "agrees": true
+                },
+                "realMs": 44.51
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.52,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.52,
+                  "agrees": true
+                },
+                "realMs": 34.52
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 35.27,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 35.27,
+                  "agrees": true
+                },
+                "realMs": 35.27
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 45.78,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 45.78,
+                  "agrees": true
+                },
+                "realMs": 45.78
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 29.41,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 29.41,
+                  "agrees": true
+                },
+                "realMs": 29.41
+              }
+            ],
+            "failures": []
+          },
+          {
+            "readings": [
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 7.34,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 7.34,
+                  "agrees": true
+                },
+                "realMs": 7.34
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.96,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.96,
+                  "agrees": true
+                },
+                "realMs": 13.96
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.7,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.7,
+                  "agrees": true
+                },
+                "realMs": 13.7
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.42,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.42,
+                  "agrees": true
+                },
+                "realMs": 12.42
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 12.81,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.81,
+                  "agrees": true
+                },
+                "realMs": 12.81
+              },
+              {
+                "side": "gpui",
+                "kind": "key",
+                "ms": 13.04,
+                "type": "KEY_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.04,
+                  "agrees": true
+                },
+                "realMs": 13.04
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 8.69,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 8.69,
+                  "agrees": true
+                },
+                "realMs": 51.75
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 14.62,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 14.62,
+                  "agrees": true
+                },
+                "realMs": 62.85
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.19,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.19,
+                  "agrees": true
+                },
+                "realMs": 13.19
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 13.84,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 13.84,
+                  "agrees": true
+                },
+                "realMs": 13.84
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 12.56,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 12.56,
+                  "agrees": true
+                },
+                "realMs": 12.56
+              },
+              {
+                "side": "gpui",
+                "kind": "track",
+                "ms": 20.44,
+                "type": "MOUSE_PRESSED",
+                "guard": {
+                  "by": "probe",
+                  "ms": 20.44,
+                  "agrees": true
+                },
+                "realMs": 20.44
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 38.25,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 38.25,
+                  "agrees": true
+                },
+                "realMs": 38.25
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 45.96,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 45.96,
+                  "agrees": true
+                },
+                "realMs": 45.96
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.8,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.8,
+                  "agrees": true
+                },
+                "realMs": 33.8
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 33.8,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 33.8,
+                  "agrees": true
+                },
+                "realMs": 33.8
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 38.05,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 38.05,
+                  "agrees": true
+                },
+                "realMs": 38.05
+              },
+              {
+                "side": "gpui",
+                "kind": "wheel",
+                "ms": 34.82,
+                "type": "MOUSE_WHEEL",
+                "guard": {
+                  "by": "probe",
+                  "ms": 34.82,
+                  "agrees": true
+                },
+                "realMs": 34.82
+              }
+            ],
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": [],
+  "interleaved": "one cold run a round over 10 rounds, against the other gpui-kit build, the order alternating by round (0.9.0 first in odd rounds); each round its own invocation, the build swapped into web/dist and dist-wide before it",
+  "mergedFrom": [
+    "2026-11-11-abtmp-response-090-r1.json",
+    "2026-11-11-abtmp-response-090-r2.json",
+    "2026-11-11-abtmp-response-090-r3.json",
+    "2026-11-11-abtmp-response-090-r4.json",
+    "2026-11-11-abtmp-response-090-r5.json",
+    "2026-11-11-abtmp-response-090-r6.json",
+    "2026-11-11-abtmp-response-090-r7.json",
+    "2026-11-11-abtmp-response-090-r8.json",
+    "2026-11-11-abtmp-response-090-r9.json",
+    "2026-11-11-abtmp-response-090-r10.json"
+  ],
+  "summarizedFrom": "2026-11-11-gpui-kit-ab-0.9.0-response-merged.json"
+}

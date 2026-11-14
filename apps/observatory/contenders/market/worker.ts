@@ -1,6 +1,7 @@
 /**
- * Market watch's feed worker: one per contender frame, ended with it (one
- * contender runs at a time). Started by a message (`FeedStart`), it sends
+ * Market watch's feed worker, and the monitoring wall's: one per contender
+ * frame, ended with it (one contender runs at a time). Started by a message
+ * (`FeedStart`: on the wall with its stop's instruments' prices), it sends
  * `rate` ticks a second, about every 16 ms a batch of the ticks due
  * (`feed.ts`'s `Rate`), each batch one transferred `ArrayBuffer`. The send
  * time is stamped last, right before the post, so the transport's time
@@ -18,6 +19,10 @@ export interface FeedStart {
   seed: number;
   /** Stop after this many ticks (0: never). */
   limit: number;
+  /** The instruments' reference prices, in the feed's order: the
+   *  monitoring wall's stop's desks (`contenders/wall/desks.ts`); market
+   *  watch's 50 when left out. */
+  prices?: number[];
 }
 
 /** The interval between batches, ms: about a frame. */
@@ -27,9 +32,9 @@ export const INTERVAL_MS = 16;
 declare const self: { onmessage: ((event: MessageEvent<FeedStart>) => void) | null; postMessage(message: unknown, transfer: Transferable[]): void };
 
 if (typeof self !== 'undefined' && typeof (self as unknown as { importScripts?: unknown }).importScripts === 'function') {
-  self.onmessage = ({ data: { rate, seed, limit } }: MessageEvent<FeedStart>) => {
+  self.onmessage = ({ data: { rate, seed, limit, prices } }: MessageEvent<FeedStart>) => {
     self.onmessage = null;
-    const feed = new Feed(seed);
+    const feed = new Feed(seed, prices);
     const owed = new Rate(rate, performance.now());
     let seq = 0;
     let sent = 0;

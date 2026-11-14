@@ -74,5 +74,5 @@ await runMetric<Run>(
     firstPixelsMs: medianOf(runs, (run) => run.firstPixelsMs),
   }),
   {},
-  { levels: ['base', 'wide', 'market', 'tail'], fontsToggle: true },
+  { levels: ['base', 'wide', 'market', 'tail', 'wall'], fontsToggle: true },
 );

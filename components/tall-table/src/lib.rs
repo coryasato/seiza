@@ -30,6 +30,8 @@ mod paint;
 #[cfg(feature = "pin")]
 mod pin;
 mod probe;
+#[cfg(feature = "reorder")]
+mod reorder;
 mod scroll;
 #[cfg(feature = "select")]
 mod selection;

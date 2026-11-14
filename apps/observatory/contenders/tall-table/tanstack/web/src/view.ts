@@ -15,16 +15,19 @@ import type { Column, TablePage } from './data/table.ts';
 import type { TablePaging } from './data/paging.ts';
 import { MARKS, measuring } from '../../../../contract.ts';
 import { cellTooltip, shownRow } from './cells.ts';
-import { TableContract } from './contract.ts';
+import { TableContract, wallContract } from './contract.ts';
 import { BASE_SIZES, formatCount, gutterWidth, layOutAll, type LaidOutColumn } from './layout.ts';
 import { sceneColumns, type WideScene } from './scene.ts';
 import { SCROLL, ScaledScroller } from './scroll.ts';
 import { CellTooltip } from './tooltip.ts';
 import { EdgeLine, WideHead, WideRow, cellElement, cellRect, publishCells, sheetStyle, useFramePaint, useSheet } from './wide.ts';
+import { PinnedBands, headBands, publishLayout, useWideTools, type ToolRefs, type Tools } from './wide-tools.ts';
+import { selectedColumns, selectedRows } from './select.ts';
 import { FlashTurns, MarketRow, publishMarketCells, type MarketCells } from './market.ts';
 import { TailReader, TailRow, drawnRows, publishTailCells, renotify, setContractGutter, setModelRows, type TailCells } from './tail.ts';
 import { isFollowing, noteTailDrawn } from './data/follow.ts';
 import { BODY_ARIA, GUTTER_ARIA, HEAD_ARIA, NONE_ARIA, rowAria, tableAria } from './aria.ts';
+import { WallFrame, keepBarRoom, publishWallCells, type WallData, type WallTable } from './wall.ts';
 
 /** The rows TanStack Virtual is given around the content's base, not the
  *  full count (its measurements of every row would cost ~30 MiB). */
@@ -32,11 +35,17 @@ const WINDOW_ROWS = 4096;
 
 export type Load =
   | { kind: 'waiting'; status: string; failed?: boolean; first?: boolean }
-  | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<TablePage>; scene?: LevelScene };
+  | { kind: 'open'; id: number; rows: number; columns: Column[]; paging: TablePaging<TablePage>; scene?: LevelScene }
+  /** The monitoring wall's: the stop's tables (`data/wall.ts`). */
+  | { kind: 'wall'; id: number; wall: WallData };
+
+/** A status line's load. */
+type Waiting = Extract<Load, { kind: 'waiting' }>;
 
 /** What a feature level hands the table: the wide sheet's scene at its
- *  stop, market watch's cells, live tail's cells (`main.ts`). */
-export type LevelScene = WideScene | MarketCells | TailCells;
+ *  stop, market watch's cells, live tail's cells (`main.ts`), a monitoring
+ *  wall's desk (`WallGrid`). */
+export type LevelScene = WideScene | MarketCells | TailCells | WallTable;
 
 /** The first screen: the build prerenders it into the page's HTML
  *  (`vite.config.ts`), and the page hydrates it. */
@@ -63,21 +72,25 @@ export function App({ load, hydrated }: AppProps): ReactNode {
   return h(
     'div',
     {
-      className: 'page',
+      // The wall's grid pads itself (`wall.css`).
+      className: __LEVEL__ === 'wall' && load.kind === 'wall' ? 'page wall-page' : 'page',
       // With the table open, a press outside it leaves the focus where it
       // is, as in GPUI, which has no blur on a press: the table keeps its
       // keys and its ring. (A status line stays selectable.)
       onMouseDown: (event: { target: EventTarget; preventDefault(): void }) => {
-        if (load.kind === 'open' && !(event.target as Element).closest('.scroller')) event.preventDefault();
+        if ((load.kind === 'open' || (__LEVEL__ === 'wall' && load.kind === 'wall')) && !(event.target as Element).closest('.scroller')) event.preventDefault();
       },
     },
     load.kind === 'open'
       ? // Keyed by the paging: a new open is a new table, model, and virtualizer.
         h(Table, { key: load.id, open: load.id, rows: load.rows, columns: load.columns, paging: load.paging, scene: load.scene })
-      : // Element Timing on the first screen's line (only the first: a later
-        // status line, after a reopen, is a new element): its paint is
-        // `contender:first-pixels`.
-        h('div', { className: `frame status${load.failed ? ' failed' : ''}`, elementtiming: load.first ? 'first-screen' : undefined }, load.status),
+      : __LEVEL__ === 'wall' && load.kind === 'wall'
+        ? h(WallGrid, { key: load.id, open: load.id, wall: load.wall })
+        : // Element Timing on the first screen's line (only the first: a later
+          // status line, after a reopen, is a new element): its paint is
+          // `contender:first-pixels`. (Waiting: the build constant above
+          // doesn't narrow the load's type.)
+          h('div', { className: `frame status${(load as Waiting).failed ? ' failed' : ''}`, elementtiming: (load as Waiting).first ? 'first-screen' : undefined }, (load as Waiting).status),
     h(ProbeKey),
   );
 }
@@ -116,16 +129,31 @@ interface TableProps {
 function Table({ open, rows, columns: fileColumns, paging, scene: given }: TableProps): ReactNode {
   // The wide level's scene: on the base's build, never (its code is dropped).
   const scene = __LEVEL__ === 'wide' ? (given as WideScene | undefined) : undefined;
-  const sizes = scene?.sizes ?? BASE_SIZES;
+  // A monitoring wall's desk: its cells and the frame the wall's tables share.
+  const wall = __LEVEL__ === 'wall' ? (given as WallTable | undefined) : undefined;
+  const sizes = scene?.sizes ?? (__LEVEL__ === 'wall' && wall ? wall.cells.sizes : BASE_SIZES);
   const rowHeight = sizes.row;
   // The market level's cells, laid out by the data layer (a build constant,
   // so on another level it's nothing).
-  const market = __LEVEL__ === 'market' ? (given as MarketCells | undefined) : undefined;
+  // (On the wall, its desk's: market watch's cells at the grid's columns.)
+  const market = __LEVEL__ === 'market' ? (given as MarketCells | undefined) : __LEVEL__ === 'wall' ? wall?.cells : undefined;
   // Live tail's cells, and its rows: the paging's, which the clock grows
   // (the open's count is 0), so the gutter grows with them.
   const tail = __LEVEL__ === 'tail' ? (given as TailCells | undefined) : undefined;
   if (__LEVEL__ === 'tail') rows = paging.rows;
-  const columns = useMemo(() => (scene ? sceneColumns(fileColumns, scene) : __LEVEL__ === 'market' && market ? market.columns : __LEVEL__ === 'tail' && tail ? tail.columns : layOutAll(fileColumns)), [fileColumns, scene]);
+  // The wide level's tools (`resize`, `select`): their widths lay the
+  // columns out; the rest of what they read is the table's, at an input.
+  const frameRef = __LEVEL__ === 'wide' ? useRef<HTMLDivElement>(null) : null;
+  const columnsRef = __LEVEL__ === 'wide' ? useRef<readonly LaidOutColumn[]>([]) : null;
+  const tools: Tools | null =
+    __LEVEL__ === 'wide' && scene
+      ? useWideTools((): ToolRefs => ({ frame: frameRef!, scroller: scrollerRef, model: modelRef, sheet: sheetRef, columns: columnsRef! }), scene, () => gutter, rows, paging, scene.copy, fileColumns)
+      : null;
+  const columns = useMemo(
+    (): LaidOutColumn[] => (scene ? sceneColumns(fileColumns, scene, tools?.widths) : (__LEVEL__ === 'market' || __LEVEL__ === 'wall') && market ? market.columns : __LEVEL__ === 'tail' && tail ? tail.columns : layOutAll(fileColumns)),
+    __LEVEL__ === 'wide' ? [fileColumns, scene, tools?.widths] : [fileColumns, scene],
+  );
+  if (__LEVEL__ === 'wide' && columnsRef) columnsRef.current = columns;
   const gutter = gutterWidth(rows, sizes);
   const width = gutter + columns.reduce((sum, column) => sum + column.width, 0);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -138,7 +166,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   const measured = useMemo(measuring, []);
   // The wide level's pin, its scrolled columns, and its paint (a build
   // constant, so the hooks run the same every render).
-  const sheet = __LEVEL__ === 'wide' && scene ? useSheet(scrollerRef, columns, scene, gutter) : null;
+  const sheet = __LEVEL__ === 'wide' && scene ? useSheet(scrollerRef, columns, scene, gutter, tools?.held?.pinned ?? null) : null;
   const paint = __LEVEL__ === 'wide' && scene ? useFramePaint() : null;
   const sheetRef = useRef(sheet);
   sheetRef.current = sheet;
@@ -146,8 +174,8 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   paintRef.current = paint;
   // The market level's flashes' turns (a build constant, so the hooks run
   // the same every render).
-  const turns = __LEVEL__ === 'market' ? useMemo(() => new FlashTurns(), [paging]) : null;
-  const probedCells = __LEVEL__ === 'market' || __LEVEL__ === 'tail' ? useMemo(probingCells, []) : false;
+  const turns = __LEVEL__ === 'market' || __LEVEL__ === 'wall' ? useMemo(() => new FlashTurns(), [paging]) : null;
+  const probedCells = __LEVEL__ === 'market' || __LEVEL__ === 'tail' || __LEVEL__ === 'wall' ? useMemo(probingCells, []) : false;
   // Live tail's reader: the scroller's moves deciding following, the pin moving the scroller.
   const readerRef = __LEVEL__ === 'tail' ? useRef<TailReader | null>(null) : null;
 
@@ -178,13 +206,13 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
     tooltipRef.current = new CellTooltip(scroller, (row, column) => {
       const state = paging.row(row);
       if (state.kind !== 'loaded') return undefined;
-      const laidOut = columns[column];
+      const laidOut = (__LEVEL__ === 'wide' && columnsRef ? columnsRef.current : columns)[column];
       const tooltip = laidOut ? cellTooltip(laidOut, state.page.value(state.index, column)) : null;
       if (!tooltip) return null;
       // The market level: a fitted text opens it only where the format
       // rounded it; a fallback is judged as the base's (`tooltip_for`).
       // `market` is the open's, as the effect's other inputs are.
-      if (__LEVEL__ === 'market' && market) {
+      if ((__LEVEL__ === 'market' || __LEVEL__ === 'wall') && market) {
         const rounded = market.rounded(column, laidOut!, row, state.page.value(state.index, column)!);
         if (rounded !== null) return rounded ? tooltip.text : null;
       }
@@ -202,7 +230,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
             const shown = sheetRef.current;
             const heat = paintRef.current?.heat;
             if (!shown || !heat) return;
-            publishCells(scroller, columns, shown, gutter, scene, heat, (row) => {
+            publishCells(scroller, columnsRef!.current, shown, gutter, scene, heat, (row) => {
               const state = paging.row(row);
               return state.kind === 'loaded' ? { page: state.page, index: state.index } : null;
             });
@@ -211,8 +239,15 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
           ? () => publishMarketCells(scroller, columns)
           : __LEVEL__ === 'tail' && probingCells()
             ? () => publishTailCells(scroller, columns)
-            : undefined;
-    const contract = new TableContract(open, paging, model, scroller, columns, gutter, measured, rowHeight, probe);
+            : __LEVEL__ === 'wall' && wall && probingCells()
+              ? () => publishWallCells(wall.cells.desk, scroller, columns, gutter, rowHeight)
+              : undefined;
+    // On the wall, the first table publishes the state and the targets;
+    // every table's filled goes to the wall's frame, which marks across them.
+    const contract = new TableContract(open, paging, model, scroller, columns, gutter, __LEVEL__ === 'wall' ? measured && wall?.cells.desk === 0 : measured, rowHeight, probe);
+    if (__LEVEL__ === 'wall' && wall) wallContract(contract, { tables: wall.frame.tables, filled: (filled) => wall.frame.check(wall.cells.desk, filled) });
+    // The wide level's: the replay's jump selects the row it lands on, as the table's `jump_to`.
+    if (__LEVEL__ === 'wide' && tools) contract.jumped = tools.jumped;
     contractRef.current = contract;
     // Subscribed before the virtualizer, whose render checks.
     model.subscribe(() => contract.moveStarted());
@@ -235,7 +270,8 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       paging.setViewportRows(model.viewport / rowHeight);
     });
     resized.observe(scroller);
-    scroller.focus({ preventScroll: true });
+    // On the wall, the first table takes the focus, as on the GPUI side.
+    if (__LEVEL__ !== 'wall' || wall?.cells.desk === 0) scroller.focus({ preventScroll: true });
     rerender();
     return () => {
       contractRef.current?.destroy();
@@ -251,13 +287,20 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       model.destroy();
       modelRef.current = null;
     };
-  }, [open, __LEVEL__ === 'tail' ? 0 : rows, paging, columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
+  }, [open, __LEVEL__ === 'tail' ? 0 : rows, paging, __LEVEL__ === 'wide' ? fileColumns : columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
+
+  // The wide level's layout with `?measure`, at each change but a resize
+  // drag's moves (the table's `Layout`, which its release reports).
+  if (__LEVEL__ === 'wide')
+    useLayoutEffect(() => {
+      if (measured && tools && sheet && tools.resizing === null && scrollerRef.current) publishLayout(scrollerRef.current, columns, sheet, gutter, rowHeight);
+    }, [columns, sheet?.cellsWidth, sheet?.pin.columns, tools?.resizing]);
 
   // The contract after each commit, and after each move that rendered
   // nothing (the rows were drawn already). Subscribed after the
   // virtualizer, whose subscriber renders first.
   useLayoutEffect(() => contractRef.current?.check());
-  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, __LEVEL__ === 'tail' ? 0 : rows, paging, columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
+  useEffect(() => modelRef.current?.subscribe(() => contractRef.current?.moveEnded()), [open, __LEVEL__ === 'tail' ? 0 : rows, paging, __LEVEL__ === 'wide' ? fileColumns : columns, __LEVEL__ === 'tail' ? 0 : gutter, measured, rowHeight, scene]);
   // The table gone (a new open replaced it): its reads and timers stop.
   useEffect(() => () => paging.close(), [paging]);
 
@@ -307,6 +350,33 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       if (drawn === null || !measured) return;
       (globalThis as { __contenderRefreshed?: number }).__contenderRefreshed = drawn;
       performance.mark(MARKS.refreshed);
+    });
+  }
+
+  // The monitoring wall's: a landed page asks the wall's frame, which
+  // commits every table with a landed page at once in the next frame's
+  // callback; the commit
+  // that draws a table's re-read raises its generation drawn
+  // (`__contenderRefreshed` with `?measure`), and the frame marks
+  // `contender:refreshed` once after the commit (`wall.ts`'s `WallFrame`).
+  if (__LEVEL__ === 'wall') {
+    useEffect(() => {
+      if (!wall) return;
+      const unregister = wall.frame.register(wall.cells.desk, rerender);
+      const unroom = keepBarRoom(scrollerRef.current!);
+      paging.onChange = () => {
+        landed.current = true;
+        wall.frame.schedule(wall.cells.desk);
+      };
+      return () => {
+        unregister();
+        unroom();
+        paging.onChange = () => {};
+      };
+    }, [paging]);
+    useLayoutEffect(() => {
+      if (!market || !wall || !(measured || market.readout)) return;
+      if (market.refreshed() !== null) wall.frame.raised();
     });
   }
 
@@ -409,6 +479,10 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
   const model = modelRef.current;
   const base = windowBase();
   rendered.current = { window: base, content: model?.base ?? 0 };
+  // The wide level's selection: the rows and columns it covers.
+  const selection = __LEVEL__ === 'wide' ? (tools?.selection ?? null) : null;
+  const selRows = __LEVEL__ === 'wide' && selection ? selectedRows(selection, rows) : null;
+  const selColumns = __LEVEL__ === 'wide' && selection ? selectedColumns(selection, columns.length) : null;
   const shown = model
     ? virtualizer
         .getVirtualItems()
@@ -430,7 +504,7 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
               probed: probedCells,
               cells: tail,
             });
-          if (__LEVEL__ === 'market' && market && turns)
+          if ((__LEVEL__ === 'market' || __LEVEL__ === 'wall') && market && turns)
             return h(MarketRow, {
               key: row,
               row,
@@ -446,7 +520,8 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
               market,
               turns,
             });
-          if (__LEVEL__ === 'wide' && sheet && paint && scene)
+          if (__LEVEL__ === 'wide' && sheet && paint && scene) {
+            const inRange = selRows !== null && selColumns !== null && row >= selRows[0] && row <= selRows[1];
             return h(WideRow, {
               key: row,
               row,
@@ -464,7 +539,13 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
               frame: paint.frame,
               heat: paint.heat,
               measured,
+              selFrom: inRange ? selColumns![0] : -1,
+              selTo: inRange ? selColumns![1] : -1,
+              selTop: inRange && row === selRows![0],
+              selBottom: inRange && row === selRows![1],
+              active: inRange && tools!.focused && tools!.selection!.anchor[0] === row ? tools!.selection!.anchor[1] : -1,
             });
+          }
           return h(Row, {
             key: row,
             row,
@@ -479,18 +560,22 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
         })
     : [];
 
-  if (__LEVEL__ === 'wide' && sheet && scene)
+  if (__LEVEL__ === 'wide' && sheet && scene && tools) {
+    // A resize holds the content reaching the view's right until the release.
+    const held = tools.held ? gutter + Math.max(width - gutter, tools.held.right) : width;
     return h(
       'div',
-      { className: 'frame wide', style: sheetStyle(sizes) },
+      { ref: frameRef, className: 'frame wide', style: sheetStyle(sizes) },
       h(
         'div',
         { ref: scrollerRef, className: 'scroller', tabIndex: 0, ...tableAria(rows), 'aria-colcount': columns.length },
-        h(WideHead, { columns, sheet, gutter, width, sizes }),
-        h('div', { ref: spacerRef, className: 'spacer', style: { width }, ...NONE_ARIA }, h('div', { ref: contentRef, className: 'content', ...BODY_ARIA }, shown)),
+        h(WideHead, { columns, sheet, gutter, width: held, sizes, selected: selColumns, bands: headBands(columns, sheet, gutter, tools.resizing) }),
+        h('div', { ref: spacerRef, className: 'spacer', style: { width: held }, ...NONE_ARIA }, h('div', { ref: contentRef, className: 'content', ...BODY_ARIA }, shown)),
       ),
+      h(PinnedBands, { columns, sheet, gutter, lit: tools.resizing, sizes }),
       h(EdgeLine, { sheet, gutter }),
     );
+  }
   return h(
     'div',
     { className: 'frame' },
@@ -499,6 +584,40 @@ function Table({ open, rows, columns: fileColumns, paging, scene: given }: Table
       { ref: scrollerRef, className: 'scroller', tabIndex: 0, ...tableAria(rows) },
       h(Head, { columns, gutter, width }),
       h('div', { ref: spacerRef, className: 'spacer', style: { width }, ...NONE_ARIA }, h('div', { ref: contentRef, className: 'content', ...BODY_ARIA }, shown)),
+    ),
+  );
+}
+
+/**
+ * The monitoring wall's grid (`wall.ts`): two rows of N / 2 desks, each its
+ * title over a table of its own (its scroller, its virtualizer, its 50
+ * rows), every table drawn in one commit a frame by the open's
+ * `WallFrame`. Under the grid's `oneColumnBelow`, one column of desks that
+ * the frame scrolls (`wallCss`).
+ */
+/** A desk's file columns: none, its cells' are laid out by the data layer. */
+const NO_COLUMNS: Column[] = [];
+
+function WallGrid({ open, wall }: { open: number; wall: WallData }): ReactNode {
+  const frame = useMemo(() => new WallFrame(wall, measuring()), [wall]);
+  useEffect(() => () => frame.destroy(), [frame]);
+  const across = Math.ceil(wall.desks.length / 2);
+  return h(
+    'div',
+    { className: 'wall' },
+    [0, 1].map((line) =>
+      h(
+        'div',
+        { key: line, className: 'line' },
+        wall.desks.slice(line * across, (line + 1) * across).map((cells) =>
+          h(
+            'div',
+            { key: cells.desk, className: 'desk' },
+            h('div', { className: 'title' }, cells.title),
+            h('div', { className: 'box' }, h(Table, { open, rows: cells.paging.rows, columns: NO_COLUMNS, paging: cells.paging, scene: { cells, frame } })),
+          ),
+        ),
+      ),
     ),
   );
 }

@@ -58,3 +58,8 @@ density = []
 # cell shows the automatic format (`TallTableColumn::format`,
 # `NumberFormat`, `TallTablePage::decimals`).
 format = []
+# The columns drawn in an order the table keeps, a column moved by a drag
+# of its header or `TallTableState::move_columns`; the pages read by each
+# column's index, so a move reads nothing (`TallTableState::order`,
+# `TallTableEvent::ColumnsMoved`).
+reorder = []

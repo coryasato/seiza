@@ -45,6 +45,9 @@ export class TableContract {
   /** Published with each state too, measured or not (the wide level's
    *  `?cells`). */
   private readonly probe: (() => void) | undefined;
+  /** The wide level's (`view.ts` sets it): told the row the replay's jump
+   *  landed on. Declared only, so no other level's build carries a field. */
+  declare jumped?: (row: number) => void;
   private publishing = 0;
   private published = '';
   private targets = '';
@@ -98,7 +101,9 @@ export class TableContract {
   check(): void {
     this.checkedThisMove = true;
     const filled = this.filledNow();
-    if (filled && !this.filled) performance.mark(MARKS.filled);
+    // On the wall, the wall's frame marks across its tables.
+    if (__LEVEL__ === 'wall') (this as unknown as WallInside).wall?.filled(filled);
+    else if (filled && !this.filled) performance.mark(MARKS.filled);
     this.filled = filled;
     this.schedule();
   }
@@ -136,7 +141,10 @@ export class TableContract {
   jump(fraction: number): Promise<void> {
     const rows = this.paging.rows;
     const row = Math.min(Math.floor(Math.min(Math.max(fraction, 0), 1) * rows), Math.max(rows - 1, 0));
-    return this.untilFilled(() => this.model.jumpTo(row * this.rowHeight));
+    const filled = this.untilFilled(() => this.model.jumpTo(row * this.rowHeight));
+    // The wide level's: the row it landed on is selected, as the table's `jump_to` does.
+    if (__LEVEL__ === 'wide') this.jumped?.(row);
+    return filled;
   }
 
   /** Runs `move`, then resolves once the view it led to is filled: after
@@ -173,6 +181,8 @@ export class TableContract {
       lastCell: end === this.paging.rows && end > first ? this.keyOf(end - 1) : null,
       cacheBytes: this.paging.cacheBytes(),
     };
+    // On the wall, the first table's state, with the stop's tables beside it.
+    if (__LEVEL__ === 'wall') (state as ContenderState & { tables?: number }).tables = (this as unknown as WallInside).wall?.tables;
     // Replaced, never mutated in place; only when it changed.
     const text = JSON.stringify(state);
     if (text !== this.published) {
@@ -207,6 +217,19 @@ export class TableContract {
     const global = globalThis as { __seizaTargets?: Record<string, number[]> };
     global.__seizaTargets = { ...global.__seizaTargets, ...targets };
   }
+}
+
+/** A monitoring wall's table's tie to the wall (`wallContract`): read
+ *  through a typed view, so no other level's class carries a field for it. */
+interface WallInside {
+  wall?: { tables: number; filled(filled: boolean): void };
+}
+
+/** On the wall level: `contract`'s table is one of the stop's `tables`, and
+ *  reports each check's filled to the wall (`wall.ts`'s `WallFrame`), which
+ *  marks `contender:filled` across them; its state names the tables. */
+export function wallContract(contract: TableContract, wall: { tables: number; filled(filled: boolean): void }): void {
+  (contract as unknown as WallInside).wall = wall;
 }
 
 /** The replay hooks: `open` reopens the file through `reopen` (which

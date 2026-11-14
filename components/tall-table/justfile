@@ -154,10 +154,13 @@ smoke *args:
 # fixture, the density in a window, and the host's `?density=`; `format`:
 # `cells.json`'s `format` section and its controls, Plex Sans shaped, the
 # format in a window, the host's format and page decimals, and again with
-# `resize`, its fit), and all
+# `resize`, its fit; `reorder`: the move fixture and its controls, the move's
+# rules, and the order in a window), and all
 # on (`copy`'s with `live` among them, `pin` with `resize`, `select`,
 # `sort`, and `custom-cells`, and `density` with `follow`, `resize`,
-# `sort`, and `select`, the fixtures pinned without it unchanged); in each, the random test of the paging
+# `sort`, and `select`, the fixtures pinned without it unchanged, and
+# `reorder` with each, the fixtures pinned without it unchanged too); in
+# each, the random test of the paging
 # with that run's features (16 cases; 48 all on, with its controls). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
@@ -176,7 +179,8 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/density
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/format
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/format,tall-table-host/resize
-    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density,tall-table-host/format
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/reorder
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density,tall-table-host/format,tall-table-host/reorder
 
 # The random test of the paging soaked: `cases` cases for each of `seeds`
 # (`SEED`: a different set of cases each), every feature on, in a release
@@ -187,7 +191,7 @@ soak seeds="1 2 3 4" cases="500":
     for seed in {{seeds}}; do \
         SEED=$seed PROPTEST_CASES={{cases}} \
         CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
-        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin,density state::random::random_paging || exit 1; \
+        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin,density,reorder state::random::random_paging || exit 1; \
     done
 
 # Writes fixtures/paint.json's expected colors from Chromium's

@@ -24,6 +24,13 @@ import { follow, isFollowing, letGo, setFollowControl, setRows, wheel, type Foll
 import { asLevel } from './level.ts';
 import type { Level } from '../../../../scenarios.ts';
 import { pageSql } from '../src/data/sql.ts';
+import { BASE_SIZES, clampWidth, layOut } from '../src/layout.ts';
+import { resolveSizes } from '../src/density.ts';
+import { dragWidth, pressBand } from '../src/resize.ts';
+import { Pin } from '../src/pin.ts';
+import { Selector, selectedColumns, selectedRows, selectionJson, type SelectControl, type SheetView, type Step } from '../src/select.ts';
+import { copyColumns } from '../src/copy.ts';
+import { COPY_OPTIONS, copyKey, copyStart, setCopy, valueText, type CopyControl, type CopyEvent, type CopyKind } from '../src/data/copy.ts';
 
 const fixtures = new URL('../../../../../../../components/tall-table/fixtures/', import.meta.url);
 const fixture = (name: string): any => JSON.parse(readFileSync(new URL(name, fixtures), 'utf8'));
@@ -453,6 +460,27 @@ function formatMismatches(control: FormatControl): string[] {
   return mismatches;
 }
 
+/** A float column at set width `set`, laid out: what it's drawn at, and its budget. */
+const laidOutAt = (set: number): { width: number; budget: number } => layOut({ name: 'x', kind: 'float', width: set });
+
+/** `cells.json`'s `resize` widths and cells that `layout` (a set width →
+ *  its width and budget) doesn't give, each budget `skew` characters off. */
+function resizeMismatches(skew: number, layout: (set: number) => { width: number; budget: number }): string[] {
+  const section = fixture('cells.json').resize;
+  const mismatches: string[] = [];
+  for (const item of section.widths) {
+    const { width, budget } = layout(item.set);
+    if (width !== item.width || Math.max(1, budget + skew) !== item.budget) mismatches.push(`${item.why}: ${width} px, ${budget + skew} characters; the fixture's ${item.width}, ${item.budget}`);
+  }
+  for (const cell of section.cells) {
+    const value = Number(cell.value);
+    const budget = Math.max(1, layout(cell.set).budget + skew);
+    const got = [exactText(value), shownText('float', value, budget)];
+    if (got[0] !== cell.exact || got[1] !== cell.shown) mismatches.push(`${cell.why}: ${JSON.stringify(got)}; the fixture's ${cell.exact} ${cell.shown}`);
+  }
+  return mismatches;
+}
+
 /** A float as Rust's `parse` reads the fixture's text (`inf`, `NaN`). */
 const rustFloat = (text: string): number => (text === 'inf' ? Infinity : text === '-inf' ? -Infinity : Number(text));
 
@@ -468,9 +496,34 @@ describe('cells.json', () => {
     for (const skew of [-1, 1]) assert.notDeepEqual(cellMismatches(skew, exactText), [], `a budget ${skew} passed the cell fixture`);
   });
 
-  // `number_px` and `resize` pin a resized column's budgets: the level is
-  // added only when both sides build resizing (root CLAUDE.md, "Comparison protocol").
-  test('resize', { skip: 'the contender has no column resizing' }, () => {});
+  // `number_px` and `resize` pin a resized column's budgets and text (the
+  // wide level's, `resize.ts`): as the native test reads them
+  // (`state/fixtures/resize.rs`).
+  test('resize', () => {
+    assert.equal(fixture('cells.json').number_px, BASE_SIZES.numberPx, "the fixture's number advance is the layout's");
+    assert.deepEqual(resizeMismatches(0, laidOutAt), []);
+    // The clamp a resize uses is the one `layOut` writes inline: at the
+    // base's sizes, a scaled density's, and the `least-fixed` control's.
+    const scaledSizes = resolveSizes({ rowHeight: 20, text: { px: 11 } });
+    for (const sizes of [BASE_SIZES, scaledSizes, { ...scaledSizes, control: 'least-fixed' as const }]) {
+      for (const set of [0, 10, 30, 31, 40, 60, 1200, 5000]) assert.equal(clampWidth(set, sizes), layOut({ name: 'x', kind: 'float', width: set }, sizes).width, `the clamp at ${set}, ${JSON.stringify(sizes)}`);
+    }
+    // A drag to each width (from a float column at its kind's 120 px) lands
+    // where the layout draws that set width.
+    const kind = layOut({ name: 'x', kind: 'float' });
+    for (const { set } of fixture('cells.json').resize.widths) {
+      if (set === kind.width) continue;
+      const drag = pressBand(0, 0, kind, undefined, false, 0, 1000);
+      assert.equal(dragWidth(drag, set - kind.width, BASE_SIZES), laidOutAt(set).width, `a drag to ${set}`);
+    }
+  });
+
+  test('resize: controls fail', () => {
+    for (const skew of [-1, 1]) assert.notDeepEqual(resizeMismatches(skew, laidOutAt), [], `a budget ${skew} passed the resize fixture`);
+    // Widths laid out without the clamps: the set width as it is.
+    const unclamped = (set: number) => ({ width: set, budget: Math.max(1, Math.floor((set - 17) / BASE_SIZES.numberPx)) });
+    assert.notDeepEqual(resizeMismatches(0, unclamped), [], 'widths laid out without the clamps passed the resize fixture');
+  });
 
   // `format` pins a formatted column's text (market watch's level, `number.ts`).
   test('format', () => {
@@ -608,9 +661,64 @@ test('an open without a row count fails, naming it', async () => {
 
 // --- selection ---
 
-// `selection.json` pins what `select` selects and scrolls to: the level is
-// added only when both sides build selecting (root CLAUDE.md, "Comparison protocol").
-test('selection.json', { skip: 'the contender has no selection' }, () => {});
+// `selection.json` pins what `select` selects and scrolls to (the wide
+// level's, `select.ts`), as the native test drives the element
+// (`state/fixtures/select.rs`): the fixture's targets as points in the
+// table, the base's keys and wheel where the selection doesn't take them.
+
+describe('selection.json', () => {
+  const scenarios = fixture('selection.json').scenarios as { name: string }[];
+  for (const scenario of scenarios) {
+    test(scenario.name, () => {
+      assert.deepEqual(selectionMismatches(null, scenario.name), []);
+    });
+  }
+
+  test('controls fail', () => {
+    for (const control of fixture('selection.json').controls as SelectControl[]) assert.notDeepEqual(selectionMismatches(control), [], `control ${control} passed the selection fixture`);
+  });
+});
+
+// --- copy ---
+
+// `copy.json` pins a copy's text and its limits (the wide level's,
+// `data/copy.ts`), as the native test drives the element
+// (`state/fixtures/copy.rs`): the table opened over the fixture's source,
+// its first page read for the view, then the copy by the key or the host's
+// call, each read answered at once and counted.
+
+describe('copy.json', () => {
+  const copy = fixture('copy.json');
+
+  test("the options are the copy's defaults", () => {
+    assert.deepEqual(copy.options, { max_bytes: COPY_OPTIONS.maxBytes, key_max_cells: COPY_OPTIONS.keyMaxCells, headers: COPY_OPTIONS.headers });
+  });
+
+  for (const scenario of copy.cases as { name: string }[]) {
+    test(scenario.name, async () => {
+      assert.deepEqual(await copyMismatches(null, scenario.name), []);
+    });
+  }
+
+  // The contender's columns as the copy writes them: a FLOAT's text is
+  // its own float32 shortest, as GPUI's engine gives it, not the widened
+  // double's; a DOUBLE's its own.
+  test("a FLOAT column copies as float32", () => {
+    const columns = copyColumns([
+      { name: 'f', type: 'FLOAT', kind: 'float' },
+      { name: 'd', type: 'DOUBLE', kind: 'float' },
+    ]);
+    assert.deepEqual(columns.map((column) => column.kind), ['float32', 'float']);
+    assert.equal(valueText(Math.fround(0.1), columns[0]!.kind), '0.1');
+    assert.equal(valueText(Math.fround(0.1), columns[1]!.kind), '0.10000000149011612', 'the control: as a double');
+  });
+
+  test('controls fail', async () => {
+    for (const control of copy.controls as { name: Exclude<CopyControl, null>; fails: string[] }[]) {
+      for (const name of control.fails) assert.notDeepEqual(await copyMismatches(control.name, name), [], `control ${control.name} passed ${name}`);
+    }
+  });
+});
 
 // --- sort ---
 
@@ -619,5 +727,255 @@ test('selection.json', { skip: 'the contender has no selection' }, () => {});
 // when both sides build sorting.
 test('sort.json', { skip: 'the contender has no sort' }, () => {});
 
+// --- reorder ---
+
+// `reorder.json` pins a column move's order, pin count, and selection
+// after it: the level is added only when a scenario asks for column moves
+// and both sides build them.
+test('reorder.json', { skip: 'the contender has no column moves' }, () => {});
+
+// --- selection.json's table ---
+
+/** The fixture's row height and gutter: any will do (its targets are rows
+ *  and columns), but not one a hit test could round onto another row. */
+const SELECT_ROW = 30;
+const SELECT_GUTTER = 50;
+
+/** `selection.json`'s table under a `Selector`: the view's numbers, the
+ *  base's keys and wheel where the selection doesn't take them. */
+class FixtureSheet {
+  rows: number;
+  top = 0;
+  scrollX = 0;
+  readonly columns: { x: number; width: number }[];
+  readonly cellsWidth: number;
+  readonly viewRows: number;
+  readonly selector: Selector;
+
+  constructor(table: any, rows: number, selectable: string[], control: SelectControl) {
+    this.rows = rows;
+    this.columns = Array.from({ length: table.columns }, (_, index) => ({ x: index * table.column_width, width: table.column_width }));
+    this.cellsWidth = table.cells_width;
+    this.viewRows = table.viewport_rows;
+    const kinds = { rows: selectable.includes('rows'), columns: selectable.includes('columns'), cells: selectable.includes('cells') };
+    this.selector = new Selector({ view: () => this.view(), scrollTo: (top, scrollX) => ((this.top = top), (this.scrollX = scrollX)), changed: () => {} }, kinds, control);
+  }
+
+  view(): SheetView {
+    const content = this.columns.reduce((sum, column) => sum + column.width, 0);
+    return {
+      rows: this.rows,
+      columns: this.columns,
+      pin: new Pin(this.columns, 0, this.cellsWidth),
+      cellsWidth: this.cellsWidth,
+      viewHeight: this.viewRows * SELECT_ROW,
+      rowHeight: SELECT_ROW,
+      top: this.top,
+      scrollX: this.scrollX,
+      maxScrollX: Math.max(0, content - this.cellsWidth),
+    };
+  }
+
+  private maxTop(): number {
+    return Math.max(0, this.rows - this.viewRows);
+  }
+
+  /** The base's vertical scroll, clamped. */
+  scrollBy(rows: number): void {
+    this.top = Math.min(Math.max(this.top + rows, 0), this.maxTop());
+  }
+
+  /** A target's point, from the cells' left and the rows' top. */
+  at(target: any): [number, number] {
+    const rowY = (row: number) => {
+      assert.ok(row >= Math.floor(this.top) && row < this.top + this.viewRows, `row ${row} isn't in view`);
+      return (row - this.top + 0.5) * SELECT_ROW;
+    };
+    const columnX = (column: number) => this.columns[column]!.x + this.columns[column]!.width / 2 - this.scrollX;
+    if (target.cell) return [columnX(target.cell[1]), rowY(target.cell[0])];
+    if (target.gutter !== undefined) return [-SELECT_GUTTER / 2, rowY(target.gutter)];
+    if (target.header !== undefined) return [columnX(target.header), -SELECT_ROW / 2];
+    if (target.corner) return [-SELECT_GUTTER / 2, -SELECT_ROW / 2];
+    if (target.right !== undefined) return [this.cellsWidth + 4, rowY(target.right)];
+    if (target.below !== undefined) return [columnX(target.below), this.viewRows * SELECT_ROW + 4];
+    throw new Error(`an unknown target: ${JSON.stringify(target)}`);
+  }
+
+  /** Keys as GPUI writes them: the selection's, else the base's. */
+  key(keys: string): void {
+    const parts = keys.split('-');
+    const key = parts.pop()!;
+    const shift = parts.includes('shift');
+    const cmd = parts.includes('cmd');
+    if (key === 'a' && (cmd || parts.includes('ctrl'))) {
+      this.selector.selectAll();
+      return;
+    }
+    if (key === 'escape') {
+      this.selector.escape();
+      return;
+    }
+    const step: Step | null =
+      cmd && key === 'up' ? 'first'
+      : cmd && key === 'down' ? 'last'
+      : ({ up: 'up', down: 'down', left: 'left', right: 'right', pageup: 'pageUp', pagedown: 'pageDown', home: 'first', end: 'last' } as Record<string, Step>)[key] ?? null;
+    if (step && this.selector.key(step, shift)) return;
+    // The base's.
+    const page = Math.max(this.viewRows - 1, 1);
+    if (step === 'up') this.scrollBy(-1);
+    else if (step === 'down') this.scrollBy(1);
+    else if (step === 'pageUp' || (key === 'space' && shift)) this.scrollBy(-page);
+    else if (step === 'pageDown' || key === 'space') this.scrollBy(page);
+    else if (step === 'first') this.top = 0;
+    else if (step === 'last') this.top = this.maxTop();
+    else throw new Error(`no base key ${keys} in the fixture`);
+  }
+}
+
+/** `selection.json`'s steps whose outcome the `Selector` (under `control`)
+ *  doesn't give; every scenario, or the one named. */
+function selectionMismatches(control: SelectControl, only?: string): string[] {
+  const table = fixture('selection.json');
+  const mismatches: string[] = [];
+  for (const scenario of table.scenarios) {
+    if (only !== undefined && scenario.name !== only) continue;
+    const sheet = new FixtureSheet(table, scenario.rows ?? table.rows, scenario.selectable, control);
+    const { selector } = sheet;
+    for (const [index, step] of (scenario.steps as any[]).entries()) {
+      try {
+        if (step.press) {
+          const [x, y] = sheet.at(step.press);
+          selector.press(x, y, { shift: step.press.shift, ctrl: step.press.ctrl });
+        } else if (step.drag) {
+          selector.dragTo(...sheet.at(step.drag));
+        } else if (step.release) {
+          selector.release();
+        } else if (step.wheel) {
+          const [x, y] = sheet.at(step.wheel.at);
+          sheet.scrollBy(step.wheel.rows);
+          selector.scrolled(x, y);
+        } else if (step.key) {
+          sheet.key(step.key);
+        } else if (step.rows !== undefined) {
+          sheet.rows = step.rows;
+          sheet.scrollBy(0);
+          selector.rowsChanged(step.rows);
+        } else if (step.columns) {
+          selector.columnsChanged();
+        } else if (step.jump !== undefined) {
+          sheet.top = Math.min(step.jump, Math.max(0, sheet.rows - sheet.viewRows));
+          selector.jumped(step.jump);
+        } else {
+          throw new Error(`an unknown step: ${JSON.stringify(step)}`);
+        }
+      } catch (error) {
+        mismatches.push(`${scenario.name}, step ${index}: ${(error as Error).message}`);
+        break;
+      }
+      const got = { selection: selectionJson(selector.selection), top: sheet.top, scroll_x: sheet.scrollX };
+      if (JSON.stringify(got) !== JSON.stringify(step.expect)) {
+        mismatches.push(`${scenario.name}, step ${index} (${JSON.stringify(step).slice(0, 80)}): ${JSON.stringify(got)}; the fixture's ${JSON.stringify(step.expect)}`);
+        break;
+      }
+    }
+  }
+  return mismatches;
+}
+
 // `pin.json`, `density.json`, and `paint.json`, the wide level's features:
 // `wide.test.ts`.
+
+// --- copy.json's table ---
+
+/** A page of `copy.json`'s source: each value typed as Arrow gives the
+ *  contender its column's (a float a `number`, a float32 one rounded to
+ *  f32, an integer a `bigint`, a decimal and text a `string`). */
+class CopyPage implements Page {
+  readonly byteLength = 1;
+  private readonly rows: (number | bigint | string | null)[][];
+
+  constructor(rows: (number | bigint | string | null)[][]) {
+    this.rows = rows;
+  }
+
+  get length(): number {
+    return this.rows.length;
+  }
+
+  value(row: number, column: number): number | bigint | string | null | undefined {
+    return this.rows[row]?.[column];
+  }
+}
+
+const COPY_KINDS: Record<string, CopyKind> = { float: 'float', float32: 'float32', integer: 'integer', decimal: 'text', text: 'text' };
+
+function copyValue(kind: string, text: string | null): number | bigint | string | null {
+  if (text === null) return null;
+  if (kind === 'float') return Number(text);
+  if (kind === 'float32') return Math.fround(Number(text));
+  if (kind === 'integer') return BigInt(text);
+  return text;
+}
+
+/** `copy.json`'s cases whose outcome the copy (under `control`) doesn't
+ *  give; every case, or the one named. */
+async function copyMismatches(control: CopyControl, only?: string): Promise<string[]> {
+  const table = fixture('copy.json');
+  const mismatches: string[] = [];
+  for (const scenario of table.cases) {
+    if (only !== undefined && scenario.name !== only) continue;
+    const got = await asLevel('wide', () => runCopy(table, scenario, control));
+    const expect = scenario.expect;
+    const want: Record<string, unknown> = { outcome: expect.outcome };
+    if (expect.started) want.started = expect.started;
+    if ('text' in expect) want.text = expect.text;
+    if ('reads' in expect) want.reads = expect.reads;
+    const have = Object.fromEntries(Object.keys(want).map((key) => [key, got[key as keyof typeof got]]));
+    if (JSON.stringify(have) !== JSON.stringify(want)) mismatches.push(`${scenario.name}: ${JSON.stringify(have)}; the fixture's ${JSON.stringify(want)}`);
+  }
+  return mismatches;
+}
+
+async function runCopy(table: any, scenario: any, control: CopyControl): Promise<{ started?: unknown; outcome?: unknown; text: string; reads: boolean }> {
+  const source = table.sources[scenario.source];
+  const kinds: string[] = source.columns.map((column: { kind: string }) => column.kind);
+  const rows: (number | bigint | string | null)[][] = source.rows.map((row: (string | null)[]) => row.map((text, column) => copyValue(kinds[column]!, text)));
+  const paging: Paging = { ...PAGING, pageRows: table.paging.page_rows, prefetch: table.paging.prefetch };
+  let reads = 0;
+  const pages: PageSource<CopyPage> = {
+    load: ([start, end]) => {
+      reads++;
+      return { request: reads, result: Promise.resolve(new CopyPage(rows.slice(start, end))) };
+    },
+    cancel: () => {},
+  };
+  const events: CopyEvent[] = [];
+  const opened = new TablePaging<CopyPage>(rows.length, pages, paging);
+  const options = {
+    maxBytes: scenario.options?.max_bytes ?? table.options.max_bytes,
+    keyMaxCells: scenario.options?.key_max_cells ?? table.options.key_max_cells,
+    headers: scenario.options?.headers ?? table.options.headers,
+  };
+  const columns = source.columns.map((column: { name: string; kind: string }) => ({ name: column.name, kind: COPY_KINDS[column.kind]! }));
+  setCopy(opened, { columns, options, onEvent: (event) => events.push(event), schedule: (run) => setImmediate(run), control });
+  opened.setViewportRows(table.viewport_rows);
+  await flush();
+  assert.equal(opened.row(0).kind, 'loaded', 'the first page is loaded before the copy');
+  const readsBefore = reads;
+  const selection = { kind: scenario.selection.kind, anchor: scenario.selection.anchor, head: scenario.selection.head };
+  const selected = [selectedRows(selection, rows.length)!, selectedColumns(selection, columns.length)!] as const;
+  if (scenario.by === 'key') copyKey(opened, ...selected);
+  else copyStart(opened, ...selected);
+  const ended = () => events.some((event) => event.kind === 'copied' || event.kind === 'failed' || event.kind === 'declined');
+  for (let wait = 0; !ended() && wait < 1000; wait++) await flush();
+  opened.close();
+  const result: { started?: unknown; outcome?: unknown; text: string; reads: boolean } = { text: '', reads: reads > readsBefore };
+  for (const event of events) {
+    if (event.kind === 'started') result.started = { rows: [...event.rows], columns: [...event.columns] };
+    else if (event.kind === 'text') result.text += event.text;
+    else if (event.kind === 'copied') result.outcome = { copied: { rows: event.rows, bytes: event.bytes } };
+    else if (event.kind === 'declined') result.outcome = { declined: { rows: event.rows, columns: event.columns } };
+    else if (event.kind === 'failed') result.outcome = event.reason.kind === 'too-large' ? { too_large: { bytes: event.reason.bytes, max_bytes: event.reason.maxBytes } } : { [event.reason.kind]: event.reason };
+  }
+  return result;
+}

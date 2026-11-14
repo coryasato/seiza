@@ -13,6 +13,12 @@
 //   nothing. Every 8 ms, as the sideways fling's wheels and a mouse's
 //   reports: at a move a frame, throttled frames outran the moves' delivery
 //   and half drew nothing;
+// - reorder (a build with `reorder`): the first float column's header
+//   (by place) pressed and dragged right 600 px and back, twice, a move
+//   every 8 ms (about 2 s), so every frame moves the preview and the gap's
+//   line; released where it was pressed, beside the block, so nothing
+//   moves. With `select` (or `copy`, which turns it on), the column is
+//   selected first, so the press drags it;
 // - select (a build with `select`): a drag-select from a cell near the top
 //   left to the last fully visible row and column and back, a row a move
 //   (the column following along the diagonal), a move every 8 ms, about
@@ -44,6 +50,10 @@
 // stands under the scroll and both flings, so the tint draws every frame;
 // between segments it's cleared for Home (which would move only its active
 // cell) and pressed again.
+//
+// Built with `reorder`, `--order reverse` draws the columns reversed from
+// the first frame (`?order=reverse`, checked at open), so every segment
+// reads the columns through the order; without it, the list's own.
 //
 // Built with `format`, every float column formatted (2 decimals, 3 on
 // every fourth row, a `+` on a rise, grouped) and the narrow shape's
@@ -81,7 +91,8 @@
 //
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
-//          [--density <row>,<text>[,<width>]] [--format off] [--label <name>]
+//          [--density <row>,<text>[,<width>]] [--format off] [--order reverse]
+//          [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -91,7 +102,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SORTED_COLUMN, bandAt, buildName, builtFeatures, cellAt, cornerAt, hostWebDir, restedWhere, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
+import { CELL_STYLES, COLUMN_ORDER_GLOBAL, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SELECT_OFFSET_PX, SORTED_COLUMN, bandAt, global, moveGripAt, selectOn, buildName, builtFeatures, cellAt, cornerAt, hostWebDir, restedWhere, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 const shapes = pick('shape', SHAPES);
@@ -124,7 +135,11 @@ const FORMAT = features.includes('format');
 const FORMAT_OPTION = option('format');
 if (FORMAT_OPTION !== undefined && !FORMAT) throw new Error('--format needs the host built with format: `just tall-table build format`');
 if (FORMAT_OPTION !== undefined && FORMAT_OPTION !== 'off') throw new Error(`--format ${FORMAT_OPTION}: only \`off\` (the control)`);
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}`);
+const REORDER = features.includes('reorder');
+const ORDER_OPTION = option('order');
+if (ORDER_OPTION !== undefined && !REORDER) throw new Error('--order needs the host built with reorder: `just tall-table build reorder`');
+if (ORDER_OPTION !== undefined && ORDER_OPTION !== 'reverse') throw new Error(`--order ${ORDER_OPTION}: only \`reverse\``);
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -139,6 +154,10 @@ const DRAG_MOVES = 62;
 const DRAG_EVERY_MS = 8;
 const RESIZE = features.includes('resize');
 const SELECT = features.includes('select');
+/** The reorder drag: right this far and back, `DRAG_TRIPS` times, at the
+ *  resize drag's moves. */
+const MOVE_PX = 600;
+
 const SORT = features.includes('sort');
 /** The sorted segments' order: each shape's `SORTED_COLUMN`, descending
  *  (a float's first click). */
@@ -154,8 +173,8 @@ const REST_CAP_MS = 300_000;
 /** A rest presents no frame for this long. */
 const QUIET_MS = 300;
 
-type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select';
-const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select'];
+type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select' | 'reorder';
+const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select', 'reorder'];
 type Sample = Partial<Pick<Shown, 'top' | 'first' | 'end' | 'loaded' | 'pending' | 'scrollX'>>;
 
 interface Reading {
@@ -281,6 +300,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (PIN_OPTION !== undefined) params.pin = PIN_OPTION;
     if (DENSITY_OPTION !== undefined) params.density = DENSITY_OPTION;
     if (FORMAT_OPTION !== undefined) params.format = FORMAT_OPTION;
+    if (ORDER_OPTION !== undefined) params.order = ORDER_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -289,6 +309,8 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     // The run in effect, at 1440 wide: every count here within the half.
     if (PIN && layout.pinned !== pinned(shape)) throw new Error(`${layout.pinned} columns pinned at open, not ${pinned(shape)}`);
     if (DENSITY && layout.rowHeight !== densityRow) throw new Error(`rows ${layout.rowHeight} px at open, not ${densityRow}`);
+    const order = layout.columns.map((column, place) => column.index ?? place);
+    if (REORDER && JSON.stringify(order) !== JSON.stringify(ORDER_OPTION === 'reverse' ? order.map((_, place) => order.length - 1 - place) : order.map((_, place) => place))) throw new Error(`the columns at open in the order ${JSON.stringify(order.slice(0, 12))}…, not ${ORDER_OPTION ?? "the list's own"}`);
     // Over the cells, clear of the scrollbar.
     await page.mouse.move(layout.left + 300, layout.top + 300);
     if (SELECT) await selectAll(page, layout);
@@ -422,6 +444,40 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       await selected(page, { kind: 'cells', anchor: [1, 0], head: [1, 0] }).catch(() => failures.push("the drag-select didn't end on the cell it pressed"));
       if (readings.select.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the drag-select drew ${readings.select.recorder.frames} frames for ${moves} moves: did it press a cell?`);
     }
+    // Last. With `select` (or `copy`), the column is selected first, so its
+    // tint stands through the drag; otherwise nothing is selected.
+    if (REORDER) {
+      await home(page, layout, false);
+      const place = layout.columns.findIndex((column) => column.kind === 'float');
+      const grip = moveGripAt(layout, place, 0);
+      // With `select` (`copy` turns it on), only a press inside a selected
+      // `Columns` range drags: the column selected first, a press beside
+      // the drag's.
+      if (selectOn(features)) {
+        await page.mouse.click(grip.x + SELECT_OFFSET_PX, grip.y);
+        await selected(page, { kind: 'columns', anchor: [0, place], head: [0, place] });
+      }
+      await page.mouse.move(grip.x, grip.y);
+      await page.mouse.down();
+      readings.reorder = await traced(browser, page, layout, async () => {
+        // On a fixed schedule, as the resize drag's.
+        const sent: Promise<void>[] = [];
+        for (let trip = 0; trip < DRAG_TRIPS; trip++) {
+          for (let step = 1; step <= 2 * DRAG_MOVES; step++) {
+            const out = step <= DRAG_MOVES ? step : 2 * DRAG_MOVES - step;
+            sent.push(page.mouse.move(grip.x + (MOVE_PX * out) / DRAG_MOVES, grip.y));
+            await page.waitForTimeout(DRAG_EVERY_MS);
+          }
+        }
+        await Promise.all(sent);
+        await page.mouse.up();
+      });
+      // Released beside the block: nothing moved.
+      const after = (await shown(page)).layout.columns.map((column, at) => column.index ?? at);
+      const published = await global<number[]>(page, COLUMN_ORDER_GLOBAL);
+      if (JSON.stringify(after) !== JSON.stringify(order) || (published && JSON.stringify(published) !== JSON.stringify(order))) failures.push(`the reorder drag's release moved the columns (${JSON.stringify(after.slice(0, 12))}…)`);
+      if (readings.reorder.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the reorder drag drew ${readings.reorder.recorder.frames} frames for ${DRAG_TRIPS * 2 * DRAG_MOVES} moves: did it press the header?`);
+    }
     for (const [segment, reading] of Object.entries(readings)) {
       if (reading.reached) continue;
       if (profile.name === 'reference') failures.push(`the ${segment} didn't rest where its input took it, filled`);
@@ -487,7 +543,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

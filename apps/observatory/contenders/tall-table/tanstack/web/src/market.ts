@@ -68,7 +68,7 @@ const rgbAlpha = (color: Rgba, alpha: number): string => `rgb(${[color.r, color.
  * them with no conversion (as `scene.ts`'s heat). A style element
  * `main.ts` adds before the view renders.
  */
-export function marketCss(scenario: MarketScenario): string {
+export function marketCss(scenario: Pick<MarketScenario, 'signs' | 'flash'>): string {
   const { mix, ms } = scenario.flash;
   const block = (theme: 'light' | 'dark') => {
     const [up, down] = [scenario.signs[theme].up, scenario.signs[theme].down].map((color: Oklch) => fromOklch(...color));
@@ -161,7 +161,7 @@ export const MarketRow = /* @__PURE__ */ memo(function MarketRow({ row, top, pag
         if (flash) className += ` f-${flashName(flash.at)}-${turns.turn(row, at, flash.start)}`;
       }
       const exact = !probed || value === undefined ? undefined : value === null ? 'NULL' : typeof value === 'number' && column.kind === 'float' ? exactText(value) : String(value);
-      return h('div', { key: column.name, className, style: { width: column.width }, role: 'cell', elementtiming: measured ? `row:${row}` : undefined, 'data-exact': exact }, text);
+      return h('div', { key: column.name, className, style: { width: column.width }, role: 'cell', elementtiming: measured ? `row:${__LEVEL__ === 'wall' ? wallRow(market, row) : row}` : undefined, 'data-exact': exact }, text);
     });
   }
   return h(
@@ -171,6 +171,13 @@ export const MarketRow = /* @__PURE__ */ memo(function MarketRow({ row, top, pag
     cells,
   );
 }, sameRow);
+
+/** On the wall, a cell's Element Timing row: its instrument's (table t's
+ *  row r is 50t + r, the contract's numbering), unique across the tables. */
+const wallRow = (market: MarketCells, row: number): number => {
+  const { desk, paging } = market as MarketCells & { desk: number; paging: { rows: number } };
+  return desk * paging.rows + row;
+};
 
 /** A computed color as 8-bit channels, the alpha too. */
 const rgba8 = (color: string): number[] => {
@@ -195,7 +202,9 @@ export function publishMarketCells(scroller: HTMLElement, columns: readonly Laid
   Object.defineProperty(contender, 'cells', { configurable: true, enumerable: true, get: () => drawnCells(scroller) });
 }
 
-function drawnCells(scroller: HTMLElement) {
+/** The loaded cells on screen in `scroller`, as drawn (`publishMarketCells`'s;
+ *  the monitoring wall's, a table each). */
+export function drawnCells(scroller: HTMLElement) {
   const box = scroller.getBoundingClientRect();
   const top = box.top + scroller.clientTop;
   const bottom = top + scroller.clientHeight;

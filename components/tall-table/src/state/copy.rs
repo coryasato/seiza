@@ -33,9 +33,10 @@ pub(crate) fn init(cx: &mut App) {
     ]);
 }
 
-/// The random test's negative controls for `copy` (`random.rs`), each a
+/// `copy`'s negative controls: the random test's (`random.rs`), each a
 /// race between a copy and the paging it must catch, `copy`'s code
-/// reviews' among them.
+/// reviews' among them; and `fixtures/copy.json`'s, each a way of writing
+/// the text wrongly that a port might take (`fixtures/copy.rs`).
 #[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub(crate) enum Control {
@@ -52,6 +53,19 @@ pub(crate) enum Control {
     FailureKeepsCopy,
     /// `close` drops the copy without cancelling its reads.
     CloseKeepsReads,
+    /// The fixture's `null-as-text`: NULL written `NULL`.
+    NullAsText,
+    /// The fixture's `no-quoting`: every field written as it is.
+    NoQuoting,
+    /// The fixture's `key-limit-off-by-one`: the key declines at
+    /// `key_max_cells` cells, not past it.
+    KeyLimitOffByOne,
+    /// The fixture's `whole-floats-bare`: a whole float (or f32) bare.
+    WholeFloatsBare,
+    /// The fixture's `trailing-break`: a line break after the last row.
+    TrailingBreak,
+    /// The fixture's `utf16-bytes`: every count in UTF-16 code units.
+    Utf16Bytes,
 }
 
 /// The table's copy, with the feature.
@@ -67,6 +81,14 @@ pub(super) struct CopyState<P, R> {
 }
 
 impl<P, R> CopyState<P, R> {
+    /// How the text is written and counted.
+    fn writer(&self) -> Writer {
+        #[cfg(test)]
+        return self.control;
+        #[cfg(not(test))]
+        Writer
+    }
+
     /// The random test's `EndWithoutPlan` control, once copy `id` has
     /// ended: its end plans nothing (never outside the tests).
     fn end_without_plan(&self, id: CopyId) -> bool {
@@ -105,7 +127,12 @@ fn row_count(rows: &RangeInclusive<u64>) -> u64 {
 pub(super) struct Running<P, R> {
     id: CopyId,
     pub(super) rows: RangeInclusive<u64>,
+    #[cfg(not(feature = "reorder"))]
     columns: RangeInclusive<usize>,
+    /// The indices drawn at them then (`reorder`): a move since doesn't
+    /// change what it copies, or in what order.
+    #[cfg(feature = "reorder")]
+    indices: Vec<usize>,
     /// The next row to format.
     next_row: u64,
     /// Its reads in flight: the page and the request.
@@ -201,6 +228,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             columns: columns.clone(),
         }));
         let options = self.copy_state.options;
+        // The columns drawn at its places now, by index (`reorder`).
+        #[cfg(feature = "reorder")]
+        let indices = self.order[columns.clone()].to_vec();
+        #[cfg(not(feature = "reorder"))]
         let header = options.headers.then(|| {
             text::header_line(
                 self.column_info[columns.clone()]
@@ -208,12 +239,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     .map(|column| column.name().as_ref()),
             )
         });
+        #[cfg(feature = "reorder")]
+        let header = options.headers.then(|| {
+            text::header_line(
+                indices
+                    .iter()
+                    .map(|&index| self.column_info[index].name().as_ref()),
+            )
+        });
         // Any value may be NULL: past the cap with every one empty, it's
         // refused before a read.
         let least = text::least_bytes(
             row_count(&rows),
             columns.clone().count(),
-            header.as_ref().map(String::len),
+            self.copy_state.writer().header_bytes(&header),
         );
         if least > options.max_bytes as u64 {
             cx.emit(TallTableEvent::Copy(TallTableCopy::Failed {
@@ -229,7 +268,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             id,
             next_row: *rows.start(),
             rows,
+            #[cfg(not(feature = "reorder"))]
             columns,
+            #[cfg(feature = "reorder")]
+            indices,
             reads: Vec::new(),
             landed: Vec::new(),
             bytes: 0,
@@ -472,15 +514,24 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// reads, so a place the copy freed is used.
     fn copy_turn(&mut self, cx: &mut Context<Self>) {
         let page_rows = self.cache.page_rows();
+        let writer = self.copy_state.writer();
         let Some(running) = self.copy_state.running.as_mut() else {
             return;
         };
         running.turn_pending = false;
         let max_bytes = running.max_bytes;
+        #[cfg(not(feature = "reorder"))]
         let columns = running.columns.clone();
+        // The indices it started with, in that order (`reorder`): copied
+        // once a turn, so each row's pass clones a slice's iterator, not
+        // the list.
+        #[cfg(feature = "reorder")]
+        let indices = running.indices.clone();
+        #[cfg(feature = "reorder")]
+        let columns = indices.iter().copied();
         let mut budget = (TURN_CELLS / columns.clone().count() as u64).max(1);
         let mut piece = running.header.take().unwrap_or_default();
-        running.header_bytes += piece.len();
+        running.header_bytes += writer.bytes(&piece);
         let (first_row, end) = (*running.rows.start(), *running.rows.end());
         let row_count = end - first_row + 1;
         // The size it's refused at: past the cap, or projected past twice it.
@@ -506,12 +557,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     if index > 0 {
                         piece.push('\t');
                     }
-                    text::push_value(&mut piece, rows.value((row - first) as usize, column));
+                    writer.value(&mut piece, rows.value((row - first) as usize, column));
                 }
                 running.next_row = row + 1;
                 // A row at a time, so a turn of wide values never builds
                 // much past the cap.
-                let bytes = running.bytes + piece.len();
+                let bytes = running.bytes + writer.bytes(&piece);
                 if bytes > max_bytes {
                     refused = Some(bytes);
                     break 'turn;
@@ -541,7 +592,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             self.copy_load(cx);
             return;
         }
-        let bytes = running.bytes + piece.len();
+        if done {
+            writer.finish(&mut piece);
+        }
+        let bytes = running.bytes + writer.bytes(&piece);
         running.bytes = bytes;
         let rows_done = running.rows_done();
         if !piece.is_empty() {
@@ -639,7 +693,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         };
         let (row_count, column_count) = (row_count(&rows), columns.clone().count());
-        if row_count.saturating_mul(column_count as u64) > self.copy_state.options.key_max_cells {
+        let (cells, limit) = (
+            row_count.saturating_mul(column_count as u64),
+            self.copy_state.options.key_max_cells,
+        );
+        if self.copy_state.writer().declines(cells, limit) {
             cx.emit(TallTableEvent::Copy(TallTableCopy::Declined {
                 rows: row_count,
                 columns: column_count,
@@ -647,6 +705,94 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         }
         self.start_copy(rows, columns, cx);
+    }
+}
+
+/// How a copy writes and counts its text: `copy.rs`'s rules, which a
+/// fixture control (tests only) bends. Outside the tests each method is
+/// the rule itself, inlined. Kept at the file's end, after every other
+/// `impl`: an `impl` above another renumbers it in the mangled names,
+/// which reorders the `copy` build's wasm.
+#[cfg(not(test))]
+#[derive(Clone, Copy)]
+struct Writer;
+
+#[cfg(not(test))]
+impl Writer {
+    #[inline(always)]
+    fn value(self, text: &mut String, value: Option<crate::delegate::CellValue<'_>>) {
+        text::push_value(text, value);
+    }
+
+    #[inline(always)]
+    fn bytes(self, text: &str) -> usize {
+        text.len()
+    }
+
+    /// Takes the `Option` itself and maps `String::len`: the shape that
+    /// builds as `start_copy`'s own `map(String::len)` did, byte for byte
+    /// (a closure there moved the wasm; `docs/DECISIONS.md`, "Features").
+    #[allow(clippy::ref_option)]
+    #[inline(always)]
+    fn header_bytes(self, header: &Option<String>) -> Option<usize> {
+        header.as_ref().map(String::len)
+    }
+
+    #[inline(always)]
+    fn finish(self, _: &mut String) {}
+
+    #[inline(always)]
+    fn declines(self, cells: u64, limit: u64) -> bool {
+        cells > limit
+    }
+}
+
+#[cfg(test)]
+type Writer = Control;
+
+#[cfg(test)]
+impl Control {
+    fn value(self, text: &mut String, value: Option<crate::delegate::CellValue<'_>>) {
+        use crate::delegate::CellValue;
+        match (self, value) {
+            (Control::NullAsText, Some(CellValue::Null)) => text.push_str("NULL"),
+            (Control::NoQuoting, Some(CellValue::Text(value))) => text.push_str(&value),
+            (
+                Control::WholeFloatsBare,
+                Some(value @ (CellValue::Float(_) | CellValue::Float32(_))),
+            ) => {
+                let exact = value.to_string();
+                text.push_str(exact.strip_suffix(".0").unwrap_or(&exact));
+            }
+            (_, value) => text::push_value(text, value),
+        }
+    }
+
+    fn bytes(self, text: &str) -> usize {
+        if self == Control::Utf16Bytes {
+            text.encode_utf16().count()
+        } else {
+            text.len()
+        }
+    }
+
+    #[allow(clippy::ref_option)]
+    fn header_bytes(self, header: &Option<String>) -> Option<usize> {
+        header.as_deref().map(|line| self.bytes(line))
+    }
+
+    fn finish(self, text: &mut String) {
+        if self == Control::TrailingBreak {
+            text.push('\n');
+        }
+    }
+
+    fn declines(self, cells: u64, limit: u64) -> bool {
+        if self == Control::KeyLimitOffByOne {
+            cells >= limit
+        } else {
+            cells > limit
+        }
     }
 }
 

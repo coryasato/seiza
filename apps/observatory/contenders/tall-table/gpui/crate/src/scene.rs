@@ -5,23 +5,37 @@
 //! which the host shows and marks (`contender:failed`).
 
 use gpui_kit::*;
-#[cfg(not(feature = "tail"))]
+#[cfg(not(any(feature = "tail", feature = "wall")))]
 #[cfg(any(target_family = "wasm", not(feature = "wide")))]
 use seiza_duckdb::tall_table::{ParquetFile, QueryRows};
 
 #[cfg(any(
     all(feature = "wide", feature = "market"),
     all(feature = "wide", feature = "tail"),
-    all(feature = "market", feature = "tail")
+    all(feature = "wide", feature = "wall"),
+    all(feature = "market", feature = "tail"),
+    all(feature = "market", feature = "wall"),
+    all(feature = "tail", feature = "wall")
 ))]
-compile_error!("a build is one level: only one of `wide`, `market`, and `tail` can be on");
+compile_error!("a build is one level: only one of `wide`, `market`, `tail`, and `wall` can be on");
 
-/// Market watch's level: its store as the table's source, its formats and colors.
-#[cfg(feature = "market")]
+/// Market watch's level: its store as the table's source, its formats and
+/// colors. The monitoring wall draws its colors and flash (`wall`).
+#[cfg(any(feature = "market", feature = "wall"))]
+#[cfg_attr(
+    feature = "wall",
+    expect(
+        dead_code,
+        reason = "the wall draws market watch's colors, not its table"
+    )
+)]
 pub mod market;
 /// Live tail's level: the replay's pages, the time's text, its colors.
 #[cfg(feature = "tail")]
 pub mod tail;
+/// The monitoring wall's level: N desks of the store, its grid.
+#[cfg(feature = "wall")]
+pub mod wall;
 
 /// What the host opens and how it sets the table.
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +49,8 @@ pub struct Scene {
     pub market: market::Market,
     #[cfg(feature = "tail")]
     pub tail: tail::Tail,
+    #[cfg(feature = "wall")]
+    pub wall: wall::Wall,
 }
 
 /// The wide sheet's level at a stop.
@@ -57,8 +73,9 @@ impl Scene {
     /// From the JS host's numbers: on the wide level `[row_height,
     /// text_size, column_width, pinned, heat_from, lo, mid, hi]`, on the
     /// base none (the market level's is [`Scene::market`], the tail
-    /// level's [`Scene::tail`]). Anything else is an error the host shows.
-    #[cfg(not(any(feature = "market", feature = "tail")))]
+    /// level's [`Scene::tail`], the wall's [`Scene::wall`]). Anything else
+    /// is an error the host shows.
+    #[cfg(not(any(feature = "market", feature = "tail", feature = "wall")))]
     pub fn new(file: String, level: &[f64]) -> Result<Self, String> {
         #[cfg(feature = "wide")]
         {
@@ -126,6 +143,18 @@ impl Scene {
     }
 }
 
+#[cfg(feature = "wall")]
+impl Scene {
+    /// The wall level's scene: `level` as `wall::Wall::new` takes it, and
+    /// the columns that flash by name.
+    pub fn wall(file: String, level: &[f64], flash: &[String]) -> Result<Self, String> {
+        Ok(Self {
+            file,
+            wall: wall::Wall::new(level, flash)?,
+        })
+    }
+}
+
 #[cfg(feature = "tail")]
 impl Scene {
     /// The tail level's scene: `level` as `tail::Tail::new` takes it.
@@ -139,8 +168,14 @@ impl Scene {
 
 /// The table's source: the engine's rows, on the wide level painted, on
 /// the market level the store's once the open's page is in, on the tail
-/// level the replay's pages over the file fetched whole.
-#[cfg(not(any(feature = "wide", feature = "market", feature = "tail")))]
+/// level the replay's pages over the file fetched whole, on the wall a
+/// desk of the store's.
+#[cfg(not(any(
+    feature = "wide",
+    feature = "market",
+    feature = "tail",
+    feature = "wall"
+)))]
 pub type Rows = QueryRows<ParquetFile>;
 #[cfg(feature = "wide")]
 pub type Rows = heat::HeatRows;
@@ -148,9 +183,12 @@ pub type Rows = heat::HeatRows;
 pub type Rows = market::MarketRows<QueryRows<ParquetFile>>;
 #[cfg(feature = "tail")]
 pub type Rows = tail::TailRows;
+#[cfg(feature = "wall")]
+pub type Rows = wall::DeskRows;
 
-/// The source over `engine` for `scene` (the engine exists only on the web).
-#[cfg(target_family = "wasm")]
+/// The source over `engine` for `scene` (the engine exists only on the web;
+/// the wall's host makes its own, `wall::DeskRows`).
+#[cfg(all(target_family = "wasm", not(feature = "wall")))]
 pub fn rows(engine: seiza_duckdb::Engine, scene: &Scene) -> Rows {
     // Every page from the file fetched whole, never the ranged copy the
     // open read (`scene.file`).
@@ -174,7 +212,9 @@ pub fn rows(engine: seiza_duckdb::Engine, scene: &Scene) -> Rows {
     rows
 }
 
-/// The columns as the summary describes them, set as the scene's level says.
+/// The columns as the summary describes them, set as the scene's level says
+/// (the wall's are `wall::columns`).
+#[cfg(not(feature = "wall"))]
 #[cfg_attr(
     not(target_family = "wasm"),
     expect(dead_code, reason = "only the web build opens the file")
@@ -216,7 +256,9 @@ pub fn columns(
         .collect()
 }
 
-/// Sets the scene's level on a new table, before its first frame.
+/// Sets the scene's level on a new table, before its first frame (the
+/// wall's host sets its tables' own).
+#[cfg(not(feature = "wall"))]
 #[cfg_attr(
     not(target_family = "wasm"),
     expect(dead_code, reason = "only the web build opens the file")
@@ -248,7 +290,12 @@ pub fn set_level(
 
 /// An Oklch color in sRGB (each of a level's colors is inside its gamut),
 /// as CSS converts `oklch()`: Björn Ottosson's matrices.
-#[cfg(any(feature = "wide", feature = "market", feature = "tail"))]
+#[cfg(any(
+    feature = "wide",
+    feature = "market",
+    feature = "tail",
+    feature = "wall"
+))]
 pub(crate) fn oklch([l, c, h]: [f32; 3]) -> Hsla {
     let (a, b) = (c * h.to_radians().cos(), c * h.to_radians().sin());
     let l_ = (l + 0.396_337_78 * a + 0.215_803_76 * b).powi(3);

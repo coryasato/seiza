@@ -49,6 +49,11 @@ mod sort;
 #[cfg(feature = "pin")]
 mod pin;
 
+/// `copy.json` and its controls: a selection's text and the limits,
+/// through the keys and the host's `copy` in a window.
+#[cfg(feature = "copy")]
+mod copy;
+
 /// The flash, and `paint.json`'s `flash` section, with both features.
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
@@ -62,6 +67,11 @@ mod density;
 /// formatted columns drawn in a window.
 #[cfg(feature = "format")]
 mod format;
+
+/// `reorder`: `fixtures/reorder.json` and its controls, and the order drawn
+/// and driven in a window.
+#[cfg(feature = "reorder")]
+mod reorder;
 
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
@@ -741,6 +751,8 @@ fn cell_mismatches(skew: isize, exact: fn(f64) -> String, text: fn(&str) -> Stri
                 budget,
                 #[cfg(feature = "format")]
                 format: None,
+                #[cfg(feature = "reorder")]
+                index: 0,
             };
             let (value, exact_text) = match (kind, cell["value"].as_str()) {
                 (_, None) => (CellValue::Null, CellValue::Null.to_string()),

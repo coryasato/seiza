@@ -14,7 +14,7 @@ import { Search } from 'lucide-react';
 import { createElement as h, type ReactNode } from 'react';
 import gallery from 'virtual:gallery';
 import type { Side } from '../../contenders/contract.ts';
-import { oklchCss, type Heat, type MarketScenario, type Scenario, type Stop, type WideScenario } from '../../contenders/scenarios.ts';
+import { oklchCss, type Heat, type MarketScenario, type Scenario, type Stop, type WallScenario, type WideScenario } from '../../contenders/scenarios.ts';
 import { Domain, rampCss } from '../../contenders/tall-table/tanstack/web/src/paint.ts';
 import { COMPARE_HASH, listOf, scenarioCopy, scenarioPath, seriesClass, seriesDot, stopShort, WHY_ANCHOR, type Component } from './components.ts';
 import { MECHANISMS, mechanismAnchor } from './mechanisms.ts';
@@ -80,6 +80,10 @@ const rowsDrawing = (rows: number) =>
     ),
   );
 
+/** A scenario's rise and fall per theme, as variables `page.css` picks between. */
+const signVars = (signs: MarketScenario['signs']) =>
+  Object.fromEntries((['light', 'dark'] as const).flatMap((theme) => [[`--up-${theme}`, oklchCss(signs[theme].up)], [`--down-${theme}`, oklchCss(signs[theme].down)]]));
+
 /** Market watch drawn small (the design canvas's): a header, then rows
  *  whose price cells flash in the scenario's rise or fall, per theme. */
 const marketDrawing = ({ signs }: MarketScenario, rows: number) =>
@@ -87,7 +91,7 @@ const marketDrawing = ({ signs }: MarketScenario, rows: number) =>
     'span',
     {
       className: 'observatory-drawing observatory-market',
-      style: Object.fromEntries((['light', 'dark'] as const).flatMap((theme) => [[`--up-${theme}`, oklchCss(signs[theme].up)], [`--down-${theme}`, oklchCss(signs[theme].down)]])),
+      style: signVars(signs),
     },
     ...Array.from({ length: rows }, (_, row) =>
       h(
@@ -100,6 +104,36 @@ const marketDrawing = ({ signs }: MarketScenario, rows: number) =>
       ),
     ),
   );
+
+/** The monitoring wall drawn small (the design canvas's): its dial's most
+ *  tables, in two rows (eight, four across), each a header and rows of three
+ *  cells, the middle one (Last) flashing in the rise or fall. A table's rows
+ *  that don't fit whole wrap out of its box (`page.css`), so the same
+ *  drawing serves the mosaic's tile and the card. */
+const WALL_ROWS = 5;
+const wallDrawing = ({ signs, stops }: WallScenario) => {
+  const tables = stops.at(-1)!.tables;
+  return h(
+    'span',
+    { className: 'observatory-wall observatory-market', style: { ...signVars(signs), gridTemplateColumns: `repeat(${Math.ceil(tables / 2)}, minmax(0, 1fr))` } },
+    ...Array.from({ length: tables }, (_, table) =>
+      h(
+        'span',
+        { key: table, className: 'observatory-drawing' },
+        ...Array.from({ length: WALL_ROWS + 1 }, (_, row) =>
+          h(
+            'span',
+            { key: row, className: row ? undefined : 'observatory-head' },
+            ...[30, 34, 26].map((width, at) => {
+              const flash = row > 0 && at === 1 && noise(table, row) > 0.6;
+              return h('i', { key: at, className: flash ? (noise(row, table) > 0.5 ? 'observatory-up' : 'observatory-down') : undefined, style: { width: `${width}%` } });
+            }),
+          ),
+        ),
+      ),
+    ),
+  );
+};
 
 /** Live tail drawn small (the design canvas's): a header, then log rows
  *  (time, request, status, bytes), the newest at the bottom outlined, its
@@ -154,7 +188,7 @@ const adminDrawing = (where: 'card' | 'mosaic') =>
 /** A scenario's frame, drawn small: its level's shape, in `rows` rows (the
  *  header's included) that fit its box whole, the newest of live tail's last.
  *  The heat's rows are its latitudes, whatever the box; the admin table's
- *  its own (`adminDrawing`). */
+ *  its own (`adminDrawing`); the wall's each table's own (`wallDrawing`). */
 const drawing = (scenario: Scenario, rows: number) =>
   scenarioCopy(scenario).capabilities
     ? adminDrawing(rows === MOSAIC_ROWS ? 'mosaic' : 'card')
@@ -164,7 +198,9 @@ const drawing = (scenario: Scenario, rows: number) =>
       ? marketDrawing(scenario, rows)
       : scenario.level === 'tail'
         ? tailDrawing(rows)
-        : rowsDrawing(rows);
+        : scenario.level === 'wall'
+          ? wallDrawing(scenario)
+          : rowsDrawing(rows);
 
 /** Rows that fit whole: the Overview's mosaic tile (the design's compact
  *  rows, `.observatory-mosaic` in `page.css`) and a scenario card's thumbnail. */

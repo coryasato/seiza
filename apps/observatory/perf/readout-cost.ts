@@ -22,7 +22,7 @@
 // whose spread says how quiet the machine was.
 //
 // The gates, each side on each device: every variant's open-mark spread
-// ((max − min) / median) under 6%; late frames, open against hidden and
+// (interquartile range over median) under `QUIET_SPREAD` (3.5%); late frames, open against hidden and
 // bare against hidden, no more than the hidden runs' interquartile range
 // or 1 point above them, whichever is larger (a cost: doing better
 // passes); the same for TanStack's dropped frames and
@@ -49,7 +49,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Frame, type Page } from '@playwright/test';
 import { recorderCost, targetRect, waitMark, wheel } from '../../../shared-web/perf/harness.ts';
-import { PROFILES, flag, machineInfo, median, option, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, QUIET_SPREAD, flag, iqr, machineInfo, median, option, spread, throttle, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { startThrottlingProxy } from '../../../shared-web/perf/serve.ts';
 import { contenderBase } from '../contenders/paths.ts';
 import { BIG_FILE } from '../contenders/scenarios.ts';
@@ -71,7 +71,6 @@ const ROUTE = scenarioPath(COMPONENTS.find((component) => component.id === 'tall
 /** The idle time after the view rests, as metric-fling.ts's. */
 const TAIL_MS = 500;
 /** The gates (`docs/DECISIONS.md`, "Page", what a visible readout may cost). */
-const SPREAD = 0.06;
 const POINT = 1;
 const OWN_MS: Record<string, number> = { reference: 1, throttled: 4 };
 
@@ -339,14 +338,6 @@ async function contenderFrame(page: Page, base: string): Promise<Frame> {
 
 // ---------------------------------------------------------------- the gates
 
-/** Nearest-rank quartiles' distance (p75 − p25). */
-function iqr(values: number[]): number {
-  const sorted = [...values].sort((a, b) => a - b);
-  const rank = (p: number) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(p * sorted.length) - 1))]!;
-  return sorted.length ? rank(0.75) - rank(0.25) : 0;
-}
-
-const spread = (values: number[]) => (values.length ? (Math.max(...values) - Math.min(...values)) / median(values) : 0);
 const round = (value: number, digits = 2) => Number(value.toFixed(digits));
 
 interface Comparison {
@@ -407,7 +398,7 @@ function judge(side: Side, profile: string, runs: Record<Variant, Run[]>): { sum
       pageCommits: list.some((run) => run.pageCommits !== null) ? list.reduce((sum, run) => sum + (run.pageCommits ?? 0), 0) : null,
       renderers: [...new Set(list.map((run) => `${run.renderer.webgpu ?? 'no WebGPU'} | ${run.renderer.webgl ?? 'no WebGL2'}`))],
     };
-    if (openSpread >= SPREAD) failures.push(`${side} ${profile} ${variant}: the open mark's spread ${(openSpread * 100).toFixed(1)}% (max ${SPREAD * 100}%): the machine wasn't quiet`);
+    if (openSpread >= QUIET_SPREAD) failures.push(`${side} ${profile} ${variant}: the open mark's spread (IQR over median) ${(openSpread * 100).toFixed(1)}% (max ${QUIET_SPREAD * 100}%): the machine wasn't quiet`);
     if (list.some((run) => run.renderer.software)) failures.push(`${side} ${profile} ${variant}: a software renderer drew it (${JSON.stringify(list.find((run) => run.renderer.software)!.renderer)}): re-run this part with --headed`);
     const commits = list.reduce((sum, run) => sum + (run.pageCommits ?? 0), 0);
     if (commits) failures.push(`${side} ${profile} ${variant}: ${commits} React commits from the page mid-fling`);

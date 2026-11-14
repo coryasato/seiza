@@ -130,7 +130,7 @@ impl Host {
         // A replay starts over: its clock ends, and the new table's starts.
         #[cfg(feature = "tail")]
         crate::clock::stop();
-        crate::contract::opening();
+        crate::contract::opening_level();
         let url = self.data_url.clone();
         let sent = Sent::default();
         let task = cx.spawn_in(window, {
@@ -189,7 +189,7 @@ impl Host {
                                     scene::set_level(&mut table, &scene, cx);
                                     table
                                 });
-                                crate::contract::watch(&table, cx);
+                                crate::contract::watch_level(&table, cx);
                                 #[cfg(feature = "market")]
                                 crate::feed::watch(&table, cx);
                                 let focus = table.read(cx).focus_handle().clone();

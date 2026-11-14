@@ -1,0 +1,373 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d1-smoke-drag",
+  "metric": "drag",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-20",
+    "label": "~710 cells",
+    "cells": 710,
+    "rowHeight": 20,
+    "textSize": 11,
+    "columnWidth": 68
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 1,
+  "drags": {
+    "resize": {
+      "column": 3,
+      "px": 200,
+      "trips": 2,
+      "movesEachWay": 62
+    },
+    "select": {
+      "from": [
+        0,
+        2
+      ]
+    }
+  },
+  "moveEveryMs": 8,
+  "tailMs": 300,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "resize": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100
+            ],
+            "drewFrames": 120,
+            "workP50Ms": 4.83,
+            "workP95Ms": 5.57,
+            "recorderP50Ms": 4.45,
+            "latePct": 0,
+            "busyPct": 34,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100
+            ],
+            "drewFrames": 117,
+            "workP50Ms": 4.95,
+            "workP95Ms": 5.5,
+            "recorderP50Ms": 4.54,
+            "latePct": 0,
+            "busyPct": 35.1,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 120,
+                "displayFrames": 120,
+                "share": 1,
+                "spanMs": 1983.08,
+                "moves": 248,
+                "drewFrames": 120,
+                "workP50Ms": 4.83,
+                "workP95Ms": 5.573,
+                "recorderP50Ms": 4.454999923706055,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.34005813973952187,
+                "mainFrames": 137
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1931.05,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 4.948,
+                "workP95Ms": 5.496,
+                "recorderP50Ms": 4.540000915527344,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.351177610753966,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "resize": {
+            "drewPct": 95.1,
+            "drewPctRuns": [
+              95.1
+            ],
+            "drewFrames": 116,
+            "workP50Ms": 9.46,
+            "workP95Ms": 13.13,
+            "latePct": 0,
+            "busyPct": 64.3,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 96.6,
+            "drewPctRuns": [
+              96.6
+            ],
+            "drewFrames": 112,
+            "workP50Ms": 5.28,
+            "workP95Ms": 8.53,
+            "latePct": 0.9,
+            "busyPct": 38.8,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 116,
+                "displayFrames": 122,
+                "share": 0.9508196721311475,
+                "spanMs": 2019.8,
+                "moves": 248,
+                "drewFrames": 116,
+                "workP50Ms": 9.455,
+                "workP95Ms": 13.127,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.6429816353136798,
+                "mainFrames": 139
+              },
+              "select": {
+                "drew": 112,
+                "displayFrames": 116,
+                "share": 0.9655172413793104,
+                "spanMs": 1916.63,
+                "moves": 240,
+                "drewFrames": 112,
+                "workP50Ms": 5.282,
+                "workP95Ms": 8.532,
+                "rafs": 115,
+                "lateShare": 0.008771929824561403,
+                "busyShare": 0.38762677949611374,
+                "mainFrames": 133
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "resize": {
+            "drewPct": 56.1,
+            "drewPctRuns": [
+              56.1
+            ],
+            "drewFrames": 69,
+            "workP50Ms": 19.11,
+            "workP95Ms": 22.06,
+            "recorderP50Ms": 17.44,
+            "latePct": 2.5,
+            "busyPct": 75.6,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 62.2,
+            "drewPctRuns": [
+              62.2
+            ],
+            "drewFrames": 74,
+            "workP50Ms": 18.48,
+            "workP95Ms": 21.55,
+            "recorderP50Ms": 17.15,
+            "latePct": 9.4,
+            "busyPct": 82.6,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 69,
+                "displayFrames": 123,
+                "share": 0.5609756097560976,
+                "spanMs": 2033.14,
+                "moves": 248,
+                "drewFrames": 69,
+                "workP50Ms": 19.108,
+                "workP95Ms": 22.057,
+                "recorderP50Ms": 17.4399995803833,
+                "rafs": 119,
+                "lateShare": 0.025423728813559324,
+                "busyShare": 0.7555390914750059,
+                "mainFrames": 137
+              },
+              "select": {
+                "drew": 74,
+                "displayFrames": 119,
+                "share": 0.6218487394957983,
+                "spanMs": 1966.85,
+                "moves": 240,
+                "drewFrames": 74,
+                "workP50Ms": 18.478,
+                "workP95Ms": 21.555,
+                "recorderP50Ms": 17.15499973297119,
+                "rafs": 107,
+                "lateShare": 0.09433962264150944,
+                "busyShare": 0.8262573047301469,
+                "mainFrames": 127
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "resize": {
+            "drewPct": 33.3,
+            "drewPctRuns": [
+              33.3
+            ],
+            "drewFrames": 43,
+            "workP50Ms": 42.46,
+            "workP95Ms": 52.71,
+            "latePct": 86.3,
+            "busyPct": 98,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 49.6,
+            "drewPctRuns": [
+              49.6
+            ],
+            "drewFrames": 57,
+            "workP50Ms": 21.82,
+            "workP95Ms": 39.18,
+            "latePct": 21.1,
+            "busyPct": 85.3,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 43,
+                "displayFrames": 129,
+                "share": 0.3333333333333333,
+                "spanMs": 2134.92,
+                "moves": 248,
+                "drewFrames": 43,
+                "workP50Ms": 42.459,
+                "workP95Ms": 52.706,
+                "rafs": 52,
+                "lateShare": 0.8627450980392157,
+                "busyShare": 0.9799636515522059,
+                "mainFrames": 71
+              },
+              "select": {
+                "drew": 57,
+                "displayFrames": 115,
+                "share": 0.4956521739130435,
+                "spanMs": 1902.51,
+                "moves": 240,
+                "drewFrames": 57,
+                "workP50Ms": 21.823,
+                "workP95Ms": 39.18,
+                "rafs": 96,
+                "lateShare": 0.21052631578947367,
+                "busyShare": 0.8530973718826581,
+                "mainFrames": 114
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

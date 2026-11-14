@@ -24,8 +24,9 @@ type Canvases = (Option<Canvas<()>>, Option<Canvas<()>>, Option<Canvas<()>>);
 /// The host's count and the run in effect.
 #[derive(Debug, Default)]
 pub(crate) struct PinState {
-    /// As [`TallTableState::set_pinned`] set it.
-    count: usize,
+    /// As [`TallTableState::set_pinned`] set it, or a `reorder` move changed
+    /// it.
+    pub(super) count: usize,
     /// The run in effect: the count, clamped and cut at half the view.
     pub(super) in_effect: usize,
     /// The fixture's and the window tests' negative controls.

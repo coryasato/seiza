@@ -5,7 +5,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import { chromium, firefox, webkit, type Browser, type BrowserContext, type BrowserType, type Page } from '@playwright/test';
 import { hideDevicePixelContentBox } from '../../../shared-web/perf/protocol.ts';
 import { serveApp, type AppServer } from '../../../shared-web/perf/serve.ts';
 import { MARKS as CONTRACT_MARKS, type Side } from '../contenders/contract.ts';
@@ -65,24 +65,29 @@ export const MARKS = {
  * (`contenderBase`). With `given` (a script's `--url`: production)
  * nothing starts.
  */
-export const serveGpui = (port: number, given?: string, level: Level = 'base'): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given, level);
+export const serveGpui = (port: number, given?: string, level: Level = 'base', outDir?: string): Promise<AppServer> => serveContender('gpui', gpuiWebDir, port, given, level, outDir);
 
 /** A contender's build directory at a level (`dist/`, `dist-<level>/`). */
 export const distDir = (webDir: string, level: Level = 'base'): string => `${webDir}/${levelOutDir(level)}`;
 
 /** The TanStack contender's release build, as `serveGpui`. */
-export const serveTanstack = (port: number, given?: string, level: Level = 'base'): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port, given, level);
+export const serveTanstack = (port: number, given?: string, level: Level = 'base', outDir?: string): Promise<AppServer> => serveContender('tanstack', tanstackWebDir, port, given, level, outDir);
 
-async function serveContender(side: Side, webDir: string, port: number, given?: string, level: Level = 'base'): Promise<AppServer> {
+/** `outDir`: a kept build of the level to serve instead of the tree's (an
+ *  A/B's: `perf/ab.ts`), an absolute path. The engine's files still come
+ *  from the tree's build (the config's mount), which `perf/ab.ts` checks
+ *  are the kept build's to the byte. */
+async function serveContender(side: Side, webDir: string, port: number, given?: string, level: Level = 'base', outDir?: string): Promise<AppServer> {
   const base = contenderBase('tall-table', side, level);
   if (given) return { url: new URL(base, given).href, proxy: null, close: async () => {} };
+  if (outDir && !existsSync(`${outDir}/index.html`)) throw new Error(`no kept ${side} build at ${outDir}`);
   if (!existsSync(`${distDir(webDir, level)}/index.html`))
     throw new Error(`no ${side === 'gpui' ? 'GPUI' : 'TanStack'} contender build at the ${level} level: run \`just observatory ${side}-build${level === 'base' ? '' : ` ${level}`}\` first`);
   // The level's own data files, which its scenarios read.
   for (const file of new Set(ALL_SCENARIOS.filter((scenario) => scenario.level === level).map((scenario) => scenario.data)))
     if (!existsSync(dataPath(file))) throw new Error(`no data file ${file}: run \`just observatory data\` first`);
   // The build's Vite config takes its level from the mode (its outDir and base).
-  const server = await serveApp(undefined, { webDir, port, ...(level === 'base' ? {} : { mode: level }) });
+  const server = await serveApp(undefined, { webDir, port, ...(level === 'base' ? {} : { mode: level }), ...(outDir ? { outDir } : {}) });
   return { ...server, url: new URL(base, server.url).href };
 }
 
@@ -115,6 +120,23 @@ export async function protocolContext(browser: Browser, options: { dpr?: number;
 
 /** Collects page errors, console errors and warnings (GPUI's `[WARN]` logs
  *  describe the GPU, not a broken page), and HTTP errors. */
+/** Warnings that aren't a contender's view's: DuckDB-Wasm's own `eh`
+ *  bundle warns in Firefox (the engine's), and Firefox warns of the scroll
+ *  model's content placed from its scroll listener, which is its design
+ *  (`docs/dom-scroll-model.md`). The parity checks drop them from
+ *  `problems`. */
+export const KNOWN_WARNINGS = [/WebAssembly exception handling 'try' instruction is deprecated/, /appears to use a scroll-linked positioning effect/];
+
+/** Playwright's browsers by name, as `--browsers` lists them. */
+export const BROWSER_TYPES: Record<string, BrowserType> = { chromium, firefox, webkit };
+
+/** Whether `a` is within `tolerance` of `b`. */
+export const near = (a: number, b: number, tolerance: number): boolean => Math.abs(a - b) <= tolerance;
+
+/** Resolves after `n` animation frames in the page. */
+export const frames = (page: Page, n = 2): Promise<void> =>
+  page.evaluate((n) => new Promise<void>((resolve) => { const step = (k: number) => (k === 0 ? resolve() : requestAnimationFrame(() => step(k - 1))); step(n); }), n);
+
 export function problems(page: Page): string[] {
   const found: string[] = [];
   page.on('pageerror', (error) => found.push(`pageerror: ${error.message}`));

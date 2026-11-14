@@ -17,7 +17,7 @@ import { hydrateRoot } from 'react-dom/client';
 import { createBridge } from '@seiza/duckdb/bridge';
 import { MARKS, followPageTheme, measuring, publishContender, readingOut, type Contender } from '../../../../contract.ts';
 import { DATA, ENGINE_DIR, OBSERVATORY } from '../../../../paths.ts';
-import { pickScenario, type MarketScenario, type RateStop, type RowsStop, type TailScenario } from '../../../../scenarios.ts';
+import { pickScenario, type MarketScenario, type RateStop, type RowsStop, type TablesStop, type TailScenario, type WallScenario } from '../../../../scenarios.ts';
 import { limitFrom } from '../../../../tail/data.ts';
 import { replay } from './contract.ts';
 import { heatCss, wideScene, type WideScene } from './scene.ts';
@@ -26,6 +26,7 @@ import { App, FIRST_SCREEN, type Load } from './view.ts';
 // other levels' modules in their bundles.
 import { marketCss } from './market.ts';
 import { tailCss } from './tail.ts';
+import { wallCss, wallReplay } from './wall.ts';
 import type { TablePage } from './data/table.ts';
 import './theme.css';
 import './view.css';
@@ -84,6 +85,22 @@ if (__LEVEL__ === 'tail' && !(picked instanceof Error)) {
     document.head.append(colors);
   }
 }
+/** What the wall level runs at the stop: the scenario, its tables, and the
+ *  feed's limit (`?ticks`, as market watch's). Anything else fails the
+ *  load, as an unknown id does. */
+let wall: { scenario: WallScenario; stop: TablesStop; limit: number } | undefined;
+if (__LEVEL__ === 'wall' && !(picked instanceof Error)) {
+  const asked = new URLSearchParams(location.search).get(TICKS_PARAM) ?? '0';
+  const limit = /^\d+$/.test(asked) ? Number(asked) : Number.NaN;
+  if (picked.scenario.level !== 'wall' || !('tables' in picked.stop)) unset = new Error(`the wall level can't set ${picked.scenario.id} at ${picked.stop.id}`);
+  else if (!Number.isSafeInteger(limit)) unset = new Error(`?${TICKS_PARAM}=${asked}: not a count of ticks`);
+  else {
+    wall = { scenario: picked.scenario, stop: picked.stop, limit };
+    const styles = document.createElement('style');
+    styles.textContent = `${marketCss(picked.scenario)}\n${wallCss(picked.scenario)}`;
+    document.head.append(styles);
+  }
+}
 /** Why this frame opens nothing, if it doesn't. */
 const failure = picked instanceof Error ? picked : unset;
 
@@ -116,6 +133,10 @@ let shownPaging: { close(): void } | null = null;
 type DataLayer = typeof import('./data/table.ts') & typeof import('./data/paging.ts');
 /** The market level's data layer (`data/quotes.ts`), loaded with the rest. */
 let marketLayer: Promise<typeof import('./data/quotes.ts')> | null = null;
+/** The wall level's data layer (`data/wall.ts`), loaded with the rest. */
+let wallLayer: Promise<typeof import('./data/wall.ts')> | null = null;
+/** The wide level's copy (`copy.ts`), loaded with the rest. */
+let copyLayer: Promise<typeof import('./copy.ts')> | null = null;
 /** The tail level's data layer (`data/replay.ts`), loaded with the rest. */
 let tailLayer: Promise<typeof import('./data/replay.ts')> | null = null;
 /** The tail level's clock, paused or not (`__contender.pause`, `?measure`):
@@ -144,6 +165,8 @@ function startEngine(): Promise<Engine> {
     const started = (async () => {
       if (__LEVEL__ === 'market') marketLayer = import('./data/quotes.ts');
       if (__LEVEL__ === 'tail') tailLayer = import('./data/replay.ts');
+      if (__LEVEL__ === 'wall') wallLayer = import('./data/wall.ts');
+      if (__LEVEL__ === 'wide') copyLayer = import('./copy.ts');
       const [table, paging] = await Promise.all([import('./data/table.ts'), import('./data/paging.ts')]);
       const data = { ...table, ...paging };
       const queries = new data.Queries(bridge);
@@ -187,6 +210,9 @@ async function openFile(): Promise<number> {
     const file = await data.openParquet(bridge, queries, parquet, FILE, dataUrl);
     if (__LEVEL__ === 'market') return await openMarket(data, file);
     if (__LEVEL__ === 'tail') return await openTail(data, queries, file);
+    if (__LEVEL__ === 'wall') return await openWall(file);
+    // The wide level's copy, which the table's tools take from its scene.
+    if (__LEVEL__ === 'wide' && scene) scene.copy = await copyLayer!;
     const paging = new data.TablePaging<TablePage>(file.rows, file.source);
     shownPaging = paging;
     // The first screen is gone: its paint, if it never came (a hidden
@@ -262,6 +288,49 @@ async function openMarket(data: DataLayer, file: Awaited<ReturnType<DataLayer['o
 }
 
 /**
+ * The wall level's open (`openFile`'s, once the file's summary is read):
+ * the file checked as the wall's instruments, the stop's desks' rows read
+ * once to seed the store, a table a desk over it (`data/wall.ts`), shown;
+ * the feed's worker started once every table has filled (after first
+ * paint, root rule 2), ended by the next open, as market watch's (its
+ * watch kept apart from `openMarket`'s, so market watch's bundle doesn't
+ * move). A feed that stops replaces the tables with the failure, marked
+ * `contender:failed`.
+ */
+async function openWall(file: Awaited<ReturnType<DataLayer['openParquet']>>): Promise<number> {
+  const layer = await wallLayer!;
+  const wrong = layer.checkFile(file.columns, file.rows);
+  if (wrong) throw new Error(wrong);
+  const { scenario, stop, limit } = wall!;
+  const tables = await layer.wallTables(scenario, stop, limit, file.source, file.columns, measuring(), readingOut());
+  shownPaging = { close: () => tables.stop() };
+  firstPixels.disconnect();
+  const id = ++opens;
+  show({ kind: 'wall', id, wall: tables });
+  feedWatch?.disconnect();
+  feedWatch = null;
+  if (!feedStarted) {
+    const filled = new PerformanceObserver((list) => {
+      if (!list.getEntriesByName(MARKS.filled).length) return;
+      filled.disconnect();
+      if (feedWatch === filled) feedWatch = null;
+      if (id !== opens || feedStarted) return;
+      feedStarted = true;
+      tables.startFeed((why) => {
+        if (id !== opens) return;
+        shownPaging?.close();
+        shownPaging = null;
+        show({ kind: 'waiting', status: `The feed stopped: ${why}`, failed: true });
+        performance.mark(MARKS.failed);
+      });
+    });
+    feedWatch = filled;
+    filled.observe({ type: 'mark' });
+  }
+  return id;
+}
+
+/**
  * The tail level's open (`openFile`'s, once the file's summary is read by
  * range): the file checked as the log's, its table at 0 rows following,
  * every page read through the replay's page SQL (`data/replay.ts`), shown;
@@ -320,7 +389,7 @@ function openAfter(): Promise<number> {
 // A frame whose scenario or stop this build lacks opens nothing: its replay
 // fails at once rather than wait for a fill.
 const unknown = (): Promise<never> => Promise.reject(failure);
-publishContender('tanstack', failure ? { open: unknown, fling: unknown, jump: unknown } : replay(openAfter));
+publishContender('tanstack', failure ? { open: unknown, fling: unknown, jump: unknown } : __LEVEL__ === 'wall' ? wallReplay(openAfter) : replay(openAfter));
 // The tail level's scroll back's control, `?measure` only: the same gesture without the feed.
 if (__LEVEL__ === 'tail' && !failure && measuring())
   (globalThis as { __contender?: Contender }).__contender!.pause = (on) => {

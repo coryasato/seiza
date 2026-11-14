@@ -40,7 +40,8 @@ impl SortDirection {
 #[non_exhaustive]
 pub struct Sort {
     /// The column's index among the columns the table was given, as
-    /// `TallTablePage::value` reads it.
+    /// `TallTablePage::value` reads it: with `reorder`, wherever it's drawn,
+    /// so a sort follows its column across a move.
     pub column: usize,
     pub direction: SortDirection,
 }

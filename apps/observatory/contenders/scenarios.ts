@@ -25,7 +25,7 @@ export type Level = 'base' | 'wide' | 'market' | 'tail' | 'wall';
  *  is `BUILT`'s, below; nothing else reads which levels exist from here. */
 export const LEVEL_FEATURES: Record<Level, readonly string[]> = {
   base: [],
-  wide: ['custom-cells', 'pin', 'density'],
+  wide: ['custom-cells', 'pin', 'density', 'resize', 'select', 'copy'],
   market: ['custom-cells', 'live', 'format'],
   tail: ['custom-cells', 'follow', 'live', 'format', 'density'],
   wall: ['custom-cells', 'live', 'format', 'density'],
@@ -144,13 +144,23 @@ export interface WallScenario extends ScenarioOf<'wall', TablesStop> {
    *  the frame's edge, in rows of `tables / 2` (two rows; one column on a
    *  phone); each table a `title` row, then its header and rows at the
    *  table's `density` (`rowHeight`, `textSize`), its columns (Symbol,
-   *  Last, Chg %, Volume) at `widths` after the row-number gutter. */
+   *  Last, Chg %, Volume) at `widths` after the row-number gutter. A frame
+   *  narrower than `oneColumnBelow` (the page's phone breakpoint, 48rem)
+   *  shows one column of tables, each its title, its header, and
+   *  `phoneRows` rows, the column scrolled (`docs/DECISIONS.md`, "Page"),
+   *  each table at most `columnWidth` wide and centered, so the column's
+   *  sides are room to scroll it from: the table's own width, its border
+   *  (2), the row-number gutter (33, the tall table's for 50 rows at 12 px
+   *  text), and its columns (292). */
   grid: {
     gap: number;
     title: number;
     rowHeight: number;
     textSize: number;
     widths: readonly [symbol: number, last: number, changePct: number, volume: number];
+    oneColumnBelow: number;
+    phoneRows: number;
+    columnWidth: number;
   };
 }
 
@@ -293,7 +303,7 @@ export const MONITORING_WALL: WallScenario = {
   desks: DESKS,
   signs: MARKET_WATCH.signs,
   flash: MARKET_WATCH.flash,
-  grid: { gap: 8, title: 26, rowHeight: 24, textSize: 12, widths: [64, 76, 72, 80] },
+  grid: { gap: 8, title: 26, rowHeight: 24, textSize: 12, widths: [64, 76, 72, 80], oneColumnBelow: 768, phoneRows: 6, columnWidth: 327 },
 };
 
 /** Every scenario, each level's first its default: what a frame can load
@@ -304,15 +314,15 @@ export const ALL_SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_
 /** The scenarios the page shows: a scenario joins once both sides build its
  *  level and the page draws it (`docs/DECISIONS.md`, "Scenarios"). The
  *  page's routes and cold numbers read it. */
-export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE];
+export const SCENARIOS: readonly Scenario[] = [BIG_FILE, WIDE_SHEET, MARKET_WATCH, LIVE_TAIL, ADMIN_TABLE, MONITORING_WALL];
 
 /** The levels each side builds, the base first: a level joins a side with
  *  its build there. What builds, serves, sizes, and stages each side's
  *  levels (the recipes, `sizes`, `cold`, `tanstack-sizes`, `placeholder`,
  *  the page's servers, `stage.ts`) reads it, never `LEVEL_FEATURES`. */
 export const BUILT: Record<Side, readonly Level[]> = {
-  gpui: ['base', 'wide', 'market', 'tail'],
-  tanstack: ['base', 'wide', 'market', 'tail'],
+  gpui: ['base', 'wide', 'market', 'tail', 'wall'],
+  tanstack: ['base', 'wide', 'market', 'tail', 'wall'],
 };
 
 /** `side`'s levels past the base. */

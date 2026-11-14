@@ -25,8 +25,9 @@ import type { FollowMessage, FollowingMessage } from '../../contenders/follow.ts
 import { FONTS_LICENSE, SCRIPT_FACES } from '../../contenders/fonts/faces.ts';
 import { SCRIPTS, SCRIPT_ROWS } from './scripts.ts';
 import { SCRIPT_FONTS } from '../../contenders/paths.ts';
-import { ADMIN_TABLE, MARKET_WATCH, oklchCss, type Scenario, type Stop } from '../../contenders/scenarios.ts';
-import { listOf, millions, SCENARIO_LINK, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
+import { ADMIN_TABLE, MARKET_WATCH, MONITORING_WALL, oklchCss, type Scenario, type Stop } from '../../contenders/scenarios.ts';
+import { DESK_ROWS } from '../../contenders/wall/desks.ts';
+import { compact, listOf, millions, SCENARIO_LINK, scenarioCopy, scenarioPath, stopShort, WHY_ANCHOR, type Component, type Contender } from './components.ts';
 import { closeExplainer, Explainer } from './explainer.ts';
 import { liveSnapshot, subscribeLive, useLive, type Live, type LiveSide } from './live.ts';
 import { toggleMeter, useMeter } from './meter.ts';
@@ -1045,6 +1046,8 @@ interface Story {
   terms?: string;
   /** More to credit beside the data (the admin table's script faces). */
   credits?: ReactNode[];
+  /** Where the canvas falls short in this scenario, beyond every scenario's. */
+  shortfalls?: string[];
 }
 
 const STORIES: Record<string, Story> = {
@@ -1109,6 +1112,23 @@ const STORIES: Record<string, Story> = {
       },
     ],
     terms: 'The Internet Traffic Archive’s terms: “The traces may be freely redistributed.” The visitors’ hosts are left out, every query string is cut, and a request naming a person is dropped.',
+  },
+  'monitoring-wall': {
+    shows: (numbers) =>
+      `An ops screen: a network operations wall, a trading floor’s desks, live sports. Several small tables share one frame, all updating at once. Here each table is a desk of ${DESK_ROWS} fictional instruments, from a file of ${numbers.rows}, every price changed in place and each change flashing. One seeded feed, the same on both sides, runs in a worker of each side’s own and sends every desk’s ticks as the same bytes, ${compact(MONITORING_WALL.rate)} updates a second a table; each side folds every tick into its own store, none dropped, and draws every table once a frame. Each stop of the dial adds tables. GPUI draws them all on one canvas; TanStack renders a tree of elements for each. The instruments come from one small file, opened by the same database engine; their symbols, their prices, and the feed are made up.`,
+    after: (_, component) => [
+      {
+        title: 'Why',
+        body: h(
+          'p',
+          null,
+          'Cost per cell, times the tables: each frame the DOM restyles and repaints every cell a tick changed in every table, so its frames grow with the tables, while the GPU draws the whole canvas as quads and glyphs. That’s the canvas’s doing rather than WebAssembly’s. Garbage under churn: each tick makes new objects on the DOM side, and the page pauses to collect them; GPUI’s store is Rust’s plain buffers, which make none. That’s WebAssembly’s. The platform’s tools are the DOM’s here as everywhere: it downloads less and is ready sooner. ',
+          h('a', { href: `${component.path}#${WHY_ANCHOR}`, className: 'text-foreground underline underline-offset-4' }, `What each one means, on the ${component.label} page`),
+          '.',
+        ),
+      },
+    ],
+    shortfalls: ['On a phone, GPUI’s column of tables scrolls only from a table’s title or a gap between tables, since a swipe over a table scrolls that table; TanStack’s scrolls on from a table that reaches its end.'],
   },
   'admin-table': {
     shows: (numbers) =>
@@ -1206,6 +1226,7 @@ export function Description({ component, scenario }: { component: Component; sce
         { className: 'flex flex-col gap-1.5' },
         item(null, 'On touch, a swipe scrolls GPUI’s table one way at a time; TanStack’s pans diagonally.'),
         item(null, 'DevTools’ device mode draws GPUI’s table zoomed; a real phone draws it normally.'),
+        ...(story.shortfalls ?? []).map((text) => h(Fragment, { key: text }, item(null, text))),
       ),
       h('p', { className: 'mt-2 text-muted-foreground' }, 'More, and how each number is measured: ', h('a', { href: `${SOURCE}/tree/master/apps/observatory#canvas-tradeoffs`, className: link }, 'the observatory’s README'), '.'),
     ),

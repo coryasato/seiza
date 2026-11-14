@@ -52,7 +52,16 @@ const estimate = (sizes: Sizes, chars: number): number =>
 
 /** A set width's clamp: at least 40 px scaled, at most 1200. */
 const MIN_WIDTH = 40;
-const MAX_WIDTH = 1200;
+export const MAX_WIDTH = 1200;
+
+/** A set width's least at `sizes`: 40 px scaled. With `clampWidth`, the
+ *  rule a resize drags and publishes by (`resize.ts`); `layOut` writes the
+ *  same rule inline, since a call here would move the base's bundle, and
+ *  `fixtures.test.ts` pins the two equal. */
+export const leastWidth = (sizes: Sizes): number => (sizes.control === 'least-fixed' ? MIN_WIDTH : scaled(sizes, MIN_WIDTH));
+
+/** A set width as laid out: clamped to its range (never scaled). */
+export const clampWidth = (width: number, sizes: Sizes): number => Math.min(Math.max(width, leastWidth(sizes)), MAX_WIDTH);
 
 /** How a column's values are aligned and cut (the component's `CellKind`). */
 export type Align = 'text' | 'integer' | 'float';

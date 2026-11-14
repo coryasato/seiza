@@ -208,6 +208,8 @@ mod tests {
                     budget: 1,
                     #[cfg(feature = "format")]
                     format: None,
+                    #[cfg(feature = "reorder")]
+                    index,
                 };
                 x += width;
                 column

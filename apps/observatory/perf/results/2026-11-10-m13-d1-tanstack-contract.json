@@ -1,0 +1,418 @@
+{
+  "date": "2026-11-10",
+  "label": "m13-d1-tanstack-contract",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "file": {
+    "count": 1567523,
+    "lastKey": "54657680"
+  },
+  "html": {
+    "prerendered": true
+  },
+  "measured": {
+    "marks": {
+      "contender:first-pixels": 52.68000030517578,
+      "contender:usable": 38.00500011444092,
+      "contender:open": 530.7449998855591,
+      "filled": 749.8199996948242,
+      "input": 83.31999969482422
+    },
+    "probeMs": 1.4300003051757812,
+    "timing": {
+      "firstScreenPaint": 52.68000030517578,
+      "firstPaint": 52.68000030517578,
+      "dataLayer": 54.89999961853027
+    },
+    "hydratedInPlace": true,
+    "opened": {
+      "rows": 1567523,
+      "top": 0,
+      "first": 0,
+      "end": 28,
+      "loaded": 28,
+      "pending": 0,
+      "lastCell": null,
+      "cacheBytes": 266496
+    },
+    "openPresented": {
+      "latestPaintAfterFilledMs": 22.940000534057617,
+      "missing": 0,
+      "rows": 28
+    },
+    "targets": {
+      "table": [
+        108.5,
+        47,
+        1298.5,
+        836
+      ],
+      "table-scroll-track": [
+        1407,
+        17,
+        16,
+        866
+      ],
+      "table-scroll-thumb": [
+        1407,
+        17,
+        16,
+        24
+      ]
+    },
+    "atEnd": {
+      "rows": 1567523,
+      "top": 47024854,
+      "first": 1567495,
+      "end": 1567523,
+      "loaded": 28,
+      "pending": 0,
+      "lastCell": "54657680",
+      "cacheBytes": 328312
+    },
+    "endFilledAfterKeyMs": 24.640000343322754,
+    "endPresented": {
+      "latestPaintAfterFilledMs": 13.335000038146973,
+      "missing": 0,
+      "rows": 28
+    },
+    "replay": {
+      "jump": {
+        "since": 923.704999923706,
+        "ms": 34.55999946594238,
+        "state": {
+          "rows": 1567523,
+          "top": 42323100,
+          "first": 1410770,
+          "end": 1410798,
+          "loaded": 28,
+          "pending": 0,
+          "lastCell": null,
+          "cacheBytes": 561944
+        }
+      },
+      "jumpAgain": {
+        "since": 962.2849998474121,
+        "ms": 12.029999732971191
+      },
+      "open": {
+        "since": 974.7449998855591,
+        "ms": 40.239999771118164,
+        "state": {
+          "rows": 1567523,
+          "top": 0,
+          "first": 0,
+          "end": 28,
+          "loaded": 28,
+          "pending": 0,
+          "lastCell": null,
+          "cacheBytes": 266496
+        }
+      },
+      "fling": {
+        "since": 1042.7399997711182,
+        "ms": 3042.7700004577637,
+        "state": {
+          "rows": 1567523,
+          "top": 47024854,
+          "first": 1567495,
+          "end": 1567523,
+          "loaded": 28,
+          "pending": 0,
+          "lastCell": "54657680",
+          "cacheBytes": 6953728
+        }
+      }
+    }
+  },
+  "probeControl": {
+    "inputs": 0,
+    "keys": 1,
+    "firstPixels": 39.06500053405762,
+    "usable": 103.11500072479248
+  },
+  "unmeasured": {
+    "side": "tanstack",
+    "state": null,
+    "replay": [
+      "fling",
+      "jump",
+      "open"
+    ],
+    "targets": null,
+    "cellTiming": 0,
+    "inputs": 0,
+    "marks": {
+      "contender:first-pixels": 51.894999504089355,
+      "contender:usable": 43.69999980926514,
+      "contender:open": 509.3099994659424,
+      "contender:filled": 722.8699998855591
+    }
+  },
+  "framed": {
+    "messages": [
+      {
+        "seiza": "mark",
+        "name": "contender:usable",
+        "at": 1794377015317.71
+      },
+      {
+        "seiza": "mark",
+        "name": "contender:first-pixels",
+        "at": 1794377015329.1948
+      },
+      {
+        "seiza": "mark",
+        "name": "contender:open",
+        "at": 1794377015784.115
+      },
+      {
+        "seiza": "mark",
+        "name": "contender:filled",
+        "at": 1794377016000.0798
+      }
+    ],
+    "marks": [
+      {
+        "name": "contender:usable",
+        "at": 1794377015317.71
+      },
+      {
+        "name": "contender:first-pixels",
+        "at": 1794377015329.1948
+      },
+      {
+        "name": "contender:open",
+        "at": 1794377015784.115
+      },
+      {
+        "name": "contender:filled",
+        "at": 1794377016000.0798
+      }
+    ]
+  },
+  "market": {
+    "measured": {
+      "usable": 46.125,
+      "open": 511.8150005340576,
+      "filled": 711.4499998092651,
+      "input": 64.48000049591064,
+      "probeMs": 1.1550006866455078,
+      "opened": {
+        "rows": 50,
+        "top": 0,
+        "first": 0,
+        "end": 28,
+        "loaded": 28,
+        "pending": 0,
+        "lastCell": null,
+        "cacheBytes": 6272
+      },
+      "feed": {
+        "batches": 79,
+        "inOrder": true,
+        "refreshed": 78,
+        "drawn": 563,
+        "lastGeneration": 571
+      },
+      "atEnd": {
+        "rows": 50,
+        "top": 664,
+        "first": 22,
+        "end": 50,
+        "loaded": 28,
+        "pending": 0,
+        "lastCell": "XYLO",
+        "cacheBytes": 4000
+      },
+      "batchesAfterOpen": 0,
+      "flung": {
+        "rows": 50,
+        "top": 664,
+        "first": 22,
+        "end": 50,
+        "loaded": 28,
+        "pending": 0,
+        "lastCell": "XYLO",
+        "cacheBytes": 6272
+      }
+    },
+    "unmeasured": {
+      "state": null,
+      "batches": null,
+      "refreshed": 0,
+      "drawn": null,
+      "cellTiming": 0
+    },
+    "framed": {
+      "messages": 20,
+      "marks": 20,
+      "names": [
+        "contender:usable",
+        "contender:first-pixels",
+        "contender:open",
+        "contender:filled",
+        "contender:refreshed"
+      ]
+    }
+  },
+  "tail": {
+    "measured": {
+      "usable": 37.88499927520752,
+      "open": 505.7749996185303,
+      "filled": 664.6499996185303,
+      "input": 50.01499938964844,
+      "probeMs": 1.0399999618530273,
+      "fed": {
+        "batches": 76,
+        "inOrder": true,
+        "marks": 75,
+        "tail": 14551,
+        "rows": 14551
+      },
+      "paused": [
+        14914,
+        14914
+      ],
+      "jumped": {
+        "rows": 14914,
+        "top": 402660,
+        "first": 13422,
+        "end": 13450,
+        "loaded": 28,
+        "pending": 0,
+        "lastCell": null,
+        "cacheBytes": 945984
+      },
+      "letGo": false,
+      "flung": {
+        "rows": 19956,
+        "top": 597844,
+        "first": 19928,
+        "end": 19956,
+        "loaded": 28,
+        "pending": 0,
+        "lastCell": "804591994000",
+        "cacheBytes": 1264912
+      },
+      "flungFollowing": true,
+      "reopen": {
+        "before": 19956,
+        "restarted": {
+          "replaced": true,
+          "rows": 0
+        },
+        "regrown": {
+          "first": 201,
+          "rows": 5004,
+          "following": true
+        }
+      }
+    },
+    "unmeasured": {
+      "state": null,
+      "batches": null,
+      "pause": null,
+      "marks": 0,
+      "tail": null,
+      "following": null,
+      "cellTiming": 0,
+      "rows": 37
+    },
+    "framed": {
+      "messages": 22,
+      "marks": 22,
+      "names": [
+        "contender:usable",
+        "contender:first-pixels",
+        "contender:open",
+        "contender:filled",
+        "contender:tail"
+      ]
+    }
+  },
+  "wall": {
+    "measured": {
+      "usable": 41.52499961853027,
+      "open": 524.789999961853,
+      "filled": 714.0100002288818,
+      "input": 55.239999771118164,
+      "probeMs": 1.0999994277954102,
+      "opened": {
+        "rows": 50,
+        "top": 0,
+        "first": 0,
+        "end": 16,
+        "loaded": 16,
+        "pending": 0,
+        "lastCell": null,
+        "cacheBytes": 4000,
+        "tables": 6
+      },
+      "filledPresented": {
+        "latestPaintAfterFilledMs": 16.579999923706055,
+        "missing": 0,
+        "rows": 96
+      },
+      "feed": {
+        "batches": 79,
+        "inOrder": true,
+        "shaped": true,
+        "refreshed": 79,
+        "drawn": [
+          1002,
+          989,
+          1017,
+          997,
+          1016,
+          977
+        ],
+        "last": [
+          1002,
+          989,
+          1017,
+          997,
+          1016,
+          977
+        ]
+      },
+      "reopen": {
+        "open": 2267.029999732971,
+        "filled": 2293.6499996185303,
+        "batchesAfterOpen": 0
+      },
+      "refused": {
+        "fling": true,
+        "jump": true
+      }
+    },
+    "unmeasured": {
+      "state": null,
+      "batches": null,
+      "refreshed": 0,
+      "drawn": null,
+      "cellTiming": 0
+    },
+    "framed": {
+      "messages": 23,
+      "marks": 23,
+      "names": [
+        "contender:usable",
+        "contender:first-pixels",
+        "contender:open",
+        "contender:filled",
+        "contender:refreshed"
+      ]
+    }
+  },
+  "failures": []
+}

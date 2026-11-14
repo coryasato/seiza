@@ -23,6 +23,8 @@ const BAND_GROUP: &str = "tall-table-band";
 /// A column drag in progress.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct Resizing {
+    /// The column's index (with `reorder`, not its place: a move during
+    /// the drag leaves it on its column).
     pub(super) column: usize,
     /// The pointer's x at the press, in window pixels.
     press_x: f32,
@@ -37,9 +39,18 @@ pub(super) struct Resizing {
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
-    /// The width column `column` is drawn at now, or `None` past the last.
+    /// The width column `column` (an index in
+    /// [`TallTableState::columns`], wherever it's drawn) is drawn at now, or
+    /// `None` past the last.
     pub fn column_width(&self, column: usize) -> Option<Pixels> {
-        self.columns.get(column).map(|column| px(column.width))
+        #[cfg(feature = "reorder")]
+        let laid_out = self
+            .columns
+            .iter()
+            .find(|laid_out| laid_out.index == column);
+        #[cfg(not(feature = "reorder"))]
+        let laid_out = self.columns.get(column);
+        laid_out.map(|column| px(column.width))
     }
 
     /// Each column's set width, as [`TallTableEvent::ColumnWidthsChanged`]
@@ -51,12 +62,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .collect()
     }
 
-    /// A press on column `column`'s band at `x` (window pixels): a single
-    /// press starts a drag; a double-click's second press fits the column
-    /// and starts none, so it can't move the fitted edge back.
+    /// A press on the band of the column at place `at` at `x` (window
+    /// pixels): a single press starts a drag; a double-click's second press
+    /// fits the column and starts none, so it can't move the fitted edge
+    /// back.
     pub(super) fn press_band(
         &mut self,
-        column: usize,
+        at: usize,
         x: Pixels,
         clicks: usize,
         window: &Window,
@@ -64,11 +76,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ) {
         if clicks >= 2 {
             self.resizing = None;
-            self.fit_column(column, window, cx);
+            self.fit_column(at, window, cx);
             return;
         }
-        let (Some(info), Some(laid_out)) = (self.column_info.get(column), self.columns.get(column))
-        else {
+        let Some(laid_out) = self.columns.get(at) else {
+            return;
+        };
+        let column = laid_out.index(at);
+        let Some(info) = self.column_info.get(column) else {
             return;
         };
         // A pinned column's drag stops where the run would pass half the
@@ -76,7 +91,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         #[cfg(feature = "pin")]
         let pin_limit = {
             let place = self.place();
-            if place.holds(column) {
+            if place.holds(at) {
                 self.cells_width() / 2.0 - (place.edge - laid_out.width)
             } else {
                 f32::INFINITY
@@ -129,7 +144,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         info.width = set;
         // Laid out without `lay_out`'s generation bump: the release
         // reports the layout. The scroll holds (`content_width`).
-        (self.columns, self.content_width) = self.glyphs.lay_out(&self.column_info, sizes);
+        (self.columns, self.content_width) = self.glyphs.lay_out(
+            &self.column_info,
+            #[cfg(feature = "reorder")]
+            &self.order,
+            sizes,
+        );
         cx.notify();
     }
 
@@ -166,13 +186,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    /// Fits column `column` to its header's name and its visible, loaded
-    /// rows, clamped: a numeric column to its widest exact text at the
-    /// number advance (so a float's budget holds every digit), any other to
-    /// its widest shown text, shaped. Emits the widths if they changed.
-    pub(super) fn fit_column(&mut self, column: usize, window: &Window, cx: &mut Context<Self>) {
-        let (Some(info), Some(laid_out)) = (self.column_info.get(column), self.columns.get(column))
-        else {
+    /// Fits the column at place `at` to its header's name and its visible,
+    /// loaded rows, clamped: a numeric column to its widest exact text at
+    /// the number advance (so a float's budget holds every digit), any
+    /// other to its widest shown text, shaped. Emits the widths if they
+    /// changed.
+    pub(super) fn fit_column(&mut self, at: usize, window: &Window, cx: &mut Context<Self>) {
+        let Some(laid_out) = self.columns.get(at) else {
+            return;
+        };
+        // Its own values and settings, by its index (`reorder`).
+        let column = laid_out.index(at);
+        let Some(info) = self.column_info.get(column) else {
             return;
         };
         // No glyph of the cells' font is narrower than 2 px, so a text cut
@@ -250,9 +275,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let place = self.place();
         let bands = self
             .visible_columns()
-            .filter(|(index, _)| self.column_info[*index].resizable)
-            .map(|(index, column)| {
-                let edge = place.layer_left(index, column.x, self.scroll_x) + column.width;
+            .filter(|(at, column)| self.column_info[column.index(*at)].resizable)
+            .map(|(at, column)| {
+                // By its index, which a drag holds (`reorder`).
+                let index = column.index(at);
+                let edge = place.layer_left(at, column.x, self.scroll_x) + column.width;
                 let band = div()
                     .id(("tall-table-band", index))
                     .group(BAND_GROUP)
@@ -268,7 +295,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                             cx.stop_propagation();
                             window.focus(&this.focus_handle, cx);
-                            this.press_band(index, event.position.x, event.click_count, window, cx);
+                            this.press_band(at, event.position.x, event.click_count, window, cx);
                         }),
                     )
                     .child(
@@ -281,7 +308,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             .bg(if dragged == Some(index) { lit } else { line })
                             .group_hover(BAND_GROUP, move |line| line.bg(lit)),
                     );
-                (place.holds(index), band)
+                (place.holds(at), band)
             });
         #[cfg(not(feature = "pin"))]
         let bands = div()

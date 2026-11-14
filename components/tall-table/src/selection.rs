@@ -4,12 +4,15 @@
 
 use std::ops::RangeInclusive;
 
-/// A cell: a row and a column (an index into `columns()`).
+/// A cell: a row and a column's place, where it's drawn (0 at the left;
+/// without `reorder`, its index in `columns()`; with it, `order()` names
+/// the index drawn there).
 pub type Cell = (u64, usize);
 
 /// What's selected: one range from `anchor` (the active cell, where a
 /// plain arrow moves from) to `head` (where Shift moves), either way round.
-/// The kind says how far it spans; the cells are where the reader is.
+/// The kind says how far it spans; the cells are where the reader is, a
+/// column by its place ([`Cell`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum TallTableSelection {
@@ -46,6 +49,17 @@ impl Kind {
             Kind::Rows => "rows",
             Kind::Columns => "columns",
             Kind::Cells => "cells",
+        }
+    }
+
+    /// The kind `as_str` spells `name`, for a fixture that reads one.
+    #[cfg(test)]
+    pub(crate) fn parse(name: &str) -> Option<Self> {
+        match name {
+            "rows" => Some(Kind::Rows),
+            "columns" => Some(Kind::Columns),
+            "cells" => Some(Kind::Cells),
+            _ => None,
         }
     }
 }
@@ -254,5 +268,17 @@ mod tests {
         assert_eq!(columns.smallest(false), None, "a press holds no column");
         assert_eq!(columns.smallest(true), Some(Kind::Columns));
         assert!(!Selectable::none().any());
+    }
+
+    #[test]
+    fn kinds_parse_as_they_are_spelled() {
+        for kind in [Kind::Rows, Kind::Columns, Kind::Cells] {
+            // A new kind fails to compile here: list it above too.
+            match kind {
+                Kind::Rows | Kind::Columns | Kind::Cells => {}
+            }
+            assert_eq!(Kind::parse(kind.as_str()), Some(kind));
+        }
+        assert_eq!(Kind::parse("block"), None);
     }
 }

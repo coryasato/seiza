@@ -22,19 +22,19 @@ use crate::host::{Host, Table};
 /// The host starts opening the file (the engine is ready).
 const OPEN_MARK: &str = "contender:open";
 /// Right after each frame in which the viewport became filled.
-const FILLED_MARK: &str = "contender:filled";
+pub(crate) const FILLED_MARK: &str = "contender:filled";
 /// Right after the frame that drew the probe key (`?measure`).
 const INPUT_MARK: &str = "contender:input";
 /// The host shows a failure: no `contender:filled` is coming.
 const FAILED_MARK: &str = "contender:failed";
 /// With `?measure`, right after each frame that first draws a re-read
 /// (`live`): market watch's Shown in reads it (`docs/contender-contract.md`).
-#[cfg(feature = "market")]
-const REFRESHED_MARK: &str = "contender:refreshed";
+#[cfg(any(feature = "market", feature = "wall"))]
+pub(crate) const REFRESHED_MARK: &str = "contender:refreshed";
 /// With `?measure`, the highest generation drawn, raised in the frame that
 /// draws it, before its mark (the bridge's).
-#[cfg(feature = "market")]
-const REFRESHED_GLOBAL: &str = "__contenderRefreshed";
+#[cfg(any(feature = "market", feature = "wall"))]
+pub(crate) const REFRESHED_GLOBAL: &str = "__contenderRefreshed";
 /// With `?measure`, right after each frame whose drawn tail grew while
 /// following (`TailDrawn`): live tail's Row shown in reads it.
 #[cfg(feature = "tail")]
@@ -241,7 +241,7 @@ fn on_event(event: &TallTableEvent) {
     // Emitted while the frame renders, so the mark lands right after it's
     // presented (the component's CLAUDE.md, rule 4).
     tall_table_bridge::Publish {
-        filled_mark: Some(FILLED_MARK),
+        filled_mark: (!cfg!(feature = "wall")).then_some(FILLED_MARK),
         scrollbar: measuring(),
         // Measured runs only: a mark a frame, never cleared, would pile up
         // in the timeline of a page that runs the feed for long.
@@ -262,8 +262,8 @@ fn on_event(event: &TallTableEvent) {
     match event {
         TallTableEvent::Probe(probe) => {
             GEOMETRY.set((probe.rows as f64, GEOMETRY.get().1));
-            let filled = probe.rows == 0
-                || (probe.end > probe.first && probe.loaded == probe.end - probe.first);
+            // Every visible row loaded (`probe_filled!`, the wall's too).
+            let filled = crate::contract::probe_filled!(probe);
             VIEW.set((VIEW.get().0.wrapping_add(1), filled));
             // `__contender.probe`: where the view is (its top row, its
             // sideways scroll), which places a drawn cell on the canvas
@@ -380,7 +380,7 @@ fn publish_state(shown: &Shown) {
             .map_or(JsValue::NULL, JsValue::from_str),
     );
     set("cacheBytes", number(shown.cache_bytes as u64));
-    set_on_contender("state", &state);
+    set_on_contender("state", with_tables(&state));
 }
 
 /// Runs `update` on the host on GPUI's next turn: the replay's calls come
@@ -401,7 +401,7 @@ fn with_host(update: impl FnOnce(&mut Host, &mut Window, &mut Context<Host>) + '
 
 /// Runs `update` on the host now, from a JS task outside GPUI's (a
 /// worker's message): GPUI's effects flush at its end, as an input's do.
-#[cfg(any(feature = "market", feature = "tail"))]
+#[cfg(any(feature = "market", feature = "tail", feature = "wall"))]
 pub fn with_host_now(update: impl FnOnce(&mut Host, &mut Context<Host>)) {
     let Some((host, _, mut cx)) = HOST.with_borrow(Clone::clone) else {
         return;
@@ -460,4 +460,57 @@ pub fn with_window_now(update: impl FnOnce(&mut Window, &mut App)) -> bool {
     window
         .update(&mut cx, |_, window, cx| update(window, cx))
         .is_ok()
+}
+
+// The monitoring wall's, below everything another level builds (`lib.rs`
+// says why).
+
+/// `state` as published: on the wall with the stop's tables beside the
+/// first table's (`docs/contender-contract.md`, "State").
+#[inline(always)]
+fn with_tables(state: &Object) -> &Object {
+    #[cfg(feature = "wall")]
+    let _ = Reflect::set(
+        state,
+        &JsValue::from_str("tables"),
+        &JsValue::from_f64(crate::wall::tables() as f64),
+    );
+    state
+}
+
+/// Whether a frame's probe shows every visible row loaded (an empty table
+/// counts): the replay's view state, and the wall's filled across its
+/// tables. A macro, so the bare host's code is the expression it was.
+macro_rules! probe_filled {
+    ($probe:expr) => {{
+        let probe = $probe;
+        probe.rows == 0 || (probe.end > probe.first && probe.loaded == probe.end - probe.first)
+    }};
+}
+pub(crate) use probe_filled;
+
+// The wide sheet's, below everything another level builds (`lib.rs` says
+// why).
+
+/// Publishes what `table` reports (`watch`), and on the wide level its
+/// tools' (`wide::watch`). Inlined, so another level's code is `watch`'s.
+/// The wall's host calls `watch` for its tables itself.
+#[cfg(not(feature = "wall"))]
+#[inline(always)]
+pub fn watch_level(table: &Entity<Table>, cx: &mut Context<Host>) {
+    watch(table, cx);
+    #[cfg(feature = "wide")]
+    crate::wide::watch(table, cx);
+}
+
+/// The host is opening the file (`opening`), the table shown before closed
+/// (a replay's reopen): on the wide level the clipboard's writer is told,
+/// so a write still open is rejected. Inlined, so another level's code is
+/// `opening`'s.
+#[cfg(not(feature = "wall"))]
+#[inline(always)]
+pub fn opening_level() {
+    opening();
+    #[cfg(feature = "wide")]
+    crate::wide::closed();
 }

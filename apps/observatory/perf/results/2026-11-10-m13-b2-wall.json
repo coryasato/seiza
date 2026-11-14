@@ -1,0 +1,122 @@
+{
+  "date": "2026-11-10",
+  "label": "m13-b2-wall",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "gpui": {
+    "fold": {
+      "2000-light": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 0,
+        "first": []
+      },
+      "2000-dark": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 0,
+        "first": []
+      },
+      "1999-light": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 7,
+        "first": [
+          "table 0 PRDW Last: exact 102.69, the fold's 102.68",
+          "table 0 PRDW Last: shown 102.69, the format's 102.68",
+          "table 0 PRDW Chg %: exact 0.009738994935713776, the fold's 0.0",
+          "table 0 PRDW Chg %: shown +0.01%, the format's 0.00%",
+          "table 0 PRDW Chg %: a zero drawn in a sign's color 16,136,60"
+        ]
+      },
+      "1999-dark": {
+        "tables": 8,
+        "cells": 1600,
+        "wrong": 7,
+        "first": [
+          "table 0 PRDW Last: exact 102.69, the fold's 102.68",
+          "table 0 PRDW Last: shown 102.69, the format's 102.68",
+          "table 0 PRDW Chg %: exact 0.009738994935713776, the fold's 0.0",
+          "table 0 PRDW Chg %: shown +0.01%, the format's 0.00%",
+          "table 0 PRDW Chg %: a zero drawn in a sign's color 104,226,133"
+        ]
+      }
+    },
+    "flash": {
+      "flashing": 96,
+      "tables": 6,
+      "columns": [
+        "Last"
+      ],
+      "off": 0
+    },
+    "marks": {
+      "4": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 152,
+        "sampled": 22,
+        "presented": 22,
+        "batches": 155,
+        "gaps": 0,
+        "ticks": 23960,
+        "visible": 155,
+        "reached": 155,
+        "sendToMarkMs": {
+          "p50": 11.9,
+          "max": 24.2
+        },
+        "stateTables": 4
+      },
+      "6": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 154,
+        "sampled": 22,
+        "presented": 22,
+        "batches": 155,
+        "gaps": 0,
+        "ticks": 35974,
+        "visible": 155,
+        "reached": 154,
+        "sendToMarkMs": {
+          "p50": 14,
+          "max": 25.6
+        },
+        "stateTables": 6
+      },
+      "8": {
+        "filled": 1,
+        "filledPresented": true,
+        "refreshed": 152,
+        "sampled": 22,
+        "presented": 22,
+        "batches": 154,
+        "gaps": 0,
+        "ticks": 47734,
+        "visible": 154,
+        "reached": 153,
+        "sendToMarkMs": {
+          "p50": 15.7,
+          "max": 25.7
+        },
+        "stateTables": 8
+      }
+    },
+    "phone": {
+      "tableScrolled": true,
+      "columnHeld": true,
+      "columnMoved": true
+    }
+  },
+  "failures": []
+}

@@ -27,8 +27,8 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 | M10 | Scenario: market watch (parts A1–F) | Done 2026-11-06 ([`docs/milestones.md`](docs/milestones.md)) |
 | M11 | Scenario: live tail (parts A1–A2, B1–B2, C1–C2, D1–D2, E, E2, F) | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M12 | Scenario: admin table (the control) (parts A1–A3, B1–B2, C1–C2, D–E) | Done 2026-11-10 ([`docs/milestones.md`](docs/milestones.md)) |
-| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Active (part B2) |
-| M14 | The wide sheet's later steps: a resize drag, a range copied | Planned (after M13) |
+| M13 | Scenario: monitoring wall (parts A1–A3, B1–B2, C1–C2, D1–D2, E, F) | Done 2026-11-11 ([`docs/milestones.md`](docs/milestones.md)) |
+| M14 | The wide sheet's later steps: a resize drag, a range copied | Active (opened 2026-11-12; A1–A2, B, C1, C2, and D1 done, D2 next) |
 
 **Parts are sized to one working session.** Each ends with its own checks passing and its evidence written down, so the next session starts from this file, not from the last one's context. A part that grows past a session splits before it's started, not halfway through.
 
@@ -42,176 +42,16 @@ What's next for the Observatory: milestone status, the active milestone's "done 
 |---|---|---|
 | tall-table `follow` (same; [its README](../../components/tall-table/README.md), "Following the tail") | Live tail (M11) | *Ready* (2026-10-25, tall-table M4) |
 | tall-table `let_go`: following turned off by the host, the view left where it is, `Following(false)` emitted (the reader's moves do it today; `set_following` is private) | Live tail's Pause (M11 part E2) | *Ready* (2026-11-09, tall-table M13; the TanStack contender's `letGo` built with it, in `follow.ts`, its fixture scenario and control run on the tail level) |
+| tall-table's copy fixture (`fixtures/copy.json`; tall-table M14, [its milestones](../../components/tall-table/docs/milestones.md)) | The TanStack contender's copy, ported against it (M14 part C2) | *Ready* (2026-11-12, tall-table M14) |
 | tall-table `resize`, `select`, `copy` ([its PLAN](../../components/tall-table/PLAN.md), "Columns" and "Selection") | The wide sheet's later steps, a resize drag and a range copied (M14) | *Ready* (`resize` 2026-10-26, tall-table M5; `select` 2026-10-26, M6; `copy` 2026-10-27, M7) |
 
 ---
 
 ## Active milestone
 
-### M13: Scenario: monitoring wall
-
-Opened 2026-11-10. An ops screen: a NOC wall, a trading floor's desks, live sports. Several small tables in one frame, all updating at once ([the research](docs/research/scenarios.md), "Monitoring wall"). Mechanisms: cost per cell (A) and allocation and garbage collection (B), in the canvas's terms one canvas against N DOM trees. It's the last scenario. Every feature it uses is built; it waits on nothing. M12's spec and evidence are in [`docs/milestones.md`](docs/milestones.md).
-
-**The design is M8's canvas** (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK: its "Wall" board, dark, GPUI, eight tables, and the main board's `wall` scenario), followed as drawn ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page"):
-- **The lead:** "Several live tables in one frame. Turn up the tables."
-- **The dial:** "Tables", stops 4, 6, and 8, laid out 2×2, 3×2, and 4×2 (one column on a phone), each table at 2k updates/s. The canvas's default is 6.
-- **The grid:** tables 8 px apart, padded 8 px, on the sidebar's color. Each table has a 26 px title (its desk: Energy, Rail and freight, Banks, Chips, Health, Retail, Materials, Utilities), then 4 columns at 24 px rows and 12 px text: Symbol 64, Last 76, Chg % 72, Volume 80 px. Last flashes and Chg % is drawn by its sign, as market watch's are.
-- **The status bar:** Ready in, Shown in, Smooth, Memory (on a phone, Shown in and Smooth); the data "Simulated stock prices", 400 rows; a "Synthetic data" tag.
-- **The panel:** the keeps-up chart over the three stops, both devices; then three cards at the chosen stop: Smoothness, Update shown in (p50), and Collection pauses in 10 s; then Ready in and Download.
-- **The gallery card:** a mosaic of eight small tables; the mechanisms A and B.
-
-Every number on the canvas is a sketch. Its curves and verdict now follow A2's spike ("On a slow device, GPUI keeps up to 6 tables, TanStack to 4"). Part A3 drew what the canvas lacked, decided with the user ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-10; the canvas's wall row): each table scrolls on its own; a phone's frame scrolls one column of tables, each a title, a header, and 6 rows; each table draws the tall table's row-number gutter (33 px), so at 8 tables with the sidebar open Volume is cut and the table scrolls sideways.
-
-**The level: `wall`, a build of its own** (decided with the user 2026-11-10, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"). It is market watch's features plus `density` (`custom-cells`, `live`, `format`, `density`). Without `density`, the table sizes its columns by kind: Symbol 200 px and each number 120, about 560 px a table, against ~280 px for a table in a 4-across grid at 1440 × 900. Market watch's level stays as it is, so its builds and its numbers are unchanged. The wall gets one more build per side, with budgets of its own.
-
-**The data: 400 fictional instruments in 8 desks of 50** (decided with the user 2026-11-10, the same entry). A file of their own: each instrument's desk, symbol, and reference price (no name: the wall draws none; A1-1), written by `prep.ts` from one home in the feed's module and checked against US listings, as market watch's 50 are. It is labelled synthetic and credited as the observatory's own. Market watch's file and feed are unchanged. One seeded feed sends every desk's ticks in a worker per frame, in market watch's tick format (its u16 instrument holds 0–399), so each side's store and fold are market watch's, widened to 400 rows.
-
-**On each side:**
-- **GPUI:** N `TallTableState`s in one window, each a desk's 50 rows, laid out by the host in the stop's grid.
-- **TanStack:** N tables in one React tree, each its own virtualizer over its desk.
-
-Both take the same feed, the same desks, the same widths, and the same flash. The marks a stop's readings need with N tables are A1's: "filled" once every table has its rows, and Shown in pooled across the tables or per table.
-
-**Parts** (each one session; A3 confirms B–F):
-- **A1: the data, the feed, and the level's shape.**
-  - The instruments: 400 fictional symbols and price levels by desk, the US-listing check, a draft `prep-wall` (rows, bytes).
-  - The feed: market watch's module widened, or a module of its own over the same format, and which. Its rate sustained in its worker at 4, 6, and 8 desks × 2k (8k–16k ticks a second, inside the 50k market watch's worker held, [M10 A1](perf/results/2026-11-04-m10-a1.md)), and each side's fold at 16k.
-  - The per-table rate kept at the canvas's 2k or moved: at 2k a desk gets ~33 ticks a frame over 50 rows, so a third of its visible rows change a drawn cell each frame (A1-3).
-  - The level's build shape on each side: the Cargo feature `wall`, `contenders/level.ts`, `BUILT`, the staging.
-  - The contract with N tables: which marks, and how Shown in and "filled" read across tables.
-  - The fixtures: the feed fixture's fold at 400 rows, and `cells.json`'s section if the wall's text isn't market watch's.
-- **A2: the spike on both sides and the stops.** N tables at each stop on each side, on A1's feed: the GPUI bare host (or the contender) with N table entities in a grid, and the TanStack spike with N virtualizers. Measured at each stop, both devices: Smooth, work per frame, Shown in, and collection pauses.
-  - The verdict's measure: market watch's "keeps up" (≥ 90% of batches shown in a frame of their own) taken across N tables, or changed.
-  - The stops kept at 4/6/8 or moved to where the edges fall, decided with the user.
-  - The suite's time.
-- **A3: the measures, the boards, and B–F confirmed.**
-  - The measures made exact: Ready in, Shown in, Smooth, Memory, Download, collection pauses.
-  - The boards on M8's canvas, decided with the user before anything is built: the phone's one column, a table's rows past its tenth, light and dark, desktop and phone.
-- **B1: the data, the scenario, and the feed fixture** (split in A3, as were C and D).
-  - The data: `prep-wall` in `prep.ts` (`--only wall`, from A1-1's draft and `contenders/wall/`'s 400), its `MANIFEST.json` entry, credited as the observatory's own and synthetic.
-  - The scenario: `MONITORING_WALL` and `LEVEL_FEATURES.wall` in `contenders/scenarios.ts` (A1-4), on neither side's `BUILT` yet.
-  - The feed fixture at 400 rows (`contenders/wall/fixtures/`, market watch's `write.ts` widened), run by GPUI's native store and TanStack's `QuoteStore` with the dropped-tick control; market watch's fixture regenerated byte-identical.
-  - `docs/contender-contract.md`'s changes for N tables (A1-5's list).
-- **B2: the GPUI contender at the level:** the crate's feature `wall` (market watch's code under `cfg(any(feature = "market", feature = "wall"))`), N tables in the stop's grid (two rows; a phone's one column of 196 px tables, its frame scrolled from a title or a gap), one fold a batch and each table's ticked rows invalidated, the marks across tables (`filled`, `refreshed` per table, the batches' generations and mask, the readout's ring pooled); `wall` in `BUILT.gpui`; its wasm and TTFP budgets (`gpui-wall-*`); market watch's wasm byte-identical; a check script's GPUI half (`perf/wall.ts`: the fixture's ticks drawn, each table's cells, the marks right after presented frames, every batch reached, an unknown stop failing).
-- **C1: the TanStack contender at the level:** N tables in one React tree, each its own virtualizer over its desk (a phone's one column, the frame scrolling, its nested scrollers chaining), market watch's store widened to 400 rows, the fold, the flash, and the marks; `wall.css`; `wall` in `BUILT.tanstack`; its first-paint JS and data-layer budgets; market watch's bundle unchanged.
-- **C2: the same on both sides:** `perf/wall.ts` on both sides (each table's cells byte-identical after a fixed run of ticks, the same grid, widths, and gutter), `tanstack-contract` and `tanstack-parity` at the level (the grid, the flash, the sign colors, light and dark; Chromium, Firefox, WebKit), and all of it in `check`.
-- **D1: the metrics at the level:** A3's measures in the metric scripts at `--scenario monitoring-wall`: `metric-feed`'s pairing across the tables (the batches' generations and mask), `usable`, `data` (every table filled), and `memory` (`?ticks=60000`, Download); smoke runs only, then the code review.
-- **D2: the runs** (~1.5 h, one sitting on a quiet machine: A2-4): the feed at each stop, both sides, both devices, 10 runs, each file labelled `monitoring-wall-<stop>` with its versions; usable, data, and memory once; and the GPUI-only A/B of gpui-kit 0.9.0 against 0.9.1 ("Open questions"); a results note.
-- **E: the page,** as the canvas and A3's boards draw it (the dial, the grid, the status bar, the panel, the description, the gallery card), and the Overview's rule if the wall changes it; split at its start if it's over a session.
-- **F: shipped.** The README's section by `report` (its canvas tradeoffs too: the phone's scrolling differs between the sides), `burst` under the zone's limit, the deploy, `worker-check`.
-
-**Done when** (draft; the measures made exact in A1–A3):
-- [ ] **Its builds:** the level `wall` on both sides carries market watch's features and `density` (and their counterparts), and nothing else; every other level byte-identical to before. Its budgets (`gpui-wall-*`, `tanstack-wall-*`) are against baselines of their own, gated by `check`, with each feature's added bytes in a results note.
-- [ ] **Its data credited:** the instruments' file in `MANIFEST.json` (rows, bytes, SHA-256, credited as the observatory's own, synthetic); the page and the README say the feed is synthetic and seeded.
-- [ ] **The same on both sides:**
-  - One feed module sends the same bytes to either side, and every tick reaches its table's store.
-  - The feed fixture at 400 rows passes on both sides' stores, with its control.
-  - The cells shown after a fixed run of ticks are byte-identical on both sides, every table.
-  - Both sides draw the tables in the same grid and at the same widths.
-  - `tanstack-parity` covers the grid, the flash, and the sign colors in Chromium, Firefox, and WebKit.
-- [ ] **Its runs:** `check` gates the level's budgets and runs its smoke, fixtures, and contract checks. The full cold protocol (its stops × both sides × both devices × 10 runs) runs once, in part D, each results file labelled `monitoring-wall-<stop>` with its versions.
-- [ ] **Its numbers:** at each stop, both sides, both devices: whether it keeps up, Shown in p50, collection pauses in 10 s, late frames, work per frame. Once a scenario: usable, data, memory. A results note, which also holds the 0.9.0 against 0.9.1 A/B and its verdict.
-- [ ] **The page:** the route, the dial, the grid, the status bar, the panel, and the description as the canvas and A3's boards draw them, "Measured with …" from the results; `page --check` covers them.
-- [ ] **Shipped:** the README's monitoring wall section by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
-
-### Part A1: the data, the feed, and the level's shape
-
-**Done when:**
-- [x] **A1-1, the instruments:** 400 fictional instruments in the canvas's 8 desks of 50 (desk, symbol, reference price), none listed on a US exchange (the check market watch's prep runs) and none repeating market watch's 50 symbols; a draft `prep-wall` with native DuckDB (rows, bytes, row groups).
-  *Evidence* ([results](perf/results/2026-11-10-m13-a1.md)): 400 symbols generated once (`spike/wall/gen.ts`, seed `0x3a11`) and pinned as text in `spike/wall/instruments.ts`, 110 listed candidates rejected (NASDAQ Trader's directories, 14,246 symbols, with the AAPL and IBM control), none repeating market watch's or each other. Prices are log-uniform in a range per desk (Materials 4–85 up to Chips 25–480). No name column: the wall draws none. The draft file (`spike/wall/prep-wall.sql`, native DuckDB 1.4.5) is `Desk`, `Symbol`, `Last`, `Change %`, `Volume`: 400 rows in the feed's order, 3,646 B, one row group.
-- [x] **A1-2, the feed:** where its module lives and how it's shared with market watch's (same tick format, the instrument a u16 over 400); its rate held in its worker at 8k, 12k, and 16k ticks a second (every tick delivered, the worker's busy ms a second), each side's fold of a batch at 16k, and the first 2,000 ticks' digest the same across runs.
-  *Evidence* ([results](perf/results/2026-11-10-m13-a1.md)), reference, median of 3:
-  - **Delivered:** 100% at 8k, 12k, and 16k (4, 6, 8 desks × 2k), ~52 batches a second, post → handler ~0.2 ms p50, the worker busy 16–23 ms a second.
-  - **The fold of a batch at 16k:** `objects` 0.37 µs a tick (5.9 ms a second, 17 collections in 10 s, longest 0.94 ms), `typed` 0.08, `wasm` 0.15, neither making garbage.
-  - **The same ticks:** each stop's digest the same in every run (`8c545d85` at 8 desks), and the three folds agree after 20,000 ticks, over the 400 and over market watch's 50, the dropped-tick control differing. The spike's feed writes the contender's bytes (`spike/wall/same-feed.ts`, with another seed as its control): the first runs, on a stale copy, are superseded (the note says how).
-  - **Throttled:** reads faster than the reference on this idle page, as in M10 A1, so only its counts are read (100% delivered at every stop).
-  - **The module:** market watch's `Feed`, taking its instruments' prices (market watch's 50 the default, its fixture to regenerate byte-identical in B). The worker's start names the instruments and the stop's desks; the 400's home is `contenders/wall/`.
-- [x] **A1-3, the per-table rate:** the canvas's 2k a table kept or moved, from the share of each desk's visible rows changed a frame at 1k, 2k, and 5k. *Kept for A2's spike, which moves it if no edge falls inside the dial.*
-  - **What changes a drawn cell:** the wall draws Last, Chg %, and Volume. A quote tick (40%) changes none of them, only Bid and Ask, which market watch draws and the wall doesn't. A trade always adds to Volume, and moves Last half the time.
-  - **What a frame redraws, counted from the store's values** (`spike/wall/changed.ts`: the feed's own ticks, 3,000 frames at 60 Hz, the visible rows only). Cells changed counts only columns whose value moved, and cells flashing counts those within 400 ms of a change. The wall has 8 desks × 16 rows on screen (a bare page's 900 px in two rows of tables); market watch has 29 of its 50.
-
-    | | Rows changed a frame | Cells changed a frame | Cells flashing |
-    |---|---|---|---|
-    | Wall, 1k a desk | 23 (18%) | 47 | 116 of 128 |
-    | Wall, 2k a desk | 42 (33%) | 87 | 127 of 128 |
-    | Wall, 5k a desk | 81 (63%) | 172 | 128 of 128 |
-    | Market watch, 1k | 8 (28%) | 39 | 83 of 87 |
-    | Market watch, 5k | 24 (81%) | 125 | 87 of 87 |
-
-  - **At 2k:** the wall changes 87 cells a frame, between market watch's 1k and 5k (39 and 125), where its edges fell (TanStack on the slow device kept up to 1k). Nearly every Last on screen is flashing at any moment, more flashing cells than market watch ever has. The share of rows changed doesn't depend on how many show, since the feed spreads a desk's ticks evenly over its 50.
-  - **A2 settles it:** the spike runs 2k a desk, and 5k a desk too if neither side's edge falls between 4 and 8 tables on either device. A rate that moves is decided with the user, as market watch's stops were.
-- [x] **A1-4, the level's shape:** the `wall` level in `LEVEL_FEATURES`, `BUILT`, `contenders/level.ts`, the GPUI crate's feature, and the staging; what each touches, listed for parts B and C.
-  - **Unchanged, and driven by the lists:** the recipes, `sizes`, `cold`, `tanstack-sizes`, `placeholder`, the page's servers, and `worker/scripts/stage.ts` all loop over `BUILT` (`contenders/built.ts`), and `level.ts`'s `levelOf`, `gpuiCargoFeatures` (`[level]`), and `levelOutDir` (`dist-wall/`) take any level. Adding `wall` to `BUILT` builds, sizes, stages, and gates it. `perf/budgets.json` and `baseline.json` gain `gpui-wall-*` and `tanstack-wall-*`, written by each side's first `--level wall` run.
-  - **`contenders/scenarios.ts` (part B):** `Level` gains `wall`, and `LEVEL_FEATURES.wall` is `custom-cells`, `live`, `format`, `density`. A `WallScenario` holds its stops (`{ id, label, tables }`: 4, 6, 8), the rate a desk, the desks' names, the seed, and market watch's signs and flash (shared, not copied). `MONITORING_WALL` joins `ALL_SCENARIOS`, then `BUILT.gpui` in B and `BUILT.tanstack` in C, then `SCENARIOS` in E.
-  - **The GPUI crate (B):** a feature `wall`, market watch's six features plus `seiza-tall-table/density` and `tall-table-bridge/density`.
-    - The market code it shares is the feed's receiver (`feed.rs`), the store (`market.rs`), and the market source (`scene/market.rs`). It goes under `cfg(any(feature = "market", feature = "wall"))`, not a `wall` that turns on `market`: market watch's file check and single-table host stay market's.
-    - The host's `Load::Open` holds N tables (a wall of entities over one store), and `Host::feed` folds once, then invalidates each ticked row in its own table. A grid view lays them out at the stop's columns. `scene/wall.rs` holds the 4 columns, their widths, and the title row.
-    - Market watch's wasm stays byte-identical: `sizes` at the market level against its file of record.
-  - **The TanStack contender (C):** `__LEVEL__ === 'wall'` branches. `App` renders N table components in a grid, each with its own virtualizer, over market watch's store widened to 400 rows (`data/quotes.ts`, `data/market.ts`), with a `wall.css`. Market watch's bundle is unchanged: `tanstack-sizes` at the market level.
-  - **The data (B):** `prep.ts --only wall`, its SQL (`prep-wall.sql`, from A1-1's draft), and a `MANIFEST.json` entry; `stage.ts` stages every file `MANIFEST.json` names, so the entry is all it needs.
-  - **Later parts:** the page's lists (`web/src/components.ts`, `gallery.ts`, `slot.ts`) in E; `metric-feed` and the once-a-scenario metrics at the level in D; `tanstack-contract` and `tanstack-parity` at the level in C; `burst` in F.
-- [x] **A1-5, the contract and the fixtures with N tables:** the marks (filled, usable, Shown in's stamps) and how each reads across tables, `docs/contender-contract.md`'s changes listed; the fixtures the wall adds (the feed fixture at 400 rows, a cells section if its text differs from market watch's).
-  - **Unchanged:** `first-pixels`, `usable`, `open` (one open of the file; a desk's 50 rows are one page, read once and then answered from the store, as market watch's are), and `input` (the window's first key; on GPUI the first table holds the focus).
-  - **`filled`, across the tables:** set once every table's visible rows hold real data, and again each time that becomes true. On GPUI, the host marks when the last table's `Filled` arrives; on TanStack, in the commit that makes every table's rows real. Time to data is the open → all N filled.
-  - **`refreshed` and Shown in, per table, then pooled:**
-    - Each table keeps its own generation (GPUI's `invalidate_rows` already counts per table). `__contenderRefreshed` becomes an array, the highest generation drawn per table, and `contender:refreshed` is set after each frame that draws any table's re-read.
-    - A batch's entry in `__contender.batches` becomes `[seq, ticks, sent, generations: number[] (per table, 0 for none), visible: number (a bitmask of the tables whose on-screen rows it ticked)]`.
-    - A batch is shown in the first frame at whose `refreshed` mark every table in its mask has drawn its generation: one reading per batch, pooled across the wall. Why: a batch is what the wall shows at once. One canvas draws every table in one frame, while N DOM trees may not, and that's the scenario's question. Keeps up is market watch's `feedFrames` over those pairs. The readout's ring takes the pooled reading.
-  - **`state`:** the first table's, as today, plus `tables: N`. The wall's measures don't scroll; A3 confirms none needs more.
-  - **Replay hooks and targets:** `load` only. The fling and the jump to 90% have no meaning on a 50-row desk; A3 confirms on the boards that the page offers none.
-  - **`failed`:** as market watch's, its file check being the wall's instruments (400 rows, the five columns).
-  - **The fixtures:**
-    - The feed fixture at 400 rows: `contenders/wall/fixtures/feed.json`, the first 2,000 ticks over the 8 desks and the store after them, written by market watch's `write.ts` widened. It's run by both stores with the control (a dropped tick), beside market watch's, which must regenerate byte-identical.
-    - No `cells.json` section: the wall draws market watch's formats (Last at its decimals, Chg % as "+1.23%", Volume grouped) through the same code, and its flash is `paint.json`'s. The done-when's cross-side check (the cells after a fixed run of ticks, every table) covers the wall's own text.
-    - The paging fixtures are unchanged: a desk is one page.
-  - **`docs/contender-contract.md`'s changes, for B and C:** the marks table's `filled` and `refreshed` rows, the state's `batches` and `__contenderRefreshed`, "Reading the metrics"'s Shown in and keeps up, and the feed's paragraph (one worker, the stop's desks of 50 from the 400).
-
-### Part A2: the spike on both sides and the stops
-
-**Done when:**
-- [x] **A2-1, the spike on both sides:** N tables at 4, 6, and 8 on each side under A1's feed at 2k a desk, the same wall drawn (screenshots), and each stop measured on both devices: keeps up, Shown in, late frames, work a frame, the busy time, and collection pauses.
-  *Evidence* ([results](perf/results/2026-11-10-m13-a2.md)), median of 3, after the code review's fixes (each run checked that every batch reached the side; none was lost):
-  - **The sides:** GPUI is N tall tables in one window (`spike/wall-gpui/`, crate `wall-spike`). TanStack is N virtualizers in one React tree with one `flushSync` commit a frame (`spike/wall/`). Both have the canvas's columns, 24 px rows, 12 px text, Last's flash, and Chg % by sign, over the store in hand (no engine).
-  - **Fast device:** both keep up at every stop (≥ 99.4%), with no late frames. Work a frame is 4.6 → 6.8 ms on GPUI and 3.8 → 6.9 on TanStack.
-  - **Slow device:** at 4 tables both keep up (98.9%, 98.5%). At 6, over both sweeps' 6 runs, GPUI reads 90.0% (79.4–92.4) and TanStack 81.0% (77.6–85.0): the one stop where runs spread 8–13 points. At 8, GPUI reads 71.6% and TanStack 52.6%, with late frames at 54% and 94%. Both main threads are saturated from 6 tables; GPUI's frames are the cheaper at 8 (24.5 against 33.6 ms).
-  - **Collections in 10 s:** GPUI 2–4, TanStack 18–27. Throttled at 6 and 8 tables, 13 and 18 of TanStack's land in a late frame, against 2 and 2 of GPUI's.
-  - **Shown in's control** (a frame late, 8 tables, reference) moves send → mark by +16.8 ms on GPUI and +17.1 on TanStack, keeps up unchanged. The gap check's control (one batch dropped) fails both sides.
-- [x] **A2-2, the verdict's measure:** market watch's "keeps up" (≥ 90% of visible batches shown in a frame of their own) across N tables, kept or changed. *Kept, with A1-5's pooled pairing* (decided with the user): every batch's tables drew it in one frame on both sides (one canvas; one React root committing every table at once), so pooled and per-table read the same. The split share stays a diagnostic.
-- [x] **A2-3, the stops:** kept at 4/6/8 or moved to where the edges fall, decided with the user. *Kept at 4, 6, and 8 tables at 2k a desk:* on the slow device TanStack's edge falls between 4 and 6 and GPUI's between 6 and 8, its 6 on the line (90.0% over 6 runs, 79.4–92.4), so the dial holds both edges. The canvas's sketch ("GPUI keeps up at 8 tables") is a stop too generous to GPUI.
-- [x] **A2-4, the suite's time:** the spike's 36 runs took 11–13.5 minutes, 18–23 s a run. Part D is the feed at 3 stops × 2 sides × 2 devices × 10 runs (~40 min), usable, data, and memory once (~25 min), and the 0.9.0 against 0.9.1 A/B (~20 min): **about 1.5 h, one sitting.**
-
-### Part A3: the measures, the boards, and B–F confirmed
-
-**Done when:**
-- [x] **A3-1, the measures:** Ready in, Shown in, Smooth, Memory, Download, and collection pauses made exact; the suite's time. *Evidence:* [`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-10, "The monitoring wall's measures": market watch's at each stop (keeps up, Shown in paired across the tables, Smooth, the pauses' time, late frames, work), and once at 6 tables Ready in, time to data (every table filled), Memory after `?ticks=60000` (10,000 a desk), and Download by kind from the memory run. The runs use the bare pages at 1440 × 900, nothing scrolled. The suite: A2-4's ~1.5 h.
-- [x] **A3-2, the boards,** decided with the user and drawn on M8's canvas. *Evidence:* the canvas's wall row (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK: WallLight, six tables with Banks scrolled to rows 21–30; WallTanstack, dark, four tables; WallPanel, the keeps-up charts at the 90% line and the cards at 6; PhoneWall, light; PhoneWallDark, the frame scrolled; Wall, eight tables with Volume cut, retitled); [`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-10. The three layout calls were the user's; the boards as drawn wait on the user's look, which part E starts from.
-- [x] **A3-3, A1-5's two open points and B–F:** `state` needs nothing more (no measure scrolls) and the replay hooks are `load` alone (no board draws a fling or a jump); B–F split as listed under "Parts": B1 and B2, C1 and C2, D1 (code, reviewed before the runs) and D2 (the ~1.5 h runs), E, F.
-
-### Part B1: the data, the scenario, and the feed fixture
-
-**Done when:**
-- [x] **B1-1, the data:** `prep.ts --only wall` writes the wall's file from `contenders/wall/`'s 400 by `prep-wall.sql`, after the US-listing check and checks that no symbol repeats market watch's or another of the wall's, and records it in `MANIFEST.json`, credited as the observatory's own and synthetic.
-  *Evidence* ([results](perf/results/2026-11-10-m13-b1.md)): `wall-instruments.parquet`, 400 rows, 3,716 B, one row group, SHA-256 `5cbf2407…`, with the columns `Desk`, `Symbol`, `Last`, `Change %`, `Volume`. The listing check read 5,607 + 7,674 securities (the AAPL and IBM control) and found none of the 400. The manifest entry: credit "Fictional instruments, the observatory's own: synthetic", CC0 1.0. Market watch's file rebuilt to its SHA-256 of record. The instruments moved from the spike to `contenders/wall/instruments.ts` (the desks' names in `names.ts`, and `desks.ts` a stop's first N desks); the spike imports them from there.
-- [x] **B1-2, the scenario:** `MONITORING_WALL` and `LEVEL_FEATURES.wall` in `contenders/scenarios.ts`, on neither side's `BUILT` and not in `SCENARIOS`.
-  *Evidence:* `wall` is `custom-cells`, `live`, `format`, `density`. `MONITORING_WALL` (`monitoring-wall`, file `wall-instruments.parquet`) has the stops `4`, `6`, `8` (`TablesStop.tables`), default `6`, seed `0x3a11`, 2k a table, the desks' names, market watch's signs and flash shared, and the canvas's grid. It's in `ALL_SCENARIOS` only; `cell-fixture` lists it as unsampled. Lint passes (tsc, clippy, check-terms). Every contender's first-paint JS grows 141–185 B brotli, inside its budget.
-- [x] **B1-3, the feed fixture at 400 rows:** `contenders/wall/fixtures/`, written by market watch's `write.ts` widened, run by GPUI's native store and TanStack's `QuoteStore` with the dropped-tick control; market watch's fixture regenerated byte-identical.
-  *Evidence:* `Feed` takes its instruments' prices, market watch's 50 by default. `write.ts` writes both fixtures, and `--check` passes both, market watch's unchanged (`c824a33a…`). The wall's holds 2,000 ticks over 400 instruments in 10 batches (`975414de…`), and each stop's feed bytes by SHA-256 (4: `ed3547cc…`, 6: `6cb23d78…`, 8: the fixture's own), which TanStack's test regenerates through `wallInstruments(N)` (its control: 4 desks' bytes aren't 6's). GPUI's `market::tests` and TanStack's `market.test.ts` run each fixture with the three controls (a skipped trade, a conflated batch, another change %), and each control fails both. A store of market watch's 50 refuses the wall's batches, on both sides. One volume changed in the wall's fixture failed GPUI's test. `just observatory fixtures` passes.
-- [x] **B1-4, the contract for N tables:** `docs/contender-contract.md`'s changes from A1-5's list.
-  *Evidence:* the marks table's `filled` (across the tables), `failed` (the wall's file), and `refreshed` (any table's, each table's generation); the state (`__contenderRefreshed` an array, a batch's per-table generations and visible mask, `state.tables`); the wall's feed paragraph; the readout's ring and Shown in pooled across the tables; keeps up on the wall's stops; the targets (the first table's) and the replay (`open()` alone).
-
----
-
-## Next milestones
-
-The "done when" checks are drafts until their milestone becomes active. The scenarios (M9–M13; M13 now active, above) are in the research's build order ([`docs/research/scenarios.md`](docs/research/scenarios.md), where each one's workload, measures, dial, and needs are); each scenario's research and spec open its milestone as part A, as the table's features do, and its later parts are split there.
-
-**Every scenario milestone** (decided 2026-10-30, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"), each item a "done when" check of its own:
-- **Its builds:** each contender builds once per feature level (Cargo features are compile-time, and the same scope keeps a level's code out of every other's bundle), at a base of its own under the contender's (`contenders/paths.ts`), staged and served beside the others, with its TTFP and wasm (or first-paint JS) budgets in `perf/budgets.json`, gated by `check` (root rule 1). A scenario on a level that exists shares its build (the admin table the base's; the monitoring wall has a level of its own, `wall`, since it needs `density`, which market watch's lacks).
-- **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
-- **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
-- **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
-
 ### M14: The wide sheet's later steps: a resize drag, a range copied
+
+Opened 2026-11-12. M13's spec and evidence are in [`docs/milestones.md`](docs/milestones.md).
 
 The research's later steps for the wide sheet ([`docs/research/scenarios.md`](docs/research/scenarios.md), "Wide sheet"): a column-resize drag, and a range selected and copied. They come after the other scenarios (decided with the user, 2026-11-04). Their features are *Ready* ("Waiting on"). **The wide level grows** (decided with the user, 2026-11-04): its one build on each side gains the table's `resize`, `select`, and `copy` and their counterparts, so a visitor resizes and copies in the frame they scroll. No second wide build and no switch between them. The same scope still holds: the base level carries none of it. Because each side's bundle grows, the wide sheet's numbers are measured again at the grown level and replace M9's.
 
@@ -220,14 +60,197 @@ The research's later steps for the wide sheet ([`docs/research/scenarios.md`](do
 - **Fixtures prove "the same":** `cells.json`'s `resize` section (skipped by the TanStack contender today) and `selection.json` in TS with their controls, and a copy fixture of the component's (a range → its text, exact; the caps) if the table has none, asked of the component's PLAN, never written here. `tanstack-parity` gains the resize band and drag, the selection's pointer and keys, and Cmd+C.
 - **The measures** (the research's, made exact in part A): a resize drag's frame cost (each frame's work while a day's column is dragged, both sides, at each stop), a selection drag's, and a copy's time (the key → the clipboard written) for a range under `key_max_cells` and for one past it confirmed (the copy's turns spread over frames: does the view keep up meanwhile?).
 - **The page:** how the window offers the tools and where their numbers go (the status bar, the panel's cards, the description), designed first: new boards on M8's canvas, light and dark, desktop and phone, decided with the user before anything is built (the canvas draws none of it today). The admin table's capability list (M12) may already say GPUI's selection by then; part A checks the two read as one story.
-- **Parts (draft):** A, the design and the spec (the boards, the measures and their scripts, the suite's time); B, the GPUI side at the grown level (its wasm and TTFP against the level's baselines, rewritten); C, the TanStack side (its first-paint JS and data layer against the level's baselines); D, the numbers (the wide sheet's whole cold suite at the grown level, then the new measures: a long run, so a code review first); E, the page; F, shipped (the README's sections, `burst`, the deploy, `worker-check`).
+**Parts** (each one session; A2 confirms B–F and splits any past a session, as M13's A3 did):
+- **A1: the spec.** Everything but the boards, from the code as it is:
+  - The level's shape: what `wide` gains on each side (the crate's feature and the bridge's, `LEVEL_FEATURES.wide`, the TanStack contender's `__LEVEL__ === 'wide'` branches), and what keeps every other level's build unchanged (the base, market, tail, and wall wasm and bundles; `sizes`' and `tanstack-sizes`' checks).
+  - The measures made exact: which column a resize drag takes and how far, the selection drag's path, the copy's ranges (one under `key_max_cells`, one past it confirmed), what "keeps up meanwhile" reads, each at which stops, and each side's input path (the gesture scroll where a scroll is under way).
+  - Their scripts: which `metric-*` script takes each (or a new one), the contract marks each needs (`docs/contender-contract.md`'s changes), and how TanStack's copy is timed the way the bridge's is.
+  - The fixtures: `cells.json`'s `resize` and `selection.json` on the TanStack side; the copy fixture (the component has none: `components/tall-table/fixtures/` holds no copy cases), asked of the table's `PLAN.md` with a "Waiting on" row here, and where it lands in B–F.
+  - The suite's time: the wide sheet's cold suite again at every stop plus the new measures, both sides, both devices, 10 runs.
+- **A2: the boards, then B–F confirmed.** New boards on M8's canvas (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK), light and dark, desktop and phone, decided with the user before anything is built:
+  - How the window offers the tools: the resize band, a selection, a copy (its progress, a declined key and how a visitor confirms, the clipboard written or refused).
+  - Where the new numbers go: the status bar, the panel's cards, the description.
+  - What a phone offers (no pointer resize on touch; the canvas tradeoffs).
+  - The admin table's capability row ("Select and copy a capital": GPUI "no" on the base build) and the wide sheet's selection read as one story.
+- **B: the GPUI side at the grown level** (its build, the host's copy and the page's hooks, its contract; its wasm and TTFP against the level's baselines, rewritten).
+- **C1: the TanStack side's resize and selection** (the ports, `cells.json`'s `resize` and `selection.json` with their controls, `tanstack-parity`'s band, drag, fit, and selection).
+- **C2: the TanStack side's copy** (the port and its data side, the copy fixture, the clipboard, the contract and the page's hooks; its first-paint JS and data layer against the level's baselines, rewritten; a copied range byte-identical on both sides).
+- **D1: the metrics** (`metric-drag`, `metric-copy`, the A/B's scrolls, each smoke-run with its controls; reviewed before D2).
+- **D2: the runs** (the A/B, the suite again only where it moved, the new measures: ~2 h 10 min in one sitting).
+- **E1: the window** (the Copy button and its explainer, the status bar's copy line, a phone's, the lead; `page --check`).
+- **E2: the panel and the description** (the two new sections from the results, the wins, the shortfalls, the admin row; `page --check`).
+- **F: shipped** (the README's sections, `burst`, the deploy, `worker-check`).
 
-**Done when** (draft):
-1. **Its builds:** the wide level on both sides carries `resize`, `select`, `copy` and their counterparts, and nothing else new; the base level byte-identical to before; the level's budgets (`gpui-wide-*`, `tanstack-wide-*`) against rewritten baselines, gated by `check`, with each feature's added bytes in a results note.
-2. **The same on both sides:** the fixtures above pass on both sides with their controls; `tanstack-parity` covers the band, the drag, the selection's input, and the copy, in Chromium, Firefox, and WebKit; a copied range's text is byte-identical on both sides and against native DuckDB's values.
-3. **Its numbers:** the wide sheet's cold suite again at every stop (M9's measures, replacing part D's on the page and in the README), and the new measures, both sides, both devices, median of 10, each results file with its versions; a results note.
-4. **The page:** the tools in the window and their numbers as the design draws them; `page --check` covers them.
-5. **Shipped:** the README's wide sheet sections with the new rows by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+**Done when:**
+- [ ] **Its builds:** the wide level on both sides carries `resize`, `select`, `copy` and their counterparts, and nothing else new; the base level byte-identical to before (every other level as `sizes` checks it: [`docs/DECISIONS.md`](docs/DECISIONS.md), "GPUI contender", 2026-11-05); the level's budgets (`gpui-wide-*`, `tanstack-wide-*`) against rewritten baselines, gated by `check`, with each feature's added bytes in a results note.
+- [ ] **The same on both sides:** the fixtures above pass on both sides with their controls; `tanstack-parity` covers the band, the drag, the selection's input, and the copy, in Chromium, Firefox, and WebKit; a copied range's text is byte-identical on both sides and against native DuckDB's values.
+- [ ] **Its numbers:** the wide sheet's scrolls at the grown level against M9's level, an interleaved A/B at every stop (decided with the user, 2026-11-12): M9's numbers stand, labelled with their build, where none moved, and the suite runs again where one did, replacing M9's on the page and in the README; and the new measures, both sides, both devices, median of 10, each results file with its versions; a results note.
+- [ ] **The page:** the tools in the window and their numbers as the design draws them; `page --check` covers them.
+- [ ] **Shipped:** the README's wide sheet sections with the new rows by `report`, `burst` under the zone's limit, the deploy, `worker-check`.
+
+### Part A1: the spec
+
+**Done when:**
+- [x] **A1-1, the level's shape:** what `wide` gains on each side and what each touches, listed for B and C; how every other level's build stays unchanged.
+  - **The scenario:** `LEVEL_FEATURES.wide` gains `resize`, `select`, `copy` (`custom-cells`, `pin`, `density`, `resize`, `select`, `copy`); `sizes` then checks the table's and the bridge's features are exactly those. No new level, stop, or file.
+  - **The GPUI crate (B):** the feature `wide` gains `seiza-tall-table/{resize,select,copy}` and `tall-table-bridge/{resize,select,copy}` (the bridge's `copy` turns on its `select`).
+    - `scene.rs`: every column resizable, the key columns as `pin` allows (the table's `pin_limit` holds a pinned column's drag at the press's half). The copy's limits are the table's defaults (`key_max_cells` 100,000, `max_bytes` 64 MiB), headers off. Every selection kind on (the table's default).
+    - The host hands each `TallTableEvent::Copy` to `clipboard::Clipboard` and tells it at `close` (a replay's reopen). A refused or unavailable write cancels the copy (`event`'s return).
+    - The confirmed copy is Cmd+C (Ctrl+C) again on the selection the key declined, the host's `copy`: a key, so the clipboard takes it as a gesture. A2's boards say how the window offers it. (*Changed in B:* first Cmd+Shift+C, as the bare host's `CopyConfirmed`, which is the browsers' Inspect Element; [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios", 2026-11-12.)
+    - `contract.rs` publishes A1-3's marks and globals. The wide code sits at the files' ends or in its own (`src/wide.rs` if it grows past a few lines), so no other level's panic locations move.
+  - **The TanStack contender (C):** `__LEVEL__ === 'wide'` branches only, each level's habits (`docs/DECISIONS.md`, "TanStack contender"):
+    - `resize.ts`, a port of `state/resize.rs`: the bands (4 px each side of a 1 px hairline), the drag (width at the press plus the pointer's move, clamped; back at the press's x, the set width; a kind's width held until the pointer brings it inside), the sideways scroll held (`held_content`), the double-click fit over the visible loaded rows (each text's width as the browser measures it in the cells' font, the numbers by character count at the number advance, as `fit_column` does), and the widths published at a release or fit that changed one. TanStack Virtual's column sizes take the widths, so the column virtualizer re-measures.
+    - `select.ts`, a port of `selection.rs` and `state/select.rs`: `Rows`, `Columns`, `Cells` from an anchor to a head, `target_at` (a cell, a row's number, a header, the corner), `cell_clamped`, the keys (`key_step`, `scroll_into_view`), the tint and the active cell's edge per region (pinned and scrolled), Escape.
+    - `copy.ts` with its data side in `data/`: `push_value` and `header_line` (`format.ts`'s exact text, quoted for a tab, a line break, or a `"`; NULL empty), the turns (`TURN_CELLS` a turn, one `Text` each), the key's limit and the cap with `least_bytes`, and the reads beside the cache: `PageCache`'s copy reads (`set_copy_wants`, the plan's grant after the visible pages, before prefetch, `background_limit`, `holding` and `loading`, the passed page dropped, the cancels). It's a function behind `__LEVEL__ === 'wide'`, never a method, so no other level's paging chunk carries it. The clipboard is written as the bridge writes it: `ClipboardItem` with a promise opened at the key, resolved with a Blob at the last row; `writeText` where there's no `ClipboardItem`.
+    - **A drag draws once a frame:** a resize or selection move is applied in the frame's callback (`flushSync`), as market watch's landings are. It's the idiomatic batching, and it puts the drag's commit in the frame's `animate` work, where `domDrawn` reads the DOM's drawn frames.
+    - `copy.ts` and its data side load after first paint with the data layer. Only the bands and the selection's drawing join first-paint JS.
+  - **Every other level unchanged:** the base's wasm and bundles byte-identical (the features are compile-time and `__LEVEL__` folds); the market, tail, and wall levels as `sizes` and `tanstack-sizes` check them (their Cargo features, their bundles), [`docs/DECISIONS.md`](docs/DECISIONS.md), "GPUI contender", 2026-11-05.
+  - **What the bytes should be:** the table's own figures put the GPUI wide wasm at about +20 KiB brotli (`resize` +2.7, `select` +6.5, `copy` +11.0 over `select`; [the table's README](../../components/tall-table/README.md), "Features"), ~2,795 KiB against the 3,191 budget. TanStack's first-paint JS grows by the bands and the selection, its data layer by the copy. Both baselines are rewritten in B and C.
+- [x] **A1-2, the measures:** the resize drag, the selection drag, and the copy (under the key's limit; past it, confirmed; the view meanwhile) made exact, each side's input path, the stops each runs at.
+  - **The resize drag,** at every stop: the first day's edge (Jan 1, column 3, right of Latitude) dragged right 200 px and back, twice, a pointer move every 8 ms (~2 s), as the table's own `perf` segment does (`components/tall-table/perf/perf.ts`). Every frame re-lays out the columns; back at the press, the release changes nothing.
+  - **The selection drag,** at every stop: from the top row's first scrolled cell (Latitude) to the last fully visible row and column and back, a row a move with the column following the diagonal, a move every 8 ms, ~2 s of round trips, the table's segment. Every move changes the selection, so every frame redraws the tint.
+  - **The drags' readings,** both sides, both devices, median of 10, nothing read whole first (the visible pages loaded and rested):
+    - "Keeps up": `drewShare` over the drag (GPUI's presented frames; the DOM's `domDrawn`), at the scrolls' 90%.
+    - Work a frame, p50 and p95, from Chromium's trace (`frameWork`).
+    - Late frames.
+    - Real pointer events on both sides (Playwright's `mouse.down`, `move`, `up`); no gesture, so no DPR scaling.
+  - **The copies,** at the default stop (`rows-20`) alone: a copy's reads and text don't depend on the density. Both sides, both devices, median of 10, each from a cold view. Native DuckDB sized the file for them: 368 columns × 10,632 rows = 3,912,576 cells, ~18.0 MiB as TSV (1,774 B a row), so a whole-sheet copy passes the key's limit (100,000 cells, 271 rows of every column) and fits the 64 MiB cap.
+    - *The block:* the visible block, selected by a drag (~710 cells, every page in hand); Cmd+C → the clipboard written.
+    - *A week:* seven days' columns (a header press, Shift+press six on: 74,424 cells, under the key's limit); Cmd+C → the text all in → written. A block of a few columns reads every column of a page, so it reads all 11 pages, beside the cache: the copy's reads on each side.
+    - *The sheet:* Cmd+A, then Cmd+C (declined: the key's limit, said in the window, A2), then Cmd+C again (confirmed): 3.9 M cells, ~18 MiB; the key → the text all in → written, the reads, and the main thread's time outside frames (the copy's turns).
+    - *The view meanwhile:* the scrolls' steady gesture down (`SCROLLS.down`) started at the sheet's confirmed key, its `drewShare`, late frames, and work, against the same scroll with no copy in the same run (the table's `copy.ts` method). A copy that ends before the scroll does is said (`coveredPct`).
+- [x] **A1-3, the scripts and the contract:** each measure's script, the marks and globals it reads, `docs/contender-contract.md`'s changes listed.
+  - **The scripts (D1):** `perf/metric-drag.ts` (the two drags, `--stop`), `perf/metric-copy.ts` (the copies and the view meanwhile). Each is a `metric <name>` on `perf/contender.ts`'s runner, with each side's files labelled `<label>-wide-sheet-<stop>`.
+  - **The marks, with `?measure`, on the wide level only:**
+    - `contender:copy-started`: GPUI's `Started`; TanStack's key handler opening the `ClipboardItem`.
+    - `contender:copied`: the text all in. GPUI's `Copied`; TanStack's last turn.
+    - `contender:copy-written`: the browser's write resolved. The bridge's callback; TanStack's `write()` promise.
+    - `contender:copy-declined`: a key past `key_max_cells`, nothing read.
+    - Each is timed from the key's event, as `metric-response` times a key (`docs/contender-contract.md`, "Reading the metrics").
+  - **The globals, with `?measure`:**
+    - `__contender.copy`: the copy's outcome as the bridge spells it (declined, copying, writing, written, refused, failed, unavailable).
+    - `__contender.selection`: `{kind, anchor, head}` or `null`, as `selection.json` spells it.
+    - `__contender.widths`: each column's set width.
+  - **The drags' geometry:** the scripts read where to press from the layout once, at rest, before the traced window: `__contender.layout` (the columns' lefts and widths, the row height, the pin), today published only with `?cells`. B and C publish it with `?measure` at each layout change, never a frame. B confirms it costs a measured run no frame work; if it does, a target for each press instead (`seiza::targets`).
+  - **`docs/contender-contract.md`'s changes (B and C):** the marks table's four copy rows; "State"'s three globals and the layout with `?measure`; "Reading the metrics"' drags (drew share, work, late frames) and copies (the key's event to each mark; the view meanwhile).
+  - **The checks:**
+    - `perf/wide.ts` gains a copied range's text byte-identical on both sides and against native DuckDB's values: the week's 74,424 cells, and a block across the pinned edge.
+    - `tanstack-parity` gains the band's place and cursor, the drag (live, clamped, the sideways scroll held to the release), the fit's width within a pixel of GPUI's, the selection's press, Shift, drag, and keys, the tint's place, and Cmd+C (Chromium, Firefox, WebKit).
+    - `tanstack-contract` gains the four marks and their order.
+- [x] **A1-4, the fixtures:** `cells.json`'s `resize` and `selection.json` on the TanStack side with their controls; the copy fixture asked of the table's `PLAN.md` (its "Asked for" and "Who's waiting" rows, a "Waiting on" row here), and the part that waits on it.
+  - **On the TanStack side (C):** `cells.json`'s `resize` section (7 widths, 6 cells: the clamp and the budgets; skipped today in `fixtures.test.ts`) and `selection.json` (skipped today), each with TS counterparts of the native controls. The fit isn't a fixture (its widths are shaped text); `tanstack-parity` checks it against GPUI's.
+  - **The copy fixture, asked of the table:** `components/tall-table/fixtures/` holds none. Asked for: `fixtures/copy.json`, run natively against `copy.rs`'s text and the state's `copy`, with controls:
+    - A small source's ranges (`Rows`, `Columns`, `Cells`, the anchor after the head) → their exact text.
+    - Values that need quoting (a tab, a line break, a `"`), NULL and empty text, floats' exact text (exponents, −0.0), integers, and the header line when it's on.
+    - The key's limit at n and n + 1 cells; `least_bytes`' refusal; the cap passed mid-copy.
+    - The controls: NULL written as text, no quoting, the limit off by one.
+  - **Who builds it, and when** (decided with the user, 2026-11-12): the table's PLAN, as a follow-up to `copy` ahead of `reorder` (its "Follow-ups to built features" and "Who's waiting"; "Waiting on" above). Part C waits on it; A2 and B don't.
+- [x] **A1-5, the suite's time,** and whether part D splits.
+  - **The new measures:** the drags at 4 stops × 2 sides × 2 devices × 10 runs, ~15 s reference and ~40 s throttled a run: ~75 min. The copies at one stop × 2 sides × 2 devices × 10, ~65 s a pair of runs: ~25 min. **About 1 h 40 min,** one sitting.
+  - **M9's suite at the grown level** (the done-when's "again at every stop") is ~3.5 h more in two sittings ([`docs/milestones.md`](docs/milestones.md), M9 A2). What it would re-read is the same scrolls with resize, select, and copy built but idle. The table measured that idle cost natively: `resize`'s bands +0.05–0.15 ms a frame, `select` and `copy` within the spread. TanStack's idle cost (a selection state on each cell) isn't known.
+  - **Decided with the user, 2026-11-12:** an interleaved A/B first, M9's level against the grown one, reference, the stops' scrolls, 10 rounds a side (~30 min). M9's numbers stand, labelled with the build they came from, if every reading is within the spread; the suite is re-run only if one isn't. D would be ~2 h 10 min in one sitting (the A/B, then the new measures), and the done-when's "again at every stop" becomes "the A/B, and the suite again only where it moved".
+
+### Part A2: the boards, then B–F confirmed
+
+**Done when:**
+- [x] **A2-1, the boards,** drawn on M8's canvas and decided with the user: the tools in the window, the numbers' places, a phone, light and dark; the admin table's capability row and the wide sheet's read as one story.
+  *Evidence:* the canvas's wide-sheet row (https://claude.ai/artifact/6cHBgVwwSqpTad8GP9KnGK, "The wide sheet's later steps"): WideSelect (light, GPUI, a block selected, the Copy explainer open), WideResize (dark, Jan 1's edge mid-drag), WideDeclined (light, TanStack, the sheet's key declined), WideCopying (dark, GPUI, the sheet copying, "Cancel"), WideCopied (light, TanStack, a week copied), WidePanel (the two new sections), PhoneWide and PhoneWideDark (a day selected by its header, then copied). The main board's lead, description, and admin row changed with them. [`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-12. The four calls were the user's; the boards as drawn wait on the user's look, which E1 starts from. Every number on them is a sketch until D2.
+- [x] **A2-2, B–F:** each part's checks written, split where one is over a session.
+  *Evidence:* the parts below. C split in two (the resize and selection ports, then the copy's), D as every scenario's (D1's code reviewed before D2's runs), E in two (the window, then the panel and the description).
+
+### Part B: the GPUI side at the grown level
+
+**Done when:**
+- [x] **B-1, the level's build:** the crate's feature `wide` gains `seiza-tall-table/{resize,select,copy}` and the bridge's; `LEVEL_FEATURES.wide` gains them; the wide code at the files' ends or in `src/wide.rs`. `sizes --check` passes (the wide level's features exactly `LEVEL_FEATURES.wide`), and the base, market, tail, and wall wasm are byte-identical to HEAD's. Each feature's added bytes, brotli, in the results note (A1-1's ~+20 KiB, against the 3,191 budget).
+  *Evidence:* `perf/results/2026-11-12-m14-b-sizes.json` (`sizes --check` PASS: the wide level's table and bridge features `copy, custom-cells, density, pin, resize, select`); the four other levels' shipped wasm `cmp`-identical to a build of HEAD's tree; `resize` +2.4, `select` +5.8, `copy` with the host +10.9 KiB brotli, 2,798.6 KiB in all ([results note](perf/results/2026-11-12-m14-b.md)). The host's part is `src/wide.rs` ([`docs/DECISIONS.md`](docs/DECISIONS.md), "GPUI contender", 2026-11-12).
+- [x] **B-2, the scene and the host's copy:** every column resizable (a pinned one held by the table's `pin_limit`), the copy's limits the table's defaults, headers off, every selection kind on. Each `TallTableEvent::Copy` handed to `clipboard::Clipboard`, a refused or unavailable write cancelling the copy, the writer told at `close`; Cmd+Shift+C and Ctrl+Shift+C the host's `copy` (now Cmd+C again on the declined selection, below). On touch, a tap selects; a band on touch is checked: if a touch drag resizes, that's put to the user before C1, not left to differ from TanStack's.
+  *Evidence:* `perf/results/2026-11-12-m14-b-wide-tools.json`: Jan 1 dragged 68 → 128 px and fitted to 46; Place held with the pinned run at half the cells (668 of 1,336 px); the sheet declined by Cmd+C and written by Cmd+C again, declined again after a selection change in between (the control), Ctrl+C too, and Cmd+Shift+C copying nothing. Cmd+Shift+C was the confirm first; it opens the browsers' Inspect Element, so a second Cmd+C confirms instead ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios", 2026-11-12). The writer is told when the host closes a table (`contract.rs`'s `opening_level`, right after the close in a reopen). On touch a tap selected and a touch drag on a band resized nothing, as TanStack's: nothing to put to the user ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios", 2026-11-12).
+- [x] **B-3, the contract:** with `?measure` on the wide level, `contender:copy-started`, `copied`, `copy-written`, `copy-declined`, and `__contender.copy`, `.selection`, `.widths`, and `.layout` published at each layout change, never a frame (a measured run's frame work with and without it within the spread, else a target per press). `docs/contender-contract.md`'s marks table, "State", and a new "The copy line" section (below).
+  *Evidence:* the four marks in order for every copy (started → copied → written; `copy-declined` alone for the sheet's key), none of the globals without `?measure` (the control); `layout` the same object through a 1,200 px scroll down and sideways: the table emits `Layout` only at a layout change, so no frame carries it and the frame-work A/B was moot. `docs/contender-contract.md`: the marks' rows, the wide sheet's state, "The copy line".
+- [x] **B-4, the page's hooks** ("The copy line", the follow toggle's pattern): on the wide level with `?readout`, the frame tells its parent `{ seiza: 'tools', cells, copy, done, bytes, ms }` at each selection change and copy event (never a frame), and exports `__contenderTools.copy()` and `.cancel()`, which the page calls inside its click. Checked from a parent page in Chromium, Firefox, and WebKit: the button's call writes the clipboard (a press in the parent is the gesture), and a bare page sends nothing.
+  *Evidence:* in each browser, 6 messages for a 12-cell block and the button's copy (0, 1, 12 cells; copying, writing, written), the paste DuckDB's text; without `?readout` no message and no `__contenderTools`. `contenders/tools.ts`, shared with C2. Chromium refused until the frame focused itself before the copy; the message coalesces to 100 ms and adds `reason` ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-12).
+- [x] **B-5, its checks and budgets:** `perf/wide.ts`'s GPUI half: a band's drag and double-click (`widths`), a selection drag (`selection`), the week's Cmd+C text against native DuckDB's values to the byte and a block across the pinned edge, the sheet's key declined and Cmd+C again written, the marks in order. `gpui-wide-ttfp`, `-ttfp-throttled`, and `-wasm` against a rewritten `levels.wide`; the placeholder matching (`placeholder --level wide`). `check` passes.
+  *Evidence:* `perf/wide.ts --side gpui` PASS (every stop's layout and heat, the failures, then the tools: the week's 346,361 characters and a block across the pinned edge, and the sheet's 18.0 MiB, each native DuckDB's to the byte). `cold --level wide --check` 153.1 ms against M9's 198.9 limit, then `levels.wide` rewritten: 153.4 ms reference, 3,621.1 ms throttled, 2,799.5 KiB (`2026-11-12-gpui-cold-wide.json`), from the build before the review's fixes, kept with the user (the shipped build is 2,798.6 KiB, `m14-b-sizes`). `placeholder --level wide` matched in both themes at DPR 2 and 1. `check`: every step passed, three on a rerun after a timing reading outside this part's code ([results note](perf/results/2026-11-12-m14-b.md)).
+
+### Part C1: the TanStack side's resize and selection
+
+**Done when:**
+- [x] **C1-1, the ports** behind `__LEVEL__ === 'wide'` (A1-1's list): `resize.ts` (the bands, the drag live and clamped, the sideways scroll held to the release, the double-click fit, the widths published at a release or fit that changed one; TanStack Virtual's column sizes from them) and `select.ts` (`Rows`, `Columns`, `Cells`, the pointer, the keys, the tint and the active cell's edge per region, Escape). A drag's move applied once a frame in the frame's callback (`flushSync`). The bands take a mouse or a pen only; a tap selects. The base, market, tail, and wall bundles byte-identical to HEAD's.
+  *Evidence:* `select.ts` and `resize.ts` pure, `wide-tools.ts` their DOM, the selection drawn in the cells, `wide-theme.css` its edge color ([`docs/DECISIONS.md`](docs/DECISIONS.md), "TanStack contender", 2026-11-12). The four other levels' `dist*` `diff -r`-identical to a build of HEAD's tree. The wide first-paint JS +4.4 KiB brotli, 82.2 KiB against the 84.5 budget (`2026-11-12-m14-c1-tanstack-sizes-wide.json`). With `?measure`, `__contender.selection`, `.widths`, and `.layout` published now (C2-3's other globals and marks come with the copy) ([results note](perf/results/2026-11-12-m14-c1.md)).
+- [x] **C1-2, the fixtures:** `cells.json`'s `resize` section and `selection.json` run in `fixtures.test.ts` (no longer skipped), each with TS counterparts of the native controls failing.
+  *Evidence:* `selection.json`'s 13 scenarios pass, each of its 5 controls failing; `resize` passes, the budgets ±1 and the unclamped widths failing. The contender's tests: 109 pass, 2 skipped (`copy.json`, `sort.json`).
+- [x] **C1-3, the parity:** `tanstack-parity` at the wide level gains the band's place and cursor, the drag (live, clamped, the sideways scroll held to the release), the fit within a pixel of GPUI's, the selection's press, Shift, drag, and keys, and the tint's place against GPUI's, in Chromium, Firefox, and WebKit.
+  *Evidence:* `perf/parity-tools.ts`, run by `tanstack-parity` (`2026-11-12-m14-c1-tanstack-parity.json`, all passed in all three browsers):
+  - Fits 46 and 195 px, GPUI's 46 and 195.
+  - Clamped at 31 px as GPUI's.
+  - Twenty selection steps give GPUI's selection and top row; a page key moves by each side's own page (the views 42.3 and 41.5 rows, as the base parity allows).
+  - The tint's box is GPUI's to the pixel, a block a row off differing (the control).
+  - Each band's hairline is at its edge, with `col-resize`, taking the press.
+  - Mid-drag the width is live with nothing published; the sideways scroll is held mid-drag (a trackpad's wheel moving the rows) and clamped at the release.
+  - A pinned column narrowed leaves no strip undrawn, and two keys in one task land flush (the review's fixes).
+
+### Part C2: the TanStack side's copy
+
+**Done when:**
+- [x] **C2-1, the port:** `copy.ts` and its data side (A1-1's list: the text exact and quoted, the turns, the key's limit, the cap, the reads beside the cache with the plan's grant), a function behind `__LEVEL__ === 'wide'`, loaded after first paint with the data layer; the clipboard written as the bridge writes it (`ClipboardItem` opened at the key, `writeText` without it); Cmd+C again on the selection the key declined confirms (a selection change in between declines again), as the GPUI host's; Escape cancels.
+  *Evidence:* `data/copy.ts` (the copy, its reads granted by `plan` after the visible pages, its events told after the call, its turns on `MessageChannel` tasks) and `copy.ts` (the writer and the host's keys), loaded with the data layer and carried on the wide scene ([`docs/DECISIONS.md`](docs/DECISIONS.md), "TanStack contender", 2026-11-12). The four other levels' `dist*` `diff -r`-identical to a build of HEAD's tree. The sheet declined, declined again after a selection change, then written by Cmd+C again; Escape mid-copy `failed`/`cancelled` with the selection kept (`m14-c2-wide-tools`, `m14-c2-tanstack-contract`; [results note](perf/results/2026-11-12-m14-c2.md)).
+- [x] **C2-2, the copy fixture:** the table's `fixtures/copy.json` run against it in `fixtures.test.ts`, with its controls.
+  *Evidence:* its 30 cases pass, its options `COPY_OPTIONS`; each of its six controls fails every case it names; a FLOAT column copies its float32 text (the review's fix). The contender's tests: 140 pass, 1 skipped (`sort.json`).
+- [x] **C2-3, the contract and the page's hooks:** B-3's marks and globals and B-4's messages and `__contenderTools`, the same on this side; `tanstack-contract` gains the four marks and their order, `tanstack-parity` Cmd+C in three browsers.
+  *Evidence:* `tanstack-contract`'s wide level (`m14-c2-tanstack-contract`): a block's started +0.5, copied +0.8, written +25.8 ms from the key, started before the next frame; the sheet's key declined alone; nothing without `?measure`. The copy line from a parent page in Chromium, Firefox, and WebKit: 6 messages, as GPUI's, the button's copy pasted as DuckDB's; without `?readout` nothing. `perf/parity-tools.ts`: Cmd+C pasted GPUI's text in all three; with nothing selected no copy mark on either side (the control).
+- [x] **C2-4, the same text, and its budgets:** `perf/wide.ts` with both sides: the week's copy and a block across the pinned edge byte-identical on both sides and against native DuckDB's values. `tanstack-wide-first-paint-js` and `-data-layer-js` against a rewritten `levels.wide` (the bands and the selection's drawing in first paint, the copy in the data layer). `check` passes.
+  *Evidence:* `wide --only tools` with both sides (`m14-c2-wide-tools`): the week (74,424 cells), the block, and the 18.0 MiB sheet each native DuckDB's to the byte on each side, and the same SHA-256 on both. `levels.wide` rewritten: first-paint JS 82.4 KiB (+167 B), data layer 39.2 KiB (+4,496 B), `tanstack-sizes --level wide --check` PASS (`m14-c2-tanstack-sizes-wide`). Every run here is of the build with `/code-review high`'s eight fixes. `check`: every step passed but the last, `page --check`, whose checks all passed and whose first paint read over its 72.5 ms budget: a median of 94.2 ms (69.8–153.5), then 82.5 ms (57.2–110.4) alone, at a load average of 10 on the 8-core machine: the CPU was busy. The page's sources are unchanged this part.
+
+### Part D1: the metrics
+
+**Done when:**
+- [x] **D1-1, `perf/metric-drag.ts`** (A1-2's drags at `--stop`): the layout read once at rest, the press from it, real pointer events every 8 ms, the traced window; drew share, work p50 and p95, late frames, both sides. A smoke run at one stop, its control (a run with no drag reads no drawn frames).
+  *Evidence:* `2026-11-13-m14-d1-smoke-drag-wide-sheet-rows-20.json`, PASS: at the reference GPUI drew 100% of frames on both drags, TanStack 95.1% (resize) and 96.6% (select); both throttled readings gathered. The control (`--control`, the moves with no button, `…-drag-control-…`) drew 0 frames on either drag on both sides. The DOM's drawn frames are those that painted (`domPainted`): `domDrawn`'s 1 ms of animate read TanStack's select at 63% ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-13; [results note](perf/results/2026-11-13-m14-d1.md)).
+- [x] **D1-2, `perf/metric-copy.ts`** (A1-2's copies at the default stop): the block, the week, and the sheet (declined, then confirmed), each from a cold view, the key's event to each mark; the reads; the main thread's time outside frames; the view meanwhile against the same scroll with no copy, `coveredPct`. A smoke run, its control (the declined key's marks with no `copied`).
+  *Evidence:* `2026-11-13-m14-d1-smoke-copy-wide-sheet-rows-20.json`, PASS in both profiles: the block (656 cells), the week (74,424), and the sheet (3,912,576) each started → copied → written on both sides, the page reads 0, 8, and 8 (counted at the engine worker's messages: DuckDB's own reads are invisible to the page; [`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-13); the sheet's first key `copy-declined` alone, 0.38–4.01 ms after it (the control); the scroll down alone and during the sheet's copy, with `coveredPct` ([results note](perf/results/2026-11-13-m14-d1.md)).
+- [x] **D1-3, the A/B:** the grown wide level against M9's build at every stop's scrolls, interleaved, reference, 10 rounds a side; M9's build kept from HEAD's tree. `docs/contender-contract.md`'s "Reading the metrics" gains the drags and the copies.
+  *Evidence:* `perf/ab.ts` (`just observatory ab`) and `runMetric --build`; the kept build is `fe36e4c`'s (the commit before part B), in `target/ab/m9-wide/`, its engine files the tree's to the byte ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Measurement", 2026-11-13). A one-round smoke at `rows-20` ran, merged, summarized, and paired (`2026-11-13-m14-d1-ab-smoke-*`); its 10 rounds at every stop are D2-1's. Every smoke run here is of the code with `/code-review high`'s ten fixes (the results note). The contract's "Reading the metrics" has the drags and the copies.
+
+### Part D2: the runs
+
+Ask about a code review first (D1's code). ~2 h 25 min in one sitting: the A/B ran ~1.4 min a round at one stop in D1's smoke, so ~45 min at every stop, not A1's ~30. Keep `target/ab/m9-wide/` until then (`fe36e4c`'s build; the results note says how to make it again).
+
+**Done when:**
+- [ ] **D2-1, the A/B:** each stop's readings within the spread (M9's numbers stand, labelled with their build), or the suite again where one moved, replacing M9's.
+- [ ] **D2-2, the new measures:** the drags at every stop and the copies at the default stop, both sides, both devices, median of 10, each results file with its versions; a results note.
+
+### Part E1: the window
+
+The design: the canvas's wide-sheet row ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Page", 2026-11-12).
+
+**Done when:**
+- [ ] **E1-1, the title bar:** the lead; the Copy button where the fonts toggle sits (disabled until something's selected, "Copy anyway" after a declined key, "Cancel" while copying; it calls `__contenderTools` inside its click), its explainer; the frame created with `?readout` on the wide level.
+- [ ] **E1-2, the status bar:** the copy line in the data label's place while something's selected, its own polite live text (the selection, the progress and its bar, copied, declined, refused); a phone's Copy in the status bar; the title bar's state unchanged by a copy.
+- [ ] **E1-3, `page --check`:** a selection's line on both sides, a declined key and Copy anyway writing the clipboard, Cancel, a phone's button; nothing sent by a bare page (the control).
+
+### Part E2: the panel and the description
+
+**Done when:**
+- [ ] **E2-1, the panel:** "While dragging" at the picked stop and "Copying" as the canvas draws them, every value from `perf/results/` (`readouts.ts`, `cold.ts`); this tab's Smooth counting a drag's frames.
+- [ ] **E2-2, the description and the admin row:** "where each side wins" generated with the drags and the copies; the shortfalls (whole cells only, resize by pointer alone); "What it models"' line; the admin row's explainer pointing to the wide sheet.
+- [ ] **E2-3, `page --check`:** the sections' values as `perf/results/` has them, the wins re-derived, the admin row's link.
+
+### Part F: shipped
+
+**Done when:**
+- [ ] **F-1:** the README's wide sheet sections with the new rows by `report` and the canvas tradeoffs; `burst` (a copy's reads included) under the zone's limit; the deploy; `worker-check`.
+
+---
+
+## Next milestones
+
+None planned past M14: its scenario is the research's last step. A new milestone starts from a long-term goal below, or a scenario's own follow-up.
+
+**Every scenario milestone** (decided 2026-10-30, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Scenarios"), each item a "done when" check of its own:
+- **Its builds:** each contender builds once per feature level (Cargo features are compile-time, and the same scope keeps a level's code out of every other's bundle), at a base of its own under the contender's (`contenders/paths.ts`), staged and served beside the others, with its TTFP and wasm (or first-paint JS) budgets in `perf/budgets.json`, gated by `check` (root rule 1). A scenario on a level that exists shares its build (the admin table the base's; the monitoring wall has a level of its own, `wall`, since it needs `density`, which market watch's lacks).
+- **Its data credited:** the credit on the page and in the README, the license in `MANIFEST.json`; a synthetic feed is labelled synthetic on the page.
+- **Its runs:** `check` gates its builds' budgets and runs its smoke, fixtures, and contract checks, never the full protocol. The full cold protocol (its stops × both sides × both devices × 10 runs, and its soaks) runs once, in its numbers part, on the final build (a long run: ask about a code review first); its part A estimates that time before fixing the stops. Its results files are labelled with its name, so it re-runs without the others.
+- **Its versions:** each results file records what it was measured with (gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, Chromium), and the scenario's explainer shows them ("measured with …"). A bump of any of them re-measures the scenarios it touches or labels their numbers with the versions they came from, decided per bump.
 
 ---
 
@@ -241,27 +264,32 @@ Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.j
 | GPUI contender: time to first paint | ≤ 187.6 ms (baseline 170.5 + 10%) | `check` | 170.5 ms | 329.5 ms | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json), [2026-10-21-gpui-cold-production](perf/results/2026-10-21-gpui-cold-production.json) |
 | GPUI contender: time to first paint, throttled | — | recorded | 3502.5 ms | 3550.5 ms | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json), [2026-10-21-gpui-cold-production](perf/results/2026-10-21-gpui-cold-production.json) |
 | GPUI contender: wasm (brotli) | ≤ 3113.3 KiB (baseline 2707.2 + 15%) | `check` | 2695.4 KiB | — | [2026-10-16-m2-b-gpui-cold](perf/results/2026-10-16-m2-b-gpui-cold.json) |
-| GPUI contender at the wide level: time to first paint | ≤ 198.9 ms (baseline 180.8 + 10%) | `check` | 180.8 ms | — | [2026-11-02-gpui-cold-wide](perf/results/2026-11-02-gpui-cold-wide.json) |
-| GPUI contender at the wide level: time to first paint, throttled | — | recorded | 3585.2 ms | — | [2026-11-02-gpui-cold-wide](perf/results/2026-11-02-gpui-cold-wide.json) |
-| GPUI contender at the wide level: wasm (brotli) | ≤ 3191.2 KiB (baseline 2775 + 15%) | `check` | 2775 KiB | — | [2026-11-02-gpui-cold-wide](perf/results/2026-11-02-gpui-cold-wide.json) |
+| GPUI contender at the wide level: time to first paint | ≤ 168.7 ms (baseline 153.4 + 10%) | `check` | 153.4 ms | — | [2026-11-12-gpui-cold-wide](perf/results/2026-11-12-gpui-cold-wide.json) |
+| GPUI contender at the wide level: time to first paint, throttled | — | recorded | 3621.1 ms | — | [2026-11-12-gpui-cold-wide](perf/results/2026-11-12-gpui-cold-wide.json) |
+| GPUI contender at the wide level: wasm (brotli) | ≤ 3219.4 KiB (baseline 2799.5 + 15%) | `check` | 2799.5 KiB | — | [2026-11-12-gpui-cold-wide](perf/results/2026-11-12-gpui-cold-wide.json) |
 | GPUI contender at the market level: time to first paint | ≤ 195.8 ms (baseline 178 + 10%) | `check` | 178 ms | — | [2026-11-05-gpui-cold-market](perf/results/2026-11-05-gpui-cold-market.json) |
 | GPUI contender at the market level: time to first paint, throttled | — | recorded | 3610.4 ms | — | [2026-11-05-gpui-cold-market](perf/results/2026-11-05-gpui-cold-market.json) |
 | GPUI contender at the market level: wasm (brotli) | ≤ 3209.2 KiB (baseline 2790.6 + 15%) | `check` | 2790.6 KiB | — | [2026-11-05-gpui-cold-market](perf/results/2026-11-05-gpui-cold-market.json) |
 | GPUI contender at the tail level: time to first paint | ≤ 189 ms (baseline 171.8 + 10%) | `check` | 171.8 ms | — | [2026-11-07-gpui-cold-tail](perf/results/2026-11-07-gpui-cold-tail.json) |
 | GPUI contender at the tail level: time to first paint, throttled | — | recorded | 3595.2 ms | — | [2026-11-07-gpui-cold-tail](perf/results/2026-11-07-gpui-cold-tail.json) |
 | GPUI contender at the tail level: wasm (brotli) | ≤ 3208.7 KiB (baseline 2790.2 + 15%) | `check` | 2790.2 KiB | — | [2026-11-07-gpui-cold-tail](perf/results/2026-11-07-gpui-cold-tail.json) |
+| GPUI contender at the wall level: time to first paint | ≤ 176.6 ms (baseline 160.5 + 10%) | `check` | 160.5 ms | — | [2026-11-10-gpui-cold-wall](perf/results/2026-11-10-gpui-cold-wall.json) |
+| GPUI contender at the wall level: time to first paint, throttled | — | recorded | 3633.9 ms | — | [2026-11-10-gpui-cold-wall](perf/results/2026-11-10-gpui-cold-wall.json) |
+| GPUI contender at the wall level: wasm (brotli) | ≤ 3218.6 KiB (baseline 2798.8 + 15%) | `check` | 2798.8 KiB | — | [2026-11-10-gpui-cold-wall](perf/results/2026-11-10-gpui-cold-wall.json) |
 | TanStack contender: first-paint JS (brotli) | ≤ 79.3 KiB (baseline 72.1 + 10%) | `check` | 73.8 KiB | — | [2026-11-09-m12-b1-tanstack-sizes](perf/results/2026-11-09-m12-b1-tanstack-sizes.json) |
-| TanStack contender at the wide level: first-paint JS (brotli) | ≤ 84.5 KiB (baseline 76.8 + 10%) | `check` | 77.7 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-wide](perf/results/2026-11-09-m12-b1-tanstack-sizes-wide.json) |
+| TanStack contender at the wide level: first-paint JS (brotli) | ≤ 90.6 KiB (baseline 82.4 + 10%) | `check` | 82.4 KiB | — | [2026-11-12-m14-c2-tanstack-sizes-wide](perf/results/2026-11-12-m14-c2-tanstack-sizes-wide.json) |
 | TanStack contender at the market level: first-paint JS (brotli) | ≤ 83.1 KiB (baseline 75.5 + 10%) | `check` | 75.9 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-market](perf/results/2026-11-09-m12-b1-tanstack-sizes-market.json) |
 | TanStack contender at the tail level: first-paint JS (brotli) | ≤ 84.2 KiB (baseline 76.5 + 10%) | `check` | 76.9 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-tail](perf/results/2026-11-09-m12-b1-tanstack-sizes-tail.json) |
+| TanStack contender at the wall level: first-paint JS (brotli) | ≤ 84.6 KiB (baseline 76.9 + 10%) | `check` | 76.9 KiB | — | [2026-11-10-m13-c1-tanstack-sizes-wall](perf/results/2026-11-10-m13-c1-tanstack-sizes-wall.json) |
 | TanStack contender: data layer and Arrow, after first paint (brotli) | ≤ 38.2 KiB (baseline 34.7 + 10%) | `check` | 34.8 KiB | — | [2026-11-09-m12-b1-tanstack-sizes](perf/results/2026-11-09-m12-b1-tanstack-sizes.json) |
-| TanStack contender at the wide level: data layer and Arrow, after first paint (brotli) | ≤ 38.3 KiB (baseline 34.8 + 10%) | `check` | 34.8 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-wide](perf/results/2026-11-09-m12-b1-tanstack-sizes-wide.json) |
+| TanStack contender at the wide level: data layer and Arrow, after first paint (brotli) | ≤ 43.1 KiB (baseline 39.2 + 10%) | `check` | 39.2 KiB | — | [2026-11-12-m14-c2-tanstack-sizes-wide](perf/results/2026-11-12-m14-c2-tanstack-sizes-wide.json) |
 | TanStack contender at the market level: data layer and Arrow, after first paint (brotli) | ≤ 44.8 KiB (baseline 40.7 + 10%) | `check` | 40.9 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-market](perf/results/2026-11-09-m12-b1-tanstack-sizes-market.json) |
 | TanStack contender at the tail level: data layer and Arrow, after first paint (brotli) | ≤ 42.6 KiB (baseline 38.7 + 10%) | `check` | 39.2 KiB | — | [2026-11-09-m12-b1-tanstack-sizes-tail](perf/results/2026-11-09-m12-b1-tanstack-sizes-tail.json) |
+| TanStack contender at the wall level: data layer and Arrow, after first paint (brotli) | ≤ 47.7 KiB (baseline 43.4 + 10%) | `check` | 43.4 KiB | — | [2026-11-10-m13-c1-tanstack-sizes-wall](perf/results/2026-11-10-m13-c1-tanstack-sizes-wall.json) |
 | Page: first paint (paint timing), /observatory/tall-table/big-file/ | ≤ 72.5 ms (baseline 60.4 + 20%) | `check` | 60.4 ms | 210.2 ms | [2026-11-10-m12-d-page](perf/results/2026-11-10-m12-d-page.json), [2026-10-21-page-production](perf/results/2026-10-21-page-production.json) |
 | Page: first paint (paint timing), throttled | — | recorded | 439.3 ms | 474.7 ms | [2026-11-10-m12-d-page](perf/results/2026-11-10-m12-d-page.json), [2026-10-21-page-production](perf/results/2026-10-21-page-production.json) |
 | Page: first-paint JS (brotli) | ≤ 95.5 KiB (baseline 86.8 + 10%) | `check` | 86.8 KiB | — | [2026-11-10-m12-d-page](perf/results/2026-11-10-m12-d-page.json) |
-| Requests in the busiest 10 s, one visitor (the zone's rate limit counts per IP) | — | recorded | 142 requests | — | [2026-11-10-m12-e-burst](perf/results/2026-11-10-m12-e-burst.json) |
+| Requests in the busiest 10 s, one visitor (the zone's rate limit counts per IP) | — | recorded | 138 requests | — | [2026-11-11-m13-f-burst](perf/results/2026-11-11-m13-f-burst.json) |
 <!-- report:plan:end -->
 
 ---
@@ -281,6 +309,12 @@ Not milestones. Each starts with research.
 
 ---
 
+## Known bugs
+
+Found and not yet fixed; each gets a session of its own (a fix in the part that owns the code, or a part of its own).
+
+None open.
+
 ## Open questions
 
 - **The base level's wheel readings.** A bare `mouse.wheel` reaches a native scroller's compositor every other frame in headless Chromium (`perf/results/2026-11-02-m9-a2.md`), and the base level's TanStack fling and Smooth were read through it. Whether to re-measure them on the gesture scroll, which the wide sheet uses from part D on (`docs/DECISIONS.md`, "Measurement"), and say so on the page meanwhile, is open; so is whether a real trackpad in a headed Chromium matches the gesture's rate.
@@ -290,7 +324,5 @@ Not milestones. Each starts with research.
 - **GPUI's key at the wide level.** In 6 of 120 key inputs (`perf/results/2026-11-03-m9-d.md`) no `EventLatency` of GPUI's key reached a frame, though the view moved and filled; the base level read all 120. And GPUI's first usable at the wide level was confirmed in 8 of 10 reference runs, its probe frame ~3 ms later than the base's. Whether either is Chromium's attribution or GPUI's first frames after usable doing more at the level is untested.
 
 - **The pill's compositor frames.** Throttled, the meter as a pill dropped more compositor frames than hidden on both sides (TanStack 7.98% against 3.5%, GPUI 4.21% against 0), while the open meter dropped none more (`perf/results/2026-10-21-m5-d4.md`). The pill isn't the default, so nothing gates it; whether it should get a layer of its own (`will-change: transform`, as the open meter has), and whether that's the cause, is untested.
-- **A spread for a short mark.** The quiet-machine gate is (max − min) / median under 6% of each variant's open mark. TanStack's reference mark is ~500 ms, so one 15–30 ms stray fails it (7.0–7.7% in both D4 runs, while its gates read 0 against 0). Whether short marks get a floor in ms, or the gate uses the interquartile range over the median, is open.
 - **GPUI's lost mark offsets upstream.** gpui-pre-wgpu 0.3.11 drops cosmic-text's `x_offset` and `y_offset` (`perf/results/2026-11-09-m12-a2.md`), and 0.3.12 (gpui-kit 0.9.1) still does: its `cosmic_text_system.rs` is byte-identical. The user files the issue; whether a fix lands before part C, so the shaping verdicts are measured on it, is open.
-- **GPUI's numbers on gpui-kit 0.9.1.** Every scenario's results are labelled 0.9.0. gpui-pre 0.3.12 resets the cursor on every mouse and scroll event (a `document.body.style.cursor` write each on the web; [the bump's note](perf/results/2026-11-10-gpui-kit-0.9.1.md)), so GPUI's fling, scroll, and response readings may differ on the build the page serves. The root protocol says a bump re-measures the scenarios it touches or keeps their versions' label, decided per bump. To decide it: a GPUI-only A/B, 0.9.0 against 0.9.1, of the input-heavy readings (`metric response` and the wide sheet's `scroll` at one stop, reference, median of 10); re-measure the scenarios if it moves past the spread, else keep the label. M13's cold runs measure only the monitoring wall, and M14's re-measure only the wide sheet, so neither settles it; run it in M13's measuring part, beside its suite.
 - **The landing page.** The observatory's Worker holds the apex `seiza.io` (everything outside `/observatory/` a 404). The page is basic (a title, a catchy line, a link to the observatory), built in `site/landing/` on `site/ui/`'s shell (root `docs/DECISIONS.md`, "Repo structure"); when it ships is open. Shipping it moves the Worker to `site/worker/` and adds `/`, `/index.html`, and `/assets/` to the seiza.io WAF rule (`/fonts/` is in it already).

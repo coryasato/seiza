@@ -9,7 +9,7 @@ import { MARKS, followPageTheme, markAt, nextFrame, nextMark, pageTheme, publish
 import { DATA, ENGINE_DIR, OBSERVATORY, UI_FONT } from '../../../../paths.ts';
 import { pickScenario } from '../../../../scenarios.ts';
 import { FLING_FRAMES, flingStep } from '../../../../../metrics/metrics.ts';
-// The level's host: the admin table's fonts toggle on the base (`base.ts`), nothing on the wide level (`market.ts` on the market's, `tail.ts` on the tail's).
+// The level's host: the admin table's fonts toggle on the base (`base.ts`), the page's copy line on the wide level (`level.ts`; `market.ts` on the market's, `tail.ts` on the tail's, `wall.ts` on the wall's).
 import { levelHost } from './level.ts';
 
 /** Set by shared-web's placeholder (`PLACEHOLDER_PAINT_MARK`) and `seiza`'s
@@ -94,15 +94,29 @@ async function fling(): Promise<void> {
 // A frame whose scenario or stop this build lacks shows the failure and
 // opens nothing: its replay fails at once rather than wait for a fill.
 const unknown = (): Promise<never> => Promise.reject(picked instanceof Error ? picked : new Error('no scenario'));
+/** The monitoring wall's replay is `open()` alone: a desk's 50 rows give a
+ *  fling and a jump no meaning (`docs/contender-contract.md`, "Replay"). */
+const noMove = (): Promise<never> => Promise.reject(new Error('the monitoring wall has no fling or jump'));
 publishContender(
   'gpui',
   picked instanceof Error
     ? { open: unknown, fling: unknown, jump: unknown }
-    : {
-        open: () => untilFilled(replayOpen),
-        fling,
-        jump: (fraction) => untilFilled(() => replayJump(fraction)),
-      },
+    : __LEVEL__ === 'wall'
+      ? {
+          // Every table refilled: the wall's filled mark, across them.
+          open: () => {
+            const since = performance.now();
+            replayOpen();
+            return nextMark(MARKS.filled, since).then(() => {});
+          },
+          fling: noMove,
+          jump: noMove,
+        }
+      : {
+          open: () => untilFilled(replayOpen),
+          fling,
+          jump: (fraction) => untilFilled(() => replayJump(fraction)),
+        },
 );
 
 // The page's theme, as the window opens and live after: until the wasm has

@@ -698,10 +698,10 @@ impl MemoryRows {
         &self.reads
     }
 
-    /// Reads each value's exact text (`copy`, `sort`), as a read now would
-    /// answer it: `None` for NULL. What a script compares a copy's paste,
-    /// or a sort's drawn cells, with.
-    #[cfg(any(feature = "copy", feature = "sort"))]
+    /// Reads each value's exact text (`copy`, `sort`, `reorder`), as a read
+    /// now would answer it: `None` for NULL. What a script compares a
+    /// copy's paste, or a sort's or a move's drawn cells, with.
+    #[cfg(any(feature = "copy", feature = "sort", feature = "reorder"))]
     pub fn exact(&self) -> impl Fn(u64, usize) -> Option<String> + 'static {
         let shape = self.shape;
         #[cfg(feature = "live")]

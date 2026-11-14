@@ -1,0 +1,680 @@
+{
+  "options": {"max_bytes": 67108864, "key_max_cells": 100000, "headers": false},
+  "paging": {"page_rows": 4, "prefetch": 0},
+  "viewport_rows": 2,
+  "sources": {
+    "sheet": {
+      "columns": [
+        {"name": "id", "kind": "integer"},
+        {"name": "name", "kind": "text"},
+        {"name": "price \"usd\"", "kind": "float"},
+        {"name": "qty", "kind": "decimal"}
+      ],
+      "rows": [
+        ["1", "Ada", "3.5", "10.00"],
+        ["2", "Brook", "12.0", "2.50"],
+        ["3", "Cyd", "0.25", "7.00"],
+        ["4", "Dee", "100", "0.10"],
+        ["5", "Eli", "-1.75", "3.00"],
+        ["6", "Fay", "0.00002", "4.20"],
+        ["7", "Gus", "6", "9.99"],
+        ["8", "Hal", "0.5", "1.00"],
+        ["9", "Ivy", "42", "5.55"],
+        ["10", "Jo", "1e21", "8.88"]
+      ]
+    },
+    "values": {
+      "columns": [
+        {"name": "text", "kind": "text"},
+        {"name": "float", "kind": "float"},
+        {"name": "float32", "kind": "float32"},
+        {"name": "integer", "kind": "integer"},
+        {"name": "decimal", "kind": "decimal"}
+      ],
+      "rows": [
+        ["a\tb", "8.0", "0.1", "-9223372036854775808", "12.50"],
+        ["line\nbreak", "-0.0", "1.5", "0", "-0.001"],
+        ["cr\rhere", "0.30000000000000004", null, "42", null],
+        ["say \"hi\"", "1e300", "3.4028235e38", "7", "1"],
+        ["plain, text", "1e-7", "16777216", "-1", "0.000"],
+        ["", "NaN", "-0.5", null, "99999999999999999999.99"],
+        [null, "Infinity", "1e-10", "123", "-5.5"],
+        ["café", "-Infinity", "2", "9223372036854775807", "3.14"]
+      ]
+    },
+    "euros": {
+      "columns": [
+        {"name": "prix (€)", "kind": "decimal"},
+        {"name": "qté", "kind": "integer"}
+      ],
+      "rows": [
+        ["12.50", "3"],
+        ["4.00", "10"],
+        ["0.99", "7"],
+        ["150.00", "1"],
+        ["8.25", "12"],
+        ["3.10", "5"]
+      ]
+    },
+    "accents": {
+      "columns": [
+        {"name": "word", "kind": "text"}
+      ],
+      "rows": [
+        ["café"],
+        ["naïve"],
+        ["über"],
+        ["déjà"]
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "rows",
+      "source": "sheet",
+      "selection": {
+        "kind": "rows",
+        "anchor": [1, 2],
+        "head": [2, 0]
+      },
+      "by": "key",
+      "why": "A Rows range copies every column of its rows; both on the page loaded at open, so nothing is read.",
+      "expect": {
+        "started": {
+          "rows": [1, 2],
+          "columns": [0, 3]
+        },
+        "outcome": {
+          "copied": {"rows": 2, "bytes": 33}
+        },
+        "text": "2\tBrook\t12.0\t2.50\n3\tCyd\t0.25\t7.00",
+        "reads": false
+      }
+    },
+    {
+      "name": "rows-head-first",
+      "source": "sheet",
+      "selection": {
+        "kind": "rows",
+        "anchor": [2, 0],
+        "head": [1, 3]
+      },
+      "by": "key",
+      "why": "The same rows with the anchor after the head: the same text.",
+      "expect": {
+        "started": {
+          "rows": [1, 2],
+          "columns": [0, 3]
+        },
+        "outcome": {
+          "copied": {"rows": 2, "bytes": 33}
+        },
+        "text": "2\tBrook\t12.0\t2.50\n3\tCyd\t0.25\t7.00",
+        "reads": false
+      }
+    },
+    {
+      "name": "columns",
+      "source": "sheet",
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 1],
+        "head": [5, 2]
+      },
+      "by": "key",
+      "why": "A Columns range copies every row of its columns: the pages not loaded are read for it.",
+      "expect": {
+        "started": {
+          "rows": [0, 9],
+          "columns": [1, 2]
+        },
+        "outcome": {
+          "copied": {"rows": 10, "bytes": 89}
+        },
+        "text": "Ada\t3.5\nBrook\t12.0\nCyd\t0.25\nDee\t100.0\nEli\t-1.75\nFay\t2e-5\nGus\t6.0\nHal\t0.5\nIvy\t42.0\nJo\t1e21",
+        "reads": true
+      }
+    },
+    {
+      "name": "columns-head-first",
+      "source": "sheet",
+      "selection": {
+        "kind": "columns",
+        "anchor": [3, 2],
+        "head": [0, 1]
+      },
+      "by": "key",
+      "why": "The same columns with the anchor after the head: the same text.",
+      "expect": {
+        "started": {
+          "rows": [0, 9],
+          "columns": [1, 2]
+        },
+        "outcome": {
+          "copied": {"rows": 10, "bytes": 89}
+        },
+        "text": "Ada\t3.5\nBrook\t12.0\nCyd\t0.25\nDee\t100.0\nEli\t-1.75\nFay\t2e-5\nGus\t6.0\nHal\t0.5\nIvy\t42.0\nJo\t1e21",
+        "reads": true
+      }
+    },
+    {
+      "name": "cells-across-pages",
+      "source": "sheet",
+      "selection": {
+        "kind": "cells",
+        "anchor": [3, 1],
+        "head": [5, 3]
+      },
+      "by": "key",
+      "why": "A block starting on the first page's last row (3) and ending on the next page: one row from the cache, two from a page read for the copy.",
+      "expect": {
+        "started": {
+          "rows": [3, 5],
+          "columns": [1, 3]
+        },
+        "outcome": {
+          "copied": {"rows": 3, "bytes": 43}
+        },
+        "text": "Dee\t100.0\t0.10\nEli\t-1.75\t3.00\nFay\t2e-5\t4.20",
+        "reads": true
+      }
+    },
+    {
+      "name": "cells-head-first",
+      "source": "sheet",
+      "selection": {
+        "kind": "cells",
+        "anchor": [5, 3],
+        "head": [3, 1]
+      },
+      "by": "key",
+      "why": "The same block with the anchor after the head: the same text.",
+      "expect": {
+        "started": {
+          "rows": [3, 5],
+          "columns": [1, 3]
+        },
+        "outcome": {
+          "copied": {"rows": 3, "bytes": 43}
+        },
+        "text": "Dee\t100.0\t0.10\nEli\t-1.75\t3.00\nFay\t2e-5\t4.20",
+        "reads": true
+      }
+    },
+    {
+      "name": "one-cell",
+      "source": "sheet",
+      "selection": {
+        "kind": "cells",
+        "anchor": [8, 2],
+        "head": [8, 2]
+      },
+      "by": "key",
+      "why": "One cell: its value alone, no tab, no line break.",
+      "expect": {
+        "started": {
+          "rows": [8, 8],
+          "columns": [2, 2]
+        },
+        "outcome": {
+          "copied": {"rows": 1, "bytes": 4}
+        },
+        "text": "42.0",
+        "reads": true
+      }
+    },
+    {
+      "name": "headers",
+      "source": "sheet",
+      "options": {"headers": true},
+      "selection": {
+        "kind": "rows",
+        "anchor": [0, 0],
+        "head": [1, 0]
+      },
+      "by": "key",
+      "why": "With headers on, the column names first, quoted by the values' rule (a \" doubled), then a line break; the line counts in the bytes.",
+      "expect": {
+        "started": {
+          "rows": [0, 1],
+          "columns": [0, 3]
+        },
+        "outcome": {
+          "copied": {"rows": 2, "bytes": 61}
+        },
+        "text": "id\tname\t\"price \"\"usd\"\"\"\tqty\n1\tAda\t3.5\t10.00\n2\tBrook\t12.0\t2.50",
+        "reads": false
+      }
+    },
+    {
+      "name": "headers-of-the-columns",
+      "source": "sheet",
+      "options": {"headers": true},
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 2],
+        "head": [1, 3]
+      },
+      "by": "key",
+      "why": "The header line names only the copied columns.",
+      "expect": {
+        "started": {
+          "rows": [0, 1],
+          "columns": [2, 3]
+        },
+        "outcome": {
+          "copied": {"rows": 2, "bytes": 39}
+        },
+        "text": "\"price \"\"usd\"\"\"\tqty\n3.5\t10.00\n12.0\t2.50",
+        "reads": false
+      }
+    },
+    {
+      "name": "text-values",
+      "source": "values",
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 0],
+        "head": [0, 0]
+      },
+      "by": "key",
+      "why": "Text as the source wrote it, quoted when it holds a tab, \\n, \\r, or a \" (doubled); a comma and a space need none; empty text and NULL are both empty; non-ASCII as it is.",
+      "expect": {
+        "started": {
+          "rows": [0, 7],
+          "columns": [0, 0]
+        },
+        "outcome": {
+          "copied": {"rows": 8, "bytes": 61}
+        },
+        "text": "\"a\tb\"\n\"line\nbreak\"\n\"cr\rhere\"\n\"say \"\"hi\"\"\"\nplain, text\n\n\ncafé"
+      }
+    },
+    {
+      "name": "float-values",
+      "source": "values",
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 1],
+        "head": [0, 1]
+      },
+      "by": "key",
+      "why": "A float's exact text is Rust's {:?}: 8.0 and -0.0 keep their .0, the shortest round trip (0.30000000000000004), an exponent below 1e-4 and from 1e16 (1e300, 1e-7) without a +, NaN, inf, -inf. Not JS's String (8, 0, 1e+300, Infinity).",
+      "expect": {
+        "started": {
+          "rows": [0, 7],
+          "columns": [1, 1]
+        },
+        "outcome": {
+          "copied": {"rows": 8, "bytes": 52}
+        },
+        "text": "8.0\n-0.0\n0.30000000000000004\n1e300\n1e-7\nNaN\ninf\n-inf"
+      }
+    },
+    {
+      "name": "float32-values",
+      "source": "values",
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 2],
+        "head": [0, 2]
+      },
+      "by": "key",
+      "why": "A float32's exact text is its own shortest round trip (0.1, not 0.10000000149011612), NULL empty.",
+      "expect": {
+        "started": {
+          "rows": [0, 7],
+          "columns": [2, 2]
+        },
+        "outcome": {
+          "copied": {"rows": 8, "bytes": 47}
+        },
+        "text": "0.1\n1.5\n\n3.4028235e38\n16777216.0\n-0.5\n1e-10\n2.0"
+      }
+    },
+    {
+      "name": "integer-values",
+      "source": "values",
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 3],
+        "head": [0, 3]
+      },
+      "by": "key",
+      "why": "Integers as the source wrote them, to the 64-bit ends, NULL empty.",
+      "expect": {
+        "started": {
+          "rows": [0, 7],
+          "columns": [3, 3]
+        },
+        "outcome": {
+          "copied": {"rows": 8, "bytes": 55}
+        },
+        "text": "-9223372036854775808\n0\n42\n7\n-1\n\n123\n9223372036854775807"
+      }
+    },
+    {
+      "name": "decimal-values",
+      "source": "values",
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 4],
+        "head": [0, 4]
+      },
+      "by": "key",
+      "why": "Decimals as the source wrote them, trailing zeros and all, NULL empty.",
+      "expect": {
+        "started": {
+          "rows": [0, 7],
+          "columns": [4, 4]
+        },
+        "outcome": {
+          "copied": {"rows": 8, "bytes": 55}
+        },
+        "text": "12.50\n-0.001\n\n1\n0.000\n99999999999999999999.99\n-5.5\n3.14"
+      }
+    },
+    {
+      "name": "all-values",
+      "source": "values",
+      "selection": {
+        "kind": "rows",
+        "anchor": [0, 0],
+        "head": [7, 4]
+      },
+      "by": "key",
+      "why": "Every value in its row, a quoted line break inside a row's field among them.",
+      "expect": {
+        "started": {
+          "rows": [0, 7],
+          "columns": [0, 4]
+        },
+        "outcome": {
+          "copied": {"rows": 8, "bytes": 274}
+        },
+        "text": "\"a\tb\"\t8.0\t0.1\t-9223372036854775808\t12.50\n\"line\nbreak\"\t-0.0\t1.5\t0\t-0.001\n\"cr\rhere\"\t0.30000000000000004\t\t42\t\n\"say \"\"hi\"\"\"\t1e300\t3.4028235e38\t7\t1\nplain, text\t1e-7\t16777216.0\t-1\t0.000\n\tNaN\t-0.5\t\t99999999999999999999.99\n\tinf\t1e-10\t123\t-5.5\ncafé\t-inf\t2.0\t9223372036854775807\t3.14"
+      }
+    },
+    {
+      "name": "key-at-limit",
+      "source": "sheet",
+      "options": {"key_max_cells": 6},
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 0],
+        "head": [5, 0]
+      },
+      "by": "key",
+      "why": "The key copies a selection of exactly key_max_cells cells.",
+      "expect": {
+        "started": {
+          "rows": [0, 5],
+          "columns": [0, 0]
+        },
+        "outcome": {
+          "copied": {"rows": 6, "bytes": 11}
+        },
+        "text": "1\n2\n3\n4\n5\n6"
+      }
+    },
+    {
+      "name": "key-past-limit",
+      "source": "sheet",
+      "options": {"key_max_cells": 6},
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 0],
+        "head": [6, 0]
+      },
+      "by": "key",
+      "why": "One cell past key_max_cells, the key declines: its rows and columns, no Started, nothing read.",
+      "expect": {
+        "outcome": {
+          "declined": {"rows": 7, "columns": 1}
+        },
+        "reads": false
+      }
+    },
+    {
+      "name": "copy-past-limit",
+      "source": "sheet",
+      "options": {"key_max_cells": 6},
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 0],
+        "head": [6, 0]
+      },
+      "by": "copy",
+      "why": "The host's copy of the same selection isn't held to the key's limit.",
+      "expect": {
+        "started": {
+          "rows": [0, 6],
+          "columns": [0, 0]
+        },
+        "outcome": {
+          "copied": {"rows": 7, "bytes": 13}
+        },
+        "text": "1\n2\n3\n4\n5\n6\n7"
+      }
+    },
+    {
+      "name": "key-counts-cells",
+      "source": "sheet",
+      "options": {"key_max_cells": 6},
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 0],
+        "head": [2, 1]
+      },
+      "by": "key",
+      "why": "The key's limit counts cells, rows × columns: 3 rows of 2 columns are 6, at the limit.",
+      "expect": {
+        "started": {
+          "rows": [0, 2],
+          "columns": [0, 1]
+        },
+        "outcome": {
+          "copied": {"rows": 3, "bytes": 19}
+        },
+        "text": "1\tAda\n2\tBrook\n3\tCyd"
+      }
+    },
+    {
+      "name": "key-counts-cells-past",
+      "source": "sheet",
+      "options": {"key_max_cells": 6},
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 0],
+        "head": [3, 1]
+      },
+      "by": "key",
+      "why": "4 rows of 2 columns are 8 cells, past the limit of 6, though its 4 rows aren't: declined, nothing read.",
+      "expect": {
+        "outcome": {
+          "declined": {"rows": 4, "columns": 2}
+        },
+        "reads": false
+      }
+    },
+    {
+      "name": "least-bytes",
+      "source": "sheet",
+      "options": {"max_bytes": 38},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 0],
+        "head": [0, 3]
+      },
+      "by": "copy",
+      "why": "10 rows of 4 columns: 30 tabs and 9 line breaks even if every value were NULL, 39 bytes past the cap of 38. Refused after Started, before a read.",
+      "expect": {
+        "started": {
+          "rows": [0, 9],
+          "columns": [0, 3]
+        },
+        "outcome": {
+          "too_large": {"bytes": 39, "max_bytes": 38}
+        },
+        "reads": false
+      }
+    },
+    {
+      "name": "cap-mid-copy",
+      "source": "sheet",
+      "options": {"max_bytes": 30},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 1],
+        "head": [0, 1]
+      },
+      "by": "copy",
+      "why": "The names, one a row: 29 bytes through Gus (row 6), 33 through Hal, past the cap of 30; refused with the text's bytes at the row that passed it. The first page's projection (17 bytes over 4 rows, × 10 rows: 42.5) is under twice the cap.",
+      "expect": {
+        "started": {
+          "rows": [0, 9],
+          "columns": [1, 1]
+        },
+        "outcome": {
+          "too_large": {"bytes": 33, "max_bytes": 30}
+        }
+      }
+    },
+    {
+      "name": "cap-in-utf8",
+      "source": "accents",
+      "options": {"max_bytes": 22},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 0],
+        "head": [0, 0]
+      },
+      "by": "copy",
+      "why": "Bytes are UTF-8: 25 through déjà, past the cap of 22 (in UTF-16 code units, a JS string's length, it would be 20 and copied).",
+      "expect": {
+        "started": {
+          "rows": [0, 3],
+          "columns": [0, 0]
+        },
+        "outcome": {
+          "too_large": {"bytes": 25, "max_bytes": 22}
+        }
+      }
+    },
+    {
+      "name": "cap-projected",
+      "source": "sheet",
+      "options": {"max_bytes": 20},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 1],
+        "head": [0, 1]
+      },
+      "by": "copy",
+      "why": "A page's worth of rows in (4, 17 bytes, under the cap of 20) with rows to come: their bytes a row over the copy's 10 rows project 42.5, past twice the cap; refused with the projection cut to a whole byte (header bytes + bytes a row × rows).",
+      "expect": {
+        "started": {
+          "rows": [0, 9],
+          "columns": [1, 1]
+        },
+        "outcome": {
+          "too_large": {"bytes": 42, "max_bytes": 20}
+        }
+      }
+    },
+    {
+      "name": "least-bytes-with-headers",
+      "source": "sheet",
+      "options": {"max_bytes": 66, "headers": true},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 0],
+        "head": [0, 3]
+      },
+      "by": "copy",
+      "why": "With headers on, the least text counts the header line and its line break: 39 bytes of separators + 27 of header + 1 = 67, past the cap of 66 before a read (without the header, 39 would pass).",
+      "expect": {
+        "started": {
+          "rows": [0, 9],
+          "columns": [0, 3]
+        },
+        "outcome": {
+          "too_large": {"bytes": 67, "max_bytes": 66}
+        },
+        "reads": false
+      }
+    },
+    {
+      "name": "least-bytes-with-utf8-headers",
+      "source": "euros",
+      "options": {"max_bytes": 26, "headers": true},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 0],
+        "head": [0, 1]
+      },
+      "by": "copy",
+      "why": "The check before a read counts the header line in UTF-8 too: 6 rows of 2 columns are 11 bytes of separators, the header \"prix (€)\\tqté\" 15 and its line break 1, 27 in all, past the cap of 26 (in UTF-16 code units the header is 12 and the least 24, under it).",
+      "expect": {
+        "started": {
+          "rows": [0, 5],
+          "columns": [0, 1]
+        },
+        "outcome": {
+          "too_large": {"bytes": 27, "max_bytes": 26}
+        },
+        "reads": false
+      }
+    },
+    {
+      "name": "cap-projected-with-headers",
+      "source": "sheet",
+      "options": {"max_bytes": 24, "headers": true},
+      "selection": {
+        "kind": "columns",
+        "anchor": [0, 1],
+        "head": [0, 1]
+      },
+      "by": "copy",
+      "why": "The projection with headers on: the header's bytes (4, \"name\") apart, its line break counted with the first row; 22 bytes through Dee, 4.5 a row over 10 rows, 4 + 45 = 49, past twice the cap of 24.",
+      "expect": {
+        "started": {
+          "rows": [0, 9],
+          "columns": [1, 1]
+        },
+        "outcome": {
+          "too_large": {"bytes": 49, "max_bytes": 24}
+        }
+      }
+    },
+    {
+      "name": "cap-projected-from-its-first-row",
+      "source": "sheet",
+      "options": {"max_bytes": 10},
+      "selection": {
+        "kind": "cells",
+        "anchor": [3, 1],
+        "head": [9, 1]
+      },
+      "by": "copy",
+      "why": "A copy starting on a page's last row (3) projects only once page_rows rows from its own first row are in, never from that one row: refused at the cap at Fay (11 bytes), where a projection from Dee alone (3 bytes × 7 rows = 21, past twice 10) would refuse first.",
+      "expect": {
+        "started": {
+          "rows": [3, 9],
+          "columns": [1, 1]
+        },
+        "outcome": {
+          "too_large": {"bytes": 11, "max_bytes": 10}
+        }
+      }
+    }
+  ],
+  "controls": [
+    {"name": "null-as-text", "fails": ["text-values", "float32-values", "integer-values", "decimal-values"]},
+    {"name": "no-quoting", "fails": ["text-values"]},
+    {"name": "key-limit-off-by-one", "fails": ["key-at-limit", "key-counts-cells"]},
+    {"name": "whole-floats-bare", "fails": ["float-values", "float32-values"]},
+    {"name": "trailing-break", "fails": ["one-cell", "rows"]},
+    {"name": "utf16-bytes", "fails": ["cap-in-utf8", "least-bytes-with-utf8-headers"]}
+  ]
+}

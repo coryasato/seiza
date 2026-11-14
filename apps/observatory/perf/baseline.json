@@ -25,20 +25,20 @@
   },
   "levels": {
     "wide": {
-      "date": "2026-11-02",
+      "date": "2026-11-12",
       "machine": "local",
       "cpu": "Apple M1",
       "os": "Darwin 25.6.0 arm64",
       "ttfpMs": {
-        "reference": 180.8,
-        "throttled": 3585.2
+        "reference": 153.4,
+        "throttled": 3621.1
       },
-      "wasmBrotliKiB": 2775,
+      "wasmBrotliKiB": 2799.5,
       "tanstackJsBrotliKiB": {
-        "date": "2026-11-03",
+        "date": "2026-11-12",
         "machine": "local",
-        "firstPaint": 76.8,
-        "dataLayer": 34.8
+        "firstPaint": 82.4,
+        "dataLayer": 39.2
       }
     },
     "market": {
@@ -73,6 +73,23 @@
         "machine": "local",
         "firstPaint": 76.5,
         "dataLayer": 38.7
+      }
+    },
+    "wall": {
+      "date": "2026-11-10",
+      "machine": "local",
+      "cpu": "Apple M1",
+      "os": "Darwin 25.6.0 arm64",
+      "ttfpMs": {
+        "reference": 160.5,
+        "throttled": 3633.9
+      },
+      "wasmBrotliKiB": 2798.8,
+      "tanstackJsBrotliKiB": {
+        "date": "2026-11-10",
+        "machine": "local",
+        "firstPaint": 76.9,
+        "dataLayer": 43.4
       }
     }
   }

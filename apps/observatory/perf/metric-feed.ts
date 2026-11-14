@@ -1,10 +1,13 @@
-// A feed's numbers, a scenario's stops (market watch's), on either bare
+// A feed's numbers, a scenario's stops (market watch's and the monitoring
+// wall's), on either bare
 // contender page, cold, with `?measure`: once the feed has first drawn
 // (`contender:refreshed`), `SETTLE_MS` to settle, then `WINDOW_MS` traced.
 // Read from what both sides publish (`__contender.batches`, each refreshed
 // mark with the generation drawn then) and the trace (metrics/metrics.ts):
 // - keeps up (`feedFrames`): the frames that first drew a batch with a tick
-//   on screen, over the lesser of those batches and the display's frames;
+//   on screen, over the lesser of those batches and the display's frames
+//   (on the wall a batch is paired across its tables: its frame is the
+//   first at which every table whose on-screen rows it ticked has drawn it);
 // - Shown in (`shownIn`): each such batch's send → the presentation of its
 //   frame, p50 and p95, with each run's send → mark and mark → presentation
 //   beside it (a run's frame scheduling state; `docs/DECISIONS.md`,
@@ -20,15 +23,16 @@
 // `THROTTLE_MIN` times the side's reference median fails
 // (`throttle-control.ts`).
 //
-// Usage: node apps/observatory/perf/metric-feed.ts --scenario market-watch
+// Usage: node apps/observatory/perf/metric-feed.ts --scenario market-watch|monitoring-wall
 //          [--stop <id,…|all>] [--side gpui|tanstack] [--runs 10]
 //          [--profile reference|throttled] [--label <name>]
-// Run `just observatory gpui-build market` and `tanstack-build market` first.
+// Run `just observatory gpui-build <level>` and `tanstack-build <level>`
+// first (`market`, `wall`).
 
 import { frameIntervals, frameRecorder, recordedBetween, waitMark } from '../../../shared-web/perf/harness.ts';
 import { percentiles } from '../../../shared-web/perf/protocol.ts';
-import { KEEPS_UP_SHARE, WORK_CATEGORIES, ORIGIN_MARK, Trace, collections, feedFrames, frameWork, lateFrames, shownIn, type Collections, type FeedBatch, type RefreshedFrame } from '../metrics/metrics.ts';
-import { medianOf, openSide, runMetric, type RunResult } from './contender.ts';
+import { KEEPS_UP_SHARE, WORK_CATEGORIES, ORIGIN_MARK, Trace, collections, feedFrames, frameWork, lateFrames, shownIn, type Collections, type FeedBatch } from '../metrics/metrics.ts';
+import { medianOf, openSide, refreshedLog, refreshedRecorder, runMetric, type RunResult } from './contender.ts';
 import { MARKS } from './harness.ts';
 import { spin, throttleCheck } from './throttle-control.ts';
 
@@ -39,30 +43,7 @@ const WINDOW_MS = 10_000;
  *  compositor's verbose `cc`, which costs the frames it would read. */
 const CATEGORIES = WORK_CATEGORIES;
 
-type Global = {
-  __contender?: { batches?: FeedBatch[] };
-  __contenderRefreshed?: number;
-  __refreshed?: [at: number, generation: number][];
-};
-
-/** Init script: each `contender:refreshed` mark with the generation drawn
- *  then (each side raises `__contenderRefreshed` before its mark), from a
- *  wrapper on `performance.mark`: a call and a name check per mark, the
- *  same on both sides, and nothing else in their frames. */
-function refreshedRecorder(): void {
-  const g = globalThis as Global;
-  const log: [number, number][] = [];
-  g.__refreshed = log;
-  const mark = performance.mark.bind(performance);
-  performance.mark = ((name: string, options?: PerformanceMarkOptions) => {
-    const entry = mark(name, options);
-    if (name === 'contender:refreshed') log.push([entry.startTime, g.__contenderRefreshed ?? 0]);
-    return entry;
-  }) as typeof performance.mark;
-}
-
-// The init script names the mark itself: fail if it drifts from the contract's.
-if (!refreshedRecorder.toString().includes(`'${MARKS.refreshed}'`)) throw new Error(`refreshedRecorder doesn't name ${MARKS.refreshed}`);
+type Global = { __contender?: { batches?: FeedBatch[] } };
 
 const round = (value: number, digits = 2) => Number(value.toFixed(digits));
 const p = (values: number[]) => (values.length ? percentiles(values) : null);
@@ -113,11 +94,8 @@ await runMetric<Run>(
       const throttled = throttleCheck(side, profile, spinMs);
       if (throttled) failures.push(throttled);
 
-      const { batches, refreshed, origin } = await page.evaluate(() => {
-        const g = globalThis as Global;
-        return { batches: g.__contender?.batches ?? [], refreshed: g.__refreshed ?? [], origin: performance.timeOrigin };
-      });
-      const fed = feedFrames(batches, refreshed as RefreshedFrame[], origin, from, to);
+      const { batches, origin } = await page.evaluate(() => ({ batches: (globalThis as Global).__contender?.batches ?? [], origin: performance.timeOrigin }));
+      const fed = feedFrames(batches, await refreshedLog(page), origin, from, to);
       if (!fed.frames) failures.push('no visible batch shown in the window');
       const read = shownIn(trace, fed.shown);
       const [shown, toMark, toPresent] = [p(read.ms), p(read.toMark), p(read.toPresent)];
@@ -175,5 +153,5 @@ await runMetric<Run>(
     };
   },
   { settleMs: SETTLE_MS, windowMs: WINDOW_MS, keepsUpShare: KEEPS_UP_SHARE },
-  { levels: ['market'], allStops: true },
+  { levels: ['market', 'wall'], allStops: true },
 );

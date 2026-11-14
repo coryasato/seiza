@@ -4,9 +4,11 @@
  * that hovers only), a press pins it until pressed again, Enter or Space on
  * the trigger opens it (focus alone doesn't), Esc closes it with focus kept
  * on the trigger, and one is open at a time; hovering another leaves a
- * pinned one open. A press outside, a wheel, or a scroll closes a pinned
- * one, in the contender's frame too (a same-origin frame's events never
- * reach this window: its own window is listened to).
+ * pinned one open. A press outside, a wheel, or a scrolling key in the
+ * frame closes a pinned one, in the contender's frame too (a same-origin
+ * frame's events never reach this window: its own window is listened to);
+ * a scroll closes it only where it moves the trigger, so a frame scrolling
+ * itself (live tail following) leaves it open.
  *
  * The popover renders into the document's body, positioned from its
  * trigger, so it's never clipped by a box it sits in: the status bar's
@@ -60,6 +62,9 @@ const GAP = 6;
 const EDGE = 8;
 /** How long a hover-opened one waits for the pointer to cross the gap to it. */
 const LEAVE_MS = 150;
+
+/** The keys that scroll a view. */
+const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 
 /** This window and every same-origin frame's: where a press or a key can land. */
 const windows = (): Window[] => [
@@ -128,10 +133,14 @@ export function Explainer({ trigger, triggerProps, className, placement = 'below
   }, [isOpen, placement, width]);
 
   // Open: Esc closes it from anywhere, before anything under it hears the
-  // key (the panel's Esc); a press outside or a scroll closes it.
+  // key (the panel's Esc); a press outside, a wheel, or a scroll that moves
+  // the trigger closes it.
   useEffect(() => {
     if (!isOpen) return;
     const key = (event: KeyboardEvent) => {
+      // A scrolling key in a frame scrolls the visitor's view there, as a
+      // wheel does (the frame's scroll events can't tell it from its own).
+      if (event.view !== window && SCROLL_KEYS.has(event.key)) return close(false);
       if (event.key !== 'Escape') return;
       event.preventDefault();
       event.stopPropagation();
@@ -142,14 +151,20 @@ export function Explainer({ trigger, triggerProps, className, placement = 'below
       const target = event.target as Node;
       if (!wrap.current?.contains(target) && !popover.current?.contains(target)) close(false);
     };
-    const scroll = (event: Event) => {
+    // A wheel anywhere is the visitor's; a scroll closes it only where it
+    // moved the trigger (the popover is fixed from it). A frame's own
+    // scrolls, live tail's following every count, never do.
+    const wheel = (event: Event) => {
       if (!popover.current?.contains(event.target as Node)) close(false);
+    };
+    const scroll = (event: Event) => {
+      if ((event.target as Node).contains(button.current)) close(false);
     };
     const listened = windows();
     for (const target of listened) {
       target.addEventListener('keydown', key, true);
       target.addEventListener('pointerdown', press, true);
-      target.addEventListener('wheel', scroll, { capture: true, passive: true });
+      target.addEventListener('wheel', wheel, { capture: true, passive: true });
       target.addEventListener('scroll', scroll, true);
     }
     return () => {
@@ -157,7 +172,7 @@ export function Explainer({ trigger, triggerProps, className, placement = 'below
       for (const target of listened) {
         target.removeEventListener('keydown', key, true);
         target.removeEventListener('pointerdown', press, true);
-        target.removeEventListener('wheel', scroll, true);
+        target.removeEventListener('wheel', wheel, true);
         target.removeEventListener('scroll', scroll, true);
       }
     };
