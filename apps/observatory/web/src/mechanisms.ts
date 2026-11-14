@@ -9,7 +9,7 @@ import type { MechanismId } from './components.ts';
  * (`docs/research/scenarios.md`, "Where the two stacks differ"; each
  * scenario's in `components.ts`), and a scenario's description links to
  * them. Cost per cell is the canvas's, garbage collection and decoding
- * WebAssembly's, and the split isn't measured yet.
+ * WebAssembly's; the observatory doesn't measure the split.
  */
 export interface Mechanism {
   id: MechanismId;

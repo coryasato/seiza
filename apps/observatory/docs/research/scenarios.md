@@ -1,6 +1,6 @@
 # Research: scenarios
 
-Research for the observatory's long-term goal "Scenarios" ([`../../PLAN.md`](../../PLAN.md)). Drafted 2026-10-23 in a planning discussion; planned as milestones on 2026-10-30, one per scenario in this order ([`../../PLAN.md`](../../PLAN.md)). The table's features are measured in its bare host, reading from memory; nothing here is measured against the engine yet. The decisions are in [`../DECISIONS.md`](../DECISIONS.md), "Scenarios".
+Research for the observatory's scenarios. Drafted 2026-10-23 in a planning discussion; planned as milestones on 2026-10-30, one per scenario in this order, and all built by 2026-11-14 ([`../milestones.md`](../milestones.md)); each one's numbers are in the [README](../../README.md). The decisions are in [`../DECISIONS.md`](../DECISIONS.md), "Scenarios".
 
 **The question a visitor brings:** "for my table, should I use the DOM (TanStack) or WebAssembly drawn on the GPU (GPUI)?" The base level (scrolling 1.57 M asteroids) answers it only for one use, and on it GPUI reads mostly as the heavier side. A scenario answers it for a real use: a kind of app people build, its workload, and what that workload costs on each side.
 
@@ -8,7 +8,7 @@ Research for the observatory's long-term goal "Scenarios" ([`../../PLAN.md`](../
 
 ## Where the two stacks differ
 
-Every scenario works through some of these mechanisms. Only B and C are WebAssembly's; A is the canvas's, and a JS canvas grid (the Glide contender, a long-term goal) would share it.
+Every scenario works through some of these mechanisms. Only B and C are WebAssembly's; A is the canvas's, and a JS canvas grid would share it. Nothing here separates the two: that would take a JS canvas contender, which isn't planned.
 
 | | Mechanism | Favours | WebAssembly or the canvas |
 |---|---|---|---|
@@ -24,7 +24,7 @@ The base level's numbers already fit: GPUI wins the throttled fling (A, B); TanS
 
 ## The scenarios, in build order
 
-Each is a real use, built from a feature level of the table (both sides), a dataset or a deterministic feed, a script, and a few **intensity stops**: fixed parameter sets that get cold numbers. The page shows a scenario picker and one dial over the stops; an advanced panel exposing a scenario's parameters is a later toggle, its readings labelled warm, unpublished.
+Each is a real use, built from a feature level of the table (both sides), a dataset or a deterministic feed, a script, and a few **intensity stops**: fixed parameter sets that get cold numbers. The page shows a scenario picker and one dial over the stops; an advanced panel exposing a scenario's parameters beyond the stops was considered and dropped (2026-11-14): the stops already cover each scenario's range, and the panel's readings would have no cold run behind them.
 
 ### 1. Wide sheet
 
