@@ -66,68 +66,68 @@ The first comparison, the tall table over the asteroids, cold, median of 10, eac
 
 ### Wide sheet
 
-The tall table at its wide level (custom cells, the key columns pinned, density) on both sides, over GHCN-Daily's 2025 highs: Station and Place pinned, a day per column, each cell's heat on one diverging ramp. A dial sets how many cells are on screen (about 380, 570, 710, or 940: the row height, the text size, and the days' width, the same on both sides). Each value is **GPUI / TanStack**, cold, median of 10, on Chromium's gesture scroll. A side **keeps up** at a stop when at least 90% of the display's frames draw new cells in both the steady scroll down and the sideways one. How it's read: [`docs/contender-contract.md`](docs/contender-contract.md), "Reading the metrics"; the runs: [`perf/results/2026-11-03-m9-d.md`](perf/results/2026-11-03-m9-d.md). They were measured with the heat's first, two-stop ramp; the diverging ramp mixes one color per cell, as it did, and a spot check read the same ([`perf/results/2026-11-04-m9-e3b.md`](perf/results/2026-11-04-m9-e3b.md)). They predate the TanStack contender's ARIA table semantics (its table, rows, header cells, and cells named by role, each row's place in the table), which weren't re-measured ([`docs/DECISIONS.md`](docs/DECISIONS.md), "TanStack contender").
+The tall table at its wide level (custom cells, the key columns pinned, density) on both sides, over GHCN-Daily's 2025 highs: Station and Place pinned, a day per column, each cell's heat on one diverging ramp. A dial sets how many cells are on screen (about 380, 570, 710, or 940: the row height, the text size, and the days' width, the same on both sides). Each value is **GPUI / TanStack**, cold, median of 10, on Chromium's gesture scroll. A side **keeps up** at a stop when at least 90% of the display's frames draw new cells in both the steady scroll down and the sideways one. How it's read: [`docs/contender-contract.md`](docs/contender-contract.md), "Reading the metrics"; the runs: [`perf/results/2026-11-13-m14-d2.md`](perf/results/2026-11-13-m14-d2.md), on the level's builds with the resize, selection, and copy built in.
 
-- **Where GPUI wins:** it keeps up at every stop on a fast device, to ~940 cells, where TanStack keeps up to ~380 only; in a fast fling it draws new cells in nearly every frame at every stop, where TanStack draws about every other one; its work per frame is lower in the scroll down and the fast fling at every stop past the first, and in all three at every stop on a slow device. A key moves it sooner, and a scrollbar press or a wheel lands on filled rows sooner.
-- **Where TanStack wins:** it's usable far sooner (its prerendered first screen hydrates while GPUI's wasm downloads), holds less memory (by far once open; after the file is read whole and a long sideways session, the gap narrows, and GPUI's wasm memory never shrinks), downloads a small fraction of GPUI's bytes, and spends less main-thread CPU over the session. Its work per frame in the sideways scroll is a little lower on a fast device past the first stop. A scrollbar press or a wheel moves its view sooner, a wheel on the compositor.
+- **Where GPUI wins:** it keeps up at every stop on a fast device, to ~940 cells, and on a slow one to ~570, where TanStack keeps up at none (on a fast device at ~380 it misses by a little: its sideways scroll's median 89% against the line's 90%, its runs 81–99%); in a fast fling it draws new cells in every frame at every stop on a fast device, where TanStack draws about every other one; its work per frame is lower in all three scrolls at every stop on both devices. A key moves it sooner, a scrollbar press lands on filled rows sooner, and on a fast device moves it sooner too, and a wheel lands on filled rows sooner. It spends less main-thread CPU over the session on a fast device.
+- **Where TanStack wins:** it's usable far sooner (its prerendered first screen hydrates while GPUI's wasm downloads), holds less memory (by far once open; after the file is read whole and a long sideways session, the gap narrows, and GPUI's wasm memory never shrinks), downloads a small fraction of GPUI's bytes, and spends less main-thread CPU over the session on a slow device. A wheel moves its view sooner, on the compositor, and so does a scrollbar press on a slow device.
 - **Even:** time to data and End to the last row (the same engine, file, and queries), and first pixels on a fast device (GPUI's placeholder shell paints sooner on a slow one).
-- **Neither, on a slow device:** at CPU 4×, neither side keeps up at any stop.
+- **Neither, on a slow device past ~570 cells:** at CPU 4×, at ~710 and ~940 neither side keeps up.
 
 At each stop:
 
 <!-- report:readme:wide-sheet-stops:start -->
 | Metric | Budget | Now |
 |---|---|---|
-| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 99.2 % |
-| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down, throttled | — | 55.5 / 26.5 % |
-| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways, reference | — | 100 / 97.9 % |
-| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 62 / 43.8 % |
-| Wide sheet at ~380 cells: frames that drew new cells, the fast fling, reference | — | 100 / 54.3 % |
-| Wide sheet at ~380 cells: frames that drew new cells, the fast fling, throttled | — | 55.7 / 32.6 % |
-| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down, reference | — | 7.8 / 7.9 ms |
-| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 30.8 / 58.5 ms |
-| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 8.2 / 8.4 ms |
-| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 28.1 / 34.7 ms |
-| Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling, reference | — | 8.9 / 14.7 ms |
-| Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling, throttled | — | 31.1 / 52.5 ms |
-| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 63.2 % |
-| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down, throttled | — | 40.4 / 23.1 % |
-| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways, reference | — | 100 / 93.3 % |
-| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 45 / 33.3 % |
-| Wide sheet at ~570 cells: frames that drew new cells, the fast fling, reference | — | 100 / 55.7 % |
-| Wide sheet at ~570 cells: frames that drew new cells, the fast fling, throttled | — | 41.5 / 26.6 % |
-| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down, reference | — | 10.4 / 14.4 ms |
-| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 45.4 / 77.2 ms |
-| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 10.9 / 9.9 ms |
-| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 39.9 / 43.9 ms |
-| Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling, reference | — | 11.2 / 19.6 ms |
-| Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling, throttled | — | 43.5 / 70.2 ms |
-| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 50.4 % |
-| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down, throttled | — | 33.7 / 20.5 % |
-| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways, reference | — | 100 / 86.3 % |
-| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 36.3 / 27.5 % |
-| Wide sheet at ~710 cells: frames that drew new cells, the fast fling, reference | — | 100 / 53.1 % |
-| Wide sheet at ~710 cells: frames that drew new cells, the fast fling, throttled | — | 34.4 / 23.1 % |
-| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down, reference | — | 12.5 / 18 ms |
-| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 52.4 / 86.4 ms |
-| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 12.8 / 11.6 ms |
-| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 48.7 / 52.2 ms |
-| Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling, reference | — | 13.1 / 21.5 ms |
-| Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling, throttled | — | 50.9 / 79.4 ms |
-| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 48.6 % |
-| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down, throttled | — | 26.4 / 17.5 % |
-| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways, reference | — | 99.2 / 52.3 % |
-| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 27.6 / 21.8 % |
-| Wide sheet at ~940 cells: frames that drew new cells, the fast fling, reference | — | 99.2 / 49.4 % |
-| Wide sheet at ~940 cells: frames that drew new cells, the fast fling, throttled | — | 27 / 18.6 % |
-| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down, reference | — | 15.2 / 23.4 ms |
-| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 69.2 / 100.8 ms |
-| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 15.4 / 14.4 ms |
-| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 64.7 / 69 ms |
-| Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling, reference | — | 15.8 / 26.4 ms |
-| Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling, throttled | — | 65.7 / 105.3 ms |
+| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 95.9 % |
+| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll down, throttled | — | 99.6 / 28 % |
+| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways, reference | — | 100 / 89.1 % |
+| Wide sheet at ~380 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 100 / 41.3 % |
+| Wide sheet at ~380 cells: frames that drew new cells, the fast fling, reference | — | 100 / 54.5 % |
+| Wide sheet at ~380 cells: frames that drew new cells, the fast fling, throttled | — | 100 / 32.6 % |
+| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down, reference | — | 4.9 / 9 ms |
+| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 14.1 / 56.6 ms |
+| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 5.5 / 7.7 ms |
+| Wide sheet at ~380 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 11.4 / 30.7 ms |
+| Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling, reference | — | 6.2 / 14.5 ms |
+| Wide sheet at ~380 cells: work per drawn frame (p95), the fast fling, throttled | — | 15.7 / 50.5 ms |
+| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 77.2 % |
+| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll down, throttled | — | 91 / 23.3 % |
+| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways, reference | — | 100 / 85.8 % |
+| Wide sheet at ~570 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 100 / 34.6 % |
+| Wide sheet at ~570 cells: frames that drew new cells, the fast fling, reference | — | 100 / 55.1 % |
+| Wide sheet at ~570 cells: frames that drew new cells, the fast fling, throttled | — | 83.7 / 26.6 % |
+| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down, reference | — | 5.5 / 14.1 ms |
+| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 18.1 / 73.8 ms |
+| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 6.1 / 10.1 ms |
+| Wide sheet at ~570 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 14.7 / 38.8 ms |
+| Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling, reference | — | 7.2 / 18.8 ms |
+| Wide sheet at ~570 cells: work per drawn frame (p95), the fast fling, throttled | — | 19.4 / 68.9 ms |
+| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 54.4 % |
+| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll down, throttled | — | 79 / 20.8 % |
+| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways, reference | — | 100 / 65.3 % |
+| Wide sheet at ~710 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 93.4 / 27.2 % |
+| Wide sheet at ~710 cells: frames that drew new cells, the fast fling, reference | — | 100 / 53.9 % |
+| Wide sheet at ~710 cells: frames that drew new cells, the fast fling, throttled | — | 73.8 / 22.3 % |
+| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down, reference | — | 6.3 / 18.4 ms |
+| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 21 / 85.3 ms |
+| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 6.8 / 12.1 ms |
+| Wide sheet at ~710 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 17.4 / 51.1 ms |
+| Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling, reference | — | 7.4 / 21.7 ms |
+| Wide sheet at ~710 cells: work per drawn frame (p95), the fast fling, throttled | — | 22.1 / 80.6 ms |
+| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down, reference | — | 100 / 48.1 % |
+| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll down, throttled | — | 65.3 / 17.3 % |
+| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways, reference | — | 100 / 55.8 % |
+| Wide sheet at ~940 cells: frames that drew new cells, the steady scroll sideways, throttled | — | 77.9 / 21.7 % |
+| Wide sheet at ~940 cells: frames that drew new cells, the fast fling, reference | — | 100 / 48.9 % |
+| Wide sheet at ~940 cells: frames that drew new cells, the fast fling, throttled | — | 62.6 / 19.1 % |
+| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down, reference | — | 7 / 23.4 ms |
+| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll down, throttled | — | 25.6 / 107.1 ms |
+| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways, reference | — | 7.4 / 14.3 ms |
+| Wide sheet at ~940 cells: work per drawn frame (p95), the steady scroll sideways, throttled | — | 21.1 / 67.7 ms |
+| Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling, reference | — | 7.9 / 26.6 ms |
+| Wide sheet at ~940 cells: work per drawn frame (p95), the fast fling, throttled | — | 26.1 / 99.1 ms |
 
-"Now" is each metric's newest local measurement: [2026-11-03-m9-d-scroll-wide-sheet-rows-26](perf/results/2026-11-03-m9-d-scroll-wide-sheet-rows-26.json), [2026-11-03-m9-d-scroll-wide-sheet-rows-22](perf/results/2026-11-03-m9-d-scroll-wide-sheet-rows-22.json), [2026-11-03-m9-d-scroll-wide-sheet-rows-20](perf/results/2026-11-03-m9-d-scroll-wide-sheet-rows-20.json), [2026-11-03-m9-d-scroll-wide-sheet-rows-18](perf/results/2026-11-03-m9-d-scroll-wide-sheet-rows-18.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+"Now" is each metric's newest local measurement: [2026-11-13-m14-d2-scroll-wide-sheet-rows-26](perf/results/2026-11-13-m14-d2-scroll-wide-sheet-rows-26.json), [2026-11-13-m14-d2-scroll-wide-sheet-rows-22](perf/results/2026-11-13-m14-d2-scroll-wide-sheet-rows-22.json), [2026-11-13-m14-d2-scroll-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-scroll-wide-sheet-rows-20.json), [2026-11-13-m14-d2-scroll-wide-sheet-rows-18](perf/results/2026-11-13-m14-d2-scroll-wide-sheet-rows-18.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
 <!-- report:readme:wide-sheet-stops:end -->
 
 Once, at the default stop (~710 cells):
@@ -135,33 +135,33 @@ Once, at the default stop (~710 cells):
 <!-- report:readme:wide-sheet:start -->
 | Metric | Budget | Now |
 |---|---|---|
-| Wide sheet: time to first usable (~710 cells), reference | — | 152.8 / 44.8 ms |
-| Wide sheet: time to first usable (~710 cells), throttled | — | 3583.2 / 493.1 ms |
-| Wide sheet: first pixels (~710 cells), reference | — | 42.5 / 42.6 ms |
-| Wide sheet: first pixels (~710 cells), throttled | — | 248.8 / 392.4 ms |
-| Wide sheet: time to data (~710 cells), reference | — | 399.2 / 433.3 ms |
-| Wide sheet: time to data (~710 cells), throttled | — | 4324.3 / 4415.2 ms |
-| Wide sheet: key press → table moves (~710 cells), reference | — | 16.9 / 40 ms |
-| Wide sheet: key press → table moves (~710 cells), throttled | — | 55.8 / 81.3 ms |
-| Wide sheet: scrollbar press → table moves (~710 cells), reference | — | 33.8 / 25.8 ms |
-| Wide sheet: scrollbar press → table moves (~710 cells), throttled | — | 54.2 / 26.9 ms |
-| Wide sheet: scrollbar press → rows filled (~710 cells), reference | — | 33.8 / 56.4 ms |
-| Wide sheet: scrollbar press → rows filled (~710 cells), throttled | — | 54.2 / 83.5 ms |
-| Wide sheet: wheel → table moves (~710 cells), reference | — | 37.6 / 12.4 ms |
-| Wide sheet: wheel → table moves (~710 cells), throttled | — | 56 / 11.1 ms |
-| Wide sheet: wheel → rows filled (~710 cells), reference | — | 37.6 / 57.8 ms |
-| Wide sheet: wheel → rows filled (~710 cells), throttled | — | 56 / 73.9 ms |
-| Wide sheet: End → the last row filled (~710 cells), reference | — | 303.7 / 311.2 ms |
-| Wide sheet: End → the last row filled (~710 cells), throttled | — | 4588.8 / 4658.9 ms |
-| Wide sheet: main-thread CPU, load and use (~710 cells), reference | — | 2926.9 / 2327 ms |
-| Wide sheet: main-thread CPU, load and use (~710 cells), throttled | — | 4512.7 / 3876.4 ms |
-| Wide sheet: page bytes (~710 cells), reference | — | 2877.8 / 184.9 KiB |
-| Wide sheet: memory once open, after GC (~710 cells), reference | — | 51.4 / 13.7 MiB |
-| Wide sheet: memory once open, after GC (~710 cells), throttled | — | 51.5 / 13.7 MiB |
-| Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells), reference | — | 53.6 / 37.9 MiB |
-| Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells), throttled | — | 53.7 / 37.9 MiB |
+| Wide sheet: time to first usable (~710 cells), reference | — | 137.5 / 40.1 ms |
+| Wide sheet: time to first usable (~710 cells), throttled | — | 3592.4 / 495.4 ms |
+| Wide sheet: first pixels (~710 cells), reference | — | 46.3 / 40.6 ms |
+| Wide sheet: first pixels (~710 cells), throttled | — | 239.9 / 386.3 ms |
+| Wide sheet: time to data (~710 cells), reference | — | 376.7 / 426.1 ms |
+| Wide sheet: time to data (~710 cells), throttled | — | 4267.2 / 4383.1 ms |
+| Wide sheet: key press → table moves (~710 cells), reference | — | 9.7 / 43.4 ms |
+| Wide sheet: key press → table moves (~710 cells), throttled | — | 28.1 / 82.5 ms |
+| Wide sheet: scrollbar press → table moves (~710 cells), reference | — | 20.7 / 25.4 ms |
+| Wide sheet: scrollbar press → table moves (~710 cells), throttled | — | 29.2 / 25.6 ms |
+| Wide sheet: scrollbar press → rows filled (~710 cells), reference | — | 20.7 / 58.9 ms |
+| Wide sheet: scrollbar press → rows filled (~710 cells), throttled | — | 29.2 / 92.6 ms |
+| Wide sheet: wheel → table moves (~710 cells), reference | — | 16.1 / 12.7 ms |
+| Wide sheet: wheel → table moves (~710 cells), throttled | — | 19.5 / 9.6 ms |
+| Wide sheet: wheel → rows filled (~710 cells), reference | — | 16.1 / 57.6 ms |
+| Wide sheet: wheel → rows filled (~710 cells), throttled | — | 19.5 / 70.9 ms |
+| Wide sheet: End → the last row filled (~710 cells), reference | — | 304.4 / 295.5 ms |
+| Wide sheet: End → the last row filled (~710 cells), throttled | — | 4630.5 / 4651.5 ms |
+| Wide sheet: main-thread CPU, load and use (~710 cells), reference | — | 1616.2 / 2309.4 ms |
+| Wide sheet: main-thread CPU, load and use (~710 cells), throttled | — | 4317.5 / 3849.3 ms |
+| Wide sheet: page bytes (~710 cells), reference | — | 2904.3 / 195.7 KiB |
+| Wide sheet: memory once open, after GC (~710 cells), reference | — | 57.7 / 14 MiB |
+| Wide sheet: memory once open, after GC (~710 cells), throttled | — | 47.9 / 14 MiB |
+| Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells), reference | — | 50.4 / 38.2 MiB |
+| Wide sheet: memory after the file read whole and a long sideways session (JavaScript, after GC) (~710 cells), throttled | — | 50.4 / 38.3 MiB |
 
-"Now" is each metric's newest local measurement: [2026-11-03-m9-d-usable-wide-sheet-rows-20](perf/results/2026-11-03-m9-d-usable-wide-sheet-rows-20.json), [2026-11-03-m9-d-data-wide-sheet-rows-20](perf/results/2026-11-03-m9-d-data-wide-sheet-rows-20.json), [2026-11-03-m9-d-response-wide-sheet-rows-20](perf/results/2026-11-03-m9-d-response-wide-sheet-rows-20.json), [2026-11-03-m9-d-reach-wide-sheet-rows-20](perf/results/2026-11-03-m9-d-reach-wide-sheet-rows-20.json), [2026-11-03-m9-d-cost-wide-sheet-rows-20](perf/results/2026-11-03-m9-d-cost-wide-sheet-rows-20.json), [2026-11-03-m9-d-memory-wide-sheet-rows-20](perf/results/2026-11-03-m9-d-memory-wide-sheet-rows-20.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
+"Now" is each metric's newest local measurement: [2026-11-13-m14-d2-usable-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-usable-wide-sheet-rows-20.json), [2026-11-13-m14-d2-data-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-data-wide-sheet-rows-20.json), [2026-11-13-m14-d2-response-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-response-wide-sheet-rows-20.json), [2026-11-13-m14-d2-reach-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-reach-wide-sheet-rows-20.json), [2026-11-13-m14-d2-cost-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-cost-wide-sheet-rows-20.json), [2026-11-13-m14-d2-memory-wide-sheet-rows-20](perf/results/2026-11-13-m14-d2-memory-wide-sheet-rows-20.json). Generated by `just observatory report` from [`perf/budgets.json`](perf/budgets.json).
 <!-- report:readme:wide-sheet:end -->
 
 ### Market watch

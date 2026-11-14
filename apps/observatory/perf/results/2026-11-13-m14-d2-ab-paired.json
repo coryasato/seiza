@@ -1,0 +1,5603 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d2-ab",
+  "metric": "scroll",
+  "scenario": "wide-sheet",
+  "stops": [
+    "rows-26",
+    "rows-22",
+    "rows-20",
+    "rows-18"
+  ],
+  "profile": "reference",
+  "rounds": 10,
+  "build": "target/ab/m9-wide",
+  "rule": "a reading moved when the paired median difference (kept less tree) is past the larger IQR (protocol.ts's) and a two-sided sign test gives p < 0.05; a round is paired only where both runs are whole and did the same work",
+  "moved": [
+    "rows-22 gpui scrolls.down.workP50Ms: kept 4.727, tree 4.923, paired -0.187 (-3.809%), 1 up / 9 down, p 0.021",
+    "rows-22 gpui scrolls.down.busyShare: kept 0.32, tree 0.33, paired -0.01 (-3.012%), 0 up / 10 down, p 0.002",
+    "rows-22 tanstack scrolls.sideways.workP50Ms: kept 7.611, tree 7.835, paired -0.255 (-3.248%), 0 up / 10 down, p 0.002",
+    "rows-20 gpui scrolls.down.workP50Ms: kept 5.258, tree 5.507, paired -0.257 (-4.675%), 0 up / 10 down, p 0.002",
+    "rows-20 gpui scrolls.down.busyShare: kept 0.351, tree 0.364, paired -0.013 (-3.504%), 0 up / 10 down, p 0.002",
+    "rows-20 gpui scrolls.fast.workP50Ms: kept 5.972, tree 6.282, paired -0.25 (-3.979%), 0 up / 10 down, p 0.002",
+    "rows-20 gpui scrolls.fast.busyShare: kept 0.388, tree 0.408, paired -0.018 (-4.524%), 0 up / 10 down, p 0.002",
+    "rows-18 gpui scrolls.down.workP50Ms: kept 6.137, tree 6.38, paired -0.24 (-3.762%), 0 up / 10 down, p 0.002",
+    "rows-18 gpui scrolls.down.workP95Ms: kept 6.775, tree 7.023, paired -0.367 (-5.233%), 1 up / 9 down, p 0.021",
+    "rows-18 gpui scrolls.down.busyShare: kept 0.402, tree 0.417, paired -0.015 (-3.659%), 0 up / 10 down, p 0.002",
+    "rows-18 gpui scrolls.sideways.workP50Ms: kept 5.758, tree 5.92, paired -0.178 (-2.998%), 0 up / 10 down, p 0.002",
+    "rows-18 gpui scrolls.sideways.busyShare: kept 0.378, tree 0.389, paired -0.011 (-2.771%), 1 up / 9 down, p 0.021",
+    "rows-18 gpui scrolls.fast.workP50Ms: kept 6.97, tree 7.207, paired -0.213 (-2.948%), 0 up / 10 down, p 0.002",
+    "rows-18 gpui scrolls.fast.busyShare: kept 0.447, tree 0.461, paired -0.013 (-2.731%), 0 up / 10 down, p 0.002"
+  ],
+  "failures": [],
+  "paired": {
+    "rows-26": {
+      "gpui": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 1,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 2016.07,
+            "iqrPct": 0.743
+          },
+          "tree": {
+            "median": 2016.84,
+            "iqrPct": 0.29
+          },
+          "diffMedian": 0.58,
+          "diffPct": 0.029,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 5,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 59.966,
+            "iqrPct": 0.212
+          },
+          "tree": {
+            "median": 59.946,
+            "iqrPct": 0.181
+          },
+          "diffMedian": -0.001,
+          "diffPct": -0.002,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 4.473,
+            "iqrPct": 4.248
+          },
+          "tree": {
+            "median": 4.512,
+            "iqrPct": 1.884
+          },
+          "diffMedian": -0.05,
+          "diffPct": -1.108,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 4.91,
+            "iqrPct": 8.045
+          },
+          "tree": {
+            "median": 5.115,
+            "iqrPct": 6.354
+          },
+          "diffMedian": -0.188,
+          "diffPct": -3.666,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.304,
+            "iqrPct": 3.995
+          },
+          "tree": {
+            "median": 0.309,
+            "iqrPct": 1.651
+          },
+          "diffMedian": -0.004,
+          "diffPct": -1.27,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0.813
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 1,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 2014.75,
+            "iqrPct": 0.234
+          },
+          "tree": {
+            "median": 2013.175,
+            "iqrPct": 0.893
+          },
+          "diffMedian": -0.2,
+          "diffPct": -0.01,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 59.984,
+            "iqrPct": 0.168
+          },
+          "tree": {
+            "median": 60.034,
+            "iqrPct": 0.618
+          },
+          "diffMedian": -0.039,
+          "diffPct": -0.066,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 4.392,
+            "iqrPct": 7.854
+          },
+          "tree": {
+            "median": 4.472,
+            "iqrPct": 3.466
+          },
+          "diffMedian": -0.125,
+          "diffPct": -2.795,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 5.392,
+            "iqrPct": 4.636
+          },
+          "tree": {
+            "median": 5.623,
+            "iqrPct": 5.691
+          },
+          "diffMedian": -0.25,
+          "diffPct": -4.446,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.303,
+            "iqrPct": 2.915
+          },
+          "tree": {
+            "median": 0.305,
+            "iqrPct": 3.631
+          },
+          "diffMedian": -0.003,
+          "diffPct": -1.034,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 1.639
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2016.93,
+            "iqrPct": 0.925
+          },
+          "tree": {
+            "median": 2012.22,
+            "iqrPct": 0.638
+          },
+          "diffMedian": 2.795,
+          "diffPct": 0.139,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 60.112,
+            "iqrPct": 0.407
+          },
+          "tree": {
+            "median": 60.133,
+            "iqrPct": 0.331
+          },
+          "diffMedian": -0.118,
+          "diffPct": -0.196,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 1,
+          "signP": 0.375,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 4.94,
+            "iqrPct": 5.87
+          },
+          "tree": {
+            "median": 5.048,
+            "iqrPct": 9.411
+          },
+          "diffMedian": -0.043,
+          "diffPct": -0.842,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 6.133,
+            "iqrPct": 4.077
+          },
+          "tree": {
+            "median": 6.29,
+            "iqrPct": 5.962
+          },
+          "diffMedian": -0.137,
+          "diffPct": -2.186,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.332,
+            "iqrPct": 5.614
+          },
+          "tree": {
+            "median": 0.34,
+            "iqrPct": 8.335
+          },
+          "diffMedian": -0.006,
+          "diffPct": -1.654,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        }
+      },
+      "tanstack": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 115.5,
+            "iqrPct": 18.182
+          },
+          "tree": {
+            "median": 108,
+            "iqrPct": 13.889
+          },
+          "diffMedian": 3.5,
+          "diffPct": 3.241,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 120,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 4,
+          "signP": 0.375,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 0.959,
+            "iqrPct": 18.258
+          },
+          "tree": {
+            "median": 0.893,
+            "iqrPct": 14.005
+          },
+          "diffMedian": 0.029,
+          "diffPct": 3.245,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 1984.23,
+            "iqrPct": 0.215
+          },
+          "tree": {
+            "median": 1992.575,
+            "iqrPct": 0.66
+          },
+          "diffMedian": -1.465,
+          "diffPct": -0.074,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 57.524,
+            "iqrPct": 18.062
+          },
+          "tree": {
+            "median": 53.43,
+            "iqrPct": 14.14
+          },
+          "diffMedian": 1.713,
+          "diffPct": 3.205,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 115.5,
+            "iqrPct": 18.182
+          },
+          "tree": {
+            "median": 108,
+            "iqrPct": 13.889
+          },
+          "diffMedian": 3.5,
+          "diffPct": 3.241,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 6.595,
+            "iqrPct": 3.684
+          },
+          "tree": {
+            "median": 6.612,
+            "iqrPct": 1.528
+          },
+          "diffMedian": 0.024,
+          "diffPct": 0.371,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 9.235,
+            "iqrPct": 23.985
+          },
+          "tree": {
+            "median": 10.309,
+            "iqrPct": 17.295
+          },
+          "diffMedian": -0.552,
+          "diffPct": -5.354,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.417,
+            "iqrPct": 6.859
+          },
+          "tree": {
+            "median": 0.403,
+            "iqrPct": 6.218
+          },
+          "diffMedian": 0.004,
+          "diffPct": 0.933,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.whole": {
+          "kept": {
+            "median": 114.5,
+            "iqrPct": 18.341
+          },
+          "tree": {
+            "median": 107,
+            "iqrPct": 14.019
+          },
+          "diffMedian": 3.5,
+          "diffPct": 3.271,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.partial": {
+          "kept": {
+            "median": 5,
+            "iqrPct": 420
+          },
+          "tree": {
+            "median": 13,
+            "iqrPct": 115.385
+          },
+          "diffMedian": -3.5,
+          "diffPct": -26.923,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.presented": {
+          "kept": {
+            "median": 119,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 4,
+          "signP": 0.375,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 111.5,
+            "iqrPct": 13.453
+          },
+          "tree": {
+            "median": 107.5,
+            "iqrPct": 10.233
+          },
+          "diffMedian": 3,
+          "diffPct": 2.791,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "tree": {
+            "median": 120,
+            "iqrPct": 0
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.417,
+          "up": 1,
+          "down": 5,
+          "signP": 0.219,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 0.937,
+            "iqrPct": 14.2
+          },
+          "tree": {
+            "median": 0.9,
+            "iqrPct": 9.411
+          },
+          "diffMedian": 0.033,
+          "diffPct": 3.647,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 1975.9,
+            "iqrPct": 0.915
+          },
+          "tree": {
+            "median": 1984.97,
+            "iqrPct": 0.356
+          },
+          "diffMedian": -8.645,
+          "diffPct": -0.436,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 56.122,
+            "iqrPct": 14.276
+          },
+          "tree": {
+            "median": 53.814,
+            "iqrPct": 9.399
+          },
+          "diffMedian": 1.963,
+          "diffPct": 3.648,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 116,
+            "iqrPct": 15.517
+          },
+          "tree": {
+            "median": 112,
+            "iqrPct": 8.036
+          },
+          "diffMedian": 3.5,
+          "diffPct": 3.125,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 6.455,
+            "iqrPct": 2.076
+          },
+          "tree": {
+            "median": 6.676,
+            "iqrPct": 1.303
+          },
+          "diffMedian": -0.233,
+          "diffPct": -3.483,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": false,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 7.535,
+            "iqrPct": 4.167
+          },
+          "tree": {
+            "median": 8.01,
+            "iqrPct": 10.15
+          },
+          "diffMedian": -0.448,
+          "diffPct": -5.593,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.387,
+            "iqrPct": 10.382
+          },
+          "tree": {
+            "median": 0.387,
+            "iqrPct": 6.347
+          },
+          "diffMedian": 0,
+          "diffPct": 0.129,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.whole": {
+          "kept": {
+            "median": 115,
+            "iqrPct": 15.652
+          },
+          "tree": {
+            "median": 111,
+            "iqrPct": 8.108
+          },
+          "diffMedian": 3.5,
+          "diffPct": 3.153,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.partial": {
+          "kept": {
+            "median": 3,
+            "iqrPct": 600
+          },
+          "tree": {
+            "median": 7.5,
+            "iqrPct": 106.667
+          },
+          "diffMedian": -3.5,
+          "diffPct": -46.667,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.presented": {
+          "kept": {
+            "median": 118.5,
+            "iqrPct": 0.844
+          },
+          "tree": {
+            "median": 119,
+            "iqrPct": 0
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.42,
+          "up": 1,
+          "down": 5,
+          "signP": 0.219,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 92,
+            "iqrPct": 2.174
+          },
+          "tree": {
+            "median": 91.5,
+            "iqrPct": 2.186
+          },
+          "diffMedian": 0.5,
+          "diffPct": 0.546,
+          "up": 5,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 167,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 167,
+            "iqrPct": 1.198
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 0.551,
+            "iqrPct": 2.763
+          },
+          "tree": {
+            "median": 0.554,
+            "iqrPct": 3.713
+          },
+          "diffMedian": -0.006,
+          "diffPct": -1.13,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2768.99,
+            "iqrPct": 0.112
+          },
+          "tree": {
+            "median": 2763.89,
+            "iqrPct": 0.952
+          },
+          "diffMedian": 3.565,
+          "diffPct": 0.129,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 123970,
+            "iqrPct": 0.016
+          },
+          "tree": {
+            "median": 123973,
+            "iqrPct": 0.031
+          },
+          "diffMedian": -3.5,
+          "diffPct": -0.003,
+          "up": 3,
+          "down": 6,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 32.908,
+            "iqrPct": 2.662
+          },
+          "tree": {
+            "median": 33.105,
+            "iqrPct": 3.973
+          },
+          "diffMedian": -0.366,
+          "diffPct": -1.106,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 96.5,
+            "iqrPct": 2.073
+          },
+          "tree": {
+            "median": 94.5,
+            "iqrPct": 2.116
+          },
+          "diffMedian": 2.5,
+          "diffPct": 2.646,
+          "up": 7,
+          "down": 2,
+          "signP": 0.18,
+          "withinSpread": false,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 12.737,
+            "iqrPct": 1.303
+          },
+          "tree": {
+            "median": 12.845,
+            "iqrPct": 2.561
+          },
+          "diffMedian": -0.14,
+          "diffPct": -1.09,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 14.584,
+            "iqrPct": 3.86
+          },
+          "tree": {
+            "median": 14.584,
+            "iqrPct": 4.505
+          },
+          "diffMedian": -0.172,
+          "diffPct": -1.176,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.372,
+            "iqrPct": 1.884
+          },
+          "tree": {
+            "median": 0.379,
+            "iqrPct": 2.827
+          },
+          "diffMedian": -0.006,
+          "diffPct": -1.708,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.whole": {
+          "kept": {
+            "median": 105,
+            "iqrPct": 0.952
+          },
+          "tree": {
+            "median": 104.5,
+            "iqrPct": 1.914
+          },
+          "diffMedian": 1,
+          "diffPct": 0.957,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.partial": {
+          "kept": {
+            "median": 60,
+            "iqrPct": 3.333
+          },
+          "tree": {
+            "median": 60,
+            "iqrPct": 3.333
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.833,
+          "up": 4,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.presented": {
+          "kept": {
+            "median": 165.5,
+            "iqrPct": 0.604
+          },
+          "tree": {
+            "median": 165,
+            "iqrPct": 1.212
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        }
+      }
+    },
+    "rows-22": {
+      "gpui": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 3,
+          "signP": 0.625,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 3,
+          "signP": 0.625,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 2005.63,
+            "iqrPct": 0.787
+          },
+          "tree": {
+            "median": 2012.615,
+            "iqrPct": 0.259
+          },
+          "diffMedian": -0.98,
+          "diffPct": -0.049,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 5,
+          "signP": 0.727,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 60.038,
+            "iqrPct": 0.162
+          },
+          "tree": {
+            "median": 60.088,
+            "iqrPct": 0.197
+          },
+          "diffMedian": -0.053,
+          "diffPct": -0.089,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 3,
+          "signP": 0.625,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 4.727,
+            "iqrPct": 2.115
+          },
+          "tree": {
+            "median": 4.923,
+            "iqrPct": 1.117
+          },
+          "diffMedian": -0.187,
+          "diffPct": -3.809,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 5.372,
+            "iqrPct": 2.606
+          },
+          "tree": {
+            "median": 5.625,
+            "iqrPct": 7.822
+          },
+          "diffMedian": -0.19,
+          "diffPct": -3.378,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.32,
+            "iqrPct": 0.839
+          },
+          "tree": {
+            "median": 0.33,
+            "iqrPct": 1.796
+          },
+          "diffMedian": -0.01,
+          "diffPct": -3.012,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 3,
+          "signP": 0.25,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 1,
+          "signP": 0.625,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 2010.165,
+            "iqrPct": 0.707
+          },
+          "tree": {
+            "median": 2014.355,
+            "iqrPct": 0.564
+          },
+          "diffMedian": -1.49,
+          "diffPct": -0.074,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 1,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 60.043,
+            "iqrPct": 0.584
+          },
+          "tree": {
+            "median": 59.96,
+            "iqrPct": 0.913
+          },
+          "diffMedian": 0.084,
+          "diffPct": 0.14,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 4.673,
+            "iqrPct": 8.347
+          },
+          "tree": {
+            "median": 4.772,
+            "iqrPct": 4.61
+          },
+          "diffMedian": 0.003,
+          "diffPct": 0.052,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 6.03,
+            "iqrPct": 3.731
+          },
+          "tree": {
+            "median": 6.178,
+            "iqrPct": 3.48
+          },
+          "diffMedian": -0.135,
+          "diffPct": -2.185,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.315,
+            "iqrPct": 6.407
+          },
+          "tree": {
+            "median": 0.321,
+            "iqrPct": 3.886
+          },
+          "diffMedian": -0.002,
+          "diffPct": -0.762,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0.5,
+          "diffPct": 0.41,
+          "up": 5,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0.813
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 0,
+          "signP": 0.25,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2016.21,
+            "iqrPct": 0.984
+          },
+          "tree": {
+            "median": 2014.31,
+            "iqrPct": 0.638
+          },
+          "diffMedian": 5.83,
+          "diffPct": 0.289,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 60.08,
+            "iqrPct": 0.6
+          },
+          "tree": {
+            "median": 60.07,
+            "iqrPct": 1.013
+          },
+          "diffMedian": 0.057,
+          "diffPct": 0.094,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 5.49,
+            "iqrPct": 3.097
+          },
+          "tree": {
+            "median": 5.575,
+            "iqrPct": 2.78
+          },
+          "diffMedian": -0.09,
+          "diffPct": -1.614,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 7.057,
+            "iqrPct": 1.984
+          },
+          "tree": {
+            "median": 7.155,
+            "iqrPct": 5.8
+          },
+          "diffMedian": -0.113,
+          "diffPct": -1.572,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.363,
+            "iqrPct": 2.998
+          },
+          "tree": {
+            "median": 0.369,
+            "iqrPct": 3.802
+          },
+          "diffMedian": -0.004,
+          "diffPct": -1.16,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        }
+      },
+      "tanstack": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 104.5,
+            "iqrPct": 17.225
+          },
+          "tree": {
+            "median": 88,
+            "iqrPct": 15.909
+          },
+          "diffMedian": 17,
+          "diffPct": 19.318,
+          "up": 9,
+          "down": 1,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "tree": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 0.864,
+            "iqrPct": 17.368
+          },
+          "tree": {
+            "median": 0.733,
+            "iqrPct": 15.778
+          },
+          "diffMedian": 0.14,
+          "diffPct": 19.159,
+          "up": 9,
+          "down": 1,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 1992.12,
+            "iqrPct": 0.809
+          },
+          "tree": {
+            "median": 1993.97,
+            "iqrPct": 0.754
+          },
+          "diffMedian": -0.92,
+          "diffPct": -0.046,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 51.789,
+            "iqrPct": 17.616
+          },
+          "tree": {
+            "median": 43.868,
+            "iqrPct": 15.736
+          },
+          "diffMedian": 8.547,
+          "diffPct": 19.482,
+          "up": 9,
+          "down": 1,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 104.5,
+            "iqrPct": 17.225
+          },
+          "tree": {
+            "median": 88,
+            "iqrPct": 15.909
+          },
+          "diffMedian": 17,
+          "diffPct": 19.318,
+          "up": 9,
+          "down": 1,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 8.005,
+            "iqrPct": 4.185
+          },
+          "tree": {
+            "median": 8.914,
+            "iqrPct": 12.576
+          },
+          "diffMedian": -0.667,
+          "diffPct": -7.488,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 13.009,
+            "iqrPct": 26.619
+          },
+          "tree": {
+            "median": 14.43,
+            "iqrPct": 7.762
+          },
+          "diffMedian": -1.496,
+          "diffPct": -10.368,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.48,
+            "iqrPct": 6.774
+          },
+          "tree": {
+            "median": 0.458,
+            "iqrPct": 3.486
+          },
+          "diffMedian": 0.025,
+          "diffPct": 5.404,
+          "up": 8,
+          "down": 2,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.whole": {
+          "kept": {
+            "median": 103.5,
+            "iqrPct": 17.391
+          },
+          "tree": {
+            "median": 87,
+            "iqrPct": 16.092
+          },
+          "diffMedian": 17,
+          "diffPct": 19.54,
+          "up": 9,
+          "down": 1,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.partial": {
+          "kept": {
+            "median": 16.5,
+            "iqrPct": 109.091
+          },
+          "tree": {
+            "median": 32,
+            "iqrPct": 43.75
+          },
+          "diffMedian": -17,
+          "diffPct": -53.125,
+          "up": 1,
+          "down": 8,
+          "signP": 0.039,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.presented": {
+          "kept": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "tree": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 111,
+            "iqrPct": 2.703
+          },
+          "tree": {
+            "median": 107.5,
+            "iqrPct": 4.651
+          },
+          "diffMedian": 4,
+          "diffPct": 3.721,
+          "up": 7,
+          "down": 1,
+          "signP": 0.07,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 120,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 120,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 0.929,
+            "iqrPct": 2.691
+          },
+          "tree": {
+            "median": 0.892,
+            "iqrPct": 4.671
+          },
+          "diffMedian": 0.033,
+          "diffPct": 3.736,
+          "up": 8,
+          "down": 1,
+          "signP": 0.039,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 1984.045,
+            "iqrPct": 0.252
+          },
+          "tree": {
+            "median": 1983.545,
+            "iqrPct": 0.244
+          },
+          "diffMedian": -0.51,
+          "diffPct": -0.026,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 55.678,
+            "iqrPct": 2.799
+          },
+          "tree": {
+            "median": 53.451,
+            "iqrPct": 4.68
+          },
+          "diffMedian": 1.99,
+          "diffPct": 3.723,
+          "up": 8,
+          "down": 2,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 112,
+            "iqrPct": 2.679
+          },
+          "tree": {
+            "median": 107.5,
+            "iqrPct": 4.651
+          },
+          "diffMedian": 4.5,
+          "diffPct": 4.186,
+          "up": 8,
+          "down": 2,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 7.611,
+            "iqrPct": 1.288
+          },
+          "tree": {
+            "median": 7.835,
+            "iqrPct": 2.17
+          },
+          "diffMedian": -0.255,
+          "diffPct": -3.248,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 9.298,
+            "iqrPct": 6.754
+          },
+          "tree": {
+            "median": 9.623,
+            "iqrPct": 7.222
+          },
+          "diffMedian": -0.712,
+          "diffPct": -7.399,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": false,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.445,
+            "iqrPct": 1.835
+          },
+          "tree": {
+            "median": 0.45,
+            "iqrPct": 5.553
+          },
+          "diffMedian": 0,
+          "diffPct": 0.012,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.whole": {
+          "kept": {
+            "median": 111,
+            "iqrPct": 2.703
+          },
+          "tree": {
+            "median": 106.5,
+            "iqrPct": 4.695
+          },
+          "diffMedian": 4.5,
+          "diffPct": 4.225,
+          "up": 8,
+          "down": 2,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.partial": {
+          "kept": {
+            "median": 8,
+            "iqrPct": 37.5
+          },
+          "tree": {
+            "median": 13,
+            "iqrPct": 38.462
+          },
+          "diffMedian": -4.5,
+          "diffPct": -34.615,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.presented": {
+          "kept": {
+            "median": 119,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 119,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 92.5,
+            "iqrPct": 4.324
+          },
+          "tree": {
+            "median": 90.5,
+            "iqrPct": 4.42
+          },
+          "diffMedian": 2.5,
+          "diffPct": 2.762,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 167,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 167,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 0.554,
+            "iqrPct": 4.937
+          },
+          "tree": {
+            "median": 0.54,
+            "iqrPct": 4.433
+          },
+          "diffMedian": 0.013,
+          "diffPct": 2.457,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2765.89,
+            "iqrPct": 0.317
+          },
+          "tree": {
+            "median": 2765.86,
+            "iqrPct": 0.2
+          },
+          "diffMedian": -1.88,
+          "diffPct": -0.068,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 123972.5,
+            "iqrPct": 0.011
+          },
+          "tree": {
+            "median": 123976,
+            "iqrPct": 0.017
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 33.066,
+            "iqrPct": 4.823
+          },
+          "tree": {
+            "median": 32.267,
+            "iqrPct": 4.531
+          },
+          "diffMedian": 0.775,
+          "diffPct": 2.403,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 96,
+            "iqrPct": 3.125
+          },
+          "tree": {
+            "median": 93.5,
+            "iqrPct": 4.278
+          },
+          "diffMedian": 2.5,
+          "diffPct": 2.674,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 16.41,
+            "iqrPct": 1.085
+          },
+          "tree": {
+            "median": 16.449,
+            "iqrPct": 5.18
+          },
+          "diffMedian": -0.158,
+          "diffPct": -0.961,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 18.513,
+            "iqrPct": 2.593
+          },
+          "tree": {
+            "median": 18.517,
+            "iqrPct": 2.814
+          },
+          "diffMedian": -0.068,
+          "diffPct": -0.367,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.476,
+            "iqrPct": 1.293
+          },
+          "tree": {
+            "median": 0.469,
+            "iqrPct": 3.25
+          },
+          "diffMedian": 0,
+          "diffPct": 0.075,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.whole": {
+          "kept": {
+            "median": 104.5,
+            "iqrPct": 2.871
+          },
+          "tree": {
+            "median": 102.5,
+            "iqrPct": 3.902
+          },
+          "diffMedian": 1,
+          "diffPct": 0.976,
+          "up": 7,
+          "down": 2,
+          "signP": 0.18,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.partial": {
+          "kept": {
+            "median": 60.5,
+            "iqrPct": 3.306
+          },
+          "tree": {
+            "median": 62.5,
+            "iqrPct": 6.4
+          },
+          "diffMedian": -1.5,
+          "diffPct": -2.4,
+          "up": 1,
+          "down": 6,
+          "signP": 0.125,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.presented": {
+          "kept": {
+            "median": 165,
+            "iqrPct": 0.606
+          },
+          "tree": {
+            "median": 165,
+            "iqrPct": 0.606
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        }
+      }
+    },
+    "rows-20": {
+      "gpui": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.412,
+          "up": 4,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "tree": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 1,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 2007.655,
+            "iqrPct": 0.825
+          },
+          "tree": {
+            "median": 2007.31,
+            "iqrPct": 0.874
+          },
+          "diffMedian": 4.705,
+          "diffPct": 0.234,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 60.085,
+            "iqrPct": 0.26
+          },
+          "tree": {
+            "median": 60.014,
+            "iqrPct": 0.272
+          },
+          "diffMedian": 0.026,
+          "diffPct": 0.043,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "tree": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 5.258,
+            "iqrPct": 0.951
+          },
+          "tree": {
+            "median": 5.507,
+            "iqrPct": 0.817
+          },
+          "diffMedian": -0.257,
+          "diffPct": -4.675,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 6.05,
+            "iqrPct": 5.289
+          },
+          "tree": {
+            "median": 6.105,
+            "iqrPct": 2.785
+          },
+          "diffMedian": -0.128,
+          "diffPct": -2.088,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.351,
+            "iqrPct": 1.715
+          },
+          "tree": {
+            "median": 0.364,
+            "iqrPct": 0.578
+          },
+          "diffMedian": -0.013,
+          "diffPct": -3.504,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0.5,
+          "diffPct": 0.41,
+          "up": 5,
+          "down": 3,
+          "signP": 0.727,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 121.5,
+            "iqrPct": 0.823
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 4,
+          "signP": 0.375,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 1,
+          "signP": 0.375,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 2010.27,
+            "iqrPct": 0.705
+          },
+          "tree": {
+            "median": 2013.85,
+            "iqrPct": 0.217
+          },
+          "diffMedian": -1.785,
+          "diffPct": -0.089,
+          "up": 3,
+          "down": 6,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 1,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 60.03,
+            "iqrPct": 0.434
+          },
+          "tree": {
+            "median": 59.946,
+            "iqrPct": 0.724
+          },
+          "diffMedian": 0.011,
+          "diffPct": 0.019,
+          "up": 5,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0.5,
+          "diffPct": 0.413,
+          "up": 5,
+          "down": 3,
+          "signP": 0.727,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 5.012,
+            "iqrPct": 5.287
+          },
+          "tree": {
+            "median": 5.023,
+            "iqrPct": 1.493
+          },
+          "diffMedian": -0.093,
+          "diffPct": -1.842,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 6.707,
+            "iqrPct": 6.56
+          },
+          "tree": {
+            "median": 6.55,
+            "iqrPct": 8.931
+          },
+          "diffMedian": 0.07,
+          "diffPct": 1.069,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.339,
+            "iqrPct": 4.491
+          },
+          "tree": {
+            "median": 0.337,
+            "iqrPct": 1.806
+          },
+          "diffMedian": 0,
+          "diffPct": -0.014,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.41,
+          "up": 3,
+          "down": 5,
+          "signP": 0.727,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 2,
+          "signP": 0.5,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2015.805,
+            "iqrPct": 0.459
+          },
+          "tree": {
+            "median": 2014.635,
+            "iqrPct": 0.397
+          },
+          "diffMedian": -0.465,
+          "diffPct": -0.023,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 5,
+          "down": 2,
+          "signP": 0.453,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 59.971,
+            "iqrPct": 0.848
+          },
+          "tree": {
+            "median": 60.113,
+            "iqrPct": 0.501
+          },
+          "diffMedian": -0.188,
+          "diffPct": -0.313,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 4,
+          "signP": 0.688,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 5.972,
+            "iqrPct": 1.758
+          },
+          "tree": {
+            "median": 6.282,
+            "iqrPct": 1.99
+          },
+          "diffMedian": -0.25,
+          "diffPct": -3.979,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 7.185,
+            "iqrPct": 3.34
+          },
+          "tree": {
+            "median": 7.475,
+            "iqrPct": 2.943
+          },
+          "diffMedian": -0.283,
+          "diffPct": -3.779,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": false,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.388,
+            "iqrPct": 2.085
+          },
+          "tree": {
+            "median": 0.408,
+            "iqrPct": 1.583
+          },
+          "diffMedian": -0.018,
+          "diffPct": -4.524,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        }
+      },
+      "tanstack": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 73,
+            "iqrPct": 19.178
+          },
+          "tree": {
+            "median": 71,
+            "iqrPct": 8.451
+          },
+          "diffMedian": -1.5,
+          "diffPct": -2.113,
+          "up": 3,
+          "down": 6,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 0.601,
+            "iqrPct": 20.208
+          },
+          "tree": {
+            "median": 0.585,
+            "iqrPct": 8.476
+          },
+          "diffMedian": -0.012,
+          "diffPct": -2.131,
+          "up": 3,
+          "down": 6,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 1998.375,
+            "iqrPct": 0.991
+          },
+          "tree": {
+            "median": 1990.875,
+            "iqrPct": 0.803
+          },
+          "diffMedian": 1.085,
+          "diffPct": 0.054,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 35.921,
+            "iqrPct": 20.663
+          },
+          "tree": {
+            "median": 34.827,
+            "iqrPct": 8.415
+          },
+          "diffMedian": -0.828,
+          "diffPct": -2.377,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 73,
+            "iqrPct": 19.178
+          },
+          "tree": {
+            "median": 71,
+            "iqrPct": 8.451
+          },
+          "diffMedian": -1.5,
+          "diffPct": -2.113,
+          "up": 3,
+          "down": 6,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 13.023,
+            "iqrPct": 28.919
+          },
+          "tree": {
+            "median": 12.514,
+            "iqrPct": 12.458
+          },
+          "diffMedian": 0.197,
+          "diffPct": 1.574,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 17.472,
+            "iqrPct": 3.88
+          },
+          "tree": {
+            "median": 17.852,
+            "iqrPct": 9.467
+          },
+          "diffMedian": -0.813,
+          "diffPct": -4.551,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.489,
+            "iqrPct": 3.183
+          },
+          "tree": {
+            "median": 0.49,
+            "iqrPct": 3.304
+          },
+          "diffMedian": 0.003,
+          "diffPct": 0.524,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.whole": {
+          "kept": {
+            "median": 72,
+            "iqrPct": 19.444
+          },
+          "tree": {
+            "median": 70,
+            "iqrPct": 8.571
+          },
+          "diffMedian": -1.5,
+          "diffPct": -2.143,
+          "up": 3,
+          "down": 6,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.partial": {
+          "kept": {
+            "median": 48.5,
+            "iqrPct": 30.928
+          },
+          "tree": {
+            "median": 50,
+            "iqrPct": 12
+          },
+          "diffMedian": 1.5,
+          "diffPct": 3,
+          "up": 6,
+          "down": 3,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.presented": {
+          "kept": {
+            "median": 120,
+            "iqrPct": 0.833
+          },
+          "tree": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 96.5,
+            "iqrPct": 7.254
+          },
+          "tree": {
+            "median": 83.5,
+            "iqrPct": 20.359
+          },
+          "diffMedian": 12.5,
+          "diffPct": 14.97,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "tree": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 0.801,
+            "iqrPct": 7.284
+          },
+          "tree": {
+            "median": 0.69,
+            "iqrPct": 19.551
+          },
+          "diffMedian": 0.104,
+          "diffPct": 15.04,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 1991.02,
+            "iqrPct": 0.697
+          },
+          "tree": {
+            "median": 1993.18,
+            "iqrPct": 0.86
+          },
+          "diffMedian": -0.875,
+          "diffPct": -0.044,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 47.88,
+            "iqrPct": 7.555
+          },
+          "tree": {
+            "median": 41.204,
+            "iqrPct": 19.634
+          },
+          "diffMedian": 6.276,
+          "diffPct": 15.231,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 97.5,
+            "iqrPct": 7.179
+          },
+          "tree": {
+            "median": 83.5,
+            "iqrPct": 19.162
+          },
+          "diffMedian": 13.5,
+          "diffPct": 16.168,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 9.003,
+            "iqrPct": 2.733
+          },
+          "tree": {
+            "median": 9.55,
+            "iqrPct": 7.215
+          },
+          "diffMedian": -0.547,
+          "diffPct": -5.728,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 11.634,
+            "iqrPct": 5.51
+          },
+          "tree": {
+            "median": 11.678,
+            "iqrPct": 5.737
+          },
+          "diffMedian": -0.045,
+          "diffPct": -0.381,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.464,
+            "iqrPct": 4.704
+          },
+          "tree": {
+            "median": 0.424,
+            "iqrPct": 11.535
+          },
+          "diffMedian": 0.031,
+          "diffPct": 7.32,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.whole": {
+          "kept": {
+            "median": 96.5,
+            "iqrPct": 7.254
+          },
+          "tree": {
+            "median": 82.5,
+            "iqrPct": 19.394
+          },
+          "diffMedian": 13.5,
+          "diffPct": 16.364,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.partial": {
+          "kept": {
+            "median": 23,
+            "iqrPct": 34.783
+          },
+          "tree": {
+            "median": 37.5,
+            "iqrPct": 40
+          },
+          "diffMedian": -13.5,
+          "diffPct": -36,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.presented": {
+          "kept": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "tree": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 87,
+            "iqrPct": 4.598
+          },
+          "tree": {
+            "median": 88.5,
+            "iqrPct": 4.52
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.565,
+          "up": 4,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 167,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 167,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 0.523,
+            "iqrPct": 3.436
+          },
+          "tree": {
+            "median": 0.53,
+            "iqrPct": 4.52
+          },
+          "diffMedian": -0.003,
+          "diffPct": -0.565,
+          "up": 4,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2763.955,
+            "iqrPct": 0.225
+          },
+          "tree": {
+            "median": 2769.845,
+            "iqrPct": 0.128
+          },
+          "diffMedian": -3.965,
+          "diffPct": -0.143,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 123979,
+            "iqrPct": 0.028
+          },
+          "tree": {
+            "median": 123960,
+            "iqrPct": 0.013
+          },
+          "diffMedian": 13.5,
+          "diffPct": 0.011,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 31.197,
+            "iqrPct": 3.257
+          },
+          "tree": {
+            "median": 31.595,
+            "iqrPct": 4.695
+          },
+          "diffMedian": -0.117,
+          "diffPct": -0.371,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 90,
+            "iqrPct": 4.444
+          },
+          "tree": {
+            "median": 92.5,
+            "iqrPct": 4.324
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.541,
+          "up": 4,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 18.998,
+            "iqrPct": 0.816
+          },
+          "tree": {
+            "median": 18.89,
+            "iqrPct": 1.106
+          },
+          "diffMedian": 0.083,
+          "diffPct": 0.442,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 21.157,
+            "iqrPct": 1.891
+          },
+          "tree": {
+            "median": 21.27,
+            "iqrPct": 2.468
+          },
+          "diffMedian": -0.114,
+          "diffPct": -0.534,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.529,
+            "iqrPct": 2.403
+          },
+          "tree": {
+            "median": 0.524,
+            "iqrPct": 1.977
+          },
+          "diffMedian": 0.003,
+          "diffPct": 0.497,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.whole": {
+          "kept": {
+            "median": 99,
+            "iqrPct": 4.04
+          },
+          "tree": {
+            "median": 102.5,
+            "iqrPct": 4.878
+          },
+          "diffMedian": -3,
+          "diffPct": -2.927,
+          "up": 2,
+          "down": 7,
+          "signP": 0.18,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.partial": {
+          "kept": {
+            "median": 66.5,
+            "iqrPct": 4.511
+          },
+          "tree": {
+            "median": 63,
+            "iqrPct": 7.937
+          },
+          "diffMedian": 2.5,
+          "diffPct": 3.968,
+          "up": 6,
+          "down": 2,
+          "signP": 0.289,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.presented": {
+          "kept": {
+            "median": 165,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 165.5,
+            "iqrPct": 0.604
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 4,
+          "signP": 0.375,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 1,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 1,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        }
+      }
+    },
+    "rows-18": {
+      "gpui": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 1,
+          "signP": 0.625,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 1,
+          "signP": 0.625,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 2013.725,
+            "iqrPct": 0.81
+          },
+          "tree": {
+            "median": 2000.81,
+            "iqrPct": 0.808
+          },
+          "diffMedian": 2.895,
+          "diffPct": 0.145,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 5,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 60.023,
+            "iqrPct": 0.154
+          },
+          "tree": {
+            "median": 60.052,
+            "iqrPct": 0.124
+          },
+          "diffMedian": -0.047,
+          "diffPct": -0.078,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 120,
+            "iqrPct": 0.833
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 1,
+          "signP": 0.625,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 6.137,
+            "iqrPct": 0.978
+          },
+          "tree": {
+            "median": 6.38,
+            "iqrPct": 1.567
+          },
+          "diffMedian": -0.24,
+          "diffPct": -3.762,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 6.775,
+            "iqrPct": 3.69
+          },
+          "tree": {
+            "median": 7.023,
+            "iqrPct": 4.557
+          },
+          "diffMedian": -0.367,
+          "diffPct": -5.233,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.402,
+            "iqrPct": 0.985
+          },
+          "tree": {
+            "median": 0.417,
+            "iqrPct": 1.673
+          },
+          "diffMedian": -0.015,
+          "diffPct": -3.659,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0.5,
+          "diffPct": 0.413,
+          "up": 5,
+          "down": 2,
+          "signP": 0.453,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0.82
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 2,
+          "signP": 0.688,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 0.996,
+            "iqrPct": 0.823
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 2015.87,
+            "iqrPct": 0.794
+          },
+          "tree": {
+            "median": 2014.17,
+            "iqrPct": 0.833
+          },
+          "diffMedian": 2.57,
+          "diffPct": 0.128,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 1,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 60.072,
+            "iqrPct": 1.102
+          },
+          "tree": {
+            "median": 59.786,
+            "iqrPct": 1.163
+          },
+          "diffMedian": -0.005,
+          "diffPct": -0.008,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "tree": {
+            "median": 120,
+            "iqrPct": 0.833
+          },
+          "diffMedian": 0.5,
+          "diffPct": 0.417,
+          "up": 5,
+          "down": 2,
+          "signP": 0.453,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 5.758,
+            "iqrPct": 1.65
+          },
+          "tree": {
+            "median": 5.92,
+            "iqrPct": 1.689
+          },
+          "diffMedian": -0.178,
+          "diffPct": -2.998,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 7.238,
+            "iqrPct": 6.01
+          },
+          "tree": {
+            "median": 7.335,
+            "iqrPct": 4.363
+          },
+          "diffMedian": -0.015,
+          "diffPct": -0.204,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.378,
+            "iqrPct": 1.674
+          },
+          "tree": {
+            "median": 0.389,
+            "iqrPct": 2.231
+          },
+          "diffMedian": -0.011,
+          "diffPct": -2.771,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 1.639
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 1.639
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 122,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 1,
+            "iqrPct": 0.82
+          },
+          "tree": {
+            "median": 1,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 3,
+          "signP": 0.25,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2019.55,
+            "iqrPct": 0.408
+          },
+          "tree": {
+            "median": 2013.785,
+            "iqrPct": 0.563
+          },
+          "diffMedian": 5.46,
+          "diffPct": 0.271,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 120000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 7,
+          "down": 3,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 59.838,
+            "iqrPct": 1.116
+          },
+          "tree": {
+            "median": 60.088,
+            "iqrPct": 0.492
+          },
+          "diffMedian": -0.229,
+          "diffPct": -0.382,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 121,
+            "iqrPct": 1.653
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0.826
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 2,
+          "down": 4,
+          "signP": 0.688,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 6.97,
+            "iqrPct": 1.506
+          },
+          "tree": {
+            "median": 7.207,
+            "iqrPct": 0.763
+          },
+          "diffMedian": -0.213,
+          "diffPct": -2.948,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 7.697,
+            "iqrPct": 4.742
+          },
+          "tree": {
+            "median": 7.922,
+            "iqrPct": 3.787
+          },
+          "diffMedian": -0.28,
+          "diffPct": -3.534,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.447,
+            "iqrPct": 1.355
+          },
+          "tree": {
+            "median": 0.461,
+            "iqrPct": 1.156
+          },
+          "diffMedian": -0.013,
+          "diffPct": -2.731,
+          "up": 0,
+          "down": 10,
+          "signP": 0.002,
+          "withinSpread": false,
+          "moved": true,
+          "rounds": 10
+        }
+      },
+      "tanstack": {
+        "cacheBytes": {
+          "kept": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 32387080,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drew": {
+          "kept": {
+            "median": 59.5,
+            "iqrPct": 3.361
+          },
+          "tree": {
+            "median": 58,
+            "iqrPct": 3.448
+          },
+          "diffMedian": 2,
+          "diffPct": 3.448,
+          "up": 7,
+          "down": 1,
+          "signP": 0.07,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.displayFrames": {
+          "kept": {
+            "median": 120,
+            "iqrPct": 0.833
+          },
+          "tree": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.415,
+          "up": 3,
+          "down": 5,
+          "signP": 0.727,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.share": {
+          "kept": {
+            "median": 0.494,
+            "iqrPct": 3.348
+          },
+          "tree": {
+            "median": 0.479,
+            "iqrPct": 3.477
+          },
+          "diffMedian": 0.014,
+          "diffPct": 3.024,
+          "up": 8,
+          "down": 1,
+          "signP": 0.039,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.spanMs": {
+          "kept": {
+            "median": 1986.36,
+            "iqrPct": 0.76
+          },
+          "tree": {
+            "median": 1989.435,
+            "iqrPct": 0.837
+          },
+          "diffMedian": -5.125,
+          "diffPct": -0.258,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.movedPx": {
+          "kept": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 37500,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.drewPerSecond": {
+          "kept": {
+            "median": 29.388,
+            "iqrPct": 3.442
+          },
+          "tree": {
+            "median": 28.556,
+            "iqrPct": 3.579
+          },
+          "diffMedian": 0.801,
+          "diffPct": 2.806,
+          "up": 8,
+          "down": 2,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.mainFrames": {
+          "kept": {
+            "median": 59.5,
+            "iqrPct": 3.361
+          },
+          "tree": {
+            "median": 58,
+            "iqrPct": 3.448
+          },
+          "diffMedian": 2,
+          "diffPct": 3.448,
+          "up": 7,
+          "down": 1,
+          "signP": 0.07,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP50Ms": {
+          "kept": {
+            "median": 16.624,
+            "iqrPct": 2.941
+          },
+          "tree": {
+            "median": 16.838,
+            "iqrPct": 2.69
+          },
+          "diffMedian": -0.112,
+          "diffPct": -0.668,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.workP95Ms": {
+          "kept": {
+            "median": 21.986,
+            "iqrPct": 4.812
+          },
+          "tree": {
+            "median": 25.066,
+            "iqrPct": 10.449
+          },
+          "diffMedian": -2.122,
+          "diffPct": -8.466,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.busyShare": {
+          "kept": {
+            "median": 0.546,
+            "iqrPct": 1.072
+          },
+          "tree": {
+            "median": 0.542,
+            "iqrPct": 1.778
+          },
+          "diffMedian": 0.002,
+          "diffPct": 0.415,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.whole": {
+          "kept": {
+            "median": 58.5,
+            "iqrPct": 3.419
+          },
+          "tree": {
+            "median": 57,
+            "iqrPct": 3.509
+          },
+          "diffMedian": 2,
+          "diffPct": 3.509,
+          "up": 7,
+          "down": 1,
+          "signP": 0.07,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.partial": {
+          "kept": {
+            "median": 61,
+            "iqrPct": 1.639
+          },
+          "tree": {
+            "median": 63,
+            "iqrPct": 3.175
+          },
+          "diffMedian": -2,
+          "diffPct": -3.175,
+          "up": 1,
+          "down": 7,
+          "signP": 0.07,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.presented": {
+          "kept": {
+            "median": 119,
+            "iqrPct": 0.84
+          },
+          "tree": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.418,
+          "up": 3,
+          "down": 5,
+          "signP": 0.727,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.down.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drew": {
+          "kept": {
+            "median": 64,
+            "iqrPct": 7.813
+          },
+          "tree": {
+            "median": 63,
+            "iqrPct": 7.937
+          },
+          "diffMedian": 2.5,
+          "diffPct": 3.968,
+          "up": 6,
+          "down": 3,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.displayFrames": {
+          "kept": {
+            "median": 120.5,
+            "iqrPct": 0.83
+          },
+          "tree": {
+            "median": 121,
+            "iqrPct": 0
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.413,
+          "up": 2,
+          "down": 5,
+          "signP": 0.453,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.share": {
+          "kept": {
+            "median": 0.531,
+            "iqrPct": 7.922
+          },
+          "tree": {
+            "median": 0.521,
+            "iqrPct": 7.13
+          },
+          "diffMedian": 0.016,
+          "diffPct": 3.148,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.spanMs": {
+          "kept": {
+            "median": 1992.2,
+            "iqrPct": 0.918
+          },
+          "tree": {
+            "median": 2003.395,
+            "iqrPct": 0.363
+          },
+          "diffMedian": -11.215,
+          "diffPct": -0.56,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.movedPx": {
+          "kept": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "tree": {
+            "median": 12000,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 0,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.drewPerSecond": {
+          "kept": {
+            "median": 31.598,
+            "iqrPct": 7.829
+          },
+          "tree": {
+            "median": 30.913,
+            "iqrPct": 6.752
+          },
+          "diffMedian": 0.975,
+          "diffPct": 3.154,
+          "up": 6,
+          "down": 4,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.mainFrames": {
+          "kept": {
+            "median": 64,
+            "iqrPct": 7.813
+          },
+          "tree": {
+            "median": 63,
+            "iqrPct": 7.937
+          },
+          "diffMedian": 2.5,
+          "diffPct": 3.968,
+          "up": 6,
+          "down": 3,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP50Ms": {
+          "kept": {
+            "median": 12.509,
+            "iqrPct": 4.365
+          },
+          "tree": {
+            "median": 12.943,
+            "iqrPct": 3.06
+          },
+          "diffMedian": -0.553,
+          "diffPct": -4.273,
+          "up": 3,
+          "down": 7,
+          "signP": 0.344,
+          "withinSpread": false,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.workP95Ms": {
+          "kept": {
+            "median": 13.936,
+            "iqrPct": 2.734
+          },
+          "tree": {
+            "median": 14.575,
+            "iqrPct": 4.048
+          },
+          "diffMedian": -0.435,
+          "diffPct": -2.981,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.busyShare": {
+          "kept": {
+            "median": 0.412,
+            "iqrPct": 3.58
+          },
+          "tree": {
+            "median": 0.425,
+            "iqrPct": 3.759
+          },
+          "diffMedian": -0.015,
+          "diffPct": -3.637,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.whole": {
+          "kept": {
+            "median": 63,
+            "iqrPct": 7.937
+          },
+          "tree": {
+            "median": 62,
+            "iqrPct": 8.065
+          },
+          "diffMedian": 2.5,
+          "diffPct": 4.032,
+          "up": 6,
+          "down": 3,
+          "signP": 0.508,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.partial": {
+          "kept": {
+            "median": 56.5,
+            "iqrPct": 8.85
+          },
+          "tree": {
+            "median": 58,
+            "iqrPct": 6.897
+          },
+          "diffMedian": -2,
+          "diffPct": -3.448,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.presented": {
+          "kept": {
+            "median": 119.5,
+            "iqrPct": 0.837
+          },
+          "tree": {
+            "median": 120,
+            "iqrPct": 0
+          },
+          "diffMedian": -0.5,
+          "diffPct": -0.417,
+          "up": 2,
+          "down": 5,
+          "signP": 0.453,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 1,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.sideways.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 1,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drew": {
+          "kept": {
+            "median": 82,
+            "iqrPct": 3.659
+          },
+          "tree": {
+            "median": 82,
+            "iqrPct": 2.439
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.displayFrames": {
+          "kept": {
+            "median": 167,
+            "iqrPct": 0.599
+          },
+          "tree": {
+            "median": 167,
+            "iqrPct": 0
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 2,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.share": {
+          "kept": {
+            "median": 0.491,
+            "iqrPct": 3.637
+          },
+          "tree": {
+            "median": 0.491,
+            "iqrPct": 2.439
+          },
+          "diffMedian": -0.001,
+          "diffPct": -0.29,
+          "up": 4,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.spanMs": {
+          "kept": {
+            "median": 2766.655,
+            "iqrPct": 0.709
+          },
+          "tree": {
+            "median": 2766.88,
+            "iqrPct": 0.115
+          },
+          "diffMedian": 0.825,
+          "diffPct": 0.03,
+          "up": 5,
+          "down": 5,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.movedPx": {
+          "kept": {
+            "median": 123966.5,
+            "iqrPct": 0.014
+          },
+          "tree": {
+            "median": 123982.5,
+            "iqrPct": 0.014
+          },
+          "diffMedian": -14,
+          "diffPct": -0.011,
+          "up": 1,
+          "down": 9,
+          "signP": 0.021,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.drewPerSecond": {
+          "kept": {
+            "median": 29.3,
+            "iqrPct": 3.708
+          },
+          "tree": {
+            "median": 29.278,
+            "iqrPct": 2.324
+          },
+          "diffMedian": -0.082,
+          "diffPct": -0.281,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.mainFrames": {
+          "kept": {
+            "median": 85,
+            "iqrPct": 3.529
+          },
+          "tree": {
+            "median": 85.5,
+            "iqrPct": 3.509
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 4,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP50Ms": {
+          "kept": {
+            "median": 22.361,
+            "iqrPct": 2.062
+          },
+          "tree": {
+            "median": 22.529,
+            "iqrPct": 1.327
+          },
+          "diffMedian": -0.123,
+          "diffPct": -0.548,
+          "up": 2,
+          "down": 8,
+          "signP": 0.109,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.workP95Ms": {
+          "kept": {
+            "median": 26.541,
+            "iqrPct": 10.399
+          },
+          "tree": {
+            "median": 27.12,
+            "iqrPct": 6.512
+          },
+          "diffMedian": -0.482,
+          "diffPct": -1.777,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.busyShare": {
+          "kept": {
+            "median": 0.603,
+            "iqrPct": 2.882
+          },
+          "tree": {
+            "median": 0.614,
+            "iqrPct": 2.365
+          },
+          "diffMedian": -0.004,
+          "diffPct": -0.612,
+          "up": 4,
+          "down": 6,
+          "signP": 0.754,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.whole": {
+          "kept": {
+            "median": 95.5,
+            "iqrPct": 2.094
+          },
+          "tree": {
+            "median": 95,
+            "iqrPct": 1.053
+          },
+          "diffMedian": 0.5,
+          "diffPct": 0.526,
+          "up": 5,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.partial": {
+          "kept": {
+            "median": 70,
+            "iqrPct": 1.429
+          },
+          "tree": {
+            "median": 70,
+            "iqrPct": 1.429
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 4,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.presented": {
+          "kept": {
+            "median": 165,
+            "iqrPct": 0.606
+          },
+          "tree": {
+            "median": 165,
+            "iqrPct": 0.606
+          },
+          "diffMedian": 0,
+          "diffPct": 0,
+          "up": 3,
+          "down": 3,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.dropped": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 1,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        },
+        "scrolls.fast.compositor.droppedShare": {
+          "kept": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "tree": {
+            "median": 0,
+            "iqrPct": null
+          },
+          "diffMedian": 0,
+          "diffPct": null,
+          "up": 1,
+          "down": 0,
+          "signP": 1,
+          "withinSpread": true,
+          "moved": false,
+          "rounds": 10
+        }
+      }
+    }
+  }
+}

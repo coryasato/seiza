@@ -1,0 +1,394 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d2-reach",
+  "metric": "reach",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-20",
+    "label": "~710 cells",
+    "cells": 710,
+    "rowHeight": 20,
+    "textSize": 11,
+    "columnWidth": 68
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "file": {
+    "count": 10632,
+    "lastKey": "DOME PLATEAU DOME A",
+    "columns": 368
+  },
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 304.4
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 307.8449993133545,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 302.9449996948242,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 301.26000022888184,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 308.164999961853,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 281.335000038147,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 305.51500034332275,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 303.3449993133545,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 301.48500061035156,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 310.6549997329712,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 310.7250003814697,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 295.5
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 298.3699998855591,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 300.20499992370605,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 303.835000038147,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 295.625,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 295.3499994277954,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 290.3699998855591,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 287.9750003814697,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 272.94500064849854,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 296.9949998855591,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 292.6049995422363,
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 4630.5
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4621.97500038147,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4631.514999389648,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4624.670000076294,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4628.269999504089,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4644.1550006866455,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4621.965000152588,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4633.020000457764,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4644.130000114441,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4652.055000305176,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4629.479999542236,
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "countMatches": "10/10",
+          "lastRowReached": "10/10",
+          "endFilledMs": 4651.5
+        },
+        "runs": [
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4569.369999885559,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4653.609999656677,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4661.329999923706,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4643.074999809265,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4649.489999771118,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4657.1150007247925,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4665.984999656677,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4648.090000152588,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4644.02499961853,
+            "failures": []
+          },
+          {
+            "countMatches": true,
+            "lastRowReached": true,
+            "rows": 10632,
+            "lastCell": "DOME PLATEAU DOME A",
+            "endFilledMs": 4654.704999923706,
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

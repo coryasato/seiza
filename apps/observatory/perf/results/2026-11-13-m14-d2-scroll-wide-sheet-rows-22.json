@@ -1,0 +1,2531 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d2-scroll",
+  "metric": "scroll",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-22",
+    "label": "~570 cells",
+    "cells": 570,
+    "rowHeight": 22,
+    "textSize": 12,
+    "columnWidth": 80
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "scrolls": {
+    "down": {
+      "y": -37500,
+      "speed": 18750
+    },
+    "sideways": {
+      "x": -12000,
+      "speed": 6000
+    },
+    "fast": {
+      "y": -120000,
+      "speed": 60000
+    }
+  },
+  "keepsUpShare": 0.9,
+  "restMs": 300,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "keepsUp": true,
+          "cacheBytes": [
+            32387080
+          ],
+          "down": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ],
+            "drewPerSecond": 60,
+            "mainFrames": 120,
+            "workP50Ms": 4.89,
+            "workP95Ms": 5.46,
+            "busyPct": 33,
+            "movedPx": 37500
+          },
+          "sideways": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              99.2,
+              100,
+              100,
+              100,
+              100,
+              100,
+              99.2,
+              100,
+              99.2,
+              100
+            ],
+            "drewPerSecond": 60,
+            "mainFrames": 121,
+            "workP50Ms": 4.73,
+            "workP95Ms": 6.1,
+            "busyPct": 32,
+            "movedPx": 12000
+          },
+          "fast": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100,
+              100,
+              99.2,
+              100,
+              100,
+              100,
+              99.2,
+              100,
+              100,
+              100
+            ],
+            "drewPerSecond": 60.1,
+            "mainFrames": 121,
+            "workP50Ms": 5.59,
+            "workP95Ms": 7.16,
+            "busyPct": 37.1,
+            "movedPx": 120000
+          }
+        },
+        "runs": [
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2014.83,
+                "movedPx": 37499.999999999985,
+                "drewPerSecond": 60.054694440722045,
+                "mainFrames": 121,
+                "workP50Ms": 4.814999580383301,
+                "workP95Ms": 5.420000076293945,
+                "busyShare": 0.3227385522177258,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 121,
+                "displayFrames": 122,
+                "share": 0.9918032786885246,
+                "spanMs": 2010.27,
+                "movedPx": 12000,
+                "drewPerSecond": 59.69347401095375,
+                "mainFrames": 120,
+                "workP50Ms": 4.390000343322754,
+                "workP95Ms": 6.470000267028809,
+                "busyShare": 0.3049130947211622,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 123,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2019.87,
+                "movedPx": 120000.00000000007,
+                "drewPerSecond": 60.39992672795774,
+                "mainFrames": 122,
+                "workP50Ms": 5.619999885559082,
+                "workP95Ms": 7.204999923706055,
+                "busyShare": 0.370547238124391,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2001.86,
+                "movedPx": 37500.00000000001,
+                "drewPerSecond": 59.94425184578343,
+                "mainFrames": 120,
+                "workP50Ms": 4.854999542236328,
+                "workP95Ms": 5.409999847412109,
+                "busyShare": 0.32313170290412635,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2018.89,
+                "movedPx": 12000,
+                "drewPerSecond": 59.933924086998296,
+                "mainFrames": 121,
+                "workP50Ms": 4.739999771118164,
+                "workP95Ms": 6.404999732971191,
+                "busyShare": 0.3203070758931617,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 122,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2006.8,
+                "movedPx": 119999.99999999997,
+                "drewPerSecond": 60.29499701016544,
+                "mainFrames": 121,
+                "workP50Ms": 5.685000419616699,
+                "workP95Ms": 7.369999885559082,
+                "busyShare": 0.3748224324149558,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1995.1,
+                "movedPx": 37499.999999999985,
+                "drewPerSecond": 60.14736103453461,
+                "mainFrames": 120,
+                "workP50Ms": 4.9850006103515625,
+                "workP95Ms": 5.84999942779541,
+                "busyShare": 0.33066835992742527,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2011.52,
+                "movedPx": 12000,
+                "drewPerSecond": 60.153515749284125,
+                "mainFrames": 121,
+                "workP50Ms": 4.659999847412109,
+                "workP95Ms": 6.020000457763672,
+                "busyShare": 0.31684645394245825,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 121,
+                "displayFrames": 122,
+                "share": 0.9918032786885246,
+                "spanMs": 2011.16,
+                "movedPx": 120000.00000000003,
+                "drewPerSecond": 59.667057817379025,
+                "mainFrames": 120,
+                "workP50Ms": 5.524999618530273,
+                "workP95Ms": 6.984999656677246,
+                "busyShare": 0.3625096405410973,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2013.14,
+                "movedPx": 37500.00000000001,
+                "drewPerSecond": 60.10510943103807,
+                "mainFrames": 121,
+                "workP50Ms": 4.895000457763672,
+                "workP95Ms": 5.4800004959106445,
+                "busyShare": 0.3283818852846935,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2013.72,
+                "movedPx": 12000,
+                "drewPerSecond": 60.087797707725,
+                "mainFrames": 121,
+                "workP50Ms": 4.715000152587891,
+                "workP95Ms": 5.915000915527344,
+                "busyShare": 0.3191983747960086,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 122,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2006.78,
+                "movedPx": 120000.00000000001,
+                "drewPerSecond": 60.295597923040894,
+                "mainFrames": 121,
+                "workP50Ms": 5.655000686645508,
+                "workP95Ms": 6.785000801086426,
+                "busyShare": 0.3746753763248302,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1999.38,
+                "movedPx": 37499.999999999985,
+                "drewPerSecond": 60.01860576778801,
+                "mainFrames": 120,
+                "workP50Ms": 4.8899993896484375,
+                "workP95Ms": 5.444999694824219,
+                "busyShare": 0.3277447141933741,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2005.32,
+                "movedPx": 12000,
+                "drewPerSecond": 59.84082340973012,
+                "mainFrames": 121,
+                "workP50Ms": 4.529999732971191,
+                "workP95Ms": 6.155000686645508,
+                "busyShare": 0.3104329890751213,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2016.15,
+                "movedPx": 120000.00000000001,
+                "drewPerSecond": 60.01537584009126,
+                "mainFrames": 121,
+                "workP50Ms": 5.529999732971191,
+                "workP95Ms": 6.840000152587891,
+                "busyShare": 0.36375707724589945,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1997.93,
+                "movedPx": 37499.999999999985,
+                "drewPerSecond": 60.062164340092,
+                "mainFrames": 120,
+                "workP50Ms": 4.934999465942383,
+                "workP95Ms": 5.444999694824219,
+                "busyShare": 0.3320623648503432,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 123,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2024.3,
+                "movedPx": 12000,
+                "drewPerSecond": 60.267746875463125,
+                "mainFrames": 122,
+                "workP50Ms": 5.100000381469727,
+                "workP95Ms": 5.970000267028809,
+                "busyShare": 0.3386886887283446,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2013.26,
+                "movedPx": 119999.99999999997,
+                "drewPerSecond": 60.10152687680677,
+                "mainFrames": 121,
+                "workP50Ms": 5.555000305175781,
+                "workP95Ms": 7.619999885559082,
+                "busyShare": 0.3712137507868005,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2000.01,
+                "movedPx": 37499.99999237062,
+                "drewPerSecond": 59.999700001499995,
+                "mainFrames": 120,
+                "workP50Ms": 4.885000228881836,
+                "workP95Ms": 5.975000381469727,
+                "busyShare": 0.3313538037147864,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 123,
+                "share": 0.991869918699187,
+                "spanMs": 2029.44,
+                "movedPx": 12000,
+                "drewPerSecond": 59.622358877325766,
+                "mainFrames": 121,
+                "workP50Ms": 4.875,
+                "workP95Ms": 6.369999885559082,
+                "busyShare": 0.32586093732714533,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 121,
+                "displayFrames": 122,
+                "share": 0.9918032786885246,
+                "spanMs": 2008.52,
+                "movedPx": 119999.99999999994,
+                "drewPerSecond": 59.74548423714974,
+                "mainFrames": 121,
+                "workP50Ms": 5.460000038146973,
+                "workP95Ms": 7.234999656677246,
+                "busyShare": 0.36228159264745236,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1998.26,
+                "movedPx": 37500.000000000015,
+                "drewPerSecond": 60.052245453544586,
+                "mainFrames": 120,
+                "workP50Ms": 4.934999465942383,
+                "workP95Ms": 5.75,
+                "busyShare": 0.3341500733486887,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 123,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2017.3,
+                "movedPx": 12000,
+                "drewPerSecond": 60.47687503098201,
+                "mainFrames": 122,
+                "workP50Ms": 5.010000228881836,
+                "workP95Ms": 6.140000343322754,
+                "busyShare": 0.33515627897545563,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2015.73,
+                "movedPx": 120000.00000000003,
+                "drewPerSecond": 60.027880718151735,
+                "mainFrames": 121,
+                "workP50Ms": 5.555000305175781,
+                "workP95Ms": 6.850000381469727,
+                "busyShare": 0.36296213808462013,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2016.74,
+                "movedPx": 37499.99999999999,
+                "drewPerSecond": 59.99781826115414,
+                "mainFrames": 121,
+                "workP50Ms": 4.925000190734863,
+                "workP95Ms": 5.619999885559082,
+                "busyShare": 0.33068886090416966,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 123,
+                "share": 0.991869918699187,
+                "spanMs": 2025.32,
+                "movedPx": 12000,
+                "drewPerSecond": 59.74364544862047,
+                "mainFrames": 121,
+                "workP50Ms": 4.7649993896484375,
+                "workP95Ms": 6.059999465942383,
+                "busyShare": 0.32095974461983884,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 122,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2005.8,
+                "movedPx": 120000.00000000003,
+                "drewPerSecond": 60.325057333732175,
+                "mainFrames": 121,
+                "workP50Ms": 5.755000114440918,
+                "workP95Ms": 7.125,
+                "busyShare": 0.37931624380760415,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2017.21,
+                "movedPx": 37500.000000000015,
+                "drewPerSecond": 59.98383906484699,
+                "mainFrames": 121,
+                "workP50Ms": 4.850000381469727,
+                "workP95Ms": 5.369999885559082,
+                "busyShare": 0.3257723289190922,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2016.11,
+                "movedPx": 12000,
+                "drewPerSecond": 60.0165665563883,
+                "mainFrames": 121,
+                "workP50Ms": 4.530000686645508,
+                "workP95Ms": 6.024999618530273,
+                "busyShare": 0.3068102078889855,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 123,
+                "displayFrames": 123,
+                "share": 1,
+                "spanMs": 2028.83,
+                "movedPx": 120000.00000000007,
+                "drewPerSecond": 60.133180207311604,
+                "mainFrames": 122,
+                "workP50Ms": 5.695000648498535,
+                "workP95Ms": 7.284999847412109,
+                "busyShare": 0.3742369428212064,
+                "compositor": null
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "keepsUp": false,
+          "cacheBytes": [
+            32387080
+          ],
+          "down": {
+            "drewPct": 77.2,
+            "drewPctRuns": [
+              94.2,
+              70,
+              56.6,
+              80,
+              74.4,
+              72.5,
+              80.8,
+              73.3,
+              90.8,
+              86
+            ],
+            "drewPerSecond": 46.3,
+            "mainFrames": 93,
+            "workP50Ms": 8.11,
+            "workP95Ms": 14.09,
+            "busyPct": 46.6,
+            "movedPx": 37500,
+            "compositorPerSecond": {
+              "whole": 46.3,
+              "partial": 13.8,
+              "dropped": 0
+            }
+          },
+          "sideways": {
+            "drewPct": 85.8,
+            "drewPctRuns": [
+              91.7,
+              69.2,
+              70.8,
+              85.8,
+              86.7,
+              84.9,
+              85.7,
+              71.9,
+              93.4,
+              89.2
+            ],
+            "drewPerSecond": 51.3,
+            "mainFrames": 103,
+            "workP50Ms": 7.92,
+            "workP95Ms": 10.07,
+            "busyPct": 44,
+            "movedPx": 12000,
+            "compositorPerSecond": {
+              "whole": 51.3,
+              "partial": 8.6,
+              "dropped": 0
+            }
+          },
+          "fast": {
+            "drewPct": 55.1,
+            "drewPctRuns": [
+              56.9,
+              54.5,
+              51.5,
+              53.9,
+              55.1,
+              56,
+              56.4,
+              55.1,
+              58.1,
+              55.1
+            ],
+            "drewPerSecond": 32.9,
+            "mainFrames": 95,
+            "workP50Ms": 16.35,
+            "workP95Ms": 18.78,
+            "busyPct": 46.9,
+            "movedPx": 123964,
+            "compositorPerSecond": {
+              "whole": 37.5,
+              "partial": 22.3,
+              "dropped": 0
+            }
+          }
+        },
+        "runs": [
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 114,
+                "displayFrames": 121,
+                "share": 0.9421487603305785,
+                "spanMs": 2001.5,
+                "movedPx": 37500,
+                "drewPerSecond": 56.45765675743193,
+                "mainFrames": 114,
+                "workP50Ms": 7.929,
+                "workP95Ms": 10.938,
+                "busyShare": 0.4960048376015568,
+                "compositor": {
+                  "whole": 113,
+                  "partial": 7,
+                  "presented": 120,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 110,
+                "displayFrames": 120,
+                "share": 0.9166666666666666,
+                "spanMs": 1986.14,
+                "movedPx": 12000,
+                "drewPerSecond": 54.88032062190983,
+                "mainFrames": 110,
+                "workP50Ms": 7.701,
+                "workP95Ms": 9.36,
+                "busyShare": 0.45071397333482655,
+                "compositor": {
+                  "whole": 109,
+                  "partial": 10,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 95,
+                "displayFrames": 167,
+                "share": 0.5688622754491018,
+                "spanMs": 2767.05,
+                "movedPx": 123985,
+                "drewPerSecond": 33.97119676189443,
+                "mainFrames": 98,
+                "workP50Ms": 16.689,
+                "workP95Ms": 18.718,
+                "busyShare": 0.4812543829096887,
+                "compositor": {
+                  "whole": 106,
+                  "partial": 59,
+                  "presented": 165,
+                  "dropped": 1,
+                  "droppedShare": 0.006024096385542169
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 84,
+                "displayFrames": 120,
+                "share": 0.7,
+                "spanMs": 1986.63,
+                "movedPx": 37500,
+                "drewPerSecond": 41.77929458429602,
+                "mainFrames": 84,
+                "workP50Ms": 9.17,
+                "workP95Ms": 14.078,
+                "busyShare": 0.45088989546302355,
+                "compositor": {
+                  "whole": 83,
+                  "partial": 36,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 83,
+                "displayFrames": 120,
+                "share": 0.6916666666666667,
+                "spanMs": 1985.31,
+                "movedPx": 12000,
+                "drewPerSecond": 41.303373276717494,
+                "mainFrames": 83,
+                "workP50Ms": 8.794,
+                "workP95Ms": 10.153,
+                "busyShare": 0.37290485483076696,
+                "compositor": {
+                  "whole": 82,
+                  "partial": 37,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 91,
+                "displayFrames": 167,
+                "share": 0.5449101796407185,
+                "spanMs": 2762.06,
+                "movedPx": 123955,
+                "drewPerSecond": 32.584375429932734,
+                "mainFrames": 94,
+                "workP50Ms": 16.244,
+                "workP95Ms": 18.495,
+                "busyShare": 0.46176043513166737,
+                "compositor": {
+                  "whole": 103,
+                  "partial": 62,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 69,
+                "displayFrames": 122,
+                "share": 0.5655737704918032,
+                "spanMs": 2021.93,
+                "movedPx": 37500,
+                "drewPerSecond": 33.6312335244049,
+                "mainFrames": 69,
+                "workP50Ms": 11.737,
+                "workP95Ms": 14.14,
+                "busyShare": 0.4126311003229501,
+                "compositor": {
+                  "whole": 68,
+                  "partial": 53,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 85,
+                "displayFrames": 120,
+                "share": 0.7083333333333334,
+                "spanMs": 1983.24,
+                "movedPx": 12000,
+                "drewPerSecond": 42.35493434985176,
+                "mainFrames": 85,
+                "workP50Ms": 8.472,
+                "workP95Ms": 11.053,
+                "busyShare": 0.40098587686683135,
+                "compositor": {
+                  "whole": 84,
+                  "partial": 35,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 86,
+                "displayFrames": 167,
+                "share": 0.5149700598802395,
+                "spanMs": 2765.26,
+                "movedPx": 123988,
+                "drewPerSecond": 30.738520066829157,
+                "mainFrames": 89,
+                "workP50Ms": 16.961,
+                "workP95Ms": 19.099,
+                "busyShare": 0.4635593925742613,
+                "compositor": {
+                  "whole": 100,
+                  "partial": 66,
+                  "presented": 166,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 96,
+                "displayFrames": 120,
+                "share": 0.8,
+                "spanMs": 1978.89,
+                "movedPx": 37500,
+                "drewPerSecond": 48.00671083284063,
+                "mainFrames": 96,
+                "workP50Ms": 7.878,
+                "workP95Ms": 14.098,
+                "busyShare": 0.47068995905869476,
+                "compositor": {
+                  "whole": 95,
+                  "partial": 24,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 103,
+                "displayFrames": 120,
+                "share": 0.8583333333333333,
+                "spanMs": 1982.31,
+                "movedPx": 12000,
+                "drewPerSecond": 51.4551205411868,
+                "mainFrames": 103,
+                "workP50Ms": 7.813,
+                "workP95Ms": 10.011,
+                "busyShare": 0.43042089895068686,
+                "compositor": {
+                  "whole": 102,
+                  "partial": 17,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 90,
+                "displayFrames": 167,
+                "share": 0.5389221556886228,
+                "spanMs": 2762.02,
+                "movedPx": 123722,
+                "drewPerSecond": 32.22279346275552,
+                "mainFrames": 93,
+                "workP50Ms": 16.518,
+                "workP95Ms": 19.098,
+                "busyShare": 0.4629603574195979,
+                "compositor": {
+                  "whole": 104,
+                  "partial": 62,
+                  "presented": 166,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 90,
+                "displayFrames": 121,
+                "share": 0.743801652892562,
+                "spanMs": 1994.01,
+                "movedPx": 37500,
+                "drewPerSecond": 44.633677865206295,
+                "mainFrames": 90,
+                "workP50Ms": 8.066,
+                "workP95Ms": 14.202,
+                "busyShare": 0.46121349096833475,
+                "compositor": {
+                  "whole": 89,
+                  "partial": 31,
+                  "presented": 120,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 104,
+                "displayFrames": 120,
+                "share": 0.8666666666666667,
+                "spanMs": 1982.05,
+                "movedPx": 12000,
+                "drewPerSecond": 51.96639842587221,
+                "mainFrames": 105,
+                "workP50Ms": 7.804,
+                "workP95Ms": 10.103,
+                "busyShare": 0.44089928214861335,
+                "compositor": {
+                  "whole": 104,
+                  "partial": 15,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 92,
+                "displayFrames": 167,
+                "share": 0.5508982035928144,
+                "spanMs": 2771.19,
+                "movedPx": 123959,
+                "drewPerSecond": 32.83787831220523,
+                "mainFrames": 95,
+                "workP50Ms": 16.73,
+                "workP95Ms": 18.431,
+                "busyShare": 0.47049403501029596,
+                "compositor": {
+                  "whole": 104,
+                  "partial": 61,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 87,
+                "displayFrames": 120,
+                "share": 0.725,
+                "spanMs": 1977.56,
+                "movedPx": 37500,
+                "drewPerSecond": 43.487934626509436,
+                "mainFrames": 87,
+                "workP50Ms": 9.107,
+                "workP95Ms": 14.533,
+                "busyShare": 0.4559103912089358,
+                "compositor": {
+                  "whole": 86,
+                  "partial": 33,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 101,
+                "displayFrames": 119,
+                "share": 0.8487394957983193,
+                "spanMs": 1974.23,
+                "movedPx": 12000,
+                "drewPerSecond": 50.65265951788798,
+                "mainFrames": 101,
+                "workP50Ms": 8.041,
+                "workP95Ms": 9.977,
+                "busyShare": 0.44637327294207435,
+                "compositor": {
+                  "whole": 100,
+                  "partial": 18,
+                  "presented": 118,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 93,
+                "displayFrames": 166,
+                "share": 0.5602409638554217,
+                "spanMs": 2751.7,
+                "movedPx": 123986,
+                "drewPerSecond": 33.43387723952466,
+                "mainFrames": 96,
+                "workP50Ms": 16.099,
+                "workP95Ms": 19.413,
+                "busyShare": 0.4744639408694207,
+                "compositor": {
+                  "whole": 104,
+                  "partial": 61,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 97,
+                "displayFrames": 120,
+                "share": 0.8083333333333333,
+                "spanMs": 1980.59,
+                "movedPx": 37500,
+                "drewPerSecond": 48.470405283274175,
+                "mainFrames": 97,
+                "workP50Ms": 8.095,
+                "workP95Ms": 14.83,
+                "busyShare": 0.47851204535904635,
+                "compositor": {
+                  "whole": 96,
+                  "partial": 23,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 102,
+                "displayFrames": 119,
+                "share": 0.8571428571428571,
+                "spanMs": 1971.99,
+                "movedPx": 12000,
+                "drewPerSecond": 51.21729826216157,
+                "mainFrames": 102,
+                "workP50Ms": 7.951,
+                "workP95Ms": 10.147,
+                "busyShare": 0.43811340146857497,
+                "compositor": {
+                  "whole": 101,
+                  "partial": 17,
+                  "presented": 118,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 92,
+                "displayFrames": 163,
+                "share": 0.5644171779141104,
+                "spanMs": 2700.74,
+                "movedPx": 123982,
+                "drewPerSecond": 33.694468923332124,
+                "mainFrames": 94,
+                "workP50Ms": 16.328,
+                "workP95Ms": 18.833,
+                "busyShare": 0.4813765236029285,
+                "compositor": {
+                  "whole": 101,
+                  "partial": 61,
+                  "presented": 162,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 88,
+                "displayFrames": 120,
+                "share": 0.7333333333333333,
+                "spanMs": 1985.15,
+                "movedPx": 37500,
+                "drewPerSecond": 43.82540362189255,
+                "mainFrames": 88,
+                "workP50Ms": 8.372,
+                "workP95Ms": 13.26,
+                "busyShare": 0.45405568651962247,
+                "compositor": {
+                  "whole": 87,
+                  "partial": 32,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 87,
+                "displayFrames": 121,
+                "share": 0.71900826446281,
+                "spanMs": 2005.58,
+                "movedPx": 12000,
+                "drewPerSecond": 42.88036378503974,
+                "mainFrames": 87,
+                "workP50Ms": 8.694,
+                "workP95Ms": 10.395,
+                "busyShare": 0.40149693418464383,
+                "compositor": {
+                  "whole": 86,
+                  "partial": 34,
+                  "presented": 120,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 92,
+                "displayFrames": 167,
+                "share": 0.5508982035928144,
+                "spanMs": 2769.13,
+                "movedPx": 123956,
+                "drewPerSecond": 32.86230693394676,
+                "mainFrames": 95,
+                "workP50Ms": 16.312,
+                "workP95Ms": 19.09,
+                "busyShare": 0.4667375918261729,
+                "compositor": {
+                  "whole": 104,
+                  "partial": 61,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 109,
+                "displayFrames": 120,
+                "share": 0.9083333333333333,
+                "spanMs": 1985.2,
+                "movedPx": 37500,
+                "drewPerSecond": 54.402579085230705,
+                "mainFrames": 109,
+                "workP50Ms": 8.067,
+                "workP95Ms": 11.931,
+                "busyShare": 0.4931727544570511,
+                "compositor": {
+                  "whole": 108,
+                  "partial": 11,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 113,
+                "displayFrames": 121,
+                "share": 0.9338842975206612,
+                "spanMs": 2001.35,
+                "movedPx": 12000,
+                "drewPerSecond": 55.96222549778899,
+                "mainFrames": 113,
+                "workP50Ms": 7.884,
+                "workP95Ms": 10.04,
+                "busyShare": 0.4798824138514528,
+                "compositor": {
+                  "whole": 112,
+                  "partial": 8,
+                  "presented": 120,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 97,
+                "displayFrames": 167,
+                "share": 0.5808383233532934,
+                "spanMs": 2762.06,
+                "movedPx": 123961,
+                "drewPerSecond": 34.75666712526158,
+                "mainFrames": 100,
+                "workP50Ms": 16.252,
+                "workP95Ms": 18.251,
+                "busyShare": 0.4820513878214214,
+                "compositor": {
+                  "whole": 107,
+                  "partial": 58,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 104,
+                "displayFrames": 121,
+                "share": 0.859504132231405,
+                "spanMs": 2005.57,
+                "movedPx": 37500,
+                "drewPerSecond": 51.35697083622112,
+                "mainFrames": 104,
+                "workP50Ms": 8.123,
+                "workP95Ms": 13.504,
+                "busyShare": 0.4960773665842055,
+                "compositor": {
+                  "whole": 103,
+                  "partial": 17,
+                  "presented": 120,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 107,
+                "displayFrames": 120,
+                "share": 0.8916666666666667,
+                "spanMs": 1984.46,
+                "movedPx": 12000,
+                "drewPerSecond": 53.41503482055572,
+                "mainFrames": 107,
+                "workP50Ms": 7.719,
+                "workP95Ms": 9.753,
+                "busyShare": 0.44351634760513853,
+                "compositor": {
+                  "whole": 106,
+                  "partial": 13,
+                  "presented": 119,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 92,
+                "displayFrames": 167,
+                "share": 0.5508982035928144,
+                "spanMs": 2766.1,
+                "movedPx": 123967,
+                "drewPerSecond": 32.89830447200029,
+                "mainFrames": 96,
+                "workP50Ms": 16.38,
+                "workP95Ms": 18.377,
+                "busyShare": 0.4653963530841046,
+                "compositor": {
+                  "whole": 103,
+                  "partial": 62,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "keepsUp": true,
+          "cacheBytes": [
+            32387080
+          ],
+          "down": {
+            "drewPct": 91,
+            "drewPctRuns": [
+              90.1,
+              90.9,
+              91,
+              91.7,
+              91.8,
+              90.9,
+              91.7,
+              91,
+              90.8,
+              92.5
+            ],
+            "drewPerSecond": 54.8,
+            "mainFrames": 110,
+            "workP50Ms": 16.16,
+            "workP95Ms": 18.09,
+            "busyPct": 97.9,
+            "movedPx": 37500
+          },
+          "sideways": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100,
+              100,
+              99.2,
+              100,
+              100,
+              99.2,
+              100,
+              99.2,
+              100,
+              100
+            ],
+            "drewPerSecond": 60,
+            "mainFrames": 121,
+            "workP50Ms": 13.52,
+            "workP95Ms": 14.67,
+            "busyPct": 88.5,
+            "movedPx": 12000
+          },
+          "fast": {
+            "drewPct": 83.7,
+            "drewPctRuns": [
+              84.6,
+              84.4,
+              84.3,
+              83.7,
+              83.6,
+              83.6,
+              83.6,
+              84.4,
+              83.6,
+              82.8
+            ],
+            "drewPerSecond": 50.2,
+            "mainFrames": 101,
+            "workP50Ms": 18.12,
+            "workP95Ms": 19.37,
+            "busyPct": 98.4,
+            "movedPx": 120000
+          }
+        },
+        "runs": [
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 109,
+                "displayFrames": 121,
+                "share": 0.9008264462809917,
+                "spanMs": 2005.28,
+                "movedPx": 37500.000015258775,
+                "drewPerSecond": 53.857815367429986,
+                "mainFrames": 108,
+                "workP50Ms": 16.255000114440918,
+                "workP95Ms": 18.385000228881836,
+                "busyShare": 0.9758877083864536,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2008.02,
+                "movedPx": 12000,
+                "drewPerSecond": 60.258363960518324,
+                "mainFrames": 121,
+                "workP50Ms": 13.550000190734863,
+                "workP95Ms": 14.895000457763672,
+                "busyShare": 0.891354519599346,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 104,
+                "displayFrames": 123,
+                "share": 0.8455284552845529,
+                "spanMs": 2032.84,
+                "movedPx": 120000.00000000004,
+                "drewPerSecond": 50.668030932095,
+                "mainFrames": 103,
+                "workP50Ms": 17.860000610351562,
+                "workP95Ms": 19.31999969482422,
+                "busyShare": 0.9857240618814309,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 110,
+                "displayFrames": 121,
+                "share": 0.9090909090909091,
+                "spanMs": 2005.27,
+                "movedPx": 37499.99998474118,
+                "drewPerSecond": 54.35676991128377,
+                "mainFrames": 109,
+                "workP50Ms": 16.105000495910645,
+                "workP95Ms": 18.15999984741211,
+                "busyShare": 0.9756224931150194,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2015.97,
+                "movedPx": 12000,
+                "drewPerSecond": 60.020734435532276,
+                "mainFrames": 121,
+                "workP50Ms": 13.50999927520752,
+                "workP95Ms": 14.505000114440918,
+                "busyShare": 0.887230791549722,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 103,
+                "displayFrames": 122,
+                "share": 0.8442622950819673,
+                "spanMs": 2012.63,
+                "movedPx": 120000.00000000001,
+                "drewPerSecond": 50.67995607737139,
+                "mainFrames": 102,
+                "workP50Ms": 18.015000343322754,
+                "workP95Ms": 19.270000457763672,
+                "busyShare": 0.9840720366400836,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 111,
+                "displayFrames": 122,
+                "share": 0.9098360655737705,
+                "spanMs": 2009.07,
+                "movedPx": 37500.00000000002,
+                "drewPerSecond": 54.75170103580264,
+                "mainFrames": 110,
+                "workP50Ms": 16.204999923706055,
+                "workP95Ms": 18.09500026702881,
+                "busyShare": 0.9809077316593855,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 121,
+                "displayFrames": 122,
+                "share": 0.9918032786885246,
+                "spanMs": 2015.52,
+                "movedPx": 12000,
+                "drewPerSecond": 59.537985234579665,
+                "mainFrames": 120,
+                "workP50Ms": 13.539999961853027,
+                "workP95Ms": 14.699999809265137,
+                "busyShare": 0.8807369878811352,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 102,
+                "displayFrames": 121,
+                "share": 0.8429752066115702,
+                "spanMs": 2007.74,
+                "movedPx": 120000.00000000003,
+                "drewPerSecond": 50.30531841772341,
+                "mainFrames": 101,
+                "workP50Ms": 18.170000076293945,
+                "workP95Ms": 19.174999237060547,
+                "busyShare": 0.9820932885011227,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 111,
+                "displayFrames": 121,
+                "share": 0.9173553719008265,
+                "spanMs": 2007.62,
+                "movedPx": 37500.00001525876,
+                "drewPerSecond": 54.7912453551967,
+                "mainFrames": 110,
+                "workP50Ms": 16.24000072479248,
+                "workP95Ms": 17.97000026702881,
+                "busyShare": 0.9777419856869968,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2000.16,
+                "movedPx": 12000,
+                "drewPerSecond": 59.99520038396928,
+                "mainFrames": 120,
+                "workP50Ms": 13.585000038146973,
+                "workP95Ms": 14.680000305175781,
+                "busyShare": 0.8837634435309484,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 103,
+                "displayFrames": 123,
+                "share": 0.8373983739837398,
+                "spanMs": 2031.1,
+                "movedPx": 120000.00000000001,
+                "drewPerSecond": 50.21909310225986,
+                "mainFrames": 102,
+                "workP50Ms": 18.140000343322754,
+                "workP95Ms": 19.369999885559082,
+                "busyShare": 0.9864551340988585,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 112,
+                "displayFrames": 122,
+                "share": 0.9180327868852459,
+                "spanMs": 2022.9,
+                "movedPx": 37500,
+                "drewPerSecond": 54.87171881951653,
+                "mainFrames": 111,
+                "workP50Ms": 16.255000114440918,
+                "workP95Ms": 17.925000190734863,
+                "busyShare": 0.9833820287065272,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 123,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2023.68,
+                "movedPx": 12000,
+                "drewPerSecond": 60.28621125869702,
+                "mainFrames": 122,
+                "workP50Ms": 13.484999656677246,
+                "workP95Ms": 14.50999927520752,
+                "busyShare": 0.8852323492160006,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 102,
+                "displayFrames": 122,
+                "share": 0.8360655737704918,
+                "spanMs": 2011.85,
+                "movedPx": 120000.00000000001,
+                "drewPerSecond": 50.20254989189055,
+                "mainFrames": 101,
+                "workP50Ms": 18.104999542236328,
+                "workP95Ms": 19.375,
+                "busyShare": 0.9854915611918275,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 110,
+                "displayFrames": 121,
+                "share": 0.9090909090909091,
+                "spanMs": 2005,
+                "movedPx": 37499.999999999985,
+                "drewPerSecond": 54.3640897755611,
+                "mainFrames": 109,
+                "workP50Ms": 16.039999961853027,
+                "workP95Ms": 18.414999961853027,
+                "busyShare": 0.9743473680801598,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 120,
+                "displayFrames": 121,
+                "share": 0.9917355371900827,
+                "spanMs": 2003.77,
+                "movedPx": 11999.999992370605,
+                "drewPerSecond": 59.38805351911647,
+                "mainFrames": 119,
+                "workP50Ms": 13.430000305175781,
+                "workP95Ms": 14.72499942779541,
+                "busyShare": 0.8758831186541408,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 102,
+                "displayFrames": 122,
+                "share": 0.8360655737704918,
+                "spanMs": 2011.91,
+                "movedPx": 119999.99999999993,
+                "drewPerSecond": 50.20105273098697,
+                "mainFrames": 101,
+                "workP50Ms": 18.065000534057617,
+                "workP95Ms": 19.519999504089355,
+                "busyShare": 0.9845052142828845,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 111,
+                "displayFrames": 121,
+                "share": 0.9173553719008265,
+                "spanMs": 2003.09,
+                "movedPx": 37499.99999237062,
+                "drewPerSecond": 54.915156083850455,
+                "mainFrames": 110,
+                "workP50Ms": 16.204999923706055,
+                "workP95Ms": 18.074999809265137,
+                "busyShare": 0.9826358095530697,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 123,
+                "displayFrames": 123,
+                "share": 1,
+                "spanMs": 2027.74,
+                "movedPx": 12000.000001907349,
+                "drewPerSecond": 60.16550445323365,
+                "mainFrames": 122,
+                "workP50Ms": 13.555000305175781,
+                "workP95Ms": 14.575000762939453,
+                "busyShare": 0.8955275584805475,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 102,
+                "displayFrames": 122,
+                "share": 0.8360655737704918,
+                "spanMs": 2023.06,
+                "movedPx": 119999.99999999999,
+                "drewPerSecond": 49.924371990944415,
+                "mainFrames": 101,
+                "workP50Ms": 18.130000114440918,
+                "workP95Ms": 19.429999351501465,
+                "busyShare": 0.9752352482070971,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 111,
+                "displayFrames": 122,
+                "share": 0.9098360655737705,
+                "spanMs": 2008.8,
+                "movedPx": 37500.000015258796,
+                "drewPerSecond": 54.75906013540422,
+                "mainFrames": 110,
+                "workP50Ms": 15.929999351501465,
+                "workP95Ms": 18.359999656677246,
+                "busyShare": 0.9771217857998393,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 121,
+                "displayFrames": 122,
+                "share": 0.9918032786885246,
+                "spanMs": 2016.5,
+                "movedPx": 12000,
+                "drewPerSecond": 59.50905033473841,
+                "mainFrames": 120,
+                "workP50Ms": 13.485000610351562,
+                "workP95Ms": 14.5649995803833,
+                "busyShare": 0.8771896632424203,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 103,
+                "displayFrames": 122,
+                "share": 0.8442622950819673,
+                "spanMs": 2019.34,
+                "movedPx": 120000.00000000007,
+                "drewPerSecond": 50.511553279784486,
+                "mainFrames": 102,
+                "workP50Ms": 18.175000190734863,
+                "workP95Ms": 19.640000343322754,
+                "busyShare": 0.9847412623173204,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 109,
+                "displayFrames": 120,
+                "share": 0.9083333333333333,
+                "spanMs": 1987.36,
+                "movedPx": 37499.999992370605,
+                "drewPerSecond": 54.34345060784156,
+                "mainFrames": 108,
+                "workP50Ms": 16.085000038146973,
+                "workP95Ms": 18.005000114440918,
+                "busyShare": 0.9813798852218056,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2015.99,
+                "movedPx": 11999.999998092651,
+                "drewPerSecond": 60.020138988784666,
+                "mainFrames": 121,
+                "workP50Ms": 13.460000038146973,
+                "workP95Ms": 14.695000648498535,
+                "busyShare": 0.8849146535619655,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 102,
+                "displayFrames": 122,
+                "share": 0.8360655737704918,
+                "spanMs": 2010.88,
+                "movedPx": 119999.99999999997,
+                "drewPerSecond": 50.22676639083386,
+                "mainFrames": 101,
+                "workP50Ms": 17.925000190734863,
+                "workP95Ms": 19.260000228881836,
+                "busyShare": 0.9829584839610521,
+                "compositor": null
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 111,
+                "displayFrames": 120,
+                "share": 0.925,
+                "spanMs": 1990.24,
+                "movedPx": 37500.00000000002,
+                "drewPerSecond": 55.26971621512983,
+                "mainFrames": 110,
+                "workP50Ms": 15.985000610351562,
+                "workP95Ms": 17.520000457763672,
+                "busyShare": 0.9843745396877399,
+                "compositor": null
+              },
+              "sideways": {
+                "drew": 122,
+                "displayFrames": 122,
+                "share": 1,
+                "spanMs": 2014.61,
+                "movedPx": 12000,
+                "drewPerSecond": 60.06125255012137,
+                "mainFrames": 121,
+                "workP50Ms": 13.529999732971191,
+                "workP95Ms": 14.654999732971191,
+                "busyShare": 0.8878055517193655,
+                "compositor": null
+              },
+              "fast": {
+                "drew": 101,
+                "displayFrames": 122,
+                "share": 0.8278688524590164,
+                "spanMs": 2009.14,
+                "movedPx": 120000.00000000001,
+                "drewPerSecond": 49.772539494510085,
+                "mainFrames": 100,
+                "workP50Ms": 18.234999656677246,
+                "workP95Ms": 19.739999771118164,
+                "busyShare": 0.9818949188121192,
+                "compositor": null
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "keepsUp": false,
+          "cacheBytes": [
+            32387080
+          ],
+          "down": {
+            "drewPct": 23.3,
+            "drewPctRuns": [
+              23.4,
+              22.6,
+              23.2,
+              23.4,
+              23.4,
+              22.4,
+              23.2,
+              23.6,
+              22.6,
+              23.4
+            ],
+            "drewPerSecond": 13.6,
+            "mainFrames": 29,
+            "workP50Ms": 64.56,
+            "workP95Ms": 73.84,
+            "busyPct": 88.2,
+            "movedPx": 37500,
+            "compositorPerSecond": {
+              "whole": 13.4,
+              "partial": 45.4,
+              "dropped": 1
+            }
+          },
+          "sideways": {
+            "drewPct": 34.6,
+            "drewPctRuns": [
+              34.7,
+              34.4,
+              34.4,
+              35.2,
+              34.4,
+              33.6,
+              35.2,
+              35.2,
+              35,
+              34.4
+            ],
+            "drewPerSecond": 20.4,
+            "mainFrames": 42,
+            "workP50Ms": 35.96,
+            "workP95Ms": 38.76,
+            "busyPct": 73.4,
+            "movedPx": 12000,
+            "compositorPerSecond": {
+              "whole": 20.4,
+              "partial": 39.3,
+              "dropped": 0
+            }
+          },
+          "fast": {
+            "drewPct": 26.6,
+            "drewPctRuns": [
+              25,
+              26.9,
+              26.8,
+              24.4,
+              25.7,
+              25.6,
+              27.1,
+              28.1,
+              26.3,
+              26.9
+            ],
+            "drewPerSecond": 15.7,
+            "mainFrames": 46,
+            "workP50Ms": 60.71,
+            "workP95Ms": 68.92,
+            "busyPct": 84.9,
+            "movedPx": 123970,
+            "compositorPerSecond": {
+              "whole": 19.3,
+              "partial": 40.3,
+              "dropped": 0
+            }
+          }
+        },
+        "runs": [
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 29,
+                "displayFrames": 124,
+                "share": 0.23387096774193547,
+                "spanMs": 2052.55,
+                "movedPx": 37500,
+                "drewPerSecond": 13.641567805899976,
+                "mainFrames": 29,
+                "workP50Ms": 64.474,
+                "workP95Ms": 77.466,
+                "busyShare": 0.8849195917961984,
+                "compositor": {
+                  "whole": 27,
+                  "partial": 93,
+                  "presented": 120,
+                  "dropped": 2,
+                  "droppedShare": 0.01639344262295082
+                }
+              },
+              "sideways": {
+                "drew": 42,
+                "displayFrames": 121,
+                "share": 0.34710743801652894,
+                "spanMs": 2008.25,
+                "movedPx": 12000,
+                "drewPerSecond": 20.415784887339722,
+                "mainFrames": 42,
+                "workP50Ms": 36.079,
+                "workP95Ms": 38.395,
+                "busyShare": 0.7440145657630928,
+                "compositor": {
+                  "whole": 41,
+                  "partial": 79,
+                  "presented": 120,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 42,
+                "displayFrames": 168,
+                "share": 0.25,
+                "spanMs": 2789.45,
+                "movedPx": 123977,
+                "drewPerSecond": 14.698238003907582,
+                "mainFrames": 44,
+                "workP50Ms": 61.144,
+                "workP95Ms": 69.552,
+                "busyShare": 0.8225194271332983,
+                "compositor": {
+                  "whole": 53,
+                  "partial": 113,
+                  "presented": 166,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 28,
+                "displayFrames": 124,
+                "share": 0.22580645161290322,
+                "spanMs": 2057.94,
+                "movedPx": 37500,
+                "drewPerSecond": 13.119916032537391,
+                "mainFrames": 28,
+                "workP50Ms": 64.682,
+                "workP95Ms": 74.541,
+                "busyShare": 0.86842996576237,
+                "compositor": {
+                  "whole": 27,
+                  "partial": 93,
+                  "presented": 120,
+                  "dropped": 3,
+                  "droppedShare": 0.024390243902439025
+                }
+              },
+              "sideways": {
+                "drew": 42,
+                "displayFrames": 122,
+                "share": 0.3442622950819672,
+                "spanMs": 2015.15,
+                "movedPx": 12000,
+                "drewPerSecond": 20.34587995930824,
+                "mainFrames": 42,
+                "workP50Ms": 35.846,
+                "workP95Ms": 39.418,
+                "busyShare": 0.7290428899142033,
+                "compositor": {
+                  "whole": 41,
+                  "partial": 80,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 45,
+                "displayFrames": 167,
+                "share": 0.2694610778443114,
+                "spanMs": 2766.64,
+                "movedPx": 123990,
+                "drewPerSecond": 15.903767747159009,
+                "mainFrames": 47,
+                "workP50Ms": 61.055,
+                "workP95Ms": 68.875,
+                "busyShare": 0.8647777925842655,
+                "compositor": {
+                  "whole": 55,
+                  "partial": 110,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 29,
+                "displayFrames": 125,
+                "share": 0.232,
+                "spanMs": 2069.42,
+                "movedPx": 37500,
+                "drewPerSecond": 13.530361163997641,
+                "mainFrames": 29,
+                "workP50Ms": 64.47,
+                "workP95Ms": 66.69,
+                "busyShare": 0.8673186184749473,
+                "compositor": {
+                  "whole": 28,
+                  "partial": 94,
+                  "presented": 122,
+                  "dropped": 2,
+                  "droppedShare": 0.016129032258064516
+                }
+              },
+              "sideways": {
+                "drew": 42,
+                "displayFrames": 122,
+                "share": 0.3442622950819672,
+                "spanMs": 2022.98,
+                "movedPx": 12000,
+                "drewPerSecond": 20.267130668617583,
+                "mainFrames": 42,
+                "workP50Ms": 36.137,
+                "workP95Ms": 38.547,
+                "busyShare": 0.7344283978694348,
+                "compositor": {
+                  "whole": 41,
+                  "partial": 80,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 45,
+                "displayFrames": 168,
+                "share": 0.26785714285714285,
+                "spanMs": 2777.84,
+                "movedPx": 123957,
+                "drewPerSecond": 15.8396451919477,
+                "mainFrames": 47,
+                "workP50Ms": 60.439,
+                "workP95Ms": 67.424,
+                "busyShare": 0.8500397162875666,
+                "compositor": {
+                  "whole": 56,
+                  "partial": 110,
+                  "presented": 166,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 29,
+                "displayFrames": 124,
+                "share": 0.23387096774193547,
+                "spanMs": 2047.99,
+                "movedPx": 37500,
+                "drewPerSecond": 13.671941757528113,
+                "mainFrames": 29,
+                "workP50Ms": 64.241,
+                "workP95Ms": 70.348,
+                "busyShare": 0.8897071394194472,
+                "compositor": {
+                  "whole": 28,
+                  "partial": 93,
+                  "presented": 121,
+                  "dropped": 1,
+                  "droppedShare": 0.00819672131147541
+                }
+              },
+              "sideways": {
+                "drew": 43,
+                "displayFrames": 122,
+                "share": 0.3524590163934426,
+                "spanMs": 2021.78,
+                "movedPx": 12000,
+                "drewPerSecond": 20.773773605436794,
+                "mainFrames": 43,
+                "workP50Ms": 36.132,
+                "workP95Ms": 38.267,
+                "busyShare": 0.7348634494154129,
+                "compositor": {
+                  "whole": 42,
+                  "partial": 79,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 41,
+                "displayFrames": 168,
+                "share": 0.24404761904761904,
+                "spanMs": 2782.28,
+                "movedPx": 123984,
+                "drewPerSecond": 14.376698247480483,
+                "mainFrames": 43,
+                "workP50Ms": 61.007,
+                "workP95Ms": 68.709,
+                "busyShare": 0.829440613125877,
+                "compositor": {
+                  "whole": 53,
+                  "partial": 113,
+                  "presented": 166,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 29,
+                "displayFrames": 124,
+                "share": 0.23387096774193547,
+                "spanMs": 2055.76,
+                "movedPx": 37500,
+                "drewPerSecond": 13.62026695723236,
+                "mainFrames": 29,
+                "workP50Ms": 64.291,
+                "workP95Ms": 76.13,
+                "busyShare": 0.8846826467683329,
+                "compositor": {
+                  "whole": 28,
+                  "partial": 93,
+                  "presented": 121,
+                  "dropped": 2,
+                  "droppedShare": 0.016260162601626018
+                }
+              },
+              "sideways": {
+                "drew": 42,
+                "displayFrames": 122,
+                "share": 0.3442622950819672,
+                "spanMs": 2021.96,
+                "movedPx": 12000,
+                "drewPerSecond": 20.27735464598706,
+                "mainFrames": 42,
+                "workP50Ms": 35.968,
+                "workP95Ms": 40.463,
+                "busyShare": 0.7272854784273016,
+                "compositor": {
+                  "whole": 41,
+                  "partial": 80,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 43,
+                "displayFrames": 167,
+                "share": 0.25748502994011974,
+                "spanMs": 2772.66,
+                "movedPx": 123953,
+                "drewPerSecond": 15.147908506632621,
+                "mainFrames": 45,
+                "workP50Ms": 60.693,
+                "workP95Ms": 68.971,
+                "busyShare": 0.8446981558160529,
+                "compositor": {
+                  "whole": 53,
+                  "partial": 112,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 28,
+                "displayFrames": 125,
+                "share": 0.224,
+                "spanMs": 2060.32,
+                "movedPx": 37500,
+                "drewPerSecond": 13.10476042556496,
+                "mainFrames": 28,
+                "workP50Ms": 64.655,
+                "workP95Ms": 74.248,
+                "busyShare": 0.8594798704500995,
+                "compositor": {
+                  "whole": 27,
+                  "partial": 94,
+                  "presented": 121,
+                  "dropped": 2,
+                  "droppedShare": 0.016260162601626018
+                }
+              },
+              "sideways": {
+                "drew": 41,
+                "displayFrames": 122,
+                "share": 0.3360655737704918,
+                "spanMs": 2016.01,
+                "movedPx": 12000,
+                "drewPerSecond": 19.8411714227608,
+                "mainFrames": 41,
+                "workP50Ms": 35.967,
+                "workP95Ms": 39.787,
+                "busyShare": 0.7150996691146767,
+                "compositor": {
+                  "whole": 40,
+                  "partial": 79,
+                  "presented": 119,
+                  "dropped": 1,
+                  "droppedShare": 0.008333333333333333
+                }
+              },
+              "fast": {
+                "drew": 43,
+                "displayFrames": 168,
+                "share": 0.25595238095238093,
+                "spanMs": 2777.76,
+                "movedPx": 123984,
+                "drewPerSecond": 15.120096768619318,
+                "mainFrames": 45,
+                "workP50Ms": 60.711,
+                "workP95Ms": 68.829,
+                "busyShare": 0.8487659439452346,
+                "compositor": {
+                  "whole": 55,
+                  "partial": 111,
+                  "presented": 166,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 29,
+                "displayFrames": 125,
+                "share": 0.232,
+                "spanMs": 2072.03,
+                "movedPx": 37500,
+                "drewPerSecond": 13.513317857366928,
+                "mainFrames": 29,
+                "workP50Ms": 63.967,
+                "workP95Ms": 73.439,
+                "busyShare": 0.8800317681675984,
+                "compositor": {
+                  "whole": 27,
+                  "partial": 94,
+                  "presented": 121,
+                  "dropped": 2,
+                  "droppedShare": 0.016260162601626018
+                }
+              },
+              "sideways": {
+                "drew": 43,
+                "displayFrames": 122,
+                "share": 0.3524590163934426,
+                "spanMs": 2023.16,
+                "movedPx": 12000,
+                "drewPerSecond": 20.759603788133415,
+                "mainFrames": 43,
+                "workP50Ms": 35.676,
+                "workP95Ms": 39.008,
+                "busyShare": 0.7361863544111014,
+                "compositor": {
+                  "whole": 42,
+                  "partial": 79,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 45,
+                "displayFrames": 166,
+                "share": 0.2710843373493976,
+                "spanMs": 2754.54,
+                "movedPx": 123963,
+                "drewPerSecond": 15.973628990684471,
+                "mainFrames": 46,
+                "workP50Ms": 60.677,
+                "workP95Ms": 69.073,
+                "busyShare": 0.8635310273486273,
+                "compositor": {
+                  "whole": 52,
+                  "partial": 113,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 29,
+                "displayFrames": 123,
+                "share": 0.23577235772357724,
+                "spanMs": 2032.28,
+                "movedPx": 37500,
+                "drewPerSecond": 13.777629066860866,
+                "mainFrames": 29,
+                "workP50Ms": 64.796,
+                "workP95Ms": 75.607,
+                "busyShare": 0.9006684334611003,
+                "compositor": {
+                  "whole": 28,
+                  "partial": 94,
+                  "presented": 122,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "sideways": {
+                "drew": 43,
+                "displayFrames": 122,
+                "share": 0.3524590163934426,
+                "spanMs": 2019.1,
+                "movedPx": 12000,
+                "drewPerSecond": 20.80134713486207,
+                "mainFrames": 43,
+                "workP50Ms": 35.568,
+                "workP95Ms": 37.094,
+                "busyShare": 0.7295227739471951,
+                "compositor": {
+                  "whole": 42,
+                  "partial": 79,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 47,
+                "displayFrames": 167,
+                "share": 0.281437125748503,
+                "spanMs": 2766.31,
+                "movedPx": 123947,
+                "drewPerSecond": 16.6286497174937,
+                "mainFrames": 49,
+                "workP50Ms": 60.337,
+                "workP95Ms": 67.281,
+                "busyShare": 0.8701977727136339,
+                "compositor": {
+                  "whole": 55,
+                  "partial": 109,
+                  "presented": 164,
+                  "dropped": 1,
+                  "droppedShare": 0.006060606060606061
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 28,
+                "displayFrames": 124,
+                "share": 0.22580645161290322,
+                "spanMs": 2046.01,
+                "movedPx": 37500,
+                "drewPerSecond": 13.196416439802347,
+                "mainFrames": 28,
+                "workP50Ms": 64.637,
+                "workP95Ms": 72.544,
+                "busyShare": 0.8688146689025388,
+                "compositor": {
+                  "whole": 27,
+                  "partial": 93,
+                  "presented": 120,
+                  "dropped": 2,
+                  "droppedShare": 0.01639344262295082
+                }
+              },
+              "sideways": {
+                "drew": 43,
+                "displayFrames": 123,
+                "share": 0.34959349593495936,
+                "spanMs": 2034.38,
+                "movedPx": 12000,
+                "drewPerSecond": 20.64511054965149,
+                "mainFrames": 43,
+                "workP50Ms": 35.95,
+                "workP95Ms": 38.358,
+                "busyShare": 0.733386721391846,
+                "compositor": {
+                  "whole": 42,
+                  "partial": 80,
+                  "presented": 122,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 44,
+                "displayFrames": 167,
+                "share": 0.2634730538922156,
+                "spanMs": 2766.12,
+                "movedPx": 123982,
+                "drewPerSecond": 15.54524026434139,
+                "mainFrames": 46,
+                "workP50Ms": 60.711,
+                "workP95Ms": 69.963,
+                "busyShare": 0.8448685454588828,
+                "compositor": {
+                  "whole": 53,
+                  "partial": 112,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          },
+          {
+            "cacheBytes": 32387080,
+            "scrolls": {
+              "down": {
+                "drew": 29,
+                "displayFrames": 124,
+                "share": 0.23387096774193547,
+                "spanMs": 2045.01,
+                "movedPx": 37500,
+                "drewPerSecond": 13.69186458745923,
+                "mainFrames": 29,
+                "workP50Ms": 64.765,
+                "workP95Ms": 72.523,
+                "busyShare": 0.8953055324510762,
+                "compositor": {
+                  "whole": 28,
+                  "partial": 94,
+                  "presented": 122,
+                  "dropped": 1,
+                  "droppedShare": 0.008130081300813009
+                }
+              },
+              "sideways": {
+                "drew": 42,
+                "displayFrames": 122,
+                "share": 0.3442622950819672,
+                "spanMs": 2020.27,
+                "movedPx": 12000,
+                "drewPerSecond": 20.29431709622971,
+                "mainFrames": 42,
+                "workP50Ms": 35.742,
+                "workP95Ms": 38.976,
+                "busyShare": 0.7343945802779013,
+                "compositor": {
+                  "whole": 41,
+                  "partial": 80,
+                  "presented": 121,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              },
+              "fast": {
+                "drew": 45,
+                "displayFrames": 167,
+                "share": 0.2694610778443114,
+                "spanMs": 2765.55,
+                "movedPx": 123961,
+                "drewPerSecond": 15.910035978376813,
+                "mainFrames": 47,
+                "workP50Ms": 60.89,
+                "workP95Ms": 69.881,
+                "busyShare": 0.8716523896459916,
+                "compositor": {
+                  "whole": 54,
+                  "partial": 111,
+                  "presented": 165,
+                  "dropped": 0,
+                  "droppedShare": 0
+                }
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}

@@ -687,3 +687,12 @@ No measurements: the measures and the boards' decisions are in [`docs/DECISIONS.
 - The page never sees DuckDB's reads. Its worker reads the file by synchronous XHRs, so counting data requests read 0 for a copy that reads 8 pages. A page read is a page query's message to the worker.
 - Cmd+A on a cold view selects nothing of the sheet on either side (`rows [0,0]`) until a cell has been pressed, and the replay's jump moves the selection to the row it lands on. A script that keeps a selection across a jump selects it again.
 - One A/B round can point either way. The first smoke round read TanStack's grown level well under M9's (38% of frames drawn against 53% on the scroll down); the rerun, after the review's fixes, read it over (37% against 31%). TanStack's scroll at `rows-20` swings that much run to run on this machine, so nothing is read from a round, and the 10 rounds decide.
+
+## M14 part D2: the runs (2026-11-13)
+
+**Results:** [`perf/results/2026-11-13-m14-d2.md`](../perf/results/2026-11-13-m14-d2.md).
+
+**Surprises:**
+- An A/B against a kept build tests what changed since that build, not since the published numbers. The kept "M9 level" was the commit before part B, which already had the table's text drawn from one element a region (after M9 measured), so the A/B saw +0.25 ms where the page was showing GPUI at twice today's work. Only the reruns showed it. The next A/B keeps a build of what the page shows.
+- A component's milestone can land between a part's smoke runs and its measured runs. tall-table M15 changed `resize`, `select`, and `copy`'s shared state code after D1, so the measured wide wasm wasn't D1's. Hash the build at the start of a measuring session, not only at the smoke.
+- A verdict can flip on the line with nothing moved. TanStack's sideways scroll at ~380 read 89.1% against the 90% line (M9: 97.9). The A/B's sign test didn't count it as moved, but it read lower on the grown level at all four stops.

@@ -1,0 +1,1921 @@
+{
+  "date": "2026-11-13",
+  "label": "m14-d2-drag",
+  "metric": "drag",
+  "scenario": "wide-sheet",
+  "stop": {
+    "id": "rows-20",
+    "label": "~710 cells",
+    "cells": 710,
+    "rowHeight": 20,
+    "textSize": 11,
+    "columnWidth": 68
+  },
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.9.1",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "runs": 10,
+  "drags": {
+    "resize": {
+      "column": 3,
+      "px": 200,
+      "trips": 2,
+      "movesEachWay": 62
+    },
+    "select": {
+      "from": [
+        0,
+        2
+      ]
+    }
+  },
+  "moveEveryMs": 8,
+  "tailMs": 300,
+  "profiles": {
+    "reference": {
+      "gpui": {
+        "summary": {
+          "resize": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ],
+            "drewFrames": 121,
+            "workP50Ms": 4.87,
+            "workP95Ms": 5.54,
+            "recorderP50Ms": 4.53,
+            "latePct": 0,
+            "busyPct": 33.4,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 100,
+            "drewPctRuns": [
+              99.1,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100,
+              100
+            ],
+            "drewFrames": 117,
+            "workP50Ms": 5.1,
+            "workP95Ms": 5.32,
+            "recorderP50Ms": 4.74,
+            "latePct": 0,
+            "busyPct": 34.1,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1999.44,
+                "moves": 248,
+                "drewFrames": 121,
+                "workP50Ms": 4.795,
+                "workP95Ms": 5.595,
+                "recorderP50Ms": 4.425000190734863,
+                "rafs": 120,
+                "lateShare": 0,
+                "busyShare": 0.3165061094916633,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 116,
+                "displayFrames": 117,
+                "share": 0.9914529914529915,
+                "spanMs": 1932.28,
+                "moves": 240,
+                "drewFrames": 116,
+                "workP50Ms": 5.114,
+                "workP95Ms": 5.317,
+                "recorderP50Ms": 4.7300004959106445,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3413178289371352,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 2000.35,
+                "moves": 248,
+                "drewFrames": 121,
+                "workP50Ms": 4.854,
+                "workP95Ms": 5.402,
+                "recorderP50Ms": 4.510000228881836,
+                "rafs": 120,
+                "lateShare": 0,
+                "busyShare": 0.3311719494492371,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1933.34,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.038,
+                "workP95Ms": 5.194,
+                "recorderP50Ms": 4.719999313354492,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.33999472702008987,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1998.86,
+                "moves": 248,
+                "drewFrames": 121,
+                "workP50Ms": 4.884,
+                "workP95Ms": 5.538,
+                "recorderP50Ms": 4.539999961853027,
+                "rafs": 120,
+                "lateShare": 0,
+                "busyShare": 0.334109131492038,
+                "mainFrames": 139
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1933.11,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.123,
+                "workP95Ms": 5.329,
+                "recorderP50Ms": 4.754999160766602,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3410172136464371,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 120,
+                "displayFrames": 120,
+                "share": 1,
+                "spanMs": 1983.65,
+                "moves": 248,
+                "drewFrames": 120,
+                "workP50Ms": 4.859,
+                "workP95Ms": 5.419,
+                "recorderP50Ms": 4.529999732971191,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.3332971247355905,
+                "mainFrames": 137
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1933.31,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.034,
+                "workP95Ms": 5.225,
+                "recorderP50Ms": 4.715000152587891,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3395937706198379,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1996.3,
+                "moves": 248,
+                "drewFrames": 121,
+                "workP50Ms": 4.823,
+                "workP95Ms": 5.395,
+                "recorderP50Ms": 4.494999885559082,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.3316431343055991,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1933.29,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.046,
+                "workP95Ms": 5.233,
+                "recorderP50Ms": 4.704999923706055,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3398186485057101,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1996.13,
+                "moves": 248,
+                "drewFrames": 121,
+                "workP50Ms": 4.955,
+                "workP95Ms": 5.591,
+                "recorderP50Ms": 4.585000038146973,
+                "rafs": 120,
+                "lateShare": 0,
+                "busyShare": 0.3352636944202798,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1932.69,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.13,
+                "workP95Ms": 5.347,
+                "recorderP50Ms": 4.784999847412109,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.34295485713783225,
+                "mainFrames": 135
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 120,
+                "displayFrames": 120,
+                "share": 1,
+                "spanMs": 1983.57,
+                "moves": 248,
+                "drewFrames": 120,
+                "workP50Ms": 4.973,
+                "workP95Ms": 5.542,
+                "recorderP50Ms": 4.595000267028809,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.3390072184734869,
+                "mainFrames": 137
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1935.51,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.157,
+                "workP95Ms": 5.333,
+                "recorderP50Ms": 4.815000534057617,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.34458617862422103,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 120,
+                "displayFrames": 120,
+                "share": 1,
+                "spanMs": 1980.25,
+                "moves": 248,
+                "drewFrames": 120,
+                "workP50Ms": 4.97,
+                "workP95Ms": 5.552,
+                "recorderP50Ms": 4.585000038146973,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.3374288762984024,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1939.89,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.102,
+                "workP95Ms": 5.335,
+                "recorderP50Ms": 4.744999885559082,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.34007547829483764,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 120,
+                "displayFrames": 120,
+                "share": 1,
+                "spanMs": 1987.68,
+                "moves": 248,
+                "drewFrames": 120,
+                "workP50Ms": 4.913,
+                "workP95Ms": 5.615,
+                "recorderP50Ms": 4.550000190734863,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.33481880283201626,
+                "mainFrames": 137
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1932.84,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.095,
+                "workP95Ms": 5.34,
+                "recorderP50Ms": 4.744999885559082,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.34154288353418866,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 121,
+                "displayFrames": 121,
+                "share": 1,
+                "spanMs": 1998.8,
+                "moves": 248,
+                "drewFrames": 121,
+                "workP50Ms": 4.842,
+                "workP95Ms": 5.431,
+                "recorderP50Ms": 4.510000228881836,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.3316912857337418,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 117,
+                "displayFrames": 117,
+                "share": 1,
+                "spanMs": 1932.59,
+                "moves": 240,
+                "drewFrames": 117,
+                "workP50Ms": 5.016,
+                "workP95Ms": 5.211,
+                "recorderP50Ms": 4.685000419616699,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3381801852023798,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "resize": {
+            "drewPct": 96.3,
+            "drewPctRuns": [
+              95.8,
+              95.9,
+              96.7,
+              94.1,
+              95,
+              96.7,
+              96.7,
+              98.3,
+              97.5,
+              90.9
+            ],
+            "drewFrames": 117,
+            "workP50Ms": 8.99,
+            "workP95Ms": 10.1,
+            "latePct": 0,
+            "busyPct": 59.2,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 99.1,
+            "drewPctRuns": [
+              94.8,
+              96.6,
+              99.1,
+              99.1,
+              99.1,
+              94.8,
+              99.1,
+              99.1,
+              100,
+              95.7
+            ],
+            "drewFrames": 115,
+            "workP50Ms": 4.53,
+            "workP95Ms": 8.33,
+            "latePct": 0,
+            "busyPct": 35.7,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 115,
+                "displayFrames": 120,
+                "share": 0.9583333333333334,
+                "spanMs": 1983.74,
+                "moves": 248,
+                "drewFrames": 115,
+                "workP50Ms": 8.908,
+                "workP95Ms": 10.209,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.5921194268893453,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 110,
+                "displayFrames": 116,
+                "share": 0.9482758620689655,
+                "spanMs": 1915.95,
+                "moves": 240,
+                "drewFrames": 110,
+                "workP50Ms": 4.775,
+                "workP95Ms": 8.412,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3494899062452874,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 116,
+                "displayFrames": 121,
+                "share": 0.9586776859504132,
+                "spanMs": 1999.66,
+                "moves": 248,
+                "drewFrames": 116,
+                "workP50Ms": 8.958,
+                "workP95Ms": 10.018,
+                "rafs": 120,
+                "lateShare": 0,
+                "busyShare": 0.5915069556525502,
+                "mainFrames": 140
+              },
+              "select": {
+                "drew": 112,
+                "displayFrames": 116,
+                "share": 0.9655172413793104,
+                "spanMs": 1919.74,
+                "moves": 240,
+                "drewFrames": 112,
+                "workP50Ms": 4.342,
+                "workP95Ms": 8.318,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.34800094026898915,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 118,
+                "displayFrames": 122,
+                "share": 0.9672131147540983,
+                "spanMs": 2018.83,
+                "moves": 248,
+                "drewFrames": 118,
+                "workP50Ms": 9.128,
+                "workP95Ms": 10.136,
+                "rafs": 120,
+                "lateShare": 0,
+                "busyShare": 0.6040062471770593,
+                "mainFrames": 139
+              },
+              "select": {
+                "drew": 115,
+                "displayFrames": 116,
+                "share": 0.9913793103448276,
+                "spanMs": 1920.73,
+                "moves": 240,
+                "drewFrames": 115,
+                "workP50Ms": 4.767,
+                "workP95Ms": 8.174,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3572411685333385,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 112,
+                "displayFrames": 119,
+                "share": 0.9411764705882353,
+                "spanMs": 1974.32,
+                "moves": 248,
+                "drewFrames": 112,
+                "workP50Ms": 8.979,
+                "workP95Ms": 9.957,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.5763936131796863,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 115,
+                "displayFrames": 116,
+                "share": 0.9913793103448276,
+                "spanMs": 1915.37,
+                "moves": 240,
+                "drewFrames": 115,
+                "workP50Ms": 4.471,
+                "workP95Ms": 8.401,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3631942153433636,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 115,
+                "displayFrames": 121,
+                "share": 0.9504132231404959,
+                "spanMs": 2003.47,
+                "moves": 248,
+                "drewFrames": 115,
+                "workP50Ms": 8.987,
+                "workP95Ms": 10.086,
+                "rafs": 121,
+                "lateShare": 0,
+                "busyShare": 0.586283017090128,
+                "mainFrames": 140
+              },
+              "select": {
+                "drew": 114,
+                "displayFrames": 115,
+                "share": 0.991304347826087,
+                "spanMs": 1900.88,
+                "moves": 240,
+                "drewFrames": 114,
+                "workP50Ms": 4.963,
+                "workP95Ms": 8.527,
+                "rafs": 115,
+                "lateShare": 0,
+                "busyShare": 0.3726041077089568,
+                "mainFrames": 133
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 117,
+                "displayFrames": 121,
+                "share": 0.9669421487603306,
+                "spanMs": 2002.98,
+                "moves": 248,
+                "drewFrames": 117,
+                "workP50Ms": 9.143,
+                "workP95Ms": 10.363,
+                "rafs": 121,
+                "lateShare": 0,
+                "busyShare": 0.6011880212429381,
+                "mainFrames": 139
+              },
+              "select": {
+                "drew": 110,
+                "displayFrames": 116,
+                "share": 0.9482758620689655,
+                "spanMs": 1917.2,
+                "moves": 240,
+                "drewFrames": 110,
+                "workP50Ms": 4.37,
+                "workP95Ms": 8.297,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3372119302133691,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 117,
+                "displayFrames": 121,
+                "share": 0.9669421487603306,
+                "spanMs": 1995.61,
+                "moves": 248,
+                "drewFrames": 117,
+                "workP50Ms": 8.596,
+                "workP95Ms": 9.775,
+                "rafs": 119,
+                "lateShare": 0.00847457627118644,
+                "busyShare": 0.5818280105412914,
+                "mainFrames": 138
+              },
+              "select": {
+                "drew": 115,
+                "displayFrames": 116,
+                "share": 0.9913793103448276,
+                "spanMs": 1916.63,
+                "moves": 240,
+                "drewFrames": 115,
+                "workP50Ms": 4.466,
+                "workP95Ms": 8.237,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3573612712938837,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 119,
+                "displayFrames": 121,
+                "share": 0.9834710743801653,
+                "spanMs": 2000.54,
+                "moves": 248,
+                "drewFrames": 119,
+                "workP50Ms": 8.985,
+                "workP95Ms": 10.417,
+                "rafs": 120,
+                "lateShare": 0,
+                "busyShare": 0.6032719142225612,
+                "mainFrames": 139
+              },
+              "select": {
+                "drew": 115,
+                "displayFrames": 116,
+                "share": 0.9913793103448276,
+                "spanMs": 1913.16,
+                "moves": 240,
+                "drewFrames": 115,
+                "workP50Ms": 4.583,
+                "workP95Ms": 8.231,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.3574877210267308,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 118,
+                "displayFrames": 121,
+                "share": 0.9752066115702479,
+                "spanMs": 2004.14,
+                "moves": 248,
+                "drewFrames": 118,
+                "workP50Ms": 9.017,
+                "workP95Ms": 10.119,
+                "rafs": 121,
+                "lateShare": 0,
+                "busyShare": 0.6038680256173716,
+                "mainFrames": 139
+              },
+              "select": {
+                "drew": 116,
+                "displayFrames": 116,
+                "share": 1,
+                "spanMs": 1914.9,
+                "moves": 240,
+                "drewFrames": 116,
+                "workP50Ms": 4.673,
+                "workP95Ms": 8.414,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.36738894038139364,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 110,
+                "displayFrames": 121,
+                "share": 0.9090909090909091,
+                "spanMs": 1997.94,
+                "moves": 248,
+                "drewFrames": 110,
+                "workP50Ms": 9.14,
+                "workP95Ms": 10.04,
+                "rafs": 119,
+                "lateShare": 0,
+                "busyShare": 0.5628300353536914,
+                "mainFrames": 139
+              },
+              "select": {
+                "drew": 111,
+                "displayFrames": 116,
+                "share": 0.9568965517241379,
+                "spanMs": 1918.93,
+                "moves": 240,
+                "drewFrames": 111,
+                "workP50Ms": 4.363,
+                "workP95Ms": 8.344,
+                "rafs": 116,
+                "lateShare": 0,
+                "busyShare": 0.34299511881435707,
+                "mainFrames": 134
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    },
+    "throttled": {
+      "gpui": {
+        "summary": {
+          "resize": {
+            "drewPct": 68.9,
+            "drewPctRuns": [
+              65.5,
+              71.3,
+              68.9,
+              71.1,
+              68.9,
+              77.2,
+              59,
+              66.4,
+              67.8,
+              79.3
+            ],
+            "drewFrames": 84,
+            "workP50Ms": 16.41,
+            "workP95Ms": 18.73,
+            "recorderP50Ms": 15.27,
+            "latePct": 7.2,
+            "busyPct": 77,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 69.6,
+            "drewPctRuns": [
+              71.2,
+              67.8,
+              71.2,
+              74.8,
+              70.6,
+              65.3,
+              66.9,
+              56.8,
+              68.6,
+              81.5
+            ],
+            "drewFrames": 83,
+            "workP50Ms": 16.76,
+            "workP95Ms": 17.74,
+            "recorderP50Ms": 15.65,
+            "latePct": 7.4,
+            "busyPct": 79.2,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 78,
+                "displayFrames": 119,
+                "share": 0.6554621848739496,
+                "spanMs": 1958.92,
+                "moves": 248,
+                "drewFrames": 78,
+                "workP50Ms": 16.146,
+                "workP95Ms": 19.495,
+                "recorderP50Ms": 15.125,
+                "rafs": 111,
+                "lateShare": 0.05454545454545454,
+                "busyShare": 0.7401724533455745,
+                "mainFrames": 129
+              },
+              "select": {
+                "drew": 84,
+                "displayFrames": 118,
+                "share": 0.711864406779661,
+                "spanMs": 1954.57,
+                "moves": 240,
+                "drewFrames": 84,
+                "workP50Ms": 16.688,
+                "workP95Ms": 17.533,
+                "recorderP50Ms": 15.609999656677246,
+                "rafs": 109,
+                "lateShare": 0.07407407407407407,
+                "busyShare": 0.8030079071860767,
+                "mainFrames": 127
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 87,
+                "displayFrames": 122,
+                "share": 0.7131147540983607,
+                "spanMs": 2015.86,
+                "moves": 248,
+                "drewFrames": 87,
+                "workP50Ms": 16.395,
+                "workP95Ms": 18.49,
+                "recorderP50Ms": 15.375,
+                "rafs": 115,
+                "lateShare": 0.05263157894736842,
+                "busyShare": 0.7989752002999607,
+                "mainFrames": 133
+              },
+              "select": {
+                "drew": 80,
+                "displayFrames": 118,
+                "share": 0.6779661016949152,
+                "spanMs": 1949.99,
+                "moves": 240,
+                "drewFrames": 80,
+                "workP50Ms": 16.627,
+                "workP95Ms": 17.751,
+                "recorderP50Ms": 15.675000190734863,
+                "rafs": 112,
+                "lateShare": 0.04504504504504504,
+                "busyShare": 0.7634546100989775,
+                "mainFrames": 130
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 84,
+                "displayFrames": 122,
+                "share": 0.6885245901639344,
+                "spanMs": 2016.85,
+                "moves": 248,
+                "drewFrames": 84,
+                "workP50Ms": 16.426,
+                "workP95Ms": 19.185,
+                "recorderP50Ms": 15.280000686645508,
+                "rafs": 109,
+                "lateShare": 0.1111111111111111,
+                "busyShare": 0.7725115009339868,
+                "mainFrames": 128
+              },
+              "select": {
+                "drew": 84,
+                "displayFrames": 118,
+                "share": 0.711864406779661,
+                "spanMs": 1957.68,
+                "moves": 240,
+                "drewFrames": 84,
+                "workP50Ms": 16.868,
+                "workP95Ms": 18.358,
+                "recorderP50Ms": 15.670000076293945,
+                "rafs": 109,
+                "lateShare": 0.07407407407407407,
+                "busyShare": 0.811732542138607,
+                "mainFrames": 127
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 86,
+                "displayFrames": 121,
+                "share": 0.7107438016528925,
+                "spanMs": 1998.88,
+                "moves": 248,
+                "drewFrames": 86,
+                "workP50Ms": 16.411,
+                "workP95Ms": 18.29,
+                "recorderP50Ms": 15.230000495910645,
+                "rafs": 107,
+                "lateShare": 0.11320754716981132,
+                "busyShare": 0.7937770423466365,
+                "mainFrames": 125
+              },
+              "select": {
+                "drew": 89,
+                "displayFrames": 119,
+                "share": 0.7478991596638656,
+                "spanMs": 1965.62,
+                "moves": 240,
+                "drewFrames": 89,
+                "workP50Ms": 16.885,
+                "workP95Ms": 17.606,
+                "recorderP50Ms": 15.630000114440918,
+                "rafs": 102,
+                "lateShare": 0.15841584158415842,
+                "busyShare": 0.8437712745207269,
+                "mainFrames": 120
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 84,
+                "displayFrames": 122,
+                "share": 0.6885245901639344,
+                "spanMs": 2015.85,
+                "moves": 248,
+                "drewFrames": 84,
+                "workP50Ms": 16.417,
+                "workP95Ms": 18.449,
+                "recorderP50Ms": 15.345000267028809,
+                "rafs": 110,
+                "lateShare": 0.10091743119266056,
+                "busyShare": 0.7681165125168979,
+                "mainFrames": 128
+              },
+              "select": {
+                "drew": 84,
+                "displayFrames": 119,
+                "share": 0.7058823529411765,
+                "spanMs": 1963.13,
+                "moves": 240,
+                "drewFrames": 84,
+                "workP50Ms": 16.705,
+                "workP95Ms": 17.693,
+                "recorderP50Ms": 15.649999618530273,
+                "rafs": 97,
+                "lateShare": 0.21875,
+                "busyShare": 0.7967008452776478,
+                "mainFrames": 115
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 95,
+                "displayFrames": 123,
+                "share": 0.7723577235772358,
+                "spanMs": 2040.8,
+                "moves": 248,
+                "drewFrames": 95,
+                "workP50Ms": 16.69,
+                "workP95Ms": 19.126,
+                "recorderP50Ms": 15.329999923706055,
+                "rafs": 113,
+                "lateShare": 0.08035714285714286,
+                "busyShare": 0.8549408102232539,
+                "mainFrames": 131
+              },
+              "select": {
+                "drew": 77,
+                "displayFrames": 118,
+                "share": 0.652542372881356,
+                "spanMs": 1950.02,
+                "moves": 240,
+                "drewFrames": 77,
+                "workP50Ms": 16.808,
+                "workP95Ms": 17.871,
+                "recorderP50Ms": 15.694999694824219,
+                "rafs": 106,
+                "lateShare": 0.10476190476190476,
+                "busyShare": 0.7428189464787869,
+                "mainFrames": 124
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 72,
+                "displayFrames": 122,
+                "share": 0.5901639344262295,
+                "spanMs": 2022.54,
+                "moves": 248,
+                "drewFrames": 72,
+                "workP50Ms": 16.196,
+                "workP95Ms": 18.872,
+                "recorderP50Ms": 15.21500015258789,
+                "rafs": 119,
+                "lateShare": 0.025423728813559324,
+                "busyShare": 0.6646987445974836,
+                "mainFrames": 137
+              },
+              "select": {
+                "drew": 79,
+                "displayFrames": 118,
+                "share": 0.6694915254237288,
+                "spanMs": 1949.77,
+                "moves": 240,
+                "drewFrames": 79,
+                "workP50Ms": 16.704,
+                "workP95Ms": 17.734,
+                "recorderP50Ms": 15.760000228881836,
+                "rafs": 110,
+                "lateShare": 0.06422018348623854,
+                "busyShare": 0.7577416517931305,
+                "mainFrames": 129
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 81,
+                "displayFrames": 122,
+                "share": 0.6639344262295082,
+                "spanMs": 2011.59,
+                "moves": 248,
+                "drewFrames": 81,
+                "workP50Ms": 16.6,
+                "workP95Ms": 18.788,
+                "recorderP50Ms": 15.3149995803833,
+                "rafs": 109,
+                "lateShare": 0.1111111111111111,
+                "busyShare": 0.7466971562256115,
+                "mainFrames": 128
+              },
+              "select": {
+                "drew": 67,
+                "displayFrames": 118,
+                "share": 0.5677966101694916,
+                "spanMs": 1950.26,
+                "moves": 240,
+                "drewFrames": 67,
+                "workP50Ms": 16.66,
+                "workP95Ms": 17.587,
+                "recorderP50Ms": 15.585000038146973,
+                "rafs": 104,
+                "lateShare": 0.1262135922330097,
+                "busyShare": 0.6413073989321053,
+                "mainFrames": 122
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 82,
+                "displayFrames": 121,
+                "share": 0.6776859504132231,
+                "spanMs": 1994.78,
+                "moves": 248,
+                "drewFrames": 82,
+                "workP50Ms": 16.584,
+                "workP95Ms": 18.599,
+                "recorderP50Ms": 15.25,
+                "rafs": 112,
+                "lateShare": 0.06306306306306306,
+                "busyShare": 0.758720328903129,
+                "mainFrames": 130
+              },
+              "select": {
+                "drew": 81,
+                "displayFrames": 118,
+                "share": 0.6864406779661016,
+                "spanMs": 1944.93,
+                "moves": 240,
+                "drewFrames": 81,
+                "workP50Ms": 16.893,
+                "workP95Ms": 17.798,
+                "recorderP50Ms": 15.554999351501465,
+                "rafs": 112,
+                "lateShare": 0.04504504504504504,
+                "busyShare": 0.7874411065992116,
+                "mainFrames": 130
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 96,
+                "displayFrames": 121,
+                "share": 0.7933884297520661,
+                "spanMs": 2000.29,
+                "moves": 248,
+                "drewFrames": 96,
+                "workP50Ms": 16.362,
+                "workP95Ms": 18.662,
+                "recorderP50Ms": 15.104999542236328,
+                "rafs": 113,
+                "lateShare": 0.0625,
+                "busyShare": 0.8799513145227527,
+                "mainFrames": 130
+              },
+              "select": {
+                "drew": 97,
+                "displayFrames": 119,
+                "share": 0.8151260504201681,
+                "spanMs": 1969.85,
+                "moves": 240,
+                "drewFrames": 97,
+                "workP50Ms": 16.832,
+                "workP95Ms": 18.006,
+                "recorderP50Ms": 15.65999984741211,
+                "rafs": 112,
+                "lateShare": 0.05405405405405406,
+                "busyShare": 0.9177473460956955,
+                "mainFrames": 130
+              }
+            },
+            "failures": []
+          }
+        ]
+      },
+      "tanstack": {
+        "summary": {
+          "resize": {
+            "drewPct": 33.7,
+            "drewPctRuns": [
+              39.2,
+              38.4,
+              33.1,
+              39.3,
+              38.9,
+              33.1,
+              33.3,
+              33.6,
+              33.9,
+              33.3
+            ],
+            "drewFrames": 42,
+            "workP50Ms": 34.34,
+            "workP95Ms": 38.67,
+            "latePct": 41.6,
+            "busyPct": 84.5,
+            "moves": 248
+          },
+          "select": {
+            "drewPct": 50.4,
+            "drewPctRuns": [
+              53.4,
+              47.9,
+              46.6,
+              46.6,
+              48.7,
+              51.3,
+              50,
+              54.3,
+              50.9,
+              53.4
+            ],
+            "drewFrames": 59,
+            "workP50Ms": 18.94,
+            "workP95Ms": 32.52,
+            "latePct": 10,
+            "busyPct": 74.7,
+            "moves": 240
+          },
+          "workloads": [
+            {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            }
+          ]
+        },
+        "runs": [
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 49,
+                "displayFrames": 125,
+                "share": 0.392,
+                "spanMs": 2064.42,
+                "moves": 248,
+                "drewFrames": 49,
+                "workP50Ms": 35.173,
+                "workP95Ms": 38.647,
+                "rafs": 70,
+                "lateShare": 0.6231884057971014,
+                "busyShare": 0.9337372848610713,
+                "mainFrames": 90
+              },
+              "select": {
+                "drew": 62,
+                "displayFrames": 116,
+                "share": 0.5344827586206896,
+                "spanMs": 1918.32,
+                "moves": 240,
+                "drewFrames": 62,
+                "workP50Ms": 19.393,
+                "workP95Ms": 31.999,
+                "rafs": 110,
+                "lateShare": 0.045871559633027525,
+                "busyShare": 0.7766168498973733,
+                "mainFrames": 130
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 48,
+                "displayFrames": 125,
+                "share": 0.384,
+                "spanMs": 2070.77,
+                "moves": 248,
+                "drewFrames": 48,
+                "workP50Ms": 35.329,
+                "workP95Ms": 39.598,
+                "rafs": 65,
+                "lateShare": 0.75,
+                "busyShare": 0.926632273566055,
+                "mainFrames": 84
+              },
+              "select": {
+                "drew": 56,
+                "displayFrames": 117,
+                "share": 0.47863247863247865,
+                "spanMs": 1929.86,
+                "moves": 240,
+                "drewFrames": 56,
+                "workP50Ms": 19.688,
+                "workP95Ms": 33.529,
+                "rafs": 106,
+                "lateShare": 0.08571428571428572,
+                "busyShare": 0.7407420806434942,
+                "mainFrames": 125
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 40,
+                "displayFrames": 121,
+                "share": 0.3305785123966942,
+                "spanMs": 1995.36,
+                "moves": 248,
+                "drewFrames": 40,
+                "workP50Ms": 34.274,
+                "workP95Ms": 38.69,
+                "rafs": 85,
+                "lateShare": 0.39285714285714285,
+                "busyShare": 0.8452340073020527,
+                "mainFrames": 103
+              },
+              "select": {
+                "drew": 54,
+                "displayFrames": 116,
+                "share": 0.46551724137931033,
+                "spanMs": 1917.02,
+                "moves": 240,
+                "drewFrames": 54,
+                "workP50Ms": 19.51,
+                "workP95Ms": 32.629,
+                "rafs": 105,
+                "lateShare": 0.11538461538461539,
+                "busyShare": 0.7067051616931155,
+                "mainFrames": 123
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 48,
+                "displayFrames": 122,
+                "share": 0.39344262295081966,
+                "spanMs": 2022.2,
+                "moves": 248,
+                "drewFrames": 48,
+                "workP50Ms": 35.113,
+                "workP95Ms": 40.112,
+                "rafs": 65,
+                "lateShare": 0.703125,
+                "busyShare": 0.9395647535274658,
+                "mainFrames": 84
+              },
+              "select": {
+                "drew": 54,
+                "displayFrames": 116,
+                "share": 0.46551724137931033,
+                "spanMs": 1914.52,
+                "moves": 240,
+                "drewFrames": 54,
+                "workP50Ms": 19.372,
+                "workP95Ms": 33.663,
+                "rafs": 106,
+                "lateShare": 0.10476190476190476,
+                "busyShare": 0.7171327033172896,
+                "mainFrames": 124
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 49,
+                "displayFrames": 126,
+                "share": 0.3888888888888889,
+                "spanMs": 2076.37,
+                "moves": 248,
+                "drewFrames": 49,
+                "workP50Ms": 35.321,
+                "workP95Ms": 40.04,
+                "rafs": 68,
+                "lateShare": 0.6716417910447762,
+                "busyShare": 0.9399476478975605,
+                "mainFrames": 87
+              },
+              "select": {
+                "drew": 57,
+                "displayFrames": 117,
+                "share": 0.48717948717948717,
+                "spanMs": 1940.35,
+                "moves": 240,
+                "drewFrames": 57,
+                "workP50Ms": 17.927,
+                "workP95Ms": 32.373,
+                "rafs": 107,
+                "lateShare": 0.10377358490566038,
+                "busyShare": 0.7134577185489928,
+                "mainFrames": 125
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 40,
+                "displayFrames": 121,
+                "share": 0.3305785123966942,
+                "spanMs": 1999.69,
+                "moves": 248,
+                "drewFrames": 40,
+                "workP50Ms": 34.361,
+                "workP95Ms": 38.408,
+                "rafs": 83,
+                "lateShare": 0.43902439024390244,
+                "busyShare": 0.8447904234372212,
+                "mainFrames": 101
+              },
+              "select": {
+                "drew": 60,
+                "displayFrames": 117,
+                "share": 0.5128205128205128,
+                "spanMs": 1931.64,
+                "moves": 240,
+                "drewFrames": 60,
+                "workP50Ms": 16.764,
+                "workP95Ms": 29.68,
+                "rafs": 110,
+                "lateShare": 0.05504587155963303,
+                "busyShare": 0.7446110713562517,
+                "mainFrames": 130
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 41,
+                "displayFrames": 123,
+                "share": 0.3333333333333333,
+                "spanMs": 2026.96,
+                "moves": 248,
+                "drewFrames": 41,
+                "workP50Ms": 34.139,
+                "workP95Ms": 38.306,
+                "rafs": 90,
+                "lateShare": 0.3258426966292135,
+                "busyShare": 0.8439811523744609,
+                "mainFrames": 108
+              },
+              "select": {
+                "drew": 58,
+                "displayFrames": 116,
+                "share": 0.5,
+                "spanMs": 1923.14,
+                "moves": 240,
+                "drewFrames": 58,
+                "workP50Ms": 18.801,
+                "workP95Ms": 32.566,
+                "rafs": 109,
+                "lateShare": 0.07407407407407407,
+                "busyShare": 0.7485677431500624,
+                "mainFrames": 127
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 41,
+                "displayFrames": 122,
+                "share": 0.3360655737704918,
+                "spanMs": 2019.36,
+                "moves": 248,
+                "drewFrames": 41,
+                "workP50Ms": 33.658,
+                "workP95Ms": 39.295,
+                "rafs": 88,
+                "lateShare": 0.3218390804597701,
+                "busyShare": 0.8411565379305032,
+                "mainFrames": 108
+              },
+              "select": {
+                "drew": 63,
+                "displayFrames": 116,
+                "share": 0.5431034482758621,
+                "spanMs": 1913.2,
+                "moves": 240,
+                "drewFrames": 63,
+                "workP50Ms": 18.667,
+                "workP95Ms": 32.593,
+                "rafs": 101,
+                "lateShare": 0.13,
+                "busyShare": 0.7827506295447539,
+                "mainFrames": 120
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 42,
+                "displayFrames": 124,
+                "share": 0.3387096774193548,
+                "spanMs": 2057.55,
+                "moves": 248,
+                "drewFrames": 42,
+                "workP50Ms": 34.159,
+                "workP95Ms": 38.49,
+                "rafs": 88,
+                "lateShare": 0.39080459770114945,
+                "busyShare": 0.8370275876153269,
+                "mainFrames": 107
+              },
+              "select": {
+                "drew": 59,
+                "displayFrames": 116,
+                "share": 0.5086206896551724,
+                "spanMs": 1923.24,
+                "moves": 240,
+                "drewFrames": 59,
+                "workP50Ms": 19.075,
+                "workP95Ms": 32.482,
+                "rafs": 105,
+                "lateShare": 0.09615384615384616,
+                "busyShare": 0.7709720904429258,
+                "mainFrames": 124
+              }
+            },
+            "failures": []
+          },
+          {
+            "workload": {
+              "selectPath": {
+                "rows": 41,
+                "lastColumn": 15,
+                "trips": 3
+              }
+            },
+            "drags": {
+              "resize": {
+                "drew": 41,
+                "displayFrames": 123,
+                "share": 0.3333333333333333,
+                "spanMs": 2034.15,
+                "moves": 248,
+                "drewFrames": 41,
+                "workP50Ms": 34.329,
+                "workP95Ms": 38.065,
+                "rafs": 91,
+                "lateShare": 0.34444444444444444,
+                "busyShare": 0.8280910200227704,
+                "mainFrames": 110
+              },
+              "select": {
+                "drew": 62,
+                "displayFrames": 116,
+                "share": 0.5344827586206896,
+                "spanMs": 1909.78,
+                "moves": 240,
+                "drewFrames": 62,
+                "workP50Ms": 17.637,
+                "workP95Ms": 31.73,
+                "rafs": 105,
+                "lateShare": 0.10576923076923077,
+                "busyShare": 0.7657124698503239,
+                "mainFrames": 123
+              }
+            },
+            "failures": []
+          }
+        ]
+      }
+    }
+  },
+  "failures": []
+}
