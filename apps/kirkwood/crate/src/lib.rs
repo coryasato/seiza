@@ -7,6 +7,8 @@
 //!   columns ([`rows`]), as one table of the sample's 18 columns
 //!   ([`catalog`]);
 //! - the table's source over them ([`table`]): every page a view;
+//! - the live columns ([`live`]): a row's distance from the Sun and from
+//!   Jupiter at the instant the table shows;
 //! - the clock ([`clock`]), and where an orbit puts its body at a time on
 //!   it, in 64-bit floats ([`orbit`]): a row's place, and Jupiter's;
 //! - a dot's color by its orbit size ([`ramp`]): the scene's and the
@@ -43,6 +45,7 @@ pub mod group;
 mod host;
 pub mod integrate;
 pub mod layout;
+pub mod live;
 pub mod orbit;
 pub mod ramp;
 pub mod ride;

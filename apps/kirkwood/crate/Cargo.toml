@@ -16,10 +16,13 @@ seiza.workspace = true
 # `select`: a press on a row selects it, and the interface finds that row
 # in the scene (rows alone: `host.rs`). `sort`: a press on a number
 # column's arrow orders the table's rows, a drawn group's alone while one
-# is held (`table.rs`).
-seiza-tall-table = { workspace = true, features = ["select", "sort"] }
+# is held (`table.rs`). `format`: a live column's fixed decimals, fewer
+# while time runs (`live.rs`). `density`: a column's set width, the live
+# columns', so both stand in the panel as it opens (the density itself
+# stays the base's).
+seiza-tall-table = { workspace = true, features = ["select", "sort", "format", "density"] }
 # The table's events as marks, targets, and probes, for the checks' scripts.
-tall-table-bridge = { workspace = true, features = ["select", "sort"] }
+tall-table-bridge = { workspace = true, features = ["select", "sort", "format", "density"] }
 
 # The entry point and the files' arrival are web-only; the readers and the
 # views compile natively for clippy and tests.

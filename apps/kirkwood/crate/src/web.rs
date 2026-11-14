@@ -37,6 +37,11 @@ use crate::scene;
 const PROGRESS_EVERY_MS: f64 = 100.0;
 /// The places Jupiter's orbit is drawn through.
 const ORBIT_POINTS: usize = 256;
+/// What the table's head keeps of the panel's fill, over the glass: the
+/// table draws its columns' names dimmer than its cells, and over dust in
+/// full color they couldn't be read with none (`docs/DECISIONS.md`,
+/// "Table").
+const GLASS_HEAD: f32 = 0.85;
 
 /// The most time one frame's call spends stepping the two groups toward
 /// the clock, when the clock has jumped: the rest waits for the next.
@@ -198,11 +203,14 @@ pub fn start(ui_font: Vec<u8>) {
             // Chromium has no such blending, so no check sees it.
             cx.set_text_rendering_mode(TextRenderingMode::Grayscale);
             // The panel is glass (unless `?glass=1`): the table's own fills let the panel's show (and
-            // through it the scene), its stripes half as strong.
+            // through it the scene), its stripes half as strong. Its head
+            // keeps a fill of its own: the columns' names are the muted
+            // color, which over dust in full color can't be read
+            // (`docs/DECISIONS.md`, "Table").
             if crate::host::GLASS.is_some() {
                 let theme = Theme::global_mut(cx);
                 theme.tokens.table = gpui_kit::transparent_black().into();
-                theme.tokens.table_head = gpui_kit::transparent_black().into();
+                theme.tokens.table_head = theme.popover.opacity(GLASS_HEAD).into();
                 theme.table_even = theme.table_even.opacity(0.5);
             }
             seiza_tall_table::init(cx);
@@ -998,7 +1006,33 @@ pub fn table_sort(column: i32, descending: bool) -> bool {
     sorted
 }
 
-/// A file row's number in a column the table sorts by; NaN for none.
+/// What the table's last sort took to put its rows in order, ms: the
+/// stall of a press on a column's arrow.
+#[wasm_bindgen]
+pub fn sort_cost() -> f64 {
+    crate::table::sort_cost()
+}
+
+/// The instant the live cells show: the clock's years then, and whether
+/// time ran (a moving cell is written to fewer decimals).
+#[wasm_bindgen]
+pub fn live_shown() -> Vec<f64> {
+    let (years, moving) = crate::live::shown();
+    vec![years, f64::from(u8::from(moving))]
+}
+
+/// What a live column's cell must say of a file row at `years`: its
+/// distance, au, worked out apart from the table; NaN for a row with no
+/// place, or a column that isn't live.
+#[wasm_bindgen]
+pub fn live_at(row: usize, column: usize, years: f64) -> f64 {
+    let Some((host, cx)) = HOST.with_borrow(Clone::clone) else {
+        return f64::NAN;
+    };
+    host.read_with(&cx, |host, _| host.live_at(row, column, years))
+}
+
+/// A file row's number in a column of the table that sorts; NaN for none.
 #[wasm_bindgen]
 pub fn row_number(row: usize, column: usize) -> f32 {
     let Some((host, cx)) = HOST.with_borrow(Clone::clone) else {

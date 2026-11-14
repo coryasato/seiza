@@ -61,6 +61,14 @@ thread_local! {
     };
 }
 
+/// The page clock, ms; 0 off the web, where nothing animates.
+pub fn page_ms() -> f64 {
+    #[cfg(target_family = "wasm")]
+    return seiza::marks::now();
+    #[cfg(not(target_family = "wasm"))]
+    0.0
+}
+
 /// The first and last of the clock's years.
 pub fn reach() -> (f64, f64) {
     (-REACH_BACK_DAYS / YEAR_DAYS, REACH_ON_DAYS / YEAR_DAYS)

@@ -319,3 +319,15 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Look", "Interfa
 - **A new thing on the picture broke a reading of the picture.** Part B's check of the group's color read a patch of dust that the named bodies' chips now lie over: 0.42 where 0.54 was expected, and nothing wrong with a dot.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Interface", and "Table"; the evidence: `PLAN.md`, M6's checks C1 to C4.
+
+## M6 part D: the live columns, the tour, and the close (2026-11-13)
+
+- **The stall the plan carried for three parts was a sixth of its size.** "A third to two thirds of a second" came from the spike's sort, on the spike's build. Measured in the app before anything was changed, an order took 51 ms by diameter and 102 by a. The worker, the frames to spread it over, and the orders shipped in the file were all answers to a number nobody had read here. Measure the thing in the build it ships in before choosing among fixes for it.
+- **The first radix sort was slower than the sort it replaced, by diameter.** It keyed every row, and nine rows in ten have no diameter: three passes over 1.58 million pairs to move rows that were already in their final order. Setting those rows aside first is what took it from 40 ms to 16.
+- **A live column nobody can see isn't live.** The spec put the live columns in the table and stopped. The open panel shows four columns of twenty: at the end of the sample's order they'd have been eleven columns of sideways scroll away, and at a float column's own width the second of them still hung off the panel's edge. Where a column stands and how wide it is decided whether the feature exists for a visitor.
+- **A cell computed "when drawn" is drawn far more often than it refreshes.** A scroll, a hover, a selection, the panel's slide: each redraws the table. Read from the clock, every one of those would have been a new number between two refreshes. The cells read an instant the interface sets, and the clock only through it.
+- **The tour was already built.** A press on a row flew the camera since part A, the arrow keys moved the found row, and the table sorted since part B. What the check found instead was what the catalog holds: the second biggest body on file orbits past Neptune, and the camera ends 44 au out over one dot.
+- **The glass's last reading failed on the one text nobody had looked at.** The rows read fine over dust in full color. The columns' names, which the table draws dimmer than its cells, vanished over it, in a screenshot taken to measure something else.
+- **A wheel on the header scrolls nothing,** and the check's pointer was still on the arrow it had pressed: the table stayed scrolled sideways, and the "row's name" read back was its diameter.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table" and "Interface"; the evidence: [`milestones.md`](milestones.md), M6's checks D1 to D4.

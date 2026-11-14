@@ -267,6 +267,27 @@
 //           (out/dot-back.jpg). With time running, a click on the followed
 //           row picks it; the lasso's press lets it go; on the axes a click
 //           picks nothing.
+//   live    the live columns, a row's distance from the Sun and from
+//           Jupiter. With time held (out/live-still.jpg): both in the open
+//           panel, every drawn cell the crate's own number for its row at
+//           the instant shown, to three decimals; Ceres's counted again
+//           from the elements file's bytes; a Hilda's the integrated
+//           place's; a row with no ellipse NULL; neither column sorting.
+//           With time running (out/live-running.jpg): a refresh twice a
+//           second, each cell one decimal and the crate's number for that
+//           instant, never further behind the clock than a refresh; paused,
+//           every decimal within a refresh (out/live-paused.jpg); with the
+//           panel shut nothing worked out, and opened, the cells of now.
+//           And the rows' text and the columns' names over dust in full
+//           color, from straight above (out/live-dust.jpg).
+//   tour    a sort by diameter as a tour, with time running: a press on
+//           the diameter's arrow (a sideways wheel away), the table's first
+//           rows the biggest bodies by the check's own count of every row,
+//           a press on each of five and then the arrow key each a flight to
+//           that row's dot, at the middle of what the panel leaves within a
+//           pixel (out/tour-*.jpg); the arrow's next presses, the smallest
+//           first and the file's order; and what an order costs, the median
+//           of five by diameter and by a.
 //   glass   only when named: the panel as glass (`?glass`) over a group
 //           flown in to, at a few fills and blurs: a picture of each
 //           (out/glass-*.jpg), the rows' text against what's under it, and
@@ -288,7 +309,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,rate,drag,slow,cross] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,rate,drag,slow,cross,glass] [--runs 5] [--browser firefox|webkit]
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -308,7 +329,7 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'flyin', 'dot', 'rate', 'drag', 'slow', 'cross', 'glass'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'flyin', 'dot', 'live', 'tour', 'rate', 'drag', 'slow', 'cross', 'glass'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -398,11 +419,17 @@ type Kirkwood = {
   tableRows(from: number, to: number): Uint32Array;
   sortTable(column: number, descending: boolean): boolean;
   rowNumber(row: number, column: number): number;
+  /** What the table's last sort took to order its rows, ms. */
+  sortCost(): number;
+  /** The instant the live cells show. */
+  liveShown(): { years: number; moving: boolean };
+  /** What a live column's cell must say of a file row at `years`, au. */
+  liveAt(row: number, column: number, years: number): number;
 };
 type Named = { row: number; name: string; size: string; x: number; y: number; left: number; top: number; width: number };
 type Corner = { turned: number; tilt: number; folded: boolean; open: boolean };
 type Probe = { rows: number; top: number; first: number; end: number; loaded: number; pending: number };
-type Layout = { left: number; top: number; rowHeight: number; columns: { name: string }[] };
+type Layout = { left: number; top: number; rowHeight: number; columns: { name: string; x: number; width: number; arrow?: { x: number; width: number } | null }[] };
 type Cell = { row: number; column: number; exact: string; shown: string };
 type Page_ = { __kirkwood: Kirkwood; __kirkwoodTable?: Probe; __kirkwoodLayout?: Layout; __kirkwoodCells?: Cell[] };
 
@@ -2207,11 +2234,15 @@ const foundAt = (now: FoundNow): Point => project(now.camera, now.place);
 const chaseIs =(page: Page, chase: string, timeout = 20_000) => page.waitForFunction((chase) => (globalThis as unknown as Page_).__kirkwood.scene!.stats.chase === chase && (globalThis as unknown as Page_).__kirkwood.scene!.stats.finds === (globalThis as unknown as Page_).__kirkwood.found().finds, chase, { timeout, polling: 'raf' });
 const foundIs = (page: Page, row: number) => page.waitForFunction((row) => (globalThis as unknown as Page_).__kirkwood.found().row === row, row, { timeout: 10_000, polling: 'raf' });
 /** The row's ring and its name are on its dot, within a pixel: how far off. */
-function marked(now: FoundNow, row: number, name: string, when: string): number {
+function marked(now: FoundNow, row: number, name: string, when: string, mayLeave = false): number {
   need(now.found.row === row && now.found.dot && now.found.name === name, `${when}: the page has found ${JSON.stringify(now.found)}, and row ${row} is ${name}`);
   const at = foundAt(now);
   need(!!now.ring && off([now.ring.x, now.ring.y], at) <= 1, `${when}: the ring is at ${JSON.stringify(now.ring)}, and its row at ${at.map(round)}`);
-  need(now.label.shown && now.label.text === name && near(now.label.left, at[0] + FOUND_MARK.name[0], 1) && near(now.label.top, at[1] + FOUND_MARK.name[1], 1), `${when}: the name is ${JSON.stringify(now.label)}, and its row at ${at.map(round)}`);
+  // (A row out of the window has no name drawn. Only where the caller
+  // says the row may have left it, `mayLeave`: anywhere else a name not
+  // drawn fails. The window is the scene's own, as its camera has it.)
+  const inWindow = !mayLeave || (at[0] >= 0 && at[0] <= now.camera[16]! && at[1] >= 0 && at[1] <= now.camera[17]!);
+  need(now.label.text === name && (inWindow ? now.label.shown && near(now.label.left, at[0] + FOUND_MARK.name[0], 1) && near(now.label.top, at[1] + FOUND_MARK.name[1], 1) : !now.label.shown), `${when}: the name is ${JSON.stringify(now.label)}, and its row at ${at.map(round)}`);
   return fixed(off([now.ring!.x, now.ring!.y], at), 3);
 }
 /** The row is at the middle of what a panel `inset` px wide leaves, within
@@ -2224,9 +2255,11 @@ function centered(now: FoundNow, row: number, name: string, inset: number, when:
   need(off(at, middle) <= 1, `${when}: row ${row} is at ${at.map(round)}, and the middle of what the panel leaves is ${middle}`);
   return { offMiddlePx: fixed(off(at, middle), 3), markOffPx };
 }
-/** The row is marked and the camera isn't on it: a hand has it. */
-function letGo(now: FoundNow, row: number, name: string, when: string): { offMiddlePx: number; markOffPx: number } {
-  const markOffPx = marked(now, row, name, when);
+/** The row is marked and the camera isn't on it: a hand has it.
+ *  `mayLeave`: with time running, a camera taken mid-flight can leave the
+ *  row past the window's edge, by where on its orbit the clock had it. */
+function letGo(now: FoundNow, row: number, name: string, when: string, mayLeave = false): { offMiddlePx: number; markOffPx: number } {
+  const markOffPx = marked(now, row, name, when, mayLeave);
   const away = off(foundAt(now), [720, 450]);
   need(now.chase === '' && !now.gliding && away > 20, `${when}: the camera is ${now.chase || 'at rest'}${now.gliding ? ', moving on its own' : ''}, row ${row} ${round(away)} px from the middle`);
   return { offMiddlePx: fixed(away, 1), markOffPx };
@@ -2427,16 +2460,16 @@ async function seeFind(url: string) {
     await page.waitForTimeout(350);
     await dragged(page, [500, 520], [440, 560], { ms: 200 });
     await cameraRests(page);
-    const byDrag = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a drag mid-flight');
+    const byDrag = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a drag mid-flight', true);
     await again(350);
     await page.mouse.move(400, 300);
     await wheel(page, -120);
     await page.waitForTimeout(400);
-    const byWheel = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a wheel mid-flight');
+    const byWheel = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a wheel mid-flight', true);
     await again(350);
     await page.keyboard.press('ArrowLeft');
     await cameraRests(page);
-    const byKey = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a key mid-flight');
+    const byKey = letGo(await foundNow(page), FOUND_ROWS.ceres, 'Ceres', 'a key mid-flight', true);
     // The way home lets a followed row go: the mark stays on its dot, and
     // the camera is the first one, number for number.
     await again(0);
@@ -2552,8 +2585,18 @@ const BOARD_SHAPE: Point[] = [
 /** The shape's line and its chip, as the scene draws them (`scene.ts`,
  *  `CHIP`): the chip's height, and how far over the shape's top it sits. */
 const GROUP_CHIP = { height: 22, over: 12 } as const;
-/** The diameter's column, which the check sorts by (`catalog.rs`). */
-const DIAMETER = 8;
+/** The table's columns the checks read, by their place among its 20
+ *  (`table.rs`, `shown`: the files' columns, the live ones after the full
+ *  name). A closure handed to `kirkwood(page, …)` or `page.evaluate` runs
+ *  in the page and can't see these, so those hold the numbers themselves:
+ *  `columnsAre` fails a page whose columns stand anywhere else. */
+const COLUMNS = { full_name: 1, sun_au: 2, jupiter_au: 3, diameter: 10, a: 12 } as const;
+const DIAMETER = COLUMNS.diameter;
+/** The table's columns are where the checks' numbers have them. */
+async function columnsAre(page: Page): Promise<void> {
+  const names = (await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!)).columns.map((column) => column.name);
+  for (const [name, at] of Object.entries(COLUMNS)) need(names[at] === name, `the table's column ${at} is ${names[at]}, and the checks read it as ${name}: ${names.join()}`);
+}
 const groupNow = (page: Page) =>
   kirkwood(page, (kirkwood) => {
     const scene = kirkwood.scene!;
@@ -2813,7 +2856,8 @@ async function seeGroup(url: string) {
     const probe = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodTable!);
     need(probe.rows === picked.rows.length, `the table draws ${probe.rows} rows`);
     const { a } = elementsFile().columns;
-    const firstCell = await drawnCell(page, 0, 10);
+    await columnsAre(page);
+    const firstCell = await drawnCell(page, 0, COLUMNS.a);
     need(Math.fround(Number(firstCell.exact)) === a[picked.rows[0]!], `the table's first row (${firstCell.name}) has a ${firstCell.exact}, and row ${picked.rows[0]}'s is ${a[picked.rows[0]!]}`);
     const header = await page.evaluate(() => (globalThis as { __seizaTargets?: Record<string, number[]> }).__seizaTargets);
     need(!!header?.['show-all'] && !!header['group-count'], "the panel's header has no count of the group, or no way back");
@@ -2828,11 +2872,11 @@ async function seeGroup(url: string) {
     await shot(page, 'group-found');
     // A sort there orders the group alone: by diameter, the biggest first,
     // the rows with none last, ties in the file's order.
-    const sorted = await kirkwood(page, (kirkwood) => kirkwood.sortTable(8, true));
+    const sorted = await kirkwood(page, (kirkwood) => kirkwood.sortTable(10, true));
     await page.waitForTimeout(400);
     const order = await kirkwood(page, (kirkwood) => {
       const rows = Array.from(kirkwood.tableRows(0, kirkwood.table()!.rows));
-      return { table: kirkwood.table()!, rows, diameters: rows.map((row) => kirkwood.rowNumber(row, 8)), found: kirkwood.found().row };
+      return { table: kirkwood.table()!, rows, diameters: rows.map((row) => kirkwood.rowNumber(row, 10)), found: kirkwood.found().row };
     });
     need(sorted && order.table.column === DIAMETER && order.table.descending && order.table.rows === picked.rows.length, `sorted by diameter, the table is ${JSON.stringify(order.table)}`);
     need(order.rows.length === picked.rows.length && order.rows.every((row) => theirs.has(row)) && new Set(order.rows).size === order.rows.length, "sorted, the table's rows aren't the group's");
@@ -2852,7 +2896,7 @@ async function seeGroup(url: string) {
     await clickTarget(page, 'show-all');
     await groupIs(page, false);
     await page.waitForTimeout(400);
-    const all = await kirkwood(page, (kirkwood) => ({ table: kirkwood.table()!, first: kirkwood.tableRows(0, 1)[0], diameter: kirkwood.rowNumber(kirkwood.tableRows(0, 1)[0]!, 8), clock: kirkwood.clock(), group: kirkwood.group(), outline: kirkwood.scene!.outline(), chip: kirkwood.scene!.labels().at(-2)!, grayed: kirkwood.scene!.stats.grayed }));
+    const all = await kirkwood(page, (kirkwood) => ({ table: kirkwood.table()!, first: kirkwood.tableRows(0, 1)[0], diameter: kirkwood.rowNumber(kirkwood.tableRows(0, 1)[0]!, 10), clock: kirkwood.clock(), group: kirkwood.group(), outline: kirkwood.scene!.outline(), chip: kirkwood.scene!.labels().at(-2)!, grayed: kirkwood.scene!.stats.grayed }));
     // (Still sorted by diameter: of every row, Ceres is the biggest.)
     need(all.table.rows === TABLE_ROWS && all.table.column === DIAMETER && all.first === FOUND_ROWS.ceres && all.clock.running && !all.group.mode && !all.outline && !all.chip.shown && all.grayed === 0, `after "Show all rows": ${JSON.stringify({ ...all, outline: !!all.outline })}`);
     const backFills = await fourFills(page);
@@ -3159,7 +3203,7 @@ async function filled(page: Page, now: Awaited<ReturnType<typeof flyNow>>, inset
 /** A group's named bodies are its biggest with a diameter on file, each
  *  ring on its dot and each chip beside it within a pixel: how far off. */
 async function namedAre(page: Page, now: Awaited<ReturnType<typeof flyNow>>, rows: number[], when: string): Promise<{ named: string[]; offPx: number }> {
-  const diameters = await page.evaluate((rows) => rows.map((row) => (globalThis as unknown as Page_).__kirkwood.rowNumber(row, 8)), rows);
+  const diameters = await page.evaluate((rows) => rows.map((row) => (globalThis as unknown as Page_).__kirkwood.rowNumber(row, 10)), rows);
   // The biggest first, ties in the file's order: the rows with none aren't named.
   const biggest = rows.map((row, at) => ({ row, km: diameters[at]! })).filter(({ km }) => km > 0).sort((one, other) => other.km - one.km || one.row - other.row).slice(0, BODY_MARK.most);
   need(now.named.length === biggest.length && now.named.every((named, at) => named.row === biggest[at]!.row), `${when}: the bodies named are rows ${now.named.map((named) => named.row)}, and the group's biggest are ${biggest.map(({ row }) => row)}`);
@@ -3228,7 +3272,8 @@ async function seeFlyIn(url: string) {
     await shot(page, 'flyin');
     // The table's first rows, sorted by diameter, are the bodies named:
     // each name the row's own, as its `full_name` has it.
-    need(await kirkwood(page, (kirkwood) => kirkwood.sortTable(8, true)), 'the table wouldn\'t sort by diameter');
+    await columnsAre(page);
+    need(await kirkwood(page, (kirkwood) => kirkwood.sortTable(10, true)), 'the table wouldn\'t sort by diameter');
     await page.waitForTimeout(500);
     const sortedNow = await flyNow(page);
     const tops = await kirkwood(page, (kirkwood) => Array.from(kirkwood.tableRows(0, 4)));
@@ -3339,7 +3384,7 @@ async function seeFlyIn(url: string) {
     const later = await flyNow(page);
     need(later.years > flew.years + 0.3 && !later.outline && later.group.rows === fill.rows.length, `time run with a group held: ${later.years - flew.years} years on, ${JSON.stringify(later.group)}`);
     // (Those still in what the panel leaves.)
-    const diameters = await page.evaluate((rows) => rows.map((row) => (globalThis as unknown as Page_).__kirkwood.rowNumber(row, 8)), fill.rows);
+    const diameters = await page.evaluate((rows) => rows.map((row) => (globalThis as unknown as Page_).__kirkwood.rowNumber(row, 10)), fill.rows);
     const biggest = new Set(fill.rows.map((row, at) => ({ row, km: diameters[at]! })).filter(({ km }) => km > 0).sort((one, other) => other.km - one.km || one.row - other.row).slice(0, BODY_MARK.most).map(({ row }) => row));
     let most = 0;
     for (const body of later.named) {
@@ -3551,6 +3596,349 @@ async function seeDot(url: string) {
       wayBack: { tableRows: all.table!.rows, tableShows: [probe.first, probe.end], found: all.found.row },
       withTimeRunning: { picked: running.group },
     };
+  });
+}
+
+/** The live columns, where the table has them (`table.rs`, `LIVE_AT`): a
+ *  row's distance from the Sun and from Jupiter, au. */
+const LIVE = { sun: COLUMNS.sun_au, jupiter: COLUMNS.jupiter_au, names: ['sun_au', 'jupiter_au'] } as const;
+/** A live cell's decimals with time held and with time running, and the
+ *  columns' refreshes a second (`live.rs`). */
+const LIVE_DECIMALS = { still: 3, moving: 1 } as const;
+const LIVE_A_SECOND = 2;
+/** 20000 Varuna's row: an orbit past Neptune, 40 au and more from both. */
+const FAR_ROW = 19_999;
+
+/** The live cells as last drawn, each with its row of the file and what
+ *  the crate says it must be at the instant the cells show, worked out
+ *  apart from the table; of one instant (a refresh between the draw and
+ *  the reading is read again). */
+async function liveCells(page: Page) {
+  for (let tries = 0; ; tries++) {
+    const now = await page.evaluate(() => {
+      const page = globalThis as unknown as Page_;
+      const kirkwood = page.__kirkwood;
+      const shown = kirkwood.liveShown();
+      const cells = (page.__kirkwoodCells ?? [])
+        .filter((cell) => cell.column === 2 || cell.column === 3)
+        .map((cell) => {
+          const fileRow = kirkwood.tableRows(cell.row, cell.row + 1)[0]!;
+          return { ...cell, fileRow, must: kirkwood.liveAt(fileRow, cell.column, shown.years) };
+        });
+      return { shown, clock: kirkwood.clock(), cells };
+    });
+    const agree = now.cells.length > 0 && now.cells.every((cell) => (cell.exact === 'NULL' ? Number.isNaN(cell.must) : Number(cell.exact) === cell.must));
+    if (agree || tries >= 5) return now;
+    await page.waitForTimeout(60);
+  }
+}
+/** Every live cell drawn is the crate's own number for its row at the
+ *  instant shown, written to `decimals`: how many cells. */
+function liveAgrees(now: Awaited<ReturnType<typeof liveCells>>, decimals: number, when: string): number {
+  need(now.cells.length >= 20, `${when}: ${now.cells.length} live cells are drawn`);
+  for (const cell of now.cells) {
+    const where = `${when}: row ${cell.fileRow}'s ${LIVE.names[cell.column - LIVE.sun]}`;
+    if (Number.isNaN(cell.must)) need(cell.exact === 'NULL', `${where} is ${cell.exact}, and the row has no place`);
+    else need(Number(cell.exact) === cell.must && cell.shown === cell.must.toFixed(decimals), `${where} is ${cell.exact}, drawn "${cell.shown}", and the crate's is ${cell.must} at ${now.shown.years} years`);
+  }
+  return now.cells.length;
+}
+
+async function seeLive(url: string) {
+  const length = (place: ArrayLike<number>, from: ArrayLike<number> = [0, 0, 0]) => Math.hypot(place[0]! - from[0]!, place[1]! - from[1]!, place[2]! - from[2]!);
+  const openPanel = async (page: Page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await drawnRow(page, 0);
+    await page.waitForTimeout(700);
+    await columnsAre(page);
+    return page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!);
+  };
+  const panel = { x: 1440 - PANEL, y: 0, width: PANEL, height: 520 };
+
+  // Time held, five years on from the epoch: every decimal, exact.
+  const still = await withBelt(url, { date: '2031-03-01', paused: '', perf: '', 'probe-cells': '' }, async (page) => {
+    const layout = await openPanel(page);
+    const [sun, jupiter] = [layout.columns[LIVE.sun]!, layout.columns[LIVE.jupiter]!];
+    need(layout.columns.length === 20 && sun.name === LIVE.names[0] && jupiter.name === LIVE.names[1] && !sun.arrow && !jupiter.arrow, `the table's columns are ${layout.columns.map((column) => column.name).join()}`);
+    // Both are in the panel as it opens, whole.
+    need(layout.left + jupiter.x + jupiter.width <= 1440, `jupiter_au ends ${layout.left + jupiter.x + jupiter.width} px across a window of 1440`);
+    const now = await liveCells(page);
+    const cells = liveAgrees(now, LIVE_DECIMALS.still, 'time held');
+    need(!now.shown.moving && now.shown.years === now.clock.years && !now.clock.running, `time held: the cells show ${JSON.stringify(now.shown)}, and the clock is ${JSON.stringify(now.clock)}`);
+    // Ceres's, counted here from the elements file's own bytes.
+    const { a, e, i, om, w, ma } = elementsFile().columns;
+    const at = new Float64Array(3);
+    place(a[0]!, e[0]!, i[0]!, om[0]!, w[0]!, ma[0]!, now.shown.years * YEAR_DAYS, at);
+    const giant = await page.evaluate((years) => (globalThis as unknown as Page_).__kirkwood.jupiter(years), now.shown.years);
+    const ceres = { sun: now.cells.find((cell) => cell.fileRow === 0 && cell.column === LIVE.sun)!, jupiter: now.cells.find((cell) => cell.fileRow === 0 && cell.column === LIVE.jupiter)! };
+    const mine = { sun: length(at), jupiter: length(at, giant) };
+    need(near(Number(ceres.sun.exact), mine.sun, 1e-9) && near(Number(ceres.jupiter.exact), mine.jupiter, 1e-9), `Ceres's cells are ${ceres.sun.exact} and ${ceres.jupiter.exact}, and from the file's bytes ${mine.sun} and ${mine.jupiter}`);
+    await shot(page, 'live-still', panel);
+    // A live column doesn't sort.
+    const refused = await kirkwood(page, (kirkwood) => [kirkwood.sortTable(2, true), kirkwood.sortTable(3, false), kirkwood.table()!.column]);
+    need(refused[0] === false && refused[1] === false && refused[2] === -1, `a sort by a live column: ${JSON.stringify(refused)}`);
+    // A Hilda: where the integration has it, not on its ellipse.
+    await page.mouse.move(layout.left + 200, layout.top + layout.rowHeight * 3.5);
+    await wheel(page, (FOUND_ROWS.hilda - 6) * layout.rowHeight);
+    await drawnRow(page, FOUND_ROWS.hilda);
+    await page.waitForTimeout(700);
+    const down = await liveCells(page);
+    liveAgrees(down, LIVE_DECIMALS.still, 'scrolled to a Hilda');
+    const hilda = down.cells.find((cell) => cell.fileRow === FOUND_ROWS.hilda && cell.column === LIVE.sun)!;
+    const places = await page.evaluate(({ row, years }) => ({ moved: (globalThis as unknown as Page_).__kirkwood.placeOf(row, years), ellipse: (globalThis as unknown as Page_).__kirkwood.ellipseOf(row, years) }), { row: FOUND_ROWS.hilda, years: down.shown.years });
+    need(Number(hilda.exact) === length(places.moved) && Math.abs(Number(hilda.exact) - length(places.ellipse)) > 1e-9, `Hilda's cell is ${hilda.exact}, its integrated place ${length(places.moved)} au out, and its ellipse's ${length(places.ellipse)}`);
+    // A row past Neptune: its cells are six characters, and still whole
+    // in columns as wide as their names (Varuna, the tour's second stop).
+    await page.evaluate((row) => (globalThis as unknown as Page_).__kirkwood.jump(row), FAR_ROW);
+    await drawnRow(page, FAR_ROW);
+    await page.waitForTimeout(500);
+    const out = await liveCells(page);
+    liveAgrees(out, LIVE_DECIMALS.still, 'at a row past Neptune');
+    const varuna = out.cells.filter((cell) => cell.fileRow === FAR_ROW).map((cell) => cell.shown);
+    need(varuna.length === 2 && varuna.every((shown) => Number(shown) > 30 && shown.length === 6), `Varuna's live cells are drawn ${JSON.stringify(varuna)}`);
+    // A row with no ellipse has no place: NULL in both.
+    await page.evaluate((row) => (globalThis as unknown as Page_).__kirkwood.jump(row), FOUND_ROWS.unbound);
+    await drawnRow(page, FOUND_ROWS.unbound);
+    await page.waitForTimeout(500);
+    const far = await liveCells(page);
+    const none = far.cells.filter((cell) => cell.fileRow === FOUND_ROWS.unbound);
+    need(none.length === 2 && none.every((cell) => cell.exact === 'NULL'), `a row with no ellipse: its live cells are ${JSON.stringify(none)}`);
+    return { years: fixed(now.shown.years, 4), cells, ceres: { sunAu: ceres.sun.shown, jupiterAu: ceres.jupiter.shown, fromTheFileOffAu: [Math.abs(Number(ceres.sun.exact) - mine.sun), Math.abs(Number(ceres.jupiter.exact) - mine.jupiter)] }, hilda: { sunAu: hilda.shown, onItsEllipseAu: fixed(length(places.ellipse), 6), integratedAu: fixed(length(places.moved), 6) }, noEllipse: none.map((cell) => cell.exact), varuna };
+  });
+
+  // Time running at a year a second: fewer decimals, at the columns' rate.
+  const running = await withBelt(url, { date: EPOCH, perf: '', 'probe-cells': '' }, async (page) => {
+    await openPanel(page);
+    const samples = await page.evaluate(
+      () =>
+        new Promise<{ at: number; years: number; moving: boolean; clock: number; shown?: string; exact?: string }[]>((done) => {
+          const page = globalThis as unknown as Page_;
+          const out: { at: number; years: number; moving: boolean; clock: number; shown?: string; exact?: string }[] = [];
+          const start = performance.now();
+          const tick = () => {
+            const cell = page.__kirkwoodCells?.find((cell) => cell.row === 0 && cell.column === 2);
+            const shown = page.__kirkwood.liveShown();
+            out.push({ at: performance.now() - start, years: shown.years, moving: shown.moving, clock: page.__kirkwood.clock().years, shown: cell?.shown, exact: cell?.exact });
+            if (performance.now() - start < 5000) requestAnimationFrame(tick);
+            else done(out);
+          };
+          requestAnimationFrame(tick);
+        }),
+    );
+    // Each instant shown, when it was first seen, and the cell under it
+    // (read a frame after the instant moved: the frame that drew it).
+    const instants: { at: number; years: number; shown: string; exact: string }[] = [];
+    for (const [at, sample] of samples.entries()) {
+      need(sample.moving, `with time running a sample ${round(sample.at)} ms in says the cells hold still`);
+      need(sample.clock - sample.years < 1 / LIVE_A_SECOND + 0.2, `${round(sample.at)} ms in the cells show ${sample.years} years and the clock is at ${sample.clock}`);
+      const last = samples[at - 1];
+      if (!last) continue;
+      if (last.years !== sample.years) instants.push({ at: sample.at, years: sample.years, shown: '', exact: '' });
+      else if (instants.length && !instants.at(-1)!.shown && sample.shown) Object.assign(instants.at(-1)!, { shown: sample.shown, exact: sample.exact });
+    }
+    const whole = instants.filter((instant) => instant.shown);
+    const gaps = instants.slice(1).map((instant, at) => instant.at - instants[at]!.at);
+    need(instants.length >= 8 && instants.length <= 11 && gaps.every((gap) => gap > 350 && gap < 750), `in 5 s the live cells moved on ${instants.length} times, ${gaps.map(round).join(', ')} ms apart`);
+    const musts = await page.evaluate((years) => years.map((years) => (globalThis as unknown as Page_).__kirkwood.liveAt(0, 2, years)), whole.map((instant) => instant.years));
+    for (const [at, instant] of whole.entries()) {
+      need(Number(instant.exact) === musts[at] && instant.shown === musts[at]!.toFixed(LIVE_DECIMALS.moving), `at ${instant.years} years Ceres's sun_au is ${instant.exact}, drawn "${instant.shown}", and the crate's is ${musts[at]}`);
+    }
+    const steps = whole.slice(1).map((instant, at) => Math.abs(Number(instant.exact) - Number(whole[at]!.exact)));
+    const now = await liveCells(page);
+    const cells = liveAgrees(now, LIVE_DECIMALS.moving, 'time running');
+    // How far a cell moves between two refreshes, over the rows in view.
+    await page.waitForTimeout(1000 / LIVE_A_SECOND + 100);
+    const next = await liveCells(page);
+    const moved = next.cells.flatMap((cell) => {
+      const before = now.cells.find((other) => other.fileRow === cell.fileRow && other.column === cell.column);
+      return before && cell.column === LIVE.sun ? [Math.abs(Number(cell.exact) - Number(before.exact)) / Math.max(1e-9, next.shown.years - now.shown.years)] : [];
+    });
+    await shot(page, 'live-running', panel);
+    // Paused: every decimal within a refresh, of the clock's own instant.
+    await clickTarget(page, 'time');
+    await page.waitForTimeout(1000 / LIVE_A_SECOND + 300);
+    const paused = await liveCells(page);
+    liveAgrees(paused, LIVE_DECIMALS.still, 'paused');
+    need(!paused.shown.moving && !paused.clock.running && paused.shown.years === paused.clock.years, `paused: the cells show ${JSON.stringify(paused.shown)}, and the clock is at ${paused.clock.years}`);
+    await shot(page, 'live-paused', panel);
+    // With the panel shut nothing is worked out; opened, the cells are of now.
+    await clickTarget(page, 'time');
+    await clickTarget(page, 'table-close');
+    await page.waitForTimeout(800);
+    const shut = await kirkwood(page, (kirkwood) => kirkwood.liveShown());
+    await page.waitForTimeout(1500);
+    const later = await kirkwood(page, (kirkwood) => ({ shown: kirkwood.liveShown(), clock: kirkwood.clock() }));
+    need(later.shown.years === shut.years && later.clock.years - shut.years > 1, `with the panel shut the live cells went from ${shut.years} to ${later.shown.years} years, the clock at ${later.clock.years}`);
+    await clickTarget(page, 'table-handle');
+    await settle(page);
+    const opened = await kirkwood(page, (kirkwood) => ({ shown: kirkwood.liveShown(), clock: kirkwood.clock() }));
+    need(opened.clock.years - opened.shown.years < 0.3, `the panel opened again: the cells show ${opened.shown.years} years, the clock at ${opened.clock.years}`);
+    return {
+      refreshesIn5s: instants.length,
+      msApart: { median: round(median(gaps)), least: round(Math.min(...gaps)), most: round(Math.max(...gaps)) },
+      ceresSunAu: whole.map((instant) => instant.shown),
+      ceresMovedAuARefresh: { most: fixed(Math.max(...steps), 3) },
+      cells,
+      inViewAuAYear: { median: fixed(median(moved), 3), most: fixed(Math.max(...moved), 3) },
+      paused: { years: fixed(paused.shown.years, 4), ceresSunAu: paused.cells.find((cell) => cell.fileRow === 0 && cell.column === LIVE.sun)!.shown },
+      panelShut: { cellsStoodAtYears: fixed(shut.years, 3), clockRanTo: fixed(later.clock.years, 3) },
+    };
+  });
+
+  // The rows' text over dust in full color, no group to gray it: the
+  // camera straight down with the belt's thick under the panel.
+  const dust = await withBelt(url, { date: EPOCH, paused: '', elev: '90', roll: '0', dist: '5', at: '1.6,0', perf: '', 'probe-cells': '' }, async (page) => {
+    await openPanel(page);
+    await page.mouse.move(300, 300);
+    await page.waitForTimeout(300);
+    const png = await page.screenshot();
+    await shot(page, 'live-dust');
+    const rows = await pixelsOf(page, png, { x: 1440 - PANEL + 8, y: 100, width: PANEL - 24, height: 700 }, (pixels) => {
+      const lights: number[] = [];
+      for (let at = 0; at < pixels.length; at += 4) lights.push((pixels[at]! + pixels[at + 1]! + pixels[at + 2]!) / 3);
+      lights.sort((one, other) => one - other);
+      const part = (share: number) => lights[Math.min(lights.length - 1, Math.floor(share * lights.length))]!;
+      return { under: { median: part(0.5), brightestOfTheGround: part(0.9) }, text: part(0.995) };
+    });
+    // The columns' names, the muted color, over the head's own fill: the
+    // text of the two live columns' names against the ground beside it.
+    const layout = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!);
+    const sun = layout.columns[LIVE.sun]!;
+    const head = await pixelsOf(page, png, { x: layout.left + sun.x, y: layout.top - layout.rowHeight + 4, width: 1440 - 16 - (layout.left + sun.x), height: layout.rowHeight - 8 }, (pixels) => {
+      const lights: number[] = [];
+      for (let at = 0; at < pixels.length; at += 4) lights.push((pixels[at]! + pixels[at + 1]! + pixels[at + 2]!) / 3);
+      lights.sort((one, other) => one - other);
+      const part = (share: number) => lights[Math.min(lights.length - 1, Math.floor(share * lights.length))]!;
+      return { under: { median: part(0.5), brightestOfTheGround: part(0.8) }, text: part(0.99) };
+    });
+    const names = { textOverTheMedian: fixed(contrast(head.text, head.under.median)), textOverTheBrightestGround: fixed(contrast(head.text, head.under.brightestOfTheGround)) };
+    need(names.textOverTheBrightestGround >= 2.2, `over dust in full color the columns' names read ${JSON.stringify(names)} to 1 (${JSON.stringify(head)})`);
+    return { ...rows, contrast: { textOverTheMedian: fixed(contrast(rows.text, rows.under.median)), textOverTheBrightestGround: fixed(contrast(rows.text, rows.under.brightestOfTheGround)) }, columnNames: { ...head, contrast: names } };
+  });
+  return { still, running, rowsOverColoredDust: dust };
+}
+
+/** A sort by diameter as a tour: the arrow's press and what it costs,
+ *  the table's top rows the biggest bodies, and a press on each a flight. */
+async function seeTour(url: string) {
+  return withBelt(url, { date: EPOCH, perf: '', 'probe-cells': '' }, async (page) => {
+    await waitMark(page, ROWS, 0, 120_000);
+    await clickTarget(page, 'table-handle');
+    await waitMark(page, TABLE);
+    await drawnRow(page, 0);
+    await page.waitForTimeout(700);
+    const layout = await page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodLayout!);
+    await columnsAre(page);
+    const column = layout.columns[DIAMETER]!;
+    need(column.name === 'diameter' && !!column.arrow, `column ${DIAMETER} is ${JSON.stringify(column)}`);
+    // The biggest bodies, counted here from every row's diameter: the
+    // biggest first, ties in the file's order.
+    const biggest = await page.evaluate((most) => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      const measured: [number, number][] = [];
+      for (let row = 0, rows = kirkwood.table()!.rows; row < rows; row++) {
+        const km = kirkwood.rowNumber(row, 10);
+        if (!Number.isNaN(km)) measured.push([km, row]);
+      }
+      measured.sort((one, other) => other[0] - one[0] || one[1] - other[1]);
+      return { measured: measured.length, top: measured.slice(0, most) };
+    }, 8);
+    // The arrow is past the panel's width: a sideways wheel, then its press.
+    await page.mouse.move(layout.left + 200, layout.top + layout.rowHeight * 3.5);
+    const across = column.x - 120;
+    await wheel(page, 0, across);
+    await page.waitForTimeout(500);
+    const arrow: Point = [layout.left + column.x - across + column.arrow!.x + column.arrow!.width / 2, layout.top - layout.rowHeight / 2];
+    /** A press on the arrow: the order the table then has, what making
+     *  it took, and the page's frames across the press. */
+    const pressArrow = async (column: number, descending: boolean) => {
+      await page.evaluate(() => {
+        const page = globalThis as unknown as { __gaps?: number[]; __gapsOn?: boolean };
+        page.__gaps = [];
+        page.__gapsOn = true;
+        let last = performance.now();
+        const tick = (now: number) => {
+          page.__gaps!.push(now - last);
+          last = now;
+          if (page.__gapsOn) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      await page.waitForTimeout(200);
+      await page.mouse.click(...arrow);
+      await page.waitForFunction(({ column, descending }) => (globalThis as unknown as Page_).__kirkwood.table()?.column === column && (column < 0 || (globalThis as unknown as Page_).__kirkwood.table()?.descending === descending), { column, descending }, { timeout: 10_000, polling: 'raf' });
+      await page.waitForTimeout(500);
+      return page.evaluate(() => {
+        const page = globalThis as unknown as { __gaps: number[]; __gapsOn: boolean; __kirkwood: Kirkwood };
+        page.__gapsOn = false;
+        return { orderMs: page.__kirkwood.sortCost(), longestFrameMs: Math.max(...page.__gaps), framesOver25Ms: page.__gaps.filter((gap) => gap > 25).length, frames: page.__gaps.length };
+      });
+    };
+    const descending = await pressArrow(DIAMETER, true);
+    const order = await kirkwood(page, (kirkwood) => ({ rows: Array.from(kirkwood.tableRows(0, 8)), table: kirkwood.table()!, found: kirkwood.found().row }));
+    need(order.table.rows === TABLE_ROWS && order.rows.join() === biggest.top.map(([, row]) => row).join() && order.found === -1, `sorted by diameter the table's first rows are ${order.rows}, and the biggest bodies are rows ${biggest.top.map(([, row]) => row)}`);
+    // (Back across: the wheel is the body's, not the header's.)
+    await page.mouse.move(layout.left + 200, layout.top + layout.rowHeight * 8.5);
+    await wheel(page, 0, -4000);
+    await page.waitForTimeout(500);
+    await shot(page, 'tour-sorted');
+
+    // A press on each of the first five, then the arrow key down: each a
+    // flight to that row's dot, with time running.
+    const stops: Record<string, unknown>[] = [];
+    const flown = async (at: number, how: () => Promise<void>) => {
+      const row = biggest.top[at]![1];
+      const pressed = Date.now();
+      await how();
+      await foundIs(page, row);
+      await chaseIs(page, 'following');
+      const flightMs = Date.now() - pressed;
+      await settle(page);
+      const landed = await foundNow(page);
+      const name = landed.found.name;
+      const full = (await drawnRow(page, at))[1]!;
+      need(full.includes(name), `the table's row ${at} is "${full}", and the row found is named "${name}"`);
+      const where = centered(landed, row, name, PANEL, `the tour's stop ${at + 1}`);
+      need(landed.clock.running, `the tour's stop ${at + 1}: time isn't running`);
+      stops.push({ row, name, km: round(biggest.top[at]![0]), flightMs, ...where });
+    };
+    for (let at = 0; at < 5; at++) {
+      await flown(at, () => page.mouse.click(layout.left + 200, layout.top + (at + 0.5) * layout.rowHeight));
+      if (at === 1) await shot(page, 'tour-second');
+    }
+    await flown(5, () => page.keyboard.press('ArrowDown'));
+    await shot(page, 'tour-sixth');
+
+    // The arrow's next presses: the smallest first, then the file's order.
+    await page.mouse.move(layout.left + 200, layout.top + layout.rowHeight * 3.5);
+    await wheel(page, 0, across);
+    await page.waitForTimeout(500);
+    const ascending = await pressArrow(DIAMETER, false);
+    const least = await kirkwood(page, (kirkwood) => ({ first: kirkwood.rowNumber(kirkwood.tableRows(0, 1)[0]!, 10), last: kirkwood.rowNumber(kirkwood.tableRows(kirkwood.table()!.rows - 1, kirkwood.table()!.rows)[0]!, 10), found: kirkwood.found().row }));
+    need(least.first <= biggest.top.at(-1)![0] && Number.isNaN(least.last) && least.found === -1, `sorted the smallest first: the first row's diameter is ${least.first}, the last's ${least.last}`);
+    const off = await pressArrow(-1, false);
+    const back = await kirkwood(page, (kirkwood) => Array.from(kirkwood.tableRows(0, 3)));
+    need(back.join() === '0,1,2', `back in the file's order the first rows are ${back}`);
+    // What an order costs, apart from a press's frames: five of each, by
+    // diameter (a tenth of the rows have one) and by a (every row has).
+    const orderMs = await page.evaluate(() => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      const of = (column: number) => {
+        const ms: number[] = [];
+        for (let time = 0; time < 5; time++) {
+          kirkwood.sortTable(column, time % 2 === 0);
+          ms.push(kirkwood.sortCost());
+        }
+        ms.sort((one, other) => one - other);
+        return { median: ms[2]!, least: ms[0]!, most: ms[4]! };
+      };
+      const costs = { byDiameter: of(10), byA: of(12) };
+      kirkwood.sortTable(-1, false);
+      return costs;
+    });
+    return { withADiameter: biggest.measured, stops, presses: { biggestFirst: descending, smallestFirst: ascending, theFilesOrder: off }, orderMs };
   });
 }
 
@@ -4757,7 +5145,7 @@ try {
       const last = fixture.rows.find((row) => row.row === TABLE_ROWS - 1)!.cells.full_name;
       for (const run of loads.flatMap(({ table }) => (table ? [{ table }] : []))) {
         if (run.table.rows !== TABLE_ROWS) throw new Error(`the table has ${run.table.rows} rows, and the manifest ${TABLE_ROWS}`);
-        if (run.table.columns.length !== 18) throw new Error(`the table has ${run.table.columns.length} columns`);
+        if (run.table.columns.length !== 20) throw new Error(`the table has ${run.table.columns.length} columns`);
         if (run.table.firstRow[1] !== ceres) throw new Error(`the first row is ${run.table.firstRow[1]}, not ${ceres}`);
         if (run.table.lastRow[1] !== last) throw new Error(`the last row is ${run.table.lastRow[1]}, not ${last}`);
       }
@@ -4796,6 +5184,8 @@ try {
   if (ONLY.has('group')) seen.group = await seeGroup(server.url);
   if (ONLY.has('flyin')) seen.flyin = await seeFlyIn(server.url);
   if (ONLY.has('dot')) seen.dot = await seeDot(server.url);
+  if (ONLY.has('live')) seen.live = await seeLive(server.url);
+  if (ONLY.has('tour')) seen.tour = await seeTour(server.url);
   if (ONLY.has('glass')) seen.glass = await seeGlass(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('drag')) seen.drag = await seeDrag(server.url);

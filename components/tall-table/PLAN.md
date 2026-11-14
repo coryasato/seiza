@@ -134,6 +134,14 @@ The observatory leads its comparison by scenarios, real uses (its [`docs/researc
 
 What each scenario needs from the rows above: the wide sheet `custom-cells` (heat and bar cells), `density` (its denser stops), and `pin` (its key columns frozen), and later `resize` and `select`/`copy`; market watch `live` and `custom-cells` (a cell flashing when it changes) and `format` (its prices, changes, and volumes as its design draws them); live tail `follow`; the admin table nothing past the base. So the wide sheet's need puts `custom-cells` first in the order below.
 
+### Asked for by Kirkwood
+
+A draft, like the rows above; not specced, measured, or placed in the order. Asked for 2026-11-13 ([`apps/kirkwood/docs/DECISIONS.md`](../../apps/kirkwood/docs/DECISIONS.md), "Interface").
+
+| Feature (Cargo) | What it adds | Asked for by | Depends on | Data | TanStack |
+|---|---|---|---|---|---|
+| A press reported (part of `select`, or a feature of its own: to decide) | The host hears a press on a row or a cell whether or not the selection changed: today `Selected` is emitted only at a change, so a press on the row already selected says nothing. Kirkwood flies its camera to the pressed row's dot, and a second press on the same row should fly it there again | Kirkwood: a found row a pan let go, and its tour's rows | `select` | No | A row's `onClick` |
+
 ### Who's waiting
 
 Only this file builds the table's features, whichever app asks (root `CLAUDE.md`, "Docs: one home per fact"). An app that needs one keeps a row in its PLAN's "Waiting on" table; closing the feature's milestone flips that row to *Ready*. When an app asks for a new feature, it gets a row in the tables above (or "Asked for by the observatory's scenarios") and one here.
@@ -143,6 +151,7 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `follow`'s `let_go` (M13, built) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
+| A press reported (a draft: "Asked for by Kirkwood") | Kirkwood: the same row pressed again flies the camera back to it | [`apps/kirkwood/PLAN.md`](../../apps/kirkwood/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order

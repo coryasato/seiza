@@ -57,7 +57,10 @@ import init, {
   group_state,
   group_years,
   integrated_rows,
+  live_at,
+  live_shown,
   row_number,
+  sort_cost,
   scene_pick,
   table_file_rows,
   table_sort,
@@ -255,6 +258,12 @@ type Kirkwood = {
   tableRows(from: number, to: number): Uint32Array;
   sortTable(column: number, descending: boolean): boolean;
   rowNumber(row: number, column: number): number;
+  /** What the table's last sort took to order its rows, ms. */
+  sortCost(): number;
+  /** The instant the live cells show. */
+  liveShown(): { years: number; moving: boolean };
+  /** What a live column's cell must say of a file row at `years`, au. */
+  liveAt(row: number, column: number, years: number): number;
 };
 
 let memory: WebAssembly.Memory | undefined;
@@ -622,6 +631,12 @@ const kirkwood: Kirkwood = {
   tableRows: table_file_rows,
   sortTable: table_sort,
   rowNumber: row_number,
+  sortCost: sort_cost,
+  liveShown: () => {
+    const [years, moving] = Array.from(live_shown());
+    return { years: years!, moving: !!moving };
+  },
+  liveAt: live_at,
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;
 

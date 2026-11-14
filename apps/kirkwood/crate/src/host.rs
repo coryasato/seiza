@@ -43,17 +43,18 @@ use seiza_tall_table::{
 };
 use tall_table_bridge::Publish;
 
-use crate::catalog::{Catalog, columns};
-use crate::clock;
+use crate::catalog::Catalog;
+use crate::clock::{self, page_ms as now};
 use crate::find;
 use crate::flight;
 use crate::gap;
 use crate::group;
 use crate::layout::{self, Plot};
+use crate::live;
 use crate::ramp;
 use crate::ride;
 use crate::scene;
-use crate::table::{Source, Table, View};
+use crate::table::{self, Shown, Source, Table, View, columns};
 
 /// The panel's width, CSS px.
 const PANEL_WIDTH: f32 = 560.;
@@ -96,6 +97,19 @@ const NAMED: usize = 4;
 const CLASSES: usize = 6;
 /// How often the date redraws while time moves: a rate a person can read.
 const DATE_EVERY: Duration = Duration::from_millis(250);
+/// How often the live columns' cells are worked out again while time
+/// moves: twice a second holds each number long enough to read a row
+/// (`docs/DECISIONS.md`, "Table"). `?live=<a second>` is another rate,
+/// for looking.
+static LIVE_EVERY: LazyLock<Duration> = LazyLock::new(|| {
+    let a_second = seiza::url::param("live")
+        .and_then(|rate| rate.parse::<f64>().ok())
+        .filter(|rate| rate.is_finite())
+        .unwrap_or(live::REFRESHES_A_SECOND);
+    // (Kept to rates a timer has: from once in ten seconds to sixty a
+    // second.)
+    Duration::from_secs_f64(1.0 / a_second.clamp(0.1, 60.0))
+});
 
 /// Set right after the first frame that draws the table's rows.
 pub const TABLE_MARK: &str = "kirkwood:table";
@@ -187,14 +201,6 @@ pub const CONTROLS_CLOSE_TARGET: &str = "controls-close";
 /// The legend's bar, CSS px, and the width of each slice of it: one tint.
 const LEGEND_WIDTH: f32 = 140.;
 const LEGEND_SLICE: f32 = 2.;
-
-/// The page clock, ms; 0 off the web, where nothing animates.
-fn now() -> f64 {
-    #[cfg(target_family = "wasm")]
-    return seiza::marks::now();
-    #[cfg(not(target_family = "wasm"))]
-    0.0
-}
 
 /// Where the two files are.
 enum Files {
@@ -551,7 +557,37 @@ impl Host {
             }
         }));
         self.table = Some(table);
+        // The live columns, at their own rate: the instant they show
+        // moves on only here, and the table is drawn again when it has.
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(*LIVE_EVERY).await;
+                if this.update(cx, |this, cx| this.refresh_live(cx)).is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
         cx.notify();
+    }
+
+    /// The live cells show the clock as it is now, if the panel is in
+    /// sight: the table is drawn again if that's another instant, or
+    /// time has stopped or started since (a still cell has every decimal).
+    /// With the panel shut nothing is asked of the clock or drawn.
+    fn refresh_live(&mut self, cx: &mut Context<Self>) {
+        let Some(table) = &self.table else {
+            return;
+        };
+        if !self.panel_open && self.panel_t <= 0.0 {
+            return;
+        }
+        if clock::moves() {
+            clock::advance(now());
+        }
+        if live::show(clock::years(), clock::moves()) {
+            table.update(cx, |_, cx| cx.notify());
+        }
     }
 
     fn toggle_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -566,6 +602,8 @@ impl Host {
             // work from the moment it's open.
             let focus = table.read(cx).focus_handle().clone();
             window.focus(&focus, cx);
+            // Its live cells are of now, not of when it was last open.
+            self.refresh_live(cx);
         } else {
             // And the scene's, from the moment it's shut.
             window.focus(&self.focus, cx);
@@ -595,6 +633,7 @@ impl Host {
         }
         self.panel_open = true;
         self.table_wants_keys = true;
+        self.refresh_live(cx);
         self.slide_panel(ms);
         cx.notify();
     }
@@ -701,7 +740,7 @@ impl Host {
                 },
             )
         });
-        if sort.is_some_and(|sort| !crate::table::SORTABLE.contains(&sort.column)) {
+        if sort.is_some_and(|sort| table::sortable(sort.column).is_none()) {
             return false;
         }
         self.table
@@ -721,12 +760,29 @@ impl Host {
         })
     }
 
-    /// For the checks: a file row's number in a column the table sorts by.
+    /// For the checks: a file row's number in a column of the table that
+    /// sorts; NaN for none, and for any other column.
     pub fn number(&self, row: usize, column: usize) -> f32 {
+        let Shown::File(column) = table::shown(column) else {
+            return f32::NAN;
+        };
         self.catalog
             .as_ref()
             .filter(|catalog| row < catalog.rows())
             .map_or(f32::NAN, |catalog| catalog.number(row, column))
+    }
+
+    /// For the checks: what a live column's cell must say of a file row
+    /// at `years` on the clock, worked out apart from the table (au; NaN
+    /// for a row with no place, or a column that isn't live).
+    pub fn live_at(&self, row: usize, column: usize, years: f64) -> f64 {
+        let (Shown::Live(live), Some(catalog)) = (table::shown(column), &self.catalog) else {
+            return f64::NAN;
+        };
+        (row < catalog.rows())
+            .then(|| live::at(catalog.elements(), row, live, years))
+            .flatten()
+            .unwrap_or(f64::NAN)
     }
 
     /// For the checks: the file row at a row of the table.
