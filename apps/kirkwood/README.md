@@ -21,13 +21,15 @@ It's a showcase: an app for fun around the table that [Tycho](../tycho/) is buil
 
 The camera works like a map's, in space and while riding with Jupiter. On the chart of the gaps nothing moves.
 
-| | Mouse | Trackpad | Keys |
-|---|---|---|---|
-| Move | Drag | Click and drag | The arrows |
-| Zoom | Scroll, or double click | Pinch, or two fingers up and down | + and − |
-| Tilt and turn | Shift + drag | Shift + click and drag | |
-| Back to the first view | The compass, bottom right | The compass | H |
-| This list, on the page | The ? button | The ? button | ? |
+| | Mouse | Trackpad | Touch | Keys |
+|---|---|---|---|---|
+| Move | Drag | Click and drag | Drag with one finger | The arrows |
+| Zoom | Scroll, or double click | Pinch, or two fingers up and down | Pinch, or double tap | + and − |
+| Tilt and turn | Shift + drag | Shift + click and drag | Two fingers up and down; twist them | |
+| Back to the first view | The compass, bottom right | The compass | The compass | H |
+| This list, on the page | The ? button | The ? button | The ? button | ? |
+
+Two fingers do one thing at a time: a pinch zooms and a twist turns together, and two fingers moved up or down together tilt. The list on the page also sets the scene's resolution (full, three quarters, or half of the display's): fewer pixels draw more frames a second, and the choice is kept for the next visit.
 
 The page opens on a slanted view, the belt running corner to corner. Moving and zooming keep the slant; the first tilt or turn levels the horizon, as a map's is. The compass's ring flattens as the camera tilts and its needle turns as the camera does (it leans at the opening, with the slant); pressed, it flies the camera back to the opening view. A one-line hint of the controls shows until you first move the camera, then folds to the ? button, and stays folded on your next visit. With the table open, the keys are the table's.
 
@@ -53,8 +55,11 @@ What a canvas costs the controls:
 
 - **Nothing can be tabbed to.** The compass, the ? button, the list of controls, and the four actions are drawn, not elements: Tab doesn't reach them and a screen reader doesn't announce them. Every camera move has a key, but the actions and the table's handle need a pointer.
 - **The keys work while the page has the keyboard.** A click in the address bar or another frame takes it; a click on the page gives it back. With Ctrl, Alt, or Cmd held, a key is left to the browser, so its own zoom still works.
-- **No touch yet.** One finger doesn't pan and two don't pinch or tilt; Safari's trackpad pinch isn't the wheel the scene listens for, so there it zooms the page's way or not at all. Both wait for the deploy's milestone.
-- **The hint's fold is kept in this browser's storage** for the site, as one word; where storage is off, the hint is whole on every visit.
+- **Touch is built by hand, and is coarser than a mouse.** A canvas gets none of a page's own gestures, so each is written: one finger, a pinch, a twist, a tilt, a tap, a double tap. A tap picks the dot within 6 px of it, a mouse's reach, which a fingertip covers many times over in the dense belt; drawing a group works with one finger. There is no long press, and nothing is hovered.
+- **Safari's trackpad pinch is answered apart.** Safari tells a pinch in events of its own, which the page listens for; the other browsers send a wheel.
+- **A phone gets pictures, not the app.** On a window under 600 px either way whose pointer is a finger, the page shows pictures of the app, says it's built for a larger screen, offers to send the link on, and downloads nothing of the app unless "Open it anyway" is pressed (55 MB then, every row held in memory, the controls laid out for a wide window).
+- **The scene can lose its graphics.** A browser may take a WebGL context back (a GPU reset, too many tabs, a long sleep). The page says so in the count's place, and when the browser gives one back every dot is drawn again from the rows it still holds; if it never does, the page says to reload.
+- **The hint's fold and the scene's resolution are kept in this browser's storage** for the site, a word and a number; where storage is off, the hint is whole and the resolution full on every visit.
 
 ## Credits
 

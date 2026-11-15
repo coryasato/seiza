@@ -123,6 +123,16 @@ extern "C" {
     pub fn hint_folded() -> bool;
     #[wasm_bindgen(js_namespace = __kirkwood, js_name = foldHint)]
     pub fn fold_hint();
+    /// Whether the visitor's pointer is a finger: the hint and the
+    /// controls' list say a finger's gestures.
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = coarse)]
+    pub fn coarse() -> bool;
+    /// The scene's resolution chosen on an earlier visit (NaN with none),
+    /// and the one chosen now: the page's to remember.
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = scaleKept)]
+    pub fn scale_kept() -> f32;
+    #[wasm_bindgen(js_namespace = __kirkwood, js_name = keepScale)]
+    pub fn keep_scale(scale: f32);
 }
 
 thread_local! {
@@ -679,6 +689,35 @@ pub fn sky_drawn() {
 #[wasm_bindgen]
 pub fn scene_failed(message: String) {
     update_host(|host, cx| host.scene_failed(message, cx));
+}
+
+/// Whose camera a hand has now, for two fingers on the scene, which the
+/// page counts itself: 0 the fixed frame's, 1 the ride's own, -1 nobody's
+/// (the dots out of space, the camera between the frames, or a shape
+/// being drawn).
+#[wasm_bindgen]
+pub fn scene_hand() -> i8 {
+    crate::host::hand()
+}
+
+/// A second finger landed (the page counts them): the first one's landing
+/// is no tap, so the next isn't a double tap's second.
+#[wasm_bindgen]
+pub fn scene_two_fingers() {
+    scene::untap();
+}
+
+/// The scene's pixels for each of the display's, as the visitor has it.
+#[wasm_bindgen]
+pub fn scene_scale() -> f32 {
+    scene::scale()
+}
+
+/// The browser took the scene's WebGL context (`lost`), or gave one back:
+/// the page says so while there's no picture.
+#[wasm_bindgen]
+pub fn scene_lost(lost: bool) {
+    update_host(|host, cx| host.scene_lost(lost, cx));
 }
 
 /// The camera as the scene just drew it, for the compass: how far it

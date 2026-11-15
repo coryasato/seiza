@@ -4,7 +4,7 @@ The Vite host on `shared-web/` and the scene it loads after the first frame: Thr
 
 ## Architecture
 
-- **The scene:** Three.js on a canvas of its own, under GPUI's, loaded after GPUI's first frame: a deliberate exception to "logic in Rust, JS thin" (root `docs/DECISIONS.md`, "Repo structure", the showcase tier). This canvas has no listeners: the interface hands it each wheel, drag, and key (`docs/DECISIONS.md`, "Input"), and its camera is a map's (what it looks at on the ecliptic, its distance, its tilt, its bearing), moved through `camera.ts`. It draws only when the clock, the sort flight, the camera, the panel's width, or the window changed, at a resolution of its own.
+- **The scene:** Three.js on a canvas of its own, under GPUI's, loaded after GPUI's first frame: a deliberate exception to "logic in Rust, JS thin" (root `docs/DECISIONS.md`, "Repo structure", the showcase tier). This canvas hears no input: the interface hands it each wheel, drag, and key (`docs/DECISIONS.md`, "Input"), and the page a second finger (`touch.ts`), and its camera is a map's (what it looks at on the ecliptic, its distance, its tilt, its bearing), moved through `camera.ts`. It draws only when the clock, the sort flight, the camera, the panel's width, or the window changed, at a resolution of its own.
 - **Every orbit is solved in the vertex shader,** as is each dot's flight to a against e; the crate's tests run that arithmetic in 32-bit floats against its own 64-bit place for every row (`crate/src/shader.rs`: change the shader's `PLACE` or `FLIGHT` and it together). The ride with Jupiter is the camera's alone: one angle, Jupiter's longitude, no buffer rewritten.
 - **Names are the page's text,** between the two canvases, placed by the scene in the frame that draws them: the Sun's and Jupiter's, the ride's names and dashed triangle, a picked gap's marker, its name, and its path (an SVG line: 1.5 CSS px isn't WebGL's to draw).
 - **The look:** the scene draws in linear light into a half-float buffer and reaches the canvas through the look's passes (`look.ts`: the haze, the bodies, the bloom, then one pass that quiets the picture under the page's text, tone maps, and adds the floor). The sky's stars are the page's own (`sky.ts`, from `data/stars.bin`): they aren't rows. Why: `docs/DECISIONS.md`, "Scene" and "Look".
@@ -24,7 +24,8 @@ The Vite host on `shared-web/` and the scene it loads after the first frame: Thr
 - **The sky's file is the page's, not the crate's:** fetched whole after the rows file and the belt, never waited on, and a failure is the console's alone. The page's line about the stars shows only once they're drawn (`sky_drawn`).
 - **The app's base is `/kirkwood/` in dev, preview, and production** (`src/base.ts`; `docs/DECISIONS.md`, "Hosting"), and the origin's root is Tycho's: every URL the page asks for is under the base (the data's is `import.meta.env.BASE_URL` in `main.ts`; never write `/data/…` or `/assets/…` from the root), and what it keeps on the origin is a key named `kirkwood:`, never a cookie or a service worker. `see --only paint` fails on any of them.
 - **Until the scene draws, what shows under the interface is the page's own background** (`index.html`), the color the look's floor tints the scene with (`scene.ts`'s `PAGE`): keep the two the same.
-- **A lost WebGL context isn't handled:** the belt's buffers are gone with it (`PLAN.md`, open questions).
+- **A lost WebGL context takes the belt's buffers, which are the scene's own, and the scene gets them back by being handed every row again** (`scene.ts`, the canvas's `webglcontextlost` and `webglcontextrestored`; `main.ts`, `contextRestored`). The belt's room is dropped at the loss, while a delete is nothing (after the return each would be another context's object, and a warning); Three.js makes its own buffers, targets, and programs again by itself. A new GL buffer of the scene's own joins `dropBelt` and is filled again from `addRows` (a held group's bytes are: `gray`). With the context gone `render` draws nothing, `fillBelt` hands nothing over, and the names leave by the layer's opacity.
+- **A phone is sent none of the app unasked** (`phone.ts`; `docs/DECISIONS.md`, "Interface"): `main.ts` shows its page in place of `boot`, and the HTML's preloads carry `NOT_PHONE` as their `media` (`vite.config.ts`). Anything new that the page asks for before the first frame goes behind `open()` in `main.ts`, and a new preload gets the media by the plugin. Its pictures are the app's (`public/phone/`, by `see --only stills`): take them again when what one shows changes.
 
 ### The ride, the groups, a gap
 
@@ -44,6 +45,7 @@ The Vite host on `shared-web/` and the scene it loads after the first frame: Thr
 - **The opening shot is a pose: rolled 34°, and a hand gives the camera no roll** (`scene.ts`, `OPENING`; `docs/DECISIONS.md`, "Input"). A pan, a zoom, and the keys keep it; the first drag with Shift eases it to a level horizon (`camera.ts`, `POSE`, `level`); the way home gives it back, and the compass's needle leans with it. An arrow key goes across the window, not along the rolled plane (`nudge`). The ride's camera has none. A check that wants a level camera says `?roll=0`.
 - **`stats.gliding` is true while the camera moves on its own** (the glide, a zoom's way, the arrow keys, the flight home, the roll's ease): a check waits on it.
 - **Shift is the key that tilts and turns; Ctrl is a pinch's, on a wheel alone** (`camera.ts`): a drag with Ctrl held pans.
+- **One finger is the left button, and two are the page's own** (`touch.ts`; `crate/CLAUDE.md`, "A finger on the surface"): GPUI follows one touch at a time, so the page counts fingers on the window, before the canvas hears them, and hands the scene two that are both left of the panel. From `twoStart` the first finger's pan waits (`twoDown`), and its release is no click (`twoSince`). The gesture is a zoom and a turn, or a tilt, never both: decided by which its first moves are more of (`camera.ts`, `FINGERS`).
 - **An arrow key is a glide, a zoom key the double click's tween, and home a flight of the hand's own** (`camera.ts`, `nudge`, `zoomStep`, `home`): any press ends each. The way home, the flight to a found row, and a flight in to a group and back are one flight (`fly`), so a hand takes any of them over the same way.
 - **A glide's speed is read from the page clock when the crate hands each move over,** not from the events' own times, which GPUI doesn't pass on: moves bunched after a long frame read as faster than the hand was.
 - **Near the horizon a pixel is tens of au:** a pointer holds a point of the ecliptic only within `REACH` camera distances along the plane. Past it a drag holds the point at the reach, and a wheel zooms toward what the camera looks at, as over the sky. What the camera looks at stays within `AT_MOST` of the Sun.
@@ -74,6 +76,7 @@ The Vite host on `shared-web/` and the scene it loads after the first frame: Thr
 - **The ramp is the crate's** (`ramp.rs`): never type a tint in `scene.ts`.
 - **A name's size is measured when it's made and when a font arrives, never in a frame** (`scene.ts`, `measure`): a read of `offsetWidth` in the draw is a layout every frame.
 - **Rows drawn alone (`?only`) skip the haze, the bloom, the sky, and the bodies,** so a disc found in a screenshot is the disc: `see.ts`'s place check leans on it.
+- **The scene's resolution is the visitor's, a cell of the crate's asked each tick** (`scene::scale`, the controls' list's three steps; `scene.ts`, `tick`): when it has moved, `resize` makes every buffer again. `?scale` holds another, whatever was chosen: every check that names a resolution uses it. Anything sized in the scene's pixels reads `pixelRatio` in the frame, never at its making.
 - **A GPU that can't draw into a half-float buffer gets 8 bits and no bloom** (`look.ts`): every dot is still drawn, nothing brighter than white. Not seen on a real device; no check covers it.
 
 ### Halves in the crate
@@ -91,9 +94,12 @@ Four of the crate's gotchas have a half here (`crate/CLAUDE.md`): `RIDE_LIGHT` c
     src/look.ts     #   the look's passes
     src/sky.ts      #   the stars' shader and the file's reader
     src/knobs.ts    #   the page's query knobs (docs/query.md)
+    src/touch.ts    #   two fingers on the scene, counted on the window
+    src/phone.ts    #   a phone's page, and whether the window is one's
+    public/phone/   #   that page's pictures of the app (`see --only stills`)
     src/alpha.ts    #   GPUI's canvas composited by its alpha
     src/base.ts     #   the app's base path, read by the Vite config, the Worker, and the checks
-    vite.config.ts  #   the base; the three files served at data/ under it from data/, in dev and preview; at brotli 11 when `KIRKWOOD_DATA=br` (the slow-link check)
+    vite.config.ts  #   the base; the preloads' media, a phone's page asking for neither; the three files served at data/ under it from data/, in dev and preview; at brotli 11 when `KIRKWOOD_DATA=br` (the slow-link check)
 ```
 
 ## Commands

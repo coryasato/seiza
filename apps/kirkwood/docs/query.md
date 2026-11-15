@@ -18,7 +18,7 @@ Read in `web/src/knobs.ts`; `scene.ts` and `look.ts` say what each does. A knob 
 
 - **Held states:** `?flight=<0 to 1>` holds the sort flight partway, `?ride=<0 to 1>` the ride with Jupiter, and with `?ride=1`, `?gap=<0 to 3>` a gap held picked (the 3:1, 5:2, 7:3, 2:1). `?integrate=0` leaves the Hildas and the Trojans on their 2026 ellipses, for the checks to set the integration against.
 - **The camera:** `?az`, `?elev`, `?roll` (degrees), `?dist` (au), `?at=<x>,<y>` (what it looks at, on the ecliptic, au).
-- **Resolution:** `?scale` (the scene's pixels for each of the display's).
+- **Resolution:** `?scale` (the scene's pixels for each of the display's), held whatever the visitor chose in the controls' list.
 - **Rows alone:** `?only=<row>,<row>` draws those rows alone, as plain discs `?size` CSS px across, with no Sun, Jupiter, sky, haze, or bloom; `?hard=0` draws them as the belt's dots are.
 - **Lines and bands:** `?marks` (lines from the Sun toward Jupiter, 60° either side of it, and opposite); `?band=<au>,<au>` (the orbit sizes that stay lit, `?bandGain` times as bright); `?alpha` (a dot's opacity).
 - **The look, part by part:** `?sky=0`, `?haze=0`, `?bloom=0`, `?scrim=0`, and `?bloomScale` (the bloom's resolution, of the buffer's).

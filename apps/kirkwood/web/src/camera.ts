@@ -50,6 +50,11 @@ export const GLIDE = { ms: 220, from: 80, rest: 4, most: 2000, read: 50, still: 
  *  window for the bearing and up and down for the tilt; the most tilt from
  *  straight down, short of edge-on and never under the plane. */
 export const TURN = { bearing: 0.8, tilt: 0.5, most: 85 };
+/** Two fingers, CSS px: how far they must move against each other (close,
+ *  part, or turn about their middle), or travel together up or down,
+ *  before the gesture is a zoom and a turn, or a tilt: one or the other,
+ *  to their release. */
+export const FINGERS = { part: 12, tilt: 14 };
 /** A double click: how much nearer, and how long the way there (ms). */
 export const DOUBLE = { nearer: 2, ms: 260 };
 
@@ -154,6 +159,10 @@ export interface Hand {
   /** What moves on its own (the glide, a zoom on its way, the flight
    *  home) moved on to `now`: whether the camera moved. */
   step(now: number): boolean;
+  /** Two fingers: `by` times as far, the point under a window position
+   *  holding still; and a turn and a tilt, degrees. */
+  pinch(x: number, y: number, by: number, now: number): void;
+  turnBy(bearing: number, tilt: number, now: number): void;
   /** Everything let go: a flight of the scene's own has the camera. */
   rest(): void;
   /** Whether the camera is moving on its own. */
@@ -229,8 +238,11 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
     // carries what's nearer than the middle to the right. A drag up
     // lifts the camera toward straight down, and a drag down lowers it
     // toward the side view.
-    view.bearing = (((view.bearing - dx * TURN.bearing) % 360) + 360) % 360;
-    const tilt = view.tilt + dy * TURN.tilt;
+    turnBy(-dx * TURN.bearing, dy * TURN.tilt);
+  };
+  const turnBy = (bearing: number, by: number) => {
+    view.bearing = (((view.bearing + bearing) % 360) + 360) % 360;
+    const tilt = view.tilt + by;
     // (A camera opened past either end by a knob only comes back in.)
     view.tilt = Math.min(Math.max(TURN.most, view.tilt), Math.max(Math.min(0, view.tilt), tilt));
     changed();
@@ -317,6 +329,23 @@ export function createHand(view: View, scene: Ground, changed: () => void, { gli
         trail = [{ at: now, x: view.x, y: view.y }];
       }
       changed();
+    },
+    pinch(x, y, by, _now) {
+      glide = undefined;
+      zoom = undefined;
+      flight = undefined;
+      const distance = within(view.distance * by);
+      if (same(distance, view.distance)) return;
+      zoomTo(distance, scene.ground(x, y, false));
+      changed();
+    },
+    turnBy(bearing, tilt, now) {
+      glide = undefined;
+      zoom = undefined;
+      flight = undefined;
+      // (A tilt and a turn are a level camera's, as a drag's are.)
+      if (view.roll && !level) level = { from: view.roll, at: now };
+      turnBy(bearing, tilt);
     },
     zoomIn(x, y, now) {
       glide = undefined;

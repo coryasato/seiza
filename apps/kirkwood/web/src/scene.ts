@@ -85,7 +85,7 @@
 // bright, the rest dimmed); `?alpha` (a dot's opacity); `?sky=0` (no
 // stars); and the look's own (`look.ts`).
 import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, GLBufferAttribute, LineBasicMaterial, LineLoop, LineSegments, Matrix4, Mesh, NearestFilter, NoBlending, NormalBlending, PerspectiveCamera, PlaneGeometry, Points, Quaternion, Scene, ShaderMaterial, Vector2, Vector3, Vector4, WebGLRenderTarget, WebGLRenderer, type NormalOrGLBufferAttributes } from 'three';
-import { FLY, FOUND, GLIDE, REACH, SHIFT, ZOOM, aimedAt, createHand, type Place, type View } from './camera.ts';
+import { FINGERS, FLY, FOUND, GLIDE, REACH, SHIFT, TURN, ZOOM, aimedAt, createHand, type Place, type View } from './camera.ts';
 import { has, knob, numbers, on, text } from './knobs.ts';
 import { createLook } from './look.ts';
 import { PROFILE, createSky, type Sky } from './sky.ts';
@@ -223,6 +223,14 @@ export interface SceneHost {
   floats(at: number, count: number): Float32Array;
   /** The same over `count` bytes. */
   bytes(at: number, count: number): Uint8Array;
+  /** The scene's pixels for each of the display's, as the visitor has
+   *  it: a plain cell, asked each tick. */
+  scale(): number;
+  /** The browser took the scene's WebGL context, and gave one back: told
+   *  from the canvas's own events. At `restored` the belt has no room on
+   *  the GPU and no rows: the page hands them all over again. */
+  contextLost(): void;
+  contextRestored(): void;
 }
 
 export interface SceneStats {
@@ -279,6 +287,12 @@ export interface SceneStats {
   /** Whether those rows were still on their way to the clock in the last
    *  frame drawn (it jumped: a few steps are taken a frame). */
   catchingUp: boolean;
+  /** The scene's pixels for each of the display's. */
+  scale: number;
+  /** Whether the browser has the scene's WebGL context: nothing is drawn
+   *  until it's given back; and how many times one has been. */
+  lost: boolean;
+  restores: number;
 }
 
 export interface BeltScene {
@@ -296,6 +310,14 @@ export interface BeltScene {
   /** No belt: the rows drawn so far are dropped and their room on the GPU
    *  let go (their file stopped short, or a block couldn't be drawn). */
   clearBelt(): void;
+  /** Two fingers on the scene (`touch.ts`): down, at window positions,
+   *  for `frame`'s camera (-1: no hand has one); moved; fewer than two. */
+  twoStart(ax: number, ay: number, bx: number, by: number, frame: number): void;
+  twoMove(ax: number, ay: number, bx: number, by: number): void;
+  twoEnd(): void;
+  /** A trackpad's pinch as Safari tells it: `by` times as far, toward a
+   *  window position, for `frame`'s camera (-1: no hand has one). */
+  pinch(x: number, y: number, by: number, frame: number): void;
   /** Whether the scene draws a sky: never beside rows drawn alone, or at
    *  `?sky=0`. Asked before its file is. */
   wantsSky: boolean;
@@ -856,7 +878,10 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const view: View = { x: lookedX, y: lookedY, distance: knob('dist', OPENING.dist), tilt: 90 - knob('elev', OPENING.elev), bearing: knob('az', OPENING.az), roll: knob('roll', OPENING.roll) };
   /** Where it opened: the way home. */
   const opened: Place = { x: view.x, y: view.y, distance: view.distance, tilt: view.tilt, bearing: view.bearing, roll: view.roll };
-  const scale = knob('scale', 1);
+  /** The scene's pixels for each of the display's: the visitor's (the
+   *  crate's, asked each tick), or `?scale`'s, held, for the checks. */
+  const heldScale = has('scale') ? knob('scale', 1) : undefined;
+  let scale = heldScale ?? host.scale();
   const alone = only();
   // `?flight=<0 to 1>`: the sort flight held there, for a screenshot; and
   // `?ride=<0 to 1>`, the ride with Jupiter.
@@ -882,7 +907,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance' });
   const gl = renderer.getContext();
   const info = gl.getExtension('WEBGL_debug_renderer_info');
-  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, found: -1, chase: '', finds: 0, group: 0, grayed: 0, fly: '', flight: 0, ride: 0, integrated: 0, catchingUp: false };
+  const stats: SceneStats = { frames: 0, years: 0, rows: 0, points: 0, stars: 0, renderer: String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)), distance: view.distance, camera: { ...view }, riding: { x: 0, y: 0, distance: RIDE.dist, tilt: 0, bearing: 0, roll: 0 }, gliding: false, found: -1, chase: '', finds: 0, group: 0, grayed: 0, fly: '', flight: 0, ride: 0, integrated: 0, catchingUp: false, scale: 1, lost: false, restores: 0 };
   const look = createLook(renderer, PAGE, !!alone);
 
   // The dust is the rows and the sky; the bodies are what the scene adds.
@@ -1164,6 +1189,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
 
   const resize = () => {
     pixelRatio = devicePixelRatio * scale;
+    stats.scale = scale;
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(innerWidth, innerHeight, false);
     const drawn = renderer.getDrawingBufferSize(new Vector2());
@@ -1329,6 +1355,15 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   /** Whose drag is under way, if either's; and whether it pans. */
   let dragging: typeof hand | undefined;
   let panning = false;
+  /** Two fingers are down (`touch.ts`): one finger's pan, which GPUI goes
+   *  on telling of, waits. And the gesture, if a hand has the camera: where
+   *  the fingers were at its last move, where they began, and what it has
+   *  become (a zoom and a turn, or a tilt: one, to the release). */
+  let twoDown = false;
+  /** Two fingers have been down since the last press: its release is no
+   *  click on a dot. */
+  let twoSince = false;
+  let two: { hand: typeof hand; from: number[]; last: number[]; is: '' | 'zoom' | 'tilt' } | undefined;
   /** A found row and the camera. `foundRow` and `foundFinds` are what the
    *  crate last said (the row marked, and how many finds there have been:
    *  a flight for each). `chase` is what the fixed frame's camera is doing
@@ -1839,6 +1874,8 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
   };
 
   const render = (frame: Frame) => {
+    // With the context lost there's nothing to draw into: the frame waits.
+    if (stats.lost) return;
     dirty = false;
     // The camera's flight is from the last frame drawn at rest, at either
     // end: this one, or the one before (which may be long ago: landed on
@@ -2026,6 +2063,69 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       stats.points += count;
     });
   };
+  /** A group's bytes, where the crate holds them, into the belt's buffer
+   *  and the integrated rows' copy: a view made and uploaded here, with no
+   *  call to the crate between. */
+  const gray = (belt: Belt, at: number) => {
+    const bytes = host.bytes(at, belt.rows);
+    gl.bindBuffer(gl.ARRAY_BUFFER, belt.picked);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, bytes);
+    if (integrated) {
+      const picked = integrated.picked.array as Uint8Array;
+      for (let row = 0; row < integrated.rows; row++) picked[row] = bytes[integrated.list[row]!]!;
+      integrated.picked.needsUpdate = true;
+    }
+    return bytes;
+  };
+  /** The belt's room, dropped on this side: its draws and their
+   *  geometries, and the integrated rows'. The buffers are the caller's
+   *  to delete, or went with a lost context. */
+  const dropBelt = () => {
+    if (belt) {
+      shown(belt, 0);
+      for (const points of belt.draws) {
+        dust.remove(points);
+        points.geometry.dispose();
+      }
+      belt = undefined;
+    }
+    picking.clear();
+    [pickBelt, pickIntegrated] = [undefined, undefined];
+    if (integrated) {
+      for (const points of integrated.draws) {
+        dust.remove(points);
+        points.geometry.dispose();
+      }
+      integrated = undefined;
+      material.uniforms.uIntegrated!.value = 0;
+    }
+    dirty = true;
+  };
+  // A lost WebGL context takes every buffer with it. Three.js makes its
+  // own again once the browser gives a context back (its listeners, made
+  // with the renderer, run before these); the belt's buffers are the
+  // scene's own, so its room is dropped here and the page hands every row
+  // over again from where the crate holds them. Until then nothing is
+  // drawn, and the names, which are the page's, leave with the picture.
+  canvas.addEventListener('webglcontextlost', (event) => {
+    // (Without this the browser never gives one back.)
+    event.preventDefault();
+    // (Now, while a delete is nothing: after the return these would be
+    // another context's objects, and each delete a warning.)
+    dropBelt();
+    stats.lost = true;
+    // (By its opacity: each name sets its own visibility.)
+    names.style.opacity = '0';
+    host.contextLost();
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    stats.lost = false;
+    stats.restores++;
+    names.style.opacity = '';
+    resize();
+    host.contextRestored();
+    render(ask(performance.now()));
+  });
   /** The crate's group changed: its bytes into the belt's buffer, the
    *  gray headed in or out, and the outline the group's or gone. Asks the
    *  crate everything first and for the bytes' address last: the view over
@@ -2044,14 +2144,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     });
     const at = belt ? host.groupBytes() : 0;
     if (at && belt) {
-      const bytes = host.bytes(at, belt.rows);
-      gl.bindBuffer(gl.ARRAY_BUFFER, belt.picked);
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, bytes);
-      if (integrated) {
-        const picked = integrated.picked.array as Uint8Array;
-        for (let row = 0; row < integrated.rows; row++) picked[row] = bytes[integrated.list[row]!]!;
-        integrated.picked.needsUpdate = true;
-      }
+      const bytes = gray(belt, at);
       let count = 0;
       for (let row = 0; row < bytes.length; row++) count += bytes[row]!;
       stats.group = count;
@@ -2099,6 +2192,12 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
 
   const tick = (now: number) => {
     requestAnimationFrame(tick);
+    // The visitor chose another resolution: every buffer again, at it.
+    const wanted = heldScale ?? host.scale();
+    if (wanted !== scale) {
+      scale = wanted;
+      resize();
+    }
     // A drawn group's work, a frame's worth; and the group, when it changed.
     const changes = host.pick();
     if (changes !== groupChanges) {
@@ -2183,6 +2282,9 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       // where the crate keeps each block, and their upload, in one go.
       if (through === belt.rows && integrates && !integrated) integrate();
       const frame = now ? ask(performance.now()) : undefined;
+      // (A group held through a lost context: its bytes again, with the
+      // last rows.)
+      const grayed = through === belt.rows && group ? host.groupBytes() : 0;
       let at = stats.rows;
       for (const columns of blocks()) {
         const count = columns[0]?.length ?? 0;
@@ -2194,6 +2296,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
         at += count;
       }
       if (at !== through) throw new Error(`the scene was given rows up to ${at}, not ${through}`);
+      if (grayed) gray(belt, grayed);
       shown(belt, through);
       if (frame) render(frame);
       else dirty = true;
@@ -2201,25 +2304,9 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
     clearBelt() {
       if (!belt) return;
       // Its room goes with it: the draws, their geometries, the buffers.
-      shown(belt, 0);
-      for (const points of belt.draws) {
-        dust.remove(points);
-        points.geometry.dispose();
-      }
       for (const buffer of [...belt.buffers, belt.picked]) gl.deleteBuffer(buffer);
-      belt = undefined;
-      picking.clear();
-      [pickBelt, pickIntegrated] = [undefined, undefined];
-      if (integrated) {
-        for (const points of integrated.draws) {
-          dust.remove(points);
-          points.geometry.dispose();
-        }
-        gl.deleteBuffer(integrated.places);
-        integrated = undefined;
-        material.uniforms.uIntegrated!.value = 0;
-      }
-      dirty = true;
+      if (integrated) gl.deleteBuffer(integrated.places);
+      dropBelt();
     },
     wantsSky: !alone && on('sky'),
     setSky(file) {
@@ -2241,7 +2328,7 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       // Only what a visitor could have meant: a dot of the belt in space,
       // through the fixed frame's camera, and not with the press that
       // stopped a camera on its way.
-      if (stopped || alone || !pickBelt || !last || last.flight > 0 || last.ride > 0 || last.space < 1) return -1;
+      if (stats.lost || twoSince || stopped || alone || !pickBelt || !last || last.flight > 0 || last.ride > 0 || last.space < 1) return -1;
       // The last frame's camera, looking only at the pixels round the
       // click: one of the pass's pixels is one CSS pixel of the window.
       place(last.inset, last.ride);
@@ -2272,7 +2359,65 @@ export function startScene(canvas: HTMLCanvasElement, names: HTMLElement, host: 
       }
       return picked;
     },
+    twoStart(ax, ay, bx, by, frame) {
+      twoDown = twoSince = true;
+      // The first finger's pan ends here, where it is, with no glide.
+      dragging?.dragEnd(ax, ay, performance.now());
+      dragging?.press();
+      dragging = undefined;
+      const held = frame < 0 ? undefined : handOf(frame);
+      two = held && { hand: held, from: [ax, ay, bx, by], last: [ax, ay, bx, by], is: '' };
+      moving();
+    },
+    twoMove(ax, ay, bx, by) {
+      if (!two) return;
+      const now = performance.now();
+      const apart = (at: number[]) => Math.hypot(at[2]! - at[0]!, at[3]! - at[1]!);
+      const angle = (at: number[]) => (Math.atan2(at[3]! - at[1]!, at[2]! - at[0]!) * 180) / Math.PI;
+      // (The short way round, degrees.)
+      const turned = (from: number[], to: number[]) => ((((angle(to) - angle(from)) % 360) + 540) % 360) - 180;
+      const at = [ax, ay, bx, by];
+      if (!two.is) {
+        // Which it is: fingers that part, close, or turn about each other
+        // zoom and turn; fingers that travel up or down together tilt.
+        // Whichever the fingers have done more of: a turn is weighed as
+        // the px they went round each other, so fingers close together,
+        // whose angle a wobble swings, still tilt.
+        const [up, other] = [at[1]! - two.from[1]!, at[3]! - two.from[3]!];
+        const together = up * other > 0 ? Math.min(Math.abs(up), Math.abs(other)) : 0;
+        const against = Math.max(Math.abs(apart(at) - apart(two.from)), (Math.abs(turned(two.from, at)) * Math.PI * apart(two.from)) / 180);
+        if (against > FINGERS.part && against >= together) two.is = 'zoom';
+        else if (together > FINGERS.tilt) two.is = 'tilt';
+        // (From here: what the fingers did while it wasn't yet either is
+        // not made up in one jump.)
+        two.last = at;
+        return;
+      }
+      if (two.is === 'zoom') {
+        const [from, to] = [apart(two.last), apart(at)];
+        if (from > 0 && to > 0) two.hand.pinch((ax + bx) / 2, (ay + by) / 2, from / to, now);
+        // The picture turns with the fingers, about the middle of the window's scene.
+        const by_ = turned(two.last, at);
+        if (by_) two.hand.turnBy(by_, 0, now);
+      } else {
+        // Up lifts the camera toward straight down, as a drag with Shift does.
+        const up = (at[1]! + at[3]! - two.last[1]! - two.last[3]!) / 2;
+        if (up) two.hand.turnBy(0, up * TURN.tilt, now);
+      }
+      two.last = at;
+    },
+    twoEnd() {
+      twoDown = false;
+      two = undefined;
+      moving();
+    },
+    pinch(x, y, by, frame) {
+      if (frame >= 0) handOf(frame)?.pinch(x, y, by, performance.now());
+    },
     dragStart(x, y, button, modifiers, frame) {
+      // (With two fingers down the first one's pan waits.)
+      if (twoDown) return;
+      twoSince = false;
       dragging = handOf(frame);
       panning = button === 0 && !(modifiers & SHIFT);
       dragging?.dragStart(x, y, button, modifiers, performance.now());

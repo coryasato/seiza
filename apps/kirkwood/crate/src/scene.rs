@@ -145,6 +145,94 @@ pub fn fold_hint() {
     crate::web::fold_hint();
 }
 
+/// The scene's resolution, as the visitor may have it: the scene's pixels
+/// for each of the display's, and the step's name. The first is the
+/// display's own, as the scene opens (`docs/DECISIONS.md`, "Scene").
+pub const SCALES: [(f32, &str); 3] = [(1.0, "Full"), (0.75, "¾"), (0.5, "½")];
+
+thread_local! {
+    static SCALE: Cell<f32> = const { Cell::new(1.0) };
+    static TOUCHING: Cell<bool> = const { Cell::new(false) };
+    static TAPPED: Cell<Option<([f32; 2], f64, usize)>> = const { Cell::new(None) };
+    static SLOP: Cell<f32> = const { Cell::new(CLICK_SLOP) };
+}
+
+/// The scene's pixels for each of the display's: the scene asks each
+/// frame, and makes its buffers again when this has moved.
+pub fn scale() -> f32 {
+    SCALE.get()
+}
+
+/// The visitor's choice of a step, which the page keeps for the next visit.
+pub fn set_scale(scale: f32) {
+    SCALE.set(scale);
+    #[cfg(target_family = "wasm")]
+    crate::web::keep_scale(scale);
+}
+
+/// The step chosen on an earlier visit, if the page kept one of them.
+pub fn open_scale() {
+    #[cfg(target_family = "wasm")]
+    {
+        let kept = crate::web::scale_kept();
+        if SCALES.iter().any(|(scale, _)| *scale == kept) {
+            SCALE.set(kept);
+        }
+    }
+}
+
+/// Whether the visitor's pointer is a finger. Off the web, never.
+pub fn coarse() -> bool {
+    #[cfg(target_family = "wasm")]
+    return crate::web::coarse();
+    #[cfg(not(target_family = "wasm"))]
+    false
+}
+
+/// Whether a finger has the surface, from its landing to its lifting: its
+/// moves and release come by the touch listener, not the mouse's.
+pub fn touching() -> bool {
+    TOUCHING.get()
+}
+
+pub fn set_touching(touching: bool) {
+    TOUCHING.set(touching);
+}
+
+/// A finger landed on the surface at a window position, at `now` (the
+/// page clock, ms): which press of a quick run it is, as a mouse's click
+/// count says (the platform counts none for a touch it handed over).
+pub fn tap([x, y]: [f32; 2], now: f64) -> usize {
+    let count = TAPPED
+        .get()
+        .filter(|&([from_x, from_y], at, _)| {
+            now - at <= TAP_WITHIN && (x - from_x).hypot(y - from_y) <= TAP_APART
+        })
+        .map_or(1, |(_, _, count)| count + 1);
+    TAPPED.set(Some(([x, y], now, count)));
+    count
+}
+
+/// The finger that landed is no tap (it went on to drag, or a second one
+/// joined it): the next landing begins a run of its own.
+pub fn untap() {
+    TAPPED.set(None);
+}
+
+/// How far a press may move and still be a click, CSS px: a mouse's, and
+/// a finger's, which wobbles.
+pub const CLICK_SLOP: f32 = 3.0;
+pub const TAP_SLOP: f32 = 10.0;
+/// Two taps are a double tap this soon after each other, ms, and this
+/// near, CSS px: the platform's own for a touch it recognizes itself.
+const TAP_WITHIN: f64 = 400.0;
+const TAP_APART: f32 = 16.0;
+
+/// The slop of the press under way: the mouse's, or a finger's.
+pub fn set_click_slop(px: f32) {
+    SLOP.set(px);
+}
+
 thread_local! {
     /// The button of the drag the scene has, from its press on the surface
     /// to its release, wherever in the window that is.
@@ -159,9 +247,6 @@ thread_local! {
     /// left button's, on the surface, the fixed frame's camera a hand's.
     static CLICK: Cell<Option<[f32; 2]>> = const { Cell::new(None) };
 }
-
-/// How far a press may move and still be a click, CSS px.
-const CLICK_SLOP: f32 = 3.0;
 
 /// How many inputs the window has heard that are a press or move a camera
 /// (a wheel, a double click, a key, the way home): a click on a dot waits
@@ -186,7 +271,7 @@ pub fn click_start(x: f32, y: f32) {
 pub fn click_moved(x: f32, y: f32) {
     if CLICK
         .get()
-        .is_some_and(|[from_x, from_y]| (x - from_x).hypot(y - from_y) > CLICK_SLOP)
+        .is_some_and(|[from_x, from_y]| (x - from_x).hypot(y - from_y) > SLOP.get())
     {
         CLICK.set(None);
     }

@@ -355,3 +355,16 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting".
 - **A stable name in a bucket is a deploy that isn't atomic.** The page checks each file's length against the manifest it was built with, so files overwritten before the new Worker was live would have failed every visitor in between. Review caught it; the key now carries the file's hash.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting"; the cost, the gitignored `docs/private/cost.md`.
+
+## M7 part C: other browsers, machines, and hands (2026-11-15)
+
+- **GPUI's touch scroll is locked to an axis.** One finger over the scene arrived as a scroll, which zoomed; taken as a pan it moved along one axis only, the one the finger began along. The way out was already in the platform: every touch is offered as a drag before it becomes a tap or a scroll, and an element that claims it gets the finger's own positions.
+- **A second finger never reaches GPUI's elements.** Its recognizer follows one touch. Two fingers are counted on the window, ahead of the canvas, and whether they're the scene's is asked of the crate, not hit-tested.
+- **A preload's media is weighed where the link stands.** Above the viewport's tag a phone's window is 980 px wide, so `min-width: 600px` matched and the phone fetched the wasm and the font it was built not to. The check that counts a phone's requests found it on its first run.
+- **Three.js comes back from a lost context by itself; only buffers made by hand don't.** And a geometry disposed after the context returns deletes another context's objects, a warning each: the belt's room is dropped at the loss, while a delete is nothing.
+- **A lost context hands out no extensions,** `WEBGL_lose_context` among them: the check keeps it from before the loss to give the context back.
+- **Each name sets its own visibility,** so hiding the names' layer by `visibility` hid nothing: the screenshot of the lost context still had "Sol" and "Jupiter" over an empty sky. The layer leaves by opacity.
+- **Safari tells a trackpad's pinch in events no driver can send.** The path is seen with events made by hand; the real thing is a hand's to try.
+- **No H.264 encoder on the machine:** Playwright's ffmpeg writes VP8 alone, so the phone's "recording" is five stills.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Interface", "Input".

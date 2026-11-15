@@ -291,6 +291,42 @@
 //           pixel (out/tour-*.jpg); the arrow's next presses, the smallest
 //           first and the file's order; and what an order costs, the median
 //           of five by diameter and by a.
+//   touch   fingers, as Chromium tells them (CDP's touch events): one
+//           finger's drag pans and holds the ecliptic's point under it, at
+//           the same distance (not a zoom); let go moving, the camera
+//           glides once and rests; a pinch zooms about its middle; a twist
+//           turns the picture the way the fingers went; two fingers up
+//           tilt and nothing else; a tap presses a control; a drag over the
+//           open table scrolls it and leaves the camera; and in the lasso's
+//           mode one finger draws a group (out/touch-*.jpg).
+//   scale   the scene's resolution, the visitor's: the controls' list's
+//           three steps (out/scale-list.jpg), the list under the title's
+//           lines; a press on three quarters and on half makes the scene's
+//           canvas that many of the display's pixels and leaves GPUI's alone
+//           (out/scale-half.jpg); the step is kept for the next load, under
+//           a key named for the app; and `?scale` holds another whatever
+//           was kept.
+//   lost    the scene's WebGL context lost on purpose (WEBGL_lose_context),
+//           twice: with it gone the scene's picture is the page's own
+//           background, its names are hidden, and the page says so in the
+//           count's place (out/lost.jpg); given back, every row and star is
+//           drawn again, the Hildas and the Trojans where the integration
+//           has them, and the picture's light is what it was within 2%
+//           (out/lost-before.jpg, lost-restored.jpg).
+//   phone   a phone's page (390×844 at DPR 3, a finger its only pointer):
+//           fails if the wasm, the font, the scene's module, or a file is
+//           asked for before "Open it anyway" is pressed, or anything but
+//           the page, its script, and the first still; unless the page
+//           says what it's built for and the next still is asked for only
+//           when its turn comes (out/phone.jpg). Then the press: GPUI's
+//           first frame, the belt, the rows, and the wasm's memory with
+//           all of it held (out/phone-anyway.jpg). And a tablet's window
+//           (820×1180, a finger) and a narrow one with a mouse open the
+//           app with no page between.
+//   stills  only when named: the phone's page's pictures, from the app
+//           (web/public/phone/*.jpg, committed, 960 px wide): the belt, the table open,
+//           the dots sorted, the ride, a gap picked. Run after a change to
+//           what any of them shows, then `build`.
 //   paused  only when named, and alone: the page with the data paused (the
 //           Worker under `wrangler dev` with its pause on, or `--url` while
 //           production's is): fails unless GPUI's first frame still comes,
@@ -318,7 +354,7 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,rate,drag,slow,cross,glass,paused] [--runs 5] [--browser firefox|webkit] [--worker] [--url <the page>]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,touch,scale,lost,phone,stills,rate,drag,slow,cross,glass,paused] [--runs 5] [--browser firefox|webkit] [--worker] [--url <the page>]
 // --worker: the build behind the app's Worker under `wrangler dev`
 // (worker/scripts/dev.ts), not `vite preview`; every part but `slow`, whose
 // bytes on the wire `wrangler dev` re-encodes.
@@ -331,7 +367,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, firefox, webkit, type Page } from '@playwright/test';
 import { clickTarget, firstDrawProbe, open, targetRect, waitMark, wheel, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
-import { PROFILES, flag, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
+import { PROFILES, flag, hideDevicePixelContentBox, localDate, machineInfo, median, option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { readElements, type ElementsFile } from '../data/elements.ts';
 import { isBound, place } from '../data/orbit.ts';
@@ -349,7 +385,7 @@ const WORKER = flag('worker');
 const URL_GIVEN = option('url');
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'flyin', 'dot', 'live', 'tour', 'rate', 'drag', 'slow', 'cross', 'glass', 'paused'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'flyin', 'dot', 'live', 'tour', 'touch', 'scale', 'lost', 'phone', 'stills', 'rate', 'drag', 'slow', 'cross', 'glass', 'paused'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -366,7 +402,7 @@ const RATE_MORE = (option('ways') ?? '')
     return [name!, Object.fromEntries(new URLSearchParams(query))];
   });
 /** Asked for by name alone: the frame rates, the slow link, and another browser take minutes more. */
-const ASKED = ['rate', 'drag', 'slow', 'cross', 'glass', 'paused'];
+const ASKED = ['stills', 'rate', 'drag', 'slow', 'cross', 'glass', 'paused'];
 const ONLY = new Set((option('only') ?? PARTS.filter((part) => !ASKED.includes(part)).join(',')).split(','));
 if (ENGINE !== chromium && [...ONLY].some((part) => part !== 'cross' && part !== 'wheel')) throw new Error('--browser runs --only cross,wheel; every other part is Chromium\'s');
 if (WORKER && ONLY.has('slow')) throw new Error('--worker and slow: `wrangler dev` re-encodes what the Worker sends, so the bytes on the wire there are not what a deploy sends');
@@ -401,7 +437,7 @@ const TABLE_ROWS = manifest['rows.bin'].rows;
 type Clock = { years: number; running: boolean; held: boolean; ended: boolean; first: number; last: number; date: string };
 type Label = { text: string; left: number; top: number; width: number; height: number; shown: boolean };
 type View = { x: number; y: number; distance: number; tilt: number; bearing: number; roll: number };
-type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; riding: View; gliding: boolean; found: number; chase: 'waiting' | 'flying' | 'following' | ''; finds: number; group: number; grayed: number; fly: 'waiting' | 'in' | 'back' | ''; flight: number; ride: number; integrated: number; catchingUp: boolean };
+type SceneStats = { frames: number; years: number; rows: number; points: number; stars: number; renderer: string; distance: number; camera: View; riding: View; gliding: boolean; found: number; chase: 'waiting' | 'flying' | 'following' | ''; finds: number; group: number; grayed: number; fly: 'waiting' | 'in' | 'back' | ''; flight: number; ride: number; integrated: number; catchingUp: boolean; scale: number; lost: boolean; restores: number };
 type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
@@ -1129,8 +1165,375 @@ async function seeCross(url: string) {
     await shot(page, `cross-${BROWSER}-panel`);
     const ceres = fixture.rows.find((row) => row.row === 0)!.cells.full_name;
     need(firstRow[1] === ceres, `the first row is ${firstRow[1]}, not ${ceres}`);
+    // A trackpad's pinch as Safari tells it (its gesture events, made
+    // here by hand: no browser's driver sends them): twice the scale,
+    // half as far, and the page's own zoom turned down.
+    const pinch = await page.evaluate(async () => {
+      const scene = (globalThis as unknown as Page_).__kirkwood.scene!;
+      const before = scene.stats.camera.distance;
+      const tell = (type: string, scale: number) => {
+        const event = Object.assign(new Event(type, { bubbles: true, cancelable: true }), { scale, clientX: 600, clientY: 450 });
+        dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+      tell('gesturestart', 1);
+      const prevented = tell('gesturechange', 2);
+      tell('gestureend', 2);
+      await new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done())));
+      return { before, after: scene.stats.camera.distance, prevented };
+    });
+    need(pinch.prevented && near(pinch.after, pinch.before / 2, 1e-6), `a pinch told as Safari's gesture events, to twice the scale, took the camera from ${pinch.before} au to ${pinch.after}${pinch.prevented ? '' : ', and the page was left to zoom'}`);
     if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
     return { browser: BROWSER, version: page.context().browser()!.version(), marksMs: Object.fromEntries(Object.entries(marks).map(([name, at]) => [name, round(at)])), ...seen, firstRow: firstRow[1] };
+  } finally {
+    await close();
+  }
+}
+
+/** How wide the phone's page's pictures are, px. */
+const STILL_WIDE = 960;
+
+/** The phone's page's pictures, taken from the app. */
+async function takeStills(url: string) {
+  const to = join(dir, '../web/public/phone');
+  mkdirSync(to, { recursive: true });
+  const stills: [string, Record<string, string>, ((page: Page) => Promise<void>)?][] = [
+    ['belt', {}],
+    [
+      'table',
+      {},
+      async (page) => {
+        await waitMark(page, ROWS, 0, 120_000);
+        await clickTarget(page, 'table-handle');
+        await waitMark(page, TABLE);
+        await drawnRow(page, 0);
+        await page.waitForTimeout(700);
+      },
+    ],
+    ['sorted', { flight: '1' }],
+    ['ride', { ride: '1' }],
+    ['gap', { ride: '1', gap: '0' }],
+  ];
+  const bytes: Record<string, number> = {};
+  for (const [name, params, then] of stills) {
+    const { page, close } = await open(chromium, url, { params: { ...HELD, 'probe-cells': '', ...params } });
+    try {
+      await waitMark(page, BELT, 0, 120_000);
+      await waitMark(page, SKY, 0, 120_000);
+      await page.waitForFunction(() => !(globalThis as unknown as Page_).__kirkwood.scene!.stats.catchingUp, undefined, { timeout: 60_000 });
+      await then?.(page);
+      await page.mouse.move(700, 700);
+      await settle(page);
+      await page.waitForTimeout(800);
+      // The window's picture, made `STILL_WIDE` px wide in the page (a
+      // phone shows it under 400 CSS px across): a JPEG of that.
+      const png = (await page.screenshot({ type: 'png', scale: 'css' })).toString('base64');
+      const small = await page.evaluate(
+        async ({ data, wide, quality }) => {
+          const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${data}`)).blob());
+          const canvas = new OffscreenCanvas(wide, Math.round((wide * bitmap.height) / bitmap.width));
+          const context = canvas.getContext('2d')!;
+          context.imageSmoothingQuality = 'high';
+          context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+          const bytes = new Uint8Array(await (await canvas.convertToBlob({ type: 'image/jpeg', quality })).arrayBuffer());
+          let text = '';
+          for (let at = 0; at < bytes.length; at += 0x8000) text += String.fromCharCode(...bytes.subarray(at, at + 0x8000));
+          return btoa(text);
+        },
+        { data: png, wide: STILL_WIDE, quality: 0.72 },
+      );
+      const file = Buffer.from(small, 'base64');
+      writeFileSync(join(to, `${name}.jpg`), file);
+      bytes[name] = file.length;
+    } finally {
+      await close();
+    }
+  }
+  return { bytes, totalKB: round(Object.values(bytes).reduce((sum, size) => sum + size, 0) / 1024) };
+}
+
+/** A phone's page, and the app opened from it anyway. */
+async function seePhone(url: string) {
+  const browser = await chromium.launch({ channel: 'chromium' });
+  const windowOf = async (viewport: { width: number; height: number }, finger: boolean, ratio: number) => {
+    const context = await browser.newContext({ viewport, deviceScaleFactor: ratio, hasTouch: finger, isMobile: finger });
+    if (ratio !== 1) await context.addInitScript(hideDevicePixelContentBox);
+    const page = await context.newPage();
+    const asked: string[] = [];
+    page.on('request', (request) => asked.push(new URL(request.url()).pathname.replace(BASE, '')));
+    const problems: string[] = [];
+    page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
+    await page.goto(`${url}?date=${EPOCH}`);
+    return { context, page, asked, problems };
+  };
+  try {
+    const { context, page, asked, problems } = await windowOf({ width: 390, height: 844 }, true, 3);
+    await page.waitForSelector('#phone button');
+    await page.waitForFunction(() => document.querySelector<HTMLImageElement>('#phone img')?.complete);
+    await page.waitForTimeout(1500);
+    const kind = (path: string) => (/\.wasm$/.test(path) ? 'the wasm' : /\.ttf$/.test(path) ? 'the font' : /^data\//.test(path) ? 'a file' : /scene-.*\.js$/.test(path) ? "the scene's module" : /^phone\/.*\.jpg$/.test(path) ? 'a still' : /^$|^assets\/index-.*\.js$/.test(path) ? 'the page' : `something else (${path})`);
+    const first = asked.map(kind);
+    need(first.sort().join() === ['a still', 'the page', 'the page'].join(), `before anything is asked for, the phone's page asked for: ${asked.join(', ')}`);
+    const says = await page.evaluate(() => ({ text: document.querySelector('#phone')!.textContent ?? '', buttons: [...document.querySelectorAll('#phone button')].map((button) => button.textContent), canvases: document.querySelectorAll('body > canvas:not(#scene)').length, wide: document.documentElement.scrollWidth > innerWidth }));
+    need(/built for a larger screen/.test(says.text) && /downloads 55 MB/.test(says.text) && says.buttons.length === 2 && says.buttons[1] === 'Open it anyway' && says.canvases === 0 && !says.wide, `the phone's page: ${JSON.stringify(says)}`);
+    await page.screenshot({ path: join(out, 'phone.jpg'), type: 'jpeg', quality: 85, fullPage: true });
+    // The next still, when its turn comes, and no sooner.
+    await page.waitForFunction(() => document.querySelectorAll<HTMLImageElement>('#phone img.shown')[0]?.src.endsWith('table.jpg'), undefined, { timeout: 15_000 });
+    const turned = asked.filter((path) => kind(path) === 'a still');
+    need(turned.length === 2 && asked.every((path) => ['a still', 'the page'].includes(kind(path))), `once the second still showed, the page had asked for: ${asked.join(', ')}`);
+    // Anyway: the app, whole.
+    const from = Date.now();
+    await page.tap('#phone button:nth-of-type(2)');
+    const marks = { firstFrame: await waitMark(page, FIRST_FRAME, 0, 60_000), belt: await waitMark(page, BELT, 0, 180_000), rows: await waitMark(page, ROWS, 0, 180_000), sky: await waitMark(page, SKY, 0, 180_000) };
+    await settle(page);
+    await page.waitForTimeout(500);
+    const opened = await page.evaluate(() => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      return { wasmBytes: kirkwood.wasmBytes(), ...kirkwood.belt(), points: kirkwood.scene!.stats.points, phone: !!document.querySelector('#phone'), canvas: [document.querySelector<HTMLCanvasElement>('#scene')!.width, document.querySelector<HTMLCanvasElement>('#scene')!.height] };
+    });
+    need(!opened.phone && opened.points === manifest['elements.bin'].rows, `opened anyway: ${JSON.stringify(opened)}`);
+    await page.screenshot({ path: join(out, 'phone-anyway.jpg'), type: 'jpeg', quality: 85 });
+    if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+    await context.close();
+    // Not a phone: a tablet's window under a finger, and a narrow one under a mouse.
+    const others: Record<string, number> = {};
+    for (const [name, viewport, finger] of [['tablet', { width: 820, height: 1180 }, true], ['narrow window, a mouse', { width: 480, height: 800 }, false]] as const) {
+      const other = await windowOf(viewport, finger, 1);
+      others[name] = round(await waitMark(other.page, FIRST_FRAME, 0, 60_000));
+      need(!(await other.page.$('#phone')), `${name}: the phone's page showed`);
+      await other.context.close();
+    }
+    return { before: asked.slice(0, 3), stillsAskedBeforeTheSecondShowed: turned.length, anywayMs: Object.fromEntries(Object.entries(marks).map(([name, at]) => [name, round(at)])), sincePressMs: Date.now() - from, wasmMB: mb(opened.wasmBytes), sceneCanvas: opened.canvas.join('×'), firstFrameMsElsewhere: others };
+  } finally {
+    await browser.close();
+  }
+}
+
+/** Fingers on the scene and on the interface. */
+async function seeTouch(url: string) {
+  // A level camera, tilted: a turn shows in where a point goes.
+  const { page, problems, close } = await open(chromium, url, { params: { ...HELD, roll: '0' } });
+  try {
+    await waitMark(page, BELT, 0, 120_000);
+    await waitMark(page, ROWS, 0, 120_000);
+    await settle(page);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+    const fingers = (type: 'touchStart' | 'touchMove' | 'touchEnd', at: Point[]) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: at.map(([x, y], id) => ({ x, y, id })) });
+    /** Fingers from one set of places to another over `ms`, a move every
+     *  8 ms, held `still` ms before the release. */
+    const gesture = async (from: Point[], to: Point[], { ms = 300, still = 150 } = {}) => {
+      await fingers('touchStart', from);
+      const steps = Math.max(2, Math.round(ms / 8));
+      for (let step = 1; step <= steps; step++) {
+        await fingers('touchMove', from.map(([x, y], finger) => [x + ((to[finger]![0] - x) * step) / steps, y + ((to[finger]![1] - y) * step) / steps] as Point));
+        await page.waitForTimeout(8);
+      }
+      if (still) await page.waitForTimeout(still);
+      await fingers('touchEnd', []);
+      await cameraRests(page);
+    };
+    const first = await cameraNow(page);
+    // One finger: a pan.
+    const [from, to]: [Point, Point] = [[700, 520], [820, 590]];
+    const held = (await under(page, from))!;
+    await gesture([from], [to]);
+    const panned = await cameraNow(page);
+    const now = (await under(page, to))!;
+    const slid = off(project(panned.matrix, [held[0], held[1], 0]), to);
+    need(panned.view.distance === first.view.distance && panned.view.tilt === first.view.tilt && panned.view.bearing === first.view.bearing, `one finger's drag left the camera at ${JSON.stringify(viewOf(panned.view))}, from ${JSON.stringify(viewOf(first.view))}: a pan moves only what it looks at`);
+    // (The drag begins a slop's worth late: GPUI waits to see it isn't a tap.)
+    need(off([first.view.x, first.view.y], [panned.view.x, panned.view.y]) > 0.1 && slid < 16, `one finger's drag: the point it went down on is ${round(slid)} px from where it lifted (${held.map((au) => fixed(au, 3)).join()} went down, ${now.map((au) => fixed(au, 3)).join()} is under it)`);
+    await shot(page, 'touch-pan');
+    // Let go moving: a glide, the scene's own, and no second one after it.
+    const before = await cameraNow(page);
+    await gesture([[900, 500]], [[700, 500]], { ms: 120, still: 0 });
+    const flung = await cameraNow(page);
+    await page.waitForTimeout(700);
+    const later = await cameraNow(page);
+    need(off([before.view.x, before.view.y], [flung.view.x, flung.view.y]) > 0.2 && flung.view.distance === before.view.distance, `a flick moved the camera from ${JSON.stringify(viewOf(before.view))} to ${JSON.stringify(viewOf(flung.view))}`);
+    need(sameView(flung.view, later.view), `at rest after a flick the camera moved again, to ${JSON.stringify(viewOf(later.view))}`);
+    // A pinch: nearer, about its middle.
+    const middle: Point = [700, 500];
+    const pinned = (await under(page, middle))!;
+    await gesture([[640, 500], [760, 500]], [[520, 500], [880, 500]]);
+    const pinched = await cameraNow(page);
+    const drift = off(project(pinched.matrix, [pinned[0], pinned[1], 0]), middle);
+    need(pinched.view.distance < later.view.distance * 0.45 && pinched.view.distance > later.view.distance * 0.3 && pinched.view.tilt === later.view.tilt && pinched.view.bearing === later.view.bearing, `a pinch from 120 px apart to 360 took the camera from ${later.view.distance} au to ${pinched.view.distance}, tilt ${pinched.view.tilt}, bearing ${pinched.view.bearing}`);
+    need(drift < 3, `the point under the pinch's middle moved ${round(drift)} px`);
+    await shot(page, 'touch-pinch');
+    // And back out.
+    await gesture([[520, 500], [880, 500]], [[640, 500], [760, 500]]);
+    const out = await cameraNow(page);
+    need(out.view.distance > pinched.view.distance * 2.2, `fingers closed from 360 px to 120 took the camera from ${pinched.view.distance} au to ${out.view.distance}`);
+    // A twist, a sixth of a turn the way a clock's hands go: the picture goes with it.
+    const right = (await under(page, [960, 450]))!;
+    const turn = (degrees: number): Point[] => [180, 0].map((finger) => [720 + 100 * Math.cos(((finger + degrees) * Math.PI) / 180), 450 + 100 * Math.sin(((finger + degrees) * Math.PI) / 180)] as Point);
+    await fingers('touchStart', turn(0));
+    for (let degrees = 1; degrees <= 60; degrees++) {
+      await fingers('touchMove', turn(degrees));
+      await page.waitForTimeout(8);
+    }
+    await page.waitForTimeout(150);
+    await fingers('touchEnd', []);
+    await cameraRests(page);
+    const twisted = await cameraNow(page);
+    const went = project(twisted.matrix, [right[0], right[1], 0]);
+    const round360 = (degrees: number) => ((degrees % 360) + 540) % 360 - 180;
+    const by = round360(twisted.view.bearing - out.view.bearing);
+    need(Math.abs(by) > 45 && Math.abs(by) <= 60 && twisted.view.tilt === out.view.tilt && near(twisted.view.distance, out.view.distance, out.view.distance * 0.02), `a twist of 60° turned the camera ${fixed(by, 1)}°, tilt ${twisted.view.tilt}, ${twisted.view.distance} au (${out.view.distance} before)`);
+    need(went[1] > 450 + 40, `the point right of the middle went to ${went.map(round).join()}: with the fingers it goes down`);
+    await shot(page, 'touch-twist');
+    // Two fingers up: a tilt toward straight down, and nothing else.
+    await gesture([[640, 560], [800, 560]], [[640, 480], [800, 480]]);
+    const tilted = await cameraNow(page);
+    need(tilted.view.tilt < twisted.view.tilt - 25 && tilted.view.distance === twisted.view.distance && tilted.view.bearing === twisted.view.bearing && tilted.view.x === twisted.view.x, `two fingers 80 px up took the tilt from ${twisted.view.tilt}° to ${tilted.view.tilt}°, the camera to ${JSON.stringify(viewOf(tilted.view))}`);
+    await shot(page, 'touch-tilt');
+    // A tap presses a control: the table's handle.
+    const handle = await targetRect(page, 'table-handle');
+    const tap: Point = [handle[0] + handle[2] / 2, handle[1] + handle[3] / 2];
+    await fingers('touchStart', [tap]);
+    await page.waitForTimeout(40);
+    await fingers('touchEnd', []);
+    await waitMark(page, TABLE);
+    await page.waitForTimeout(700);
+    need((await kirkwood(page, (kirkwood) => kirkwood.panel())).open, "a tap on the table's handle didn't open the panel");
+    // A drag on the table scrolls it, and the camera stays.
+    const rested = await cameraNow(page);
+    const top = () => page.evaluate(() => (globalThis as unknown as Page_).__kirkwoodTable?.top ?? -1);
+    const row = await top();
+    await gesture([[1250, 600]], [[1250, 300]]);
+    await page.waitForTimeout(1500);
+    const scrolled = await top();
+    need(scrolled > row && sameView(rested.view, (await cameraNow(page)).view), `a finger up the table took its first row from ${row} to ${scrolled}, and the camera to ${JSON.stringify(viewOf((await cameraNow(page)).view))}`);
+    // Two fingers with one on the panel aren't the scene's.
+    await gesture([[600, 500], [1300, 500]], [[500, 500], [1400, 500]]);
+    need((await cameraNow(page)).view.distance === rested.view.distance, 'a pinch with one finger on the panel zoomed the scene');
+    await shot(page, 'touch-panel');
+    if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+    return {
+      pan: { slidPx: round(slid), to: viewOf(panned.view) },
+      flick: { to: viewOf(flung.view) },
+      pinchAu: [fixed(later.view.distance, 3), fixed(pinched.view.distance, 3), fixed(out.view.distance, 3)],
+      pinchMiddleMovedPx: round(drift),
+      twist: { turned: fixed(by, 1), pointWentTo: went.map(round) },
+      tilt: [fixed(twisted.view.tilt, 1), fixed(tilted.view.tilt, 1)],
+      tableTop: [row, scrolled],
+    };
+  } finally {
+    await close();
+  }
+}
+
+/** The scene's resolution as the visitor's choice. */
+async function seeScale(url: string) {
+  const { page, problems, close } = await open(chromium, url, { params: HELD });
+  try {
+    await waitMark(page, BELT, 0, 120_000);
+    await settle(page);
+    const canvases = () =>
+      page.evaluate(() => {
+        const scene = document.querySelector<HTMLCanvasElement>('#scene')!;
+        const gpui = document.querySelector<HTMLCanvasElement>('body > canvas:not(#scene)')!;
+        return { scene: [scene.width, scene.height], gpui: [gpui.width, gpui.height], scale: (globalThis as unknown as Page_).__kirkwood.scene!.stats.scale, kept: localStorage.getItem('kirkwood:scale'), ratio: devicePixelRatio, window: [innerWidth, innerHeight] };
+      });
+    const is = async (scale: number, what: string) => {
+      await page.waitForFunction((scale) => (globalThis as unknown as Page_).__kirkwood.scene!.stats.scale === scale, scale, { timeout: 5000 }).catch(() => {});
+      await settle(page);
+      const now = await canvases();
+      const want = now.window.map((px) => Math.floor(px * now.ratio * scale));
+      need(now.scale === scale && near(now.scene[0]!, want[0]!, 1) && near(now.scene[1]!, want[1]!, 1), `${what}: the scene is at ${now.scale}, its canvas ${now.scene.join('×')}, and ${scale} of the display's is ${want.join('×')}`);
+      return now;
+    };
+    const opened = await is(1, 'as it opens');
+    need(opened.kept === null, `a first visit keeps "${opened.kept}"`);
+    await page.keyboard.press('?');
+    await settle(page);
+    const list = await targetRect(page, 'controls');
+    const title = await kirkwood(page, (kirkwood) => kirkwood.scrim());
+    need(list[1] >= title[1]! + title[3]!, `the list starts at ${round(list[1])}, and the title's lines end at ${round(title[1]! + title[3]!)}`);
+    await page.mouse.move(300, 300);
+    await settle(page);
+    await shot(page, 'scale-list', { x: 1040, y: list[1] - 20, width: 400, height: 900 - list[1] + 20 });
+    await clickTarget(page, 'scale-three-quarters');
+    const three = await is(0.75, 'three quarters pressed');
+    await clickTarget(page, 'scale-half');
+    const half = await is(0.5, 'half pressed');
+    need(half.kept === '0.5' && half.gpui.join() === opened.gpui.join(), `half pressed: the page keeps "${half.kept}", and GPUI's canvas is ${half.gpui.join('×')} (${opened.gpui.join('×')} before)`);
+    await page.keyboard.press('Escape');
+    await settle(page);
+    await shot(page, 'scale-half');
+    // The next load opens at it; `?scale` holds another.
+    await page.reload();
+    await waitMark(page, SCENE, 0, 60_000);
+    await is(0.5, 'loaded again');
+    await page.goto(`${page.url()}&scale=0.75`);
+    await waitMark(page, SCENE, 0, 60_000);
+    await is(0.75, 'with ?scale=0.75 over a kept half');
+    if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+    return { full: opened.scene.join('×'), threeQuarters: three.scene.join('×'), half: half.scene.join('×'), listTop: round(list[1]), titleEnds: round(title[1]! + title[3]!) };
+  } finally {
+    await close();
+  }
+}
+
+/** The scene's WebGL context lost on purpose and given back, twice. */
+async function seeLost(url: string) {
+  const { page, problems, close } = await open(chromium, url, { params: HELD });
+  try {
+    await waitMark(page, BELT, 0, 120_000);
+    await waitMark(page, SKY, 0, 120_000);
+    await settle(page);
+    // The scene away from the title's lines and the row of actions.
+    const clip = { x: 300, y: 250, width: 900, height: 500 };
+    const light = async () =>
+      pixelsOf(page, await page.screenshot({ type: 'png' }), clip, (pixels) => {
+        let sum = 0;
+        for (let at = 0; at < pixels.length; at += 4) sum += pixels[at]! + pixels[at + 1]! + pixels[at + 2]!;
+        return sum / (pixels.length / 4) / 3;
+      });
+    const stats = () => kirkwood(page, (kirkwood) => ({ ...kirkwood.scene!.stats, names: kirkwood.scene!.labels().filter((label) => label.shown).length, hidden: getComputedStyle(document.querySelector('#names')!).opacity === '0' }));
+    /** The context, through the extension that takes it and gives it back. */
+    const context = (give: boolean) =>
+      page.evaluate((give) => {
+        // (Kept: a lost context hands out no extension.)
+        const kept = globalThis as { __lose?: WEBGL_lose_context };
+        const lose = (kept.__lose ??= document.querySelector<HTMLCanvasElement>('#scene')!.getContext('webgl2')!.getExtension('WEBGL_lose_context')!);
+        if (give) lose.restoreContext();
+        else lose.loseContext();
+      }, give);
+    const before = { light: await light(), ...(await stats()) };
+    await shot(page, 'lost-before');
+    need(before.rows === manifest['elements.bin'].rows && before.integrated > 0 && before.light > 4, `before: ${before.rows} rows, ${before.integrated} integrated, the picture's light ${before.light}`);
+    const rounds: { goneLight: number; restoredLight: number; restoredMs: number }[] = [];
+    for (const round_ of [1, 2]) {
+      await context(false);
+      await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.scene!.stats.lost, undefined, { timeout: 5000 });
+      await settle(page);
+      await page.waitForTimeout(300);
+      const gone = { light: await light(), ...(await stats()) };
+      if (round_ === 1) await shot(page, 'lost');
+      need(gone.light < before.light / 2 && gone.hidden, `with the context lost the picture's light is ${gone.light} (${before.light} before) and the names are ${gone.hidden ? 'hidden' : 'shown'}`);
+      const from = Date.now();
+      await context(true);
+      await page.waitForFunction((restores) => {
+        const stats = (globalThis as unknown as Page_).__kirkwood.scene!.stats;
+        return !stats.lost && stats.restores === restores && stats.rows > 0 && stats.integrated > 0;
+      }, round_, { timeout: 15_000 });
+      const restoredMs = Date.now() - from;
+      await settle(page);
+      await page.waitForTimeout(300);
+      const restored = { light: await light(), ...(await stats()) };
+      need(restored.rows === before.rows && restored.points === before.points && restored.stars === before.stars && restored.integrated === before.integrated && !restored.hidden && restored.names === before.names, `restored: ${restored.rows} rows, ${restored.points} points, ${restored.stars} stars, ${restored.integrated} integrated, ${restored.names} names; before: ${before.rows}, ${before.points}, ${before.stars}, ${before.integrated}, ${before.names}`);
+      need(Math.abs(restored.light - before.light) <= 0.02 * before.light, `the picture's light is ${restored.light} restored and was ${before.light}`);
+      rounds.push({ goneLight: round(gone.light), restoredLight: round(restored.light), restoredMs });
+    }
+    await shot(page, 'lost-restored');
+    const counts = await kirkwood(page, (kirkwood) => kirkwood.belt());
+    const file = countRows();
+    need(counts.drawn === file.drawn && counts.unbound === file.unbound, `restored, the page counts ${counts.drawn} rows drawn and ${counts.unbound} not; the file has ${file.drawn} and ${file.unbound}`);
+    if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
+    return { lightBefore: round(before.light), rounds };
   } finally {
     await close();
   }
@@ -5272,6 +5675,11 @@ try {
   if (ONLY.has('dot')) seen.dot = await seeDot(server.url);
   if (ONLY.has('live')) seen.live = await seeLive(server.url);
   if (ONLY.has('tour')) seen.tour = await seeTour(server.url);
+  if (ONLY.has('touch')) seen.touch = await seeTouch(server.url);
+  if (ONLY.has('scale')) seen.scale = await seeScale(server.url);
+  if (ONLY.has('lost')) seen.lost = await seeLost(server.url);
+  if (ONLY.has('phone')) seen.phone = await seePhone(server.url);
+  if (ONLY.has('stills')) seen.stills = await takeStills(server.url);
   if (PAUSED) seen.paused = await seePaused(server.url);
   if (ONLY.has('glass')) seen.glass = await seeGlass(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);

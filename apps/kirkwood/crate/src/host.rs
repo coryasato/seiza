@@ -170,6 +170,9 @@ const CHIP_FILL: u32 = 0x0a0a0a;
 /// past its top.
 const UNDER_TITLE: f64 = 8.;
 
+/// What the page says in the count's place while the browser has the
+/// scene's WebGL context.
+const LOST_LINE: &str = "The browser took the scene's graphics away. They come back on their own: reload the page if they don't.";
 /// The corner, as boards 8 to 10 draw it, CSS px: how far in from the right
 /// and the bottom of what the panel leaves, the controls' list's width and
 /// how far up it ends, and the least width of what the panel leaves that
@@ -197,6 +200,8 @@ pub const HINT_TARGET: &str = "hint";
 pub const COMPASS_TARGET: &str = "compass";
 pub const CONTROLS_TARGET: &str = "controls";
 pub const CONTROLS_CLOSE_TARGET: &str = "controls-close";
+/// The scene's resolution's steps, in `scene::SCALES`' order.
+pub const SCALE_TARGETS: [&str; 3] = ["scale-full", "scale-three-quarters", "scale-half"];
 
 /// The legend's bar, CSS px, and the width of each slice of it: one tint.
 const LEGEND_WIDTH: f32 = 140.;
@@ -251,6 +256,9 @@ pub struct Host {
     sky: bool,
     /// Why there's no scene, if it didn't start.
     scene_failed: Option<SharedString>,
+    /// The browser has the scene's WebGL context: no picture until it
+    /// gives one back.
+    scene_lost: bool,
     table: Option<Entity<Table>>,
     /// The rows the table is over: a found row's name, and whether it has
     /// a dot, are read from them.
@@ -279,6 +287,9 @@ pub struct Host {
     /// The hint is folded to its button: the camera has been moved, or the
     /// controls' list opened, on this visit or one before.
     hint_folded: bool,
+    /// The visitor's pointer is a finger: the hint and the controls' list
+    /// say a finger's gestures.
+    coarse: bool,
     /// The controls' list is open.
     controls_open: bool,
     /// The keys are the interface's while this has them: the scene's, with
@@ -292,6 +303,8 @@ pub struct Host {
 
 impl Host {
     pub fn new(cx: &mut Context<Self>) -> Self {
+        // The scene's resolution, as an earlier visit left it.
+        scene::open_scale();
         Self {
             files: Files::Loading {
                 received: 0.0,
@@ -300,6 +313,7 @@ impl Host {
             belt: None,
             sky: false,
             scene_failed: None,
+            scene_lost: false,
             table: None,
             catalog: None,
             view: Rc::default(),
@@ -312,6 +326,7 @@ impl Host {
             classes: None,
             date: cx.new(DateLabel::new),
             compass: None,
+            coarse: scene::coarse(),
             hint_folded: scene::hint_folded(),
             controls_open: false,
             focus: cx.focus_handle(),
@@ -503,6 +518,57 @@ impl Host {
     /// page says.
     pub fn sky_drawn(&mut self, cx: &mut Context<Self>) {
         self.sky = true;
+        cx.notify();
+    }
+
+    /// A press the surface took, at a window position: a drag of the
+    /// scene's begins, which it keeps to its release wherever that is; a
+    /// double click's second press zooms in, and starts none; in the
+    /// lasso's mode the left button draws a shape. Only where the camera
+    /// is a hand's. `count`: the presses in a quick run, this one the last.
+    fn surface_down(
+        &mut self,
+        [x, y]: [f32; 2],
+        button: u8,
+        held: u8,
+        count: usize,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(frame) = hands_frame() else {
+            return;
+        };
+        // In the lasso's mode the left button draws a shape, through the
+        // fixed frame's camera at rest, and no button moves it.
+        if group::mode() || group::pending() {
+            if button == 0 && frame == scene::Frame::Fixed && group::press(x, y) {
+                scene::draw_start(x, y);
+            }
+            return;
+        }
+        let plain = button == 0 && held == 0;
+        // (Asked of every plain press, so the next knows of this one.)
+        let second = plain && scene::surface_press(frame);
+        if second && count == 2 {
+            // (A dot its first press picked, in the rare slow one, is let
+            // go: a double click zooms.)
+            self.undo_click(cx);
+            scene::double_click(x, y, frame);
+        } else {
+            scene::drag_start(x, y, button, held, frame);
+            // Released where it landed, it's a click on the dot there, if
+            // there is one: through the fixed frame's camera, as a shape
+            // is drawn. (A first press only: the third of a run of quick
+            // ones is a hand zooming still.)
+            if plain && count == 1 && frame == scene::Frame::Fixed {
+                scene::click_start(x, y);
+            }
+        }
+    }
+
+    /// The browser took the scene's WebGL context, or gave one back: the
+    /// page says so in the count's place while there's no picture.
+    pub fn scene_lost(&mut self, lost: bool, cx: &mut Context<Self>) {
+        self.scene_lost = lost;
         cx.notify();
     }
 
@@ -1210,6 +1276,7 @@ impl Host {
                 format!("The asteroids didn't load. {message}").into()
             }
             (_, Some(message), _) => format!("The scene didn't start. {message}").into(),
+            (_, None, _) if self.scene_lost => LOST_LINE.into(),
             // The dots on screen, counted from the rows drawn; and, once
             // every row is, the rows that have no dot.
             (_, None, Some(belt)) => belt_line(belt).into(),
@@ -1918,9 +1985,17 @@ impl Host {
                 .text_color(muted)
                 .child(says("Drag", "to move"))
                 .child(dot())
-                .child(says("Scroll", "to zoom"))
+                .child(if self.coarse {
+                    says("Pinch", "to zoom")
+                } else {
+                    says("Scroll", "to zoom")
+                })
                 .child(dot())
-                .child(says("Shift+drag", "to tilt"))
+                .child(if self.coarse {
+                    says("Two fingers up", "to tilt")
+                } else {
+                    says("Shift+drag", "to tilt")
+                })
                 .child(dot())
                 .child(
                     div()
@@ -2108,6 +2183,13 @@ impl Host {
                             )
                             .child(close),
                     )
+                    .children(self.coarse.then(|| {
+                        group("Touch")
+                            .child(row("Move", div().child("Drag with one finger")))
+                            .child(row("Zoom", div().child("Pinch, or double tap")))
+                            .child(row("Turn", div().child("Twist two fingers")))
+                            .child(row("Tilt", div().child("Two fingers up and down")))
+                    }))
                     .child(
                         group("Mouse")
                             .child(row("Move", div().child("Drag")))
@@ -2150,6 +2232,53 @@ impl Host {
                         div()
                             .text_color(muted)
                             .child("With the table open, the keys are the table's."),
+                    )
+                    // The scene's resolution: the visitor's trade of
+                    // sharpness for frames a second.
+                    .child(
+                        group("The picture").child(
+                            div()
+                                .flex()
+                                .items_center()
+                                .justify_between()
+                                .child("Resolution: lower is smoother")
+                                .child(div().flex().gap_1().children(
+                                    scene::SCALES.iter().zip(SCALE_TARGETS).map(
+                                        |(&(scale, name), id)| {
+                                            let chosen = scene::scale() == scale;
+                                            div()
+                                                .id(id)
+                                                .relative()
+                                                .h(px(22.))
+                                                .min_w(px(28.))
+                                                .px(px(6.))
+                                                .flex()
+                                                .items_center()
+                                                .justify_center()
+                                                .rounded(px(4.))
+                                                .cursor_pointer()
+                                                .map(|step| {
+                                                    if chosen {
+                                                        step.bg(theme.primary)
+                                                            .text_color(theme.primary_foreground)
+                                                    } else {
+                                                        step.bg(theme.secondary)
+                                                            .text_color(says)
+                                                            .hover(|step| {
+                                                                step.bg(theme.secondary_hover)
+                                                            })
+                                                    }
+                                                })
+                                                .on_click(cx.listener(move |_, _, _, cx| {
+                                                    scene::set_scale(scale);
+                                                    cx.notify();
+                                                }))
+                                                .child(name)
+                                                .child(target(id))
+                                        },
+                                    ),
+                                )),
+                        ),
                     ),
             )
             // (Beside the list, not in it: inside its border the bounds
@@ -2363,6 +2492,12 @@ impl Render for Host {
                         surface.cursor(CursorStyle::Crosshair)
                     })
                     .on_scroll(|event: &ScrollEvent, _, _| {
+                        // (A finger's drag is the surface's by its touch
+                        // listener, never a scroll: the platform's is
+                        // locked to one axis, and would zoom.)
+                        if event.source == ScrollSource::Touch {
+                            return;
+                        }
                         // The camera holds still under a shape, from its
                         // press until its rows are in.
                         if group::drawing() || group::pending() {
@@ -2393,41 +2528,19 @@ impl Render for Host {
                         let Some(button) = button(event.button) else {
                             return;
                         };
-                        let Some(frame) = hands_frame() else {
-                            return;
-                        };
                         let (x, y) = (event.position.x.into(), event.position.y.into());
-                        // In the lasso's mode the left button draws a
-                        // shape, through the fixed frame's camera at
-                        // rest, and no button moves it.
-                        if group::mode() || group::pending() {
-                            if button == 0 && frame == scene::Frame::Fixed && group::press(x, y) {
-                                scene::draw_start(x, y);
-                            }
-                            return;
-                        }
-                        let held = held(event.modifiers);
-                        let plain = button == 0 && held == 0;
-                        // (Asked of every plain press, so the next knows
-                        // of this one.)
-                        let second = plain && scene::surface_press(frame);
-                        if second && event.click_count == 2 {
-                            // (A dot its first press picked, in the rare
-                            // slow one, is let go: a double click zooms.)
-                            this.undo_click(cx);
-                            scene::double_click(x, y, frame);
-                        } else {
-                            scene::drag_start(x, y, button, held, frame);
-                            // Released where it landed, it's a click on
-                            // the dot there, if there is one: through the
-                            // fixed frame's camera, as a shape is drawn.
-                            // (A first press only: the third of a run
-                            // of quick ones is a hand zooming still.)
-                            if plain && event.click_count == 1 && frame == scene::Frame::Fixed {
-                                scene::click_start(x, y);
-                            }
-                        }
-                    })),
+                        scene::set_click_slop(scene::CLICK_SLOP);
+                        this.surface_down(
+                            [x, y],
+                            button,
+                            held(event.modifiers),
+                            event.click_count,
+                            cx,
+                        );
+                    }))
+                    // A finger on it is the left button's press, drag,
+                    // and release.
+                    .child(touch_listener(cx.entity().downgrade())),
             )
             .child(drag_listeners(cx.entity().downgrade()))
             // The axes' furniture takes no input: a wheel or a press
@@ -2514,6 +2627,16 @@ fn hands_frame() -> Option<scene::Frame> {
     }
 }
 
+/// Whose camera two fingers have, as the page asks (`web::scene_hand`): a
+/// hand's frame, and no shape being drawn or waited on.
+#[cfg(target_family = "wasm")]
+pub fn hand() -> i8 {
+    if group::mode() || group::drawing() || group::pending() {
+        return -1;
+    }
+    hands_frame().map_or(-1, |frame| frame as i8)
+}
+
 /// A button as the scene takes it: 0 the left, 1 the middle, 2 the right.
 fn button(button: MouseButton) -> Option<u8> {
     match button {
@@ -2550,62 +2673,147 @@ fn drag_listeners(host: WeakEntity<Host>) -> impl IntoElement {
                 }
             });
             window.on_mouse_event(|event: &MouseMoveEvent, phase, window, _| {
-                if phase != DispatchPhase::Capture {
-                    return;
-                }
-                // A shape being drawn: its next point, or, its button
-                // found up, its close.
-                if group::drawing() {
-                    let [x, y] = in_scene(event.position, window);
-                    if event.pressed_button == Some(MouseButton::Left) {
-                        if group::point(x, y) {
-                            scene::draw_move(x, y);
-                        }
-                    } else {
-                        close_shape();
-                    }
-                    return;
-                }
-                let Some(dragging) = scene::dragging() else {
-                    return;
-                };
-                let (x, y) = (event.position.x.into(), event.position.y.into());
-                scene::click_moved(x, y);
-                // The release never came (a canceled pointer, say): the
-                // button isn't down.
-                if event.pressed_button.and_then(button) == Some(dragging) {
-                    scene::drag_move(x, y);
-                } else {
-                    scene::drag_end(x, y);
+                // (A finger's moves come by the touch listener.)
+                if phase == DispatchPhase::Capture && !scene::touching() {
+                    pointer_moved(
+                        event.position,
+                        event.pressed_button.and_then(button),
+                        window,
+                    );
                 }
             });
             // Any button's release ends it: with two held, the platform
             // tells the first one's release as a move, with the button
             // it remembers still down, so the drag's own may never come.
             window.on_mouse_event(move |event: &MouseUpEvent, phase, window, cx| {
-                if phase != DispatchPhase::Capture {
-                    return;
-                }
-                // The release closes a shape wherever it lands.
-                if group::drawing() {
-                    let [x, y] = in_scene(event.position, window);
-                    if group::point(x, y) {
-                        scene::draw_move(x, y);
-                    }
-                    close_shape();
-                }
-                let (x, y) = (event.position.x.into(), event.position.y.into());
-                let click = scene::click_end(x, y).filter(|_| event.button == MouseButton::Left);
-                scene::drag_end(x, y);
-                // A press released where it landed: a click on a dot.
-                if let Some([x, y]) = click {
-                    let _ = host.update(cx, |host, cx| host.clicked(x, y, cx));
+                if phase == DispatchPhase::Capture && !scene::touching() {
+                    pointer_up(
+                        event.position,
+                        event.button == MouseButton::Left,
+                        &host,
+                        window,
+                        cx,
+                    );
                 }
             });
         },
     )
     .absolute()
     .size_0()
+}
+
+/// The pointer moved, anywhere in the window, with `pressed` down (0 the
+/// left button, or a finger): a shape's next point, or the scene's drag.
+fn pointer_moved(position: Point<Pixels>, pressed: Option<u8>, window: &Window) {
+    // A shape being drawn: its next point, or, its button found up, its
+    // close.
+    if group::drawing() {
+        let [x, y] = in_scene(position, window);
+        if pressed == Some(0) {
+            if group::point(x, y) {
+                scene::draw_move(x, y);
+            }
+        } else {
+            close_shape();
+        }
+        return;
+    }
+    let Some(dragging) = scene::dragging() else {
+        return;
+    };
+    let (x, y) = (position.x.into(), position.y.into());
+    scene::click_moved(x, y);
+    // The release never came (a canceled pointer, say): the button isn't
+    // down.
+    if pressed == Some(dragging) {
+        scene::drag_move(x, y);
+    } else {
+        scene::drag_end(x, y);
+    }
+}
+
+/// A release, anywhere in the window (`left`: the left button's, or a
+/// finger's): it closes a shape, ends the scene's drag, and, where the
+/// press landed, is a click on a dot.
+fn pointer_up(
+    position: Point<Pixels>,
+    left: bool,
+    host: &WeakEntity<Host>,
+    window: &Window,
+    cx: &mut App,
+) {
+    // The release closes a shape wherever it lands.
+    if group::drawing() {
+        let [x, y] = in_scene(position, window);
+        if group::point(x, y) {
+            scene::draw_move(x, y);
+        }
+        close_shape();
+    }
+    let (x, y) = (position.x.into(), position.y.into());
+    let click = scene::click_end(x, y).filter(|_| left);
+    scene::drag_end(x, y);
+    // A press released where it landed: a click on a dot.
+    if let Some([x, y]) = click {
+        let _ = host.update(cx, |host, cx| host.clicked(x, y, cx));
+    }
+}
+
+/// A finger on the surface. The platform offers a touch to be taken as a
+/// drag before it makes a tap or a scroll of it, and the surface takes
+/// every one that lands on it: its own scroll is locked to one axis,
+/// which a pan along the ecliptic isn't. From there the finger is the
+/// left button: a press, its moves, its release (a tap is a press
+/// released where it landed, and two quick ones a double click). A second
+/// finger is the page's to count (`web/src/touch.ts`). Filling the
+/// surface, with a hitbox of its own: what occludes the surface takes its
+/// own touches.
+fn touch_listener(host: WeakEntity<Host>) -> impl IntoElement {
+    canvas(
+        |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
+        move |_, hitbox, window, _| {
+            window.on_mouse_event(move |event: &TouchDragEvent, phase, window, cx| {
+                if phase != DispatchPhase::Bubble {
+                    return;
+                }
+                let at = [f32::from(event.position.x), f32::from(event.position.y)];
+                match event.phase {
+                    TouchPhase::Started => {
+                        if !hitbox.is_hovered_at(event.start_position, window) {
+                            return;
+                        }
+                        window.prevent_default();
+                        scene::set_touching(true);
+                        scene::set_click_slop(scene::TAP_SLOP);
+                        scene::press();
+                        let count = scene::tap(at, now());
+                        let _ = host.update(cx, |host, cx| host.surface_down(at, 0, 0, count, cx));
+                    }
+                    TouchPhase::Moved => {
+                        if scene::touching() {
+                            // (A finger that has gone past a tap's slop
+                            // is a drag: no double tap's first.)
+                            let from = event.start_position;
+                            if (at[0] - f32::from(from.x)).hypot(at[1] - f32::from(from.y))
+                                > scene::TAP_SLOP
+                            {
+                                scene::untap();
+                            }
+                            pointer_moved(event.position, Some(0), window);
+                        }
+                    }
+                    TouchPhase::Ended | TouchPhase::Cancelled => {
+                        if scene::touching() {
+                            scene::set_touching(false);
+                            pointer_up(event.position, true, &host, window, cx);
+                        }
+                    }
+                }
+            });
+        },
+    )
+    .absolute()
+    .size_full()
 }
 
 /// A window position kept to what the panel leaves of the window: a shape

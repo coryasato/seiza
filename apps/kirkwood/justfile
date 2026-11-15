@@ -72,11 +72,12 @@ test:
 # What the release build shows, in headless Chromium (checks/see.ts): the
 # first frame before either file is asked for, the table over the rows
 # file, the wasm's memory against the files' bytes, the belt, the time
-# control, the look, the legend, the sky, the camera a hand moves, its compass, hint, and keys, the sort flight, the ride with Jupiter, a gap picked, the integrated rows, a row found, a group drawn, its flight in, a dot clicked, the live columns, and a sort as a tour. Screenshots and seen.json in
-# checks/out/ (gitignored); about 30 minutes. --only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour; --runs.
+# control, the look, the legend, the sky, the camera a hand moves, its compass, hint, and keys, the sort flight, the ride with Jupiter, a gap picked, the integrated rows, a row found, a group drawn, its flight in, a dot clicked, the live columns, a sort as a tour, fingers on the scene, the scene's resolution as the visitor's, a lost WebGL context given back, and a phone's page. Screenshots and seen.json in
+# checks/out/ (gitignored); about 30 minutes. --only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,touch,scale,lost,phone; --runs.
 # Asked for by name alone: --only rate (the scene's frames a second), drag
 # (a drag's frames a second), slow (a load on a slow link), cross (--browser
 # firefox|webkit, with wheel), glass (the panel as glass over a group),
+# stills (the phone's page's pictures, into web/public/phone/),
 # paused (alone: the page with the data paused, behind the Worker).
 # --worker: behind the app's Worker under `wrangler dev`, not `vite preview`
 # (every part but slow). --url <the page>: one served elsewhere (production),

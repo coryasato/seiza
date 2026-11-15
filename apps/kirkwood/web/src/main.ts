@@ -81,15 +81,19 @@ import init, {
   ride_state,
   scene_axes,
   scene_failed,
+  scene_lost,
   scene_finds,
   scene_flight,
   scene_found,
   scene_gap,
+  scene_two_fingers,
+  scene_hand,
   scene_gap_lit,
   scene_inset,
   scene_integrated,
   scene_plot,
   scene_ride,
+  scene_scale,
   scene_scrim,
   scene_scrim_changes,
   scene_sky,
@@ -109,6 +113,8 @@ import manifest from '../../data/MANIFEST.json';
 import { PAUSED_HEADER } from '../../worker/src/names.ts';
 import { compositeByAlpha } from './alpha.ts';
 import type { BeltScene } from './scene.ts';
+import { isPhone, showPhone } from './phone.ts';
+import { watchTouches } from './touch.ts';
 
 /** The files in the order they're asked for, with the crate's ids for them
  *  (`web.rs`): the table's a, e, i, and H are the elements'. */
@@ -129,6 +135,8 @@ const SKY_MARK = 'kirkwood:sky';
 /** Where the page keeps that the hint was folded (the origin is shared
  *  with other apps: the key says whose it is). */
 const HINT_KEY = 'kirkwood:hint';
+/** And the scene's resolution a visitor chose. */
+const SCALE_KEY = 'kirkwood:scale';
 
 /** What the page says, after "didn't load", while the Worker's pause is on
  *  (its 503 with `PAUSED_HEADER`; worker/src/index.ts). */
@@ -169,6 +177,13 @@ type Kirkwood = {
    *  and that it is now. */
   hintFolded(): boolean;
   foldHint(): void;
+  /** Called by the crate: whether the visitor's pointer is a finger. */
+  coarse(): boolean;
+  /** Called by the crate: the scene's resolution chosen on an earlier
+   *  visit (the scene's pixels for each of the display's; NaN with none),
+   *  and the one chosen now. */
+  scaleKept(): number;
+  keepScale(scale: number): void;
   /** For the checks: the compass (how far the camera stands round from
    *  where it opened, and its tilt, degrees, as the interface was last
    *  told; nothing before the scene's first frame), whether the hint is
@@ -324,6 +339,7 @@ async function startScene(): Promise<BeltScene> {
     jupiterOrbit: jupiter_orbit,
     ramp: orbit_ramp,
     scrim: scene_scrim,
+    scale: scene_scale,
     scrimChanges: scene_scrim_changes,
     flight: scene_flight,
     space: scene_space,
@@ -364,6 +380,15 @@ async function startScene(): Promise<BeltScene> {
     namedPlaces: named_places,
     floats: (at, count) => new Float32Array(memory!.buffer, at, count),
     bytes: (at, count) => new Uint8Array(memory!.buffer, at, count),
+    contextLost: () => scene_lost(true),
+    // A context given back has no belt: every row that's whole again,
+    // from where the crate still holds it.
+    contextRestored: () => {
+      scene_lost(false);
+      if (beltOver) return;
+      [drawn, filledAt] = [0, -Infinity];
+      fillBelt();
+    },
   });
   kirkwood.scene = scene;
   performance.mark('kirkwood:scene');
@@ -374,6 +399,9 @@ async function startScene(): Promise<BeltScene> {
  *  the elements failed. */
 let drawn = 0;
 let beltOver = false;
+/** Whether each mark is set: rows handed over a second time, to a WebGL
+ *  context the browser gave back, leave the first time's as they are. */
+let [dotsMarked, beltMarked] = [false, false];
 /** The elements file is held whole, and the crate has taken it as one. */
 let elementsHeld = false;
 /** The least time between two hand-overs of rows to the scene while the
@@ -410,7 +438,9 @@ function sceneFailed(error: unknown): void {
  *  the crate holds them. Called as the file arrives and when the scene
  *  starts, whichever is later for a block. */
 function fillBelt(): void {
-  if (!scene || beltOver) return;
+  // (With its WebGL context lost the scene has nowhere to put rows: they
+  // wait for the context's return, which calls this.)
+  if (!scene || beltOver || scene.stats.lost) return;
   const [rows, whole] = [elements_rows(), elements_whole()];
   if (whole <= drawn) return;
   // The last rows wait for the file to end as one: the belt isn't called
@@ -452,8 +482,9 @@ function fillBelt(): void {
       first || last,
     );
     drawn = whole;
-    if (first) performance.mark(DOTS_MARK);
-    if (last) performance.mark(BELT_MARK);
+    if (first && !dotsMarked) performance.mark(DOTS_MARK);
+    if (last && !beltMarked) performance.mark(BELT_MARK);
+    [dotsMarked, beltMarked] = [true, beltMarked || last];
     // The page counts what's drawn; with every row drawn, time starts to move.
     belt_drawn(drawn);
   } catch (error) {
@@ -557,6 +588,21 @@ const kirkwood: Kirkwood = {
       // Not kept: the hint is whole again on the next visit.
     }
   },
+  coarse: () => matchMedia('(pointer: coarse)').matches,
+  scaleKept: () => {
+    try {
+      return Number(localStorage.getItem(SCALE_KEY) ?? NaN);
+    } catch {
+      return NaN;
+    }
+  },
+  keepScale: (scale) => {
+    try {
+      localStorage.setItem(SCALE_KEY, String(scale));
+    } catch {
+      // Not kept: the next visit opens at the display's resolution.
+    }
+  },
   corner: () => {
     const [turned, tilt, folded, open] = Array.from(corner_state());
     return turned === undefined ? undefined : { turned, tilt: tilt!, folded: !!folded, open: !!open };
@@ -652,15 +698,38 @@ const kirkwood: Kirkwood = {
 };
 (globalThis as unknown as { __kirkwood: Kirkwood }).__kirkwood = kirkwood;
 
-// GPUI's canvas composites by its alpha, so the scene's shows wherever GPUI
-// drew nothing: set up before the wasm configures its canvas.
-compositeByAlpha();
+// Two fingers on the scene are the page's to count (`touch.ts`).
+watchTouches(
+  () =>
+    scene && {
+      start: (...at) => {
+        // (The first finger's landing is no tap now.)
+        scene_two_fingers();
+        scene!.twoStart(...at);
+      },
+      move: scene.twoMove,
+      end: scene.twoEnd,
+      pinch: scene.pinch,
+    },
+  scene_hand,
+  scene_inset,
+);
 
-void boot({
-  init: async () => {
-    memory = (await init({ module_or_path: wasmUrl })).memory;
-  },
-  start,
-  fontUrl,
-  wasmUrl,
-});
+function open(): void {
+  // GPUI's canvas composites by its alpha, so the scene's shows wherever
+  // GPUI drew nothing: set up before the wasm configures its canvas.
+  compositeByAlpha();
+  void boot({
+    init: async () => {
+      memory = (await init({ module_or_path: wasmUrl })).memory;
+    },
+    start,
+    fontUrl,
+    wasmUrl,
+  });
+}
+
+// A phone gets a page of its own, and the app only if it asks: nothing of
+// the app (the wasm, the font, a file) is asked for before then.
+if (isPhone()) showPhone(open);
+else open();
