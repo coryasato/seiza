@@ -36,6 +36,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | `web/` | The host and the scene: the files' arrival, Three.js, the camera, the look, the sky | `web/CLAUDE.md` |
 | `checks/` | `see.ts`, what the release build shows, and the gotchas of writing a check | `checks/CLAUDE.md` |
 | `data/` | The fetch, the three files and their manifest, the places against Horizons | `data/CLAUDE.md` |
+| `worker/` | The Worker under `/kirkwood/` on Tycho's hostname, its bucket, and the build behind it locally | `worker/CLAUDE.md` |
 
 ## When something outside a folder changes it
 
@@ -52,6 +53,7 @@ apps/kirkwood/
   web/              # the Vite host and the scene (web/CLAUDE.md)
   checks/           # see.ts; out/ gitignored (checks/CLAUDE.md)
   data/             # the data's scripts, MANIFEST.json, fixture.json, horizons.json (data/CLAUDE.md)
+  worker/           # the Cloudflare Worker, its staging and local-dev scripts, its tests (worker/CLAUDE.md)
   docs/             # DECISIONS.md, LESSONS.md, milestones.md, data.md (the fetch and the files), query.md (the page's query); spike/ (the spike's screenshots), seen/ (the app's, cited by the plan's checks)
   README.md         # for visitors
   CLAUDE.md         # this file
@@ -66,9 +68,10 @@ No `perf/`: a showcase has no budgets and no results. What its checks ask to be 
 From the repo root. One line each; a recipe's flags and what a check covers are in its folder's `CLAUDE.md` (in brackets) and in the justfile's comment above it.
 
 ```
-just kirkwood dev | build | preview   # debug dev server, release build, serve that build (web)
-just kirkwood test                    # native tests, the real files' among them (crate)
+just kirkwood dev | build | preview   # debug dev server, release build, serve that build, each at /kirkwood/ (web)
+just kirkwood worker                  # that build behind the Worker under `wrangler dev` (worker)
+just kirkwood test                    # native tests, the real files' among them (crate), then the Worker's (worker)
 just kirkwood see [flags]             # what the release build shows, in headless Chromium; run `build` first (checks)
-just kirkwood lint     # check-terms, fmt, clippy (wasm32 and native), tsc (the host, the checks, the data's scripts)
+just kirkwood lint     # check-terms, fmt, clippy (wasm32 and native), tsc (the host, the checks, the data's scripts, the Worker)
 node apps/kirkwood/data/<script>.ts   # fetch, prep, stars, places (data; every command in docs/data.md)
 ```

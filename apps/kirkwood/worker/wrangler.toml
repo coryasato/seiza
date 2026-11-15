@@ -1,0 +1,45 @@
+# Kirkwood's Worker: the app and its three files, under /kirkwood/ on Tycho's
+# hostname (docs/DECISIONS.md, "Hosting"). No account ID here (the repo is
+# public): wrangler takes it from the login, or CLOUDFLARE_ACCOUNT_ID with an
+# API token.
+name = "kirkwood"
+main = "src/index.ts"
+compatibility_date = "2026-09-24"
+
+# A route on the hostname Tycho's Worker holds as a custom domain: a route
+# runs before a custom domain's Worker, so these paths are this Worker's and
+# every other stays Tycho's. One pattern ending `*`: a pattern is matched
+# against the whole URL, so `/kirkwood` alone would miss `/kirkwood?roll=0`.
+# It takes `/kirkwoods` too, which the WAF's allowlist blocks before any
+# Worker and this one answers 404. The account's default subdomain names its
+# owner, so it's off and never committed (the root docs/DECISIONS.md,
+# "Hosting"), and so are preview URLs, which live on it.
+routes = [{ pattern = "tycho.seiza.io/kirkwood*", zone_name = "seiza.io" }]
+workers_dev = false
+preview_urls = false
+
+# The release build (`just kirkwood build`), whose files have no base in
+# their paths: the Worker runs first for every request, takes the base off,
+# and serves the quality-11 `.br` written beside each file (scripts/stage.ts).
+# No page is found for it (`html_handling`), and a path no file matches is the
+# Worker's 404. `wrangler dev` needs the directory to exist: run
+# `just kirkwood build` first (scripts/dev.ts says so).
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+html_handling = "none"
+not_found_handling = "none"
+run_worker_first = true
+
+# The three files, each as it is and at brotli 11 (`<name>.br`). In
+# `wrangler dev` (local mode) this is Miniflare's R2, stored under
+# .wrangler/state/ and filled by scripts/dev.ts.
+[[r2_buckets]]
+binding = "KIRKWOOD_DATA"
+bucket_name = "kirkwood-data"
+
+[dev]
+port = 8788
+
+[observability]
+enabled = true

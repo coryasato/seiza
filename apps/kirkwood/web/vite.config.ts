@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { defineConfig, type Connect, type Plugin } from 'vite';
 import { brotli } from '@seiza/web/brotli';
 import { crossOriginIsolationHeaders, seizaViteConfig } from '@seiza/web/vite';
+import { BASE } from './src/base.ts';
 
 const root = import.meta.dirname;
 
@@ -62,6 +63,6 @@ export default defineConfig(
       // the data, which is asked for after the first frame.
       preload: ['kirkwood_bg.wasm', 'IBMPlexSans-Regular.ttf'],
     },
-    { root, plugins: [serveData()] },
+    { root, base: BASE, plugins: [serveData()] },
   ),
 );

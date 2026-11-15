@@ -8,8 +8,11 @@
 //           of each load's requests and marks. Fails if anything but the
 //           page, its script, the wasm, and the font was asked for before
 //           the first frame (the scene's module and the files come after),
-//           or if the first-frame mark isn't right after a task that did GPU
-//           work.
+//           if the first-frame mark isn't right after a task that did GPU
+//           work, or if the page reached outside its own path on the
+//           hostname it shares with Tycho: a request not under /kirkwood/, a
+//           key in localStorage not named for the app, a cookie, or a
+//           service worker.
 //   table   the panel opened by its handle: the rows the table says it has
 //           against the manifest's, its columns, the first row's cells as
 //           drawn, the columns under a sideways wheel, then End and the last
@@ -309,7 +312,10 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,rate,drag,slow,cross,glass] [--runs 5] [--browser firefox|webkit]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,rate,drag,slow,cross,glass] [--runs 5] [--browser firefox|webkit] [--worker]
+// --worker: the build behind the app's Worker under `wrangler dev`
+// (worker/scripts/dev.ts), not `vite preview`; every part but `slow`, whose
+// bytes on the wire `wrangler dev` re-encodes.
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -321,12 +327,16 @@ import { PROFILES, flag, localDate, machineInfo, median, option } from '../../..
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { readElements, type ElementsFile } from '../data/elements.ts';
 import { isBound, place } from '../data/orbit.ts';
+import { BASE } from '../web/src/base.ts';
 import { FOUND, KEYS, TURN as CAMERA_TURN } from '../web/src/camera.ts';
+import { startWorkerDev } from '../worker/scripts/dev.ts';
 
 const dir = import.meta.dirname;
 const out = join(dir, 'out');
 const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
+/** `--worker`: the build behind the app's Worker (`wrangler dev`), not `vite preview`. */
+const WORKER = flag('worker');
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
 const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'flyin', 'dot', 'live', 'tour', 'rate', 'drag', 'slow', 'cross', 'glass'];
@@ -349,6 +359,7 @@ const RATE_MORE = (option('ways') ?? '')
 const ASKED = ['rate', 'drag', 'slow', 'cross', 'glass'];
 const ONLY = new Set((option('only') ?? PARTS.filter((part) => !ASKED.includes(part)).join(',')).split(','));
 if (ENGINE !== chromium && [...ONLY].some((part) => part !== 'cross' && part !== 'wheel')) throw new Error('--browser runs --only cross,wheel; every other part is Chromium\'s');
+if (WORKER && ONLY.has('slow')) throw new Error('--worker and slow: `wrangler dev` re-encodes what the Worker sends, so the bytes on the wire there are not what a deploy sends');
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`--runs wants a whole number of loads, 1 or more; got "${option('runs')}"`);
 if (!ONLY.size || [...ONLY].some((part) => !PARTS.includes(part))) throw new Error(`--only wants some of ${PARTS.join(', ')}; got "${option('only')}"`);
 
@@ -361,7 +372,7 @@ const DOTS = 'kirkwood:first-dots';
 const BELT = 'kirkwood:belt';
 const TABLE = 'kirkwood:table';
 const SKY = 'kirkwood:sky';
-/** What first paint may wait on, by path. */
+/** What first paint may wait on, by path under the app's base. */
 const FIRST_PAINT = [/^\/$/, /^\/assets\/index-[\w-]+\.js$/, /^\/assets\/kirkwood_bg-[\w-]+\.wasm$/, /^\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];
 /** The elements' epoch, where the files' places are JPL's own. */
 const EPOCH = '2026-06-09';
@@ -491,7 +502,8 @@ async function load(url: string, first: boolean) {
       const kirkwood = (globalThis as unknown as Page_).__kirkwood;
       const probe = (globalThis as { __seizaProbe?: FirstDrawProbe }).__seizaProbe;
       return {
-        requests: (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd })),
+        requests: (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).map((entry) => ({ path: new URL(entry.name).pathname, ours: new URL(entry.name).origin === location.origin, url: entry.name, start: entry.startTime, end: entry.responseEnd })),
+        stored: { local: Object.keys(localStorage), session: Object.keys(sessionStorage) },
         gpuTasks: probe?.gpuTasks ?? [],
         api: probe?.api ?? '',
         wasmAtFirstFrame: kirkwood.wasmBytesAtFirstFrame,
@@ -499,13 +511,24 @@ async function load(url: string, first: boolean) {
         viewsShareMemory: kirkwood.viewsShareMemory,
       };
     });
-    const requests = [{ path: '/', start: 0, end: 0 }, ...seen.requests].sort((a, b) => a.start - b.start);
+    // The hostname is Tycho's too: everything the page asks for is under
+    // its own path, and what it keeps is named for it. From here a path is
+    // what follows the base.
+    const outside = seen.requests.filter((request) => !request.ours || !request.path.startsWith(BASE));
+    if (outside.length) throw new Error(`asked for outside ${BASE} on the page's origin: ${outside.map((request) => request.url).join(', ')}`);
+    // Every cookie the browser holds, those the page can't read too.
+    const cookies = (await page.context().cookies()).map((cookie) => cookie.name);
+    const workers = await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).map((registration) => registration.scope));
+    const strangers = [...seen.stored.local, ...seen.stored.session].filter((key) => !key.startsWith('kirkwood:'));
+    if (strangers.length || cookies.length || workers.length) throw new Error(`kept on the shared origin: keys ${strangers.join(', ') || 'none'}, cookies ${cookies.join(', ') || 'none'}, service workers ${workers.join(', ') || 'none'}`);
+    const requests = [{ path: '/', start: 0, end: 0 }, ...seen.requests.map((request) => ({ ...request, path: request.path.slice(BASE.length - 1) }))].sort((a, b) => a.start - b.start);
 
     const result = {
       marks,
       api: seen.api,
       requests: requests.filter((request) => request.start <= marks.rows).map((request) => ({ path: request.path, startMs: round(request.start), endMs: round(request.end) })),
       table: null as { rows: number; columns: string[]; firstRow: string[]; lastRow: string[] } | null,
+      kept: { localStorage: seen.stored.local, sessionStorage: seen.stored.session, cookies, serviceWorkers: workers },
       memory: { atFirstFrame: seen.wasmAtFirstFrame, withFiles: seen.wasmWithFiles, withTable: null as number | null, viewsShareMemory: seen.viewsShareMemory },
     };
     if (ONLY.has('paint')) checkPaint(requests, marks.firstFrame, seen.gpuTasks);
@@ -957,7 +980,7 @@ async function seeSky(url: string) {
         return {
           stars: kirkwood.scene!.stats.stars,
           scrim: kirkwood.scrim(),
-          data: (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((entry) => new URL(entry.name).pathname.startsWith('/data/')).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd })),
+          data: (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((entry) => new URL(entry.name).pathname.startsWith(new URL('data/', document.baseURI).pathname)).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd })),
         };
       });
       if (name) {
@@ -993,7 +1016,7 @@ async function seeSky(url: string) {
   };
   const quiet = await read(HELD, 'sky');
   const loud = await read({ ...HELD, scrim: '0' });
-  const [rows, stars] = [quiet.data.find((request) => request.path === '/data/rows.bin'), quiet.data.find((request) => request.path === '/data/stars.bin')];
+  const [rows, stars] = [quiet.data.find((request) => request.path === `${BASE}data/rows.bin`), quiet.data.find((request) => request.path === `${BASE}data/stars.bin`)];
   need(!!rows && !!stars, `the data asked for: ${quiet.data.map((request) => request.path).join(', ')}`);
   need(stars!.start >= rows!.end && stars!.start >= quiet.marks.belt, `the sky's file was asked for at ${round(stars!.start)} ms; the rows file was held at ${round(rows!.end)} and the belt drawn at ${round(quiet.marks.belt)}`);
   need(quiet.stars === manifest['stars.bin'].stars, `the scene draws ${quiet.stars} stars; the manifest has ${manifest['stars.bin'].stars}`);
@@ -1120,7 +1143,7 @@ async function seeSlow(url: string) {
         await page.waitForTimeout(100);
       }
       const data = await page.evaluate(() =>
-        (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((entry) => new URL(entry.name).pathname.startsWith('/data/')).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd, wire: entry.encodedBodySize })),
+        (performance.getEntriesByType('resource') as PerformanceResourceTiming[]).filter((entry) => new URL(entry.name).pathname.startsWith(new URL('data/', document.baseURI).pathname)).map((entry) => ({ path: new URL(entry.name).pathname, start: entry.startTime, end: entry.responseEnd, wire: entry.encodedBodySize })),
       );
       if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
       need(filling.length > 0, 'the belt was never seen part drawn: it filled between two readings, or all at once');
@@ -5106,9 +5129,11 @@ async function seeGap(url: string) {
 }
 
 mkdirSync(out, { recursive: true });
-const server = await serveApp(undefined, { webDir: join(dir, '../web'), port: PORT });
+// The page's URL, the app's base included: `vite preview`'s, or the Worker's.
+const served = WORKER ? await startWorkerDev() : await serveApp(undefined, { webDir: join(dir, '../web'), port: PORT });
+const server = { url: WORKER ? served.url : new URL(BASE, served.url).href, close: () => served.close() };
 try {
-  const seen: Record<string, unknown> = { date: localDate(), ...machineInfo(), runs: RUNS, viewport: '1440x900 at DPR 2, headless Chromium, cold, unthrottled, the files local and as they are' };
+  const seen: Record<string, unknown> = { date: localDate(), ...machineInfo(), runs: RUNS, served: WORKER ? "the app's Worker under wrangler dev, the files from its local bucket" : 'vite preview', viewport: '1440x900 at DPR 2, headless Chromium, cold, unthrottled, the files local and as they are' };
   if (LOADS.some((part) => ONLY.has(part))) {
     if (ONLY.has('paint')) await slowShots(server.url);
     const loads: Awaited<ReturnType<typeof load>>[] = [];
@@ -5122,6 +5147,8 @@ try {
     if (ONLY.has('paint')) {
       seen.paint = {
         api: first.api,
+        base: BASE,
+        kept: first.kept,
         firstFrameMs: of((run) => run.marks.firstFrame),
         sceneStartedMs: of((run) => run.marks.scene),
         firstDotsMs: of((run) => run.marks.dots),

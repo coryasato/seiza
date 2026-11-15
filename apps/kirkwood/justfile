@@ -23,6 +23,13 @@ build: (wasm "release")
 preview:
     npm run preview --workspace @seiza/kirkwood-web
 
+# Serve the release build behind the app's Worker under `wrangler dev`, at
+# http://127.0.0.1:8788/kirkwood/: the build's files as their quality-11
+# `.br`, the three files from Miniflare's R2 (filled here, and compressed
+# the first time: a minute or two a file). Run `just kirkwood build` first.
+worker:
+    node {{app_dir}}/worker/scripts/dev.ts
+
 # Compile the crate alone (`-p`: Cargo unifies features across the packages
 # in one build) and generate its JS bindings into web/pkg/.
 wasm profile="debug":
@@ -40,9 +47,11 @@ wasm profile="debug":
 # integration against Horizons and the Trojans in their clouds across the
 # clock's reach, the shader's 32-bit arithmetic against the 64-bit place for
 # every row, and its flight against the place on the axes for every row in
-# view. The two studies are no-ops without KIRKWOOD_STUDY.
+# view. The two studies are no-ops without KIRKWOOD_STUDY. Then the
+# Worker's unit tests, against a fake bucket and fake static assets.
 test:
     cargo test -p kirkwood -- --include-ignored
+    node --test {{app_dir}}/worker/test/index.test.ts
 
 # What the release build shows, in headless Chromium (checks/see.ts): the
 # first frame before either file is asked for, the table over the rows
@@ -52,12 +61,13 @@ test:
 # Asked for by name alone: --only rate (the scene's frames a second), drag
 # (a drag's frames a second), slow (a load on a slow link), cross (--browser
 # firefox|webkit, with wheel), glass (the panel as glass over a group).
-# Run `just kirkwood build` first.
+# --worker: behind the app's Worker under `wrangler dev`, not `vite preview`
+# (every part but slow). Run `just kirkwood build` first.
 see *args:
     node {{app_dir}}/checks/see.ts {{args}}
 
 # check-terms, fmt, clippy (wasm target and native), TypeScript (the host,
-# the checks, the data's scripts).
+# the checks, the data's scripts, the Worker, its scripts and tests).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cargo fmt --all --check

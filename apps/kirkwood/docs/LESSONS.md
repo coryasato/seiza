@@ -331,3 +331,14 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Interface", and
 - **A wheel on the header scrolls nothing,** and the check's pointer was still on the arrow it had pressed: the table stayed scrolled sideways, and the "row's name" read back was its diameter.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table" and "Interface"; the evidence: [`milestones.md`](milestones.md), M6's checks D1 to D4.
+
+## M7 part A: where it's served from, and the build under a path (2026-11-15)
+
+- **The question the plan carried for five days took ten minutes to ask.** Whether a second Worker could take a path of a hostname bound as a custom domain was "to check when it deploys", and the whole milestone was written for either answer. A throwaway Worker on one route answered it, and with it went the shared deploy, the shared bucket, and every change to Tycho's Worker.
+- **The real path couldn't be probed: the WAF answers first.** `/kirkwood` is outside Tycho's allowlist, so a probe there would have read the WAF's 403 whatever Cloudflare made of the route. The probe went under `/assets/`, a path the rule already passes.
+- **A route's `*` isn't a path separator.** `…/kirkwood-probe*` answered `/kirkwood-probes`. And a pattern with no `*` misses its own path with a query, which review caught in the two routes written first: the Worker has the one wide pattern, and the allowlist and the Worker refuse what isn't the path's.
+- **The only file that forces R2 forces it for all three.** The elements are over a static asset's limit raw and compressed. Once a bucket and a Worker read are needed for one, the other two as static assets save a read each and cost a second way of doing everything.
+- **Nothing in the page assumed the origin's root.** The data's URL was already under the base and the hint's key already named for the app, so the build ran under `/kirkwood/` on the first try. The work was in the checks, which had the root in a dozen places, and they now fail on what the move was worried about: a request, a key, a cookie, or a service worker outside the app's own.
+- **Types decide the module's edges.** The Worker's source can't be imported by a Node script or by the checks (no Worker types there), so the three names both sides share moved to a file with no types of either.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting".

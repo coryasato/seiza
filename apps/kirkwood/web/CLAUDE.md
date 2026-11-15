@@ -22,7 +22,7 @@ The Vite host on `shared-web/` and the scene it loads after the first frame: Thr
 - **A count on the page while the belt fills is of the rows the scene has drawn** (`belt_drawn(rows)`, called after each hand-over), never of the rows that have arrived. The clock is let go by the last hand-over alone, which waits for `file_end`.
 - **The scene never calls into GPUI from a call Rust made.** What it reads each frame are plain cells (`scene_years`, `scene_flight`, `scene_space`, `scene_inset`, `scene_scrim_changes`, and when that has moved `scene_scrim`, `jupiter_place`, `scene_plot`); `belt_drawn`, `sky_drawn`, `scene_failed`, and `flight_hold`, which update the host, are called from the page's own tasks.
 - **The sky's file is the page's, not the crate's:** fetched whole after the rows file and the belt, never waited on, and a failure is the console's alone. The page's line about the stars shows only once they're drawn (`sky_drawn`).
-- **The data's URL is under the app's base** (`import.meta.env.BASE_URL` in `main.ts`, the same base in `vite.config.ts`'s plugin): never write `/data/…` from the origin's root, which on the shared hostname is Tycho's.
+- **The app's base is `/kirkwood/` in dev, preview, and production** (`src/base.ts`; `docs/DECISIONS.md`, "Hosting"), and the origin's root is Tycho's: every URL the page asks for is under the base (the data's is `import.meta.env.BASE_URL` in `main.ts`; never write `/data/…` or `/assets/…` from the root), and what it keeps on the origin is a key named `kirkwood:`, never a cookie or a service worker. `see --only paint` fails on any of them.
 - **Until the scene draws, what shows under the interface is the page's own background** (`index.html`), the color the look's floor tints the scene with (`scene.ts`'s `PAGE`): keep the two the same.
 - **A lost WebGL context isn't handled:** the belt's buffers are gone with it (`PLAN.md`, open questions).
 
@@ -92,7 +92,8 @@ Four of the crate's gotchas have a half here (`crate/CLAUDE.md`): `RIDE_LIGHT` c
     src/sky.ts      #   the stars' shader and the file's reader
     src/knobs.ts    #   the page's query knobs (docs/query.md)
     src/alpha.ts    #   GPUI's canvas composited by its alpha
-    vite.config.ts  #   the three files served at /data/ from data/, in dev and preview; at brotli 11 when `KIRKWOOD_DATA=br` (the slow-link check)
+    src/base.ts     #   the app's base path, read by the Vite config, the Worker, and the checks
+    vite.config.ts  #   the base; the three files served at data/ under it from data/, in dev and preview; at brotli 11 when `KIRKWOOD_DATA=br` (the slow-link check)
 ```
 
 ## Commands
@@ -100,7 +101,7 @@ Four of the crate's gotchas have a half here (`crate/CLAUDE.md`): `RIDE_LIGHT` c
 From the repo root.
 
 ```
-just kirkwood dev      # debug wasm + the Vite dev server with COOP/COEP; the three files from data/; the query's flags and knobs: docs/query.md
+just kirkwood dev      # debug wasm + the Vite dev server with COOP/COEP, at /kirkwood/; the three files from data/; the query's flags and knobs: docs/query.md
 just kirkwood build    # release wasm alone (-p) + wasm-opt, Vite build, asset sizes
 just kirkwood preview  # serve that build, and the three files
 ```

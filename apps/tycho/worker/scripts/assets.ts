@@ -4,14 +4,12 @@
 // while one is in the assets directory, and Vite's build empties dist/, so
 // deploy.ts and dev.ts each write the ignore file before running wrangler.
 
-import { readdirSync, statSync, writeFileSync } from 'node:fs';
+import { statSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { walk } from '../../../../shared-web/scripts/walk.ts';
+import { ASSET_LIMIT } from '../../../../shared-web/perf/wrangler.ts';
 
-export const ASSET_LIMIT = 25 * 1024 * 1024;
-
-/** Every file under `dir`, recursively. */
-export const walk = (dir: string): string[] =>
-  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => (entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]));
+export { ASSET_LIMIT, walk };
 
 /** `dist`'s files over the asset limit, relative to it. */
 export function oversizeAssets(dist: string): string[] {

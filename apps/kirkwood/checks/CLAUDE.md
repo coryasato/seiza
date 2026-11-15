@@ -14,10 +14,12 @@
 - **A rule a check shares with the code it checks lives with that code:** `rowsInside` is `group.rs`'s rule written again (`crate/CLAUDE.md`, "A row is in the group by the pixel its place falls in"), the column numbers the `kirkwood(page, …)` closures hold are `table.rs`'s `shown` (`crate/CLAUDE.md`, "A column of the table isn't a column of the files"), and the names' offset is `scene.ts`'s `RIDE_NAMES` (`web/CLAUDE.md`, "The ride's names and triangle"): change each with its code.
 - **What a check waits on is said where it's made:** the integrated rows catching up after a jump of the clock (`withBelt`; `crate/CLAUDE.md`, "After a jump of the clock"), a find reaching the scene (`chaseIs`; `web/CLAUDE.md`, "The scene is never called for a find"), and the camera at rest (`stats.gliding`), with `?roll=0` for a level one (`web/CLAUDE.md`, "The opening shot is a pose").
 
+- **A request's path in `paint` is what follows the app's base** (`load` takes it off after failing on any request outside it); a check that reads `performance`'s entries in the page finds the data's by `document.baseURI`.
+
 ## Commands
 
 From the repo root.
 
 ```
-just kirkwood see [--only <checks>] [--runs 5] [--browser firefox|webkit]   # the release build in headless Chromium, about 30 minutes for every check; run `build` first. Each check's name and what it covers: see.ts's header (the justfile's comment lists them); `glass`, `rate`, `drag`, `slow`, and `cross` run only when named. Screenshots and seen.json in checks/out/ (gitignored)
+just kirkwood see [--only <checks>] [--runs 5] [--browser firefox|webkit] [--worker]   # the release build in headless Chromium (`--worker`: behind the app's Worker under `wrangler dev`, every check but `slow`), about 30 minutes for every check; run `build` first. Each check's name and what it covers: see.ts's header (the justfile's comment lists them); `glass`, `rate`, `drag`, `slow`, and `cross` run only when named. Screenshots and seen.json in checks/out/ (gitignored)
 ```
