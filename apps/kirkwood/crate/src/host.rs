@@ -181,8 +181,10 @@ const CORNER_IN: f32 = 24.;
 const CONTROLS_WIDTH: f32 = 320.;
 const CONTROLS_BOTTOM: f32 = 72.;
 const HINT_ROOM: f32 = 1215.;
-/// How far the controls' list keeps from the table's handle.
+/// How far the controls' list keeps from the table's handle, and from the
+/// window's top: in a window too short for it whole, it scrolls.
 const CONTROLS_CLEAR: f32 = 8.;
+const CONTROLS_TOP: f32 = 8.;
 /// The compass: its button, the ring's radius (flattened by the camera's
 /// tilt, never thinner than `COMPASS_THIN`), and the needle's half width.
 const COMPASS: f32 = 36.;
@@ -202,6 +204,18 @@ pub const CONTROLS_TARGET: &str = "controls";
 pub const CONTROLS_CLOSE_TARGET: &str = "controls-close";
 /// The scene's resolution's steps, in `scene::SCALES`' order.
 pub const SCALE_TARGETS: [&str; 3] = ["scale-full", "scale-three-quarters", "scale-half"];
+/// The credits at the foot of the controls' list: JPL's for the rows and
+/// for Jupiter's orbit, and the credit line ESA asks for beside a picture
+/// made from Gaia's data (the README has its whole acknowledgement). The
+/// phone's page says the same three (`web/src/phone.ts`): a test here
+/// holds its text to these.
+const CREDITS: [(&str, &str); 3] = [
+    ("Asteroids", "NASA/JPL Small-Body Database"),
+    ("Jupiter's orbit", "NASA/JPL Horizons"),
+    ("Stars", "ESA/Gaia/DPAC"),
+];
+/// The credits' published bounds.
+const CREDITS_TARGET: &str = "credits";
 
 /// The legend's bar, CSS px, and the width of each slice of it: one tint.
 const LEGEND_WIDTH: f32 = 140.;
@@ -2086,7 +2100,9 @@ impl Host {
                     } else {
                         room - self.handle_left.get() + CONTROLS_CLEAR
                     };
-                    self.render_controls(inset + CORNER_IN.max(clear), cx)
+                    let tall =
+                        f32::from(window.viewport_size().height) - CONTROLS_BOTTOM - CONTROLS_TOP;
+                    self.render_controls(inset + CORNER_IN.max(clear), tall, cx)
                 }))
                 .child(
                     div()
@@ -2108,9 +2124,11 @@ impl Host {
     }
 
     /// The controls' list, as board 10 draws it: the mouse's, the
-    /// trackpad's, and the keys' controls, over the corner. It takes its
-    /// presses and its wheel: none reaches the scene under it.
-    fn render_controls(&self, right: f32, cx: &Context<Self>) -> impl IntoElement {
+    /// trackpad's, and the keys' controls, the scene's resolution, and at
+    /// its foot the page's credits, over the corner. It takes its presses
+    /// and its wheel: none reaches the scene under it. At most `tall` px
+    /// high: in a shorter window its rows scroll.
+    fn render_controls(&self, right: f32, tall: f32, cx: &Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let (muted, edge) = (theme.muted_foreground, theme.border);
         let says = rgb(CONTROLS_SAYS);
@@ -2156,6 +2174,9 @@ impl Host {
             .w(px(CONTROLS_WIDTH))
             .child(
                 div()
+                    .id("controls-list")
+                    .max_h(px(tall.max(0.)))
+                    .overflow_y_scroll()
                     .pt(px(14.))
                     .px_4()
                     .pb_4()
@@ -2279,6 +2300,18 @@ impl Host {
                                     ),
                                 )),
                         ),
+                    )
+                    // Whose the data is: the README's credits, in short
+                    // (`docs/DECISIONS.md`, "Interface").
+                    .child(
+                        group("Credits")
+                            .relative()
+                            .children(
+                                CREDITS
+                                    .iter()
+                                    .map(|&(what, whose)| row(what, div().child(whose))),
+                            )
+                            .child(target(CREDITS_TARGET)),
                     ),
             )
             // (Beside the list, not in it: inside its border the bounds
@@ -3144,7 +3177,18 @@ fn grouped(n: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Belt, GAP_LINE, RIDE_LINE, belt_line, grouped, in_view_line, look_line};
+    use super::{Belt, CREDITS, GAP_LINE, RIDE_LINE, belt_line, grouped, in_view_line, look_line};
+
+    /// The phone's page types the credits again (it is sent no wasm to
+    /// ask): each of the list's is in its text.
+    #[test]
+    fn the_phones_page_credits_what_the_list_does() {
+        let phone = include_str!("../../web/src/phone.ts");
+        for (what, whose) in CREDITS {
+            let says = format!("{what}: {whose}").replace('\'', "\\'");
+            assert!(phone.contains(&says), "the phone's page lacks \"{says}\"");
+        }
+    }
 
     #[test]
     fn what_the_picture_isnt_is_said_while_its_on_screen() {

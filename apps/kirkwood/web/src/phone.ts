@@ -130,7 +130,12 @@ export function showPhone(open: () => void): void {
   const cost = document.createElement('p');
   cost.className = 'muted';
   cost.textContent = `Opening it here downloads ${DOWNLOAD} and holds every row in memory. On a phone it may be slow, its controls are small, and the browser may close the page.`;
-  page.append(heading, figure, caption, what, why, actions, cost);
+  // Whose the data in the pictures is: the app's own credits (the foot
+  // of its controls' list, `host.rs`).
+  const credits = document.createElement('p');
+  credits.className = 'muted';
+  credits.textContent = 'Asteroids: NASA/JPL Small-Body Database. Jupiter\'s orbit: NASA/JPL Horizons. Stars: ESA/Gaia/DPAC.';
+  page.append(heading, figure, caption, what, why, actions, cost, credits);
   document.head.append(style);
   document.body.append(page);
 }

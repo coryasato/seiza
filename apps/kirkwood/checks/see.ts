@@ -301,9 +301,10 @@
 //           mode one finger draws a group (out/touch-*.jpg).
 //   scale   the scene's resolution, the visitor's: the controls' list's
 //           three steps (out/scale-list.jpg), the list under the title's
-//           lines; a press on three quarters and on half makes the scene's
-//           canvas that many of the display's pixels and leaves GPUI's alone
-//           (out/scale-half.jpg); the step is kept for the next load, under
+//           lines and the credits its last rows, and in a window too short
+//           for it the list whole inside the window; a press on three
+//           quarters and on half makes the scene's canvas that many of the
+//           display's pixels and leaves GPUI's alone (out/scale-half.jpg); the step is kept for the next load, under
 //           a key named for the app; and `?scale` holds another whatever
 //           was kept.
 //   lost    the scene's WebGL context lost on purpose (WEBGL_lose_context),
@@ -1275,7 +1276,7 @@ async function seePhone(url: string) {
     const first = asked.map(kind);
     need(first.sort().join() === ['a still', 'the page', 'the page'].join(), `before anything is asked for, the phone's page asked for: ${asked.join(', ')}`);
     const says = await page.evaluate(() => ({ text: document.querySelector('#phone')!.textContent ?? '', buttons: [...document.querySelectorAll('#phone button')].map((button) => button.textContent), canvases: document.querySelectorAll('body > canvas:not(#scene)').length, wide: document.documentElement.scrollWidth > innerWidth }));
-    need(/built for a larger screen/.test(says.text) && /downloads 55 MB/.test(says.text) && says.buttons.length === 2 && says.buttons[1] === 'Open it anyway' && says.canvases === 0 && !says.wide, `the phone's page: ${JSON.stringify(says)}`);
+    need(/built for a larger screen/.test(says.text) && /downloads 55 MB/.test(says.text) && /NASA\/JPL Small-Body Database/.test(says.text) && /ESA\/Gaia\/DPAC/.test(says.text) && says.buttons.length === 2 && says.buttons[1] === 'Open it anyway' && says.canvases === 0 && !says.wide, `the phone's page: ${JSON.stringify(says)}`);
     await page.screenshot({ path: join(out, 'phone.jpg'), type: 'jpeg', quality: 85, fullPage: true });
     // The next still, when its turn comes, and no sooner.
     await page.waitForFunction(() => document.querySelectorAll<HTMLImageElement>('#phone img.shown')[0]?.src.endsWith('table.jpg'), undefined, { timeout: 15_000 });
@@ -1452,6 +1453,10 @@ async function seeScale(url: string) {
     const list = await targetRect(page, 'controls');
     const title = await kirkwood(page, (kirkwood) => kirkwood.scrim());
     need(list[1] >= title[1]! + title[3]!, `the list starts at ${round(list[1])}, and the title's lines end at ${round(title[1]! + title[3]!)}`);
+    // The credits are the list's last rows, inside it.
+    const credits = await targetRect(page, 'credits');
+    const steps = await targetRect(page, 'scale-half');
+    need(credits[0] >= list[0] && credits[0] + credits[2] <= list[0] + list[2] && credits[1] >= steps[1] + steps[3] && credits[1] + credits[3] <= list[1] + list[3], `the credits lie at ${credits.map(round).join(', ')}, the resolution's steps at ${steps.map(round).join(', ')}, in a list at ${list.map(round).join(', ')}`);
     await page.mouse.move(300, 300);
     await settle(page);
     await shot(page, 'scale-list', { x: 1040, y: list[1] - 20, width: 400, height: 900 - list[1] + 20 });
@@ -1470,6 +1475,15 @@ async function seeScale(url: string) {
     await page.goto(`${page.url()}&scale=0.75`);
     await waitMark(page, SCENE, 0, 60_000);
     await is(0.75, 'with ?scale=0.75 over a kept half');
+    // A window too short for the list whole (a small laptop's, under the
+    // browser's bars): it stays inside the window, and scrolls.
+    await page.setViewportSize({ width: 1366, height: 600 });
+    await settle(page);
+    await page.keyboard.press('?');
+    await settle(page);
+    const short = await targetRect(page, 'controls');
+    need(short[1] >= 0 && short[1] + short[3] <= 600 && short[3] < list[3], `in a window 600 px high the list lies from ${round(short[1])} to ${round(short[1] + short[3])}, ${round(short[3])} px high (${round(list[3])} whole)`);
+    await shot(page, 'scale-short');
     if (problems.length) throw new Error(`the page's problems: ${problems.join(' | ')}`);
     return { full: opened.scene.join('×'), threeQuarters: three.scene.join('×'), half: half.scene.join('×'), listTop: round(list[1]), titleEnds: round(title[1]! + title[3]!) };
   } finally {

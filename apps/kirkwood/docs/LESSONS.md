@@ -368,3 +368,13 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting"; the cost, the 
 - **No H.264 encoder on the machine:** Playwright's ffmpeg writes VP8 alone, so the phone's "recording" is five stills.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Interface", "Input".
+
+## M7 part D: the README, the credits, the owner's looks, and the close (2026-11-15)
+
+- **The README claimed a ramp the code doesn't have.** The first draft of "color carries the data" said the ramp runs dark to light; its five stops are within 0.17 of one lightness. The tradeoff written is the true one: hue alone says orbit size on a dot in space.
+- **A board that is the app's own window can't drift.** Boards 1 to 5 were the scene with the interface drawn over it in HTML, and each change to the app since made them a little wrong (two actions, a level opening). The six redrawn here are screenshots the checks already take, so a redraw is a run and an upload.
+- **The checks' own pictures were the storyboard's.** `belt`, `group`, `flyin`, and `corner` already stop on the six states the boards draw; nothing new was scripted.
+- **A credit is a line the first drawing never had room for.** No board drew one, so its place was a question for the owner, not a default: the list behind ? took it with 80 px to spare.
+- **Eleven "by the owner's eye" questions closed as "keep".** Most had been looked at in passing while later parts were built; the knobs made that cheap, and the plan had no way to say a question was already answered until it was asked in one list.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface", "Planning".

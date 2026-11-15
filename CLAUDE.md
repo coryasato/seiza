@@ -7,7 +7,7 @@ This file holds the rules for every app. Each app's own `apps/<app>/CLAUDE.md` (
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
 - `apps/observatory/`: the Observatory, the comparison page and both its contenders, at seiza.io/observatory.
-- `apps/kirkwood/`: Kirkwood, a showcase being built: the asteroid belt as a scene whose every dot is a row of the table beside it, for tycho.seiza.io/kirkwood.
+- `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it, at tycho.seiza.io/kirkwood.
 
 The apex site (seiza.io: the observatory's page now, a landing page later) shares one shell, `site/ui/` (`.claude/rules/apex-site.md`).
 
