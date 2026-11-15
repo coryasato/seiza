@@ -19,7 +19,9 @@
 // 3. check.ts's checks against production.
 //
 // Needs `wrangler login`, and an AWS CLI profile holding an R2 API token's
-// S3 keys, named by TYCHO_R2_PROFILE (never committed). The account ID comes
+// S3 keys, named by TYCHO_R2_PROFILE (never committed): set in the
+// environment or in worker/.env.deploy (`TYCHO_R2_PROFILE=<name>`, a
+// gitignored file this script loads). The account ID comes
 // from CLOUDFLARE_ACCOUNT_ID or `wrangler whoami`, and goes nowhere but the
 // S3 endpoint.
 //
@@ -57,8 +59,12 @@ function accountId(): string {
   return ids[0]!;
 }
 
+// The profile's name, kept out of the repo and the shell: worker/.env.deploy
+// (gitignored as `.env.*`; not `.env`, which `wrangler dev` reads as vars).
+const envFile = join(workerDir, '.env.deploy');
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 const profile = process.env.TYCHO_R2_PROFILE;
-if (!profile) throw new Error('set TYCHO_R2_PROFILE to the AWS CLI profile holding the R2 S3 keys');
+if (!profile) throw new Error('set TYCHO_R2_PROFILE (in worker/.env.deploy, or the environment) to the AWS CLI profile holding the R2 S3 keys');
 const endpoint = `https://${accountId()}.r2.cloudflarestorage.com`;
 const aws = (args: string[]) =>
   execFileSync('aws', [...args, '--profile', profile, '--endpoint-url', endpoint], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });

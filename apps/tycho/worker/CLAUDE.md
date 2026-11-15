@@ -22,6 +22,6 @@ What each covers and its flags are in its script's header (`worker/scripts/`) an
 
 ```
 just tycho worker-check   # /data/* byte ranges: the Worker's unit tests, then `wrangler dev`; `node worker/scripts/check.ts --url https://tycho.seiza.io` checks production
-just tycho deploy [flags] # release build, R2 uploads, the .br copies, `wrangler deploy`, then checks production; needs `wrangler login` and TYCHO_R2_PROFILE
+just tycho deploy [flags] # release build, R2 uploads, the .br copies, `wrangler deploy`, then checks production; needs `wrangler login` and TYCHO_R2_PROFILE (in the gitignored worker/.env.deploy)
 just tycho pause / resume # production's samples off (every /data/* a 503, the app says to drop a file) / back on, and Kirkwood's files with them (its own Worker on this hostname); needs `wrangler login`
 ```
