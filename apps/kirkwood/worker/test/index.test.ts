@@ -6,9 +6,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import worker, { type Env } from '../src/index.ts';
 import { PAUSED_HEADER } from '../src/names.ts';
+import { keyOf } from '../src/versions.ts';
 
 const ORIGIN = 'https://tycho.seiza.io';
-const OBJECTS: Record<string, string> = { 'elements.bin': 'elements', 'elements.bin.br': 'elements-br', 'rows.bin': 'rows', 'rows.bin.br': 'rows-br', 'stars.bin': 'stars', 'stars.bin.br': 'stars-br', 'secret.bin': 'secret' };
+// Each file under its key (the manifest's hash, then its name), and what
+// isn't to be served: a file under its bare name, and another key.
+const [ELEMENTS, ROWS, STARS] = [keyOf('elements.bin')!, keyOf('rows.bin')!, keyOf('stars.bin')!];
+const OBJECTS: Record<string, string> = { [ELEMENTS]: 'elements', [`${ELEMENTS}.br`]: 'elements-br', [ROWS]: 'rows', [`${ROWS}.br`]: 'rows-br', [STARS]: 'stars', [`${STARS}.br`]: 'stars-br', 'secret.bin': 'secret', 'put.json': '{}' };
 const ASSETS: Record<string, string> = { '/index.html': '<page>', '/index.html.br': 'page-br', '/assets/app-abc.wasm': 'wasm', '/assets/app-abc.wasm.br': 'wasm-br', '/assets/notes.txt': 'notes' };
 
 function env(paused?: string) {
@@ -91,13 +95,13 @@ test("each of the three files goes out as its .br object, whole, with the object
   for (const name of ['elements.bin', 'rows.bin', 'stars.bin']) {
     const response = await ask(e, `/kirkwood/data/${name}`);
     assert.equal(response.status, 200, name);
-    assert.equal(await response.text(), OBJECTS[`${name}.br`], name);
+    assert.equal(await response.text(), OBJECTS[`${keyOf(name)}.br`], name);
     assert.equal(response.headers.get('Content-Encoding'), 'br', name);
-    assert.equal(response.headers.get('Content-Length'), String(OBJECTS[`${name}.br`]!.length), name);
+    assert.equal(response.headers.get('Content-Length'), String(OBJECTS[`${keyOf(name)}.br`]!.length), name);
     assert.equal(response.headers.get('Cache-Control'), 'no-cache, no-transform', name);
     assert.equal(response.headers.get('Cross-Origin-Resource-Policy'), 'same-origin', name);
   }
-  assert.deepEqual(calls.get, ['elements.bin.br', 'rows.bin.br', 'stars.bin.br']);
+  assert.deepEqual(calls.get, [`${ELEMENTS}.br`, `${ROWS}.br`, `${STARS}.br`]);
 });
 
 test('a file without br is the file itself; a HEAD reads no body', async () => {
@@ -108,16 +112,16 @@ test('a file without br is the file itself; a HEAD reads no body', async () => {
   const head = await ask(e, '/kirkwood/data/rows.bin', { method: 'HEAD' });
   assert.equal(head.status, 200);
   assert.equal(head.headers.get('Content-Length'), String('rows-br'.length));
-  assert.deepEqual(calls, { get: ['rows.bin'], head: ['rows.bin.br'], assets: [] });
+  assert.deepEqual(calls, { get: [ROWS], head: [`${ROWS}.br`], assets: [] });
 });
 
 test("a browser holding the object is answered 304, and the other encoding's tag isn't a match", async () => {
   const { env: e } = env();
-  const held = await ask(e, '/kirkwood/data/stars.bin', { headers: { 'If-None-Match': '"stars.bin.br"' } });
+  const held = await ask(e, '/kirkwood/data/stars.bin', { headers: { 'If-None-Match': `"${STARS}.br"` } });
   assert.equal(held.status, 304);
-  assert.equal(held.headers.get('ETag'), '"stars.bin.br"');
-  assert.equal((await ask(e, '/kirkwood/data/stars.bin', { headers: { 'If-None-Match': '"stars.bin"' } })).status, 200);
-  const head = await ask(e, '/kirkwood/data/stars.bin', { method: 'HEAD', headers: { 'If-None-Match': 'W/"stars.bin.br"' } });
+  assert.equal(held.headers.get('ETag'), `"${STARS}.br"`);
+  assert.equal((await ask(e, '/kirkwood/data/stars.bin', { headers: { 'If-None-Match': `"${STARS}"` } })).status, 200);
+  const head = await ask(e, '/kirkwood/data/stars.bin', { method: 'HEAD', headers: { 'If-None-Match': `W/"${STARS}.br"` } });
   assert.equal(head.status, 304);
 });
 
@@ -129,7 +133,7 @@ test('no other condition is a 304', async () => {
 
 test('nothing else of the bucket is served, by any spelling', async () => {
   const { env: e, calls } = env();
-  for (const path of ['/kirkwood/data/secret.bin', '/kirkwood/data/elements.bin.br', '/kirkwood/data/', '/kirkwood/data/a/elements.bin', '/kirkwood/data/%65lements.bin']) assert.equal((await ask(e, path)).status, 404, path);
+  for (const path of ['/kirkwood/data/secret.bin', '/kirkwood/data/put.json', `/kirkwood/data/${ELEMENTS}`, `/kirkwood/data/${ELEMENTS}.br`, '/kirkwood/data/elements.bin.br', '/kirkwood/data/', '/kirkwood/data/a/elements.bin', '/kirkwood/data/%65lements.bin']) assert.equal((await ask(e, path)).status, 404, path);
   assert.deepEqual(calls.get, []);
 });
 

@@ -26,9 +26,25 @@ preview:
 # Serve the release build behind the app's Worker under `wrangler dev`, at
 # http://127.0.0.1:8788/kirkwood/: the build's files as their quality-11
 # `.br`, the three files from Miniflare's R2 (filled here, and compressed
-# the first time: a minute or two a file). Run `just kirkwood build` first.
-worker:
-    node {{app_dir}}/worker/scripts/dev.ts
+# the first time: a minute or two a file). --paused: with the pause on. Run
+# `just kirkwood build` first.
+worker *args:
+    node {{app_dir}}/worker/scripts/dev.ts {{args}}
+
+# Deploy to Cloudflare: release build, then the bucket's objects whose file
+# changed, `wrangler deploy`, and the checks against production
+# (worker/scripts/deploy.ts). Touches nothing of Tycho's. Needs `wrangler
+# login` and the bucket, made once (the script's header). Flags: --dry-run,
+# --skip-check, --prune (deletes earlier files' objects, after the check). Pausing its data is Tycho's recipe, for both: `just tycho pause`.
+deploy *args: build
+    node {{app_dir}}/worker/scripts/deploy.ts {{args}}
+
+# Production against web/dist and data/: every file the page asks for, its
+# bytes and its encoding on the wire, the redirect, what's never served, the
+# WAF's 403s (worker/scripts/check.ts). Needs the build that was deployed.
+# Flags: --url <origin>, --no-waf, --whole.
+deployed *args:
+    node {{app_dir}}/worker/scripts/check.ts {{args}}
 
 # Compile the crate alone (`-p`: Cargo unifies features across the packages
 # in one build) and generate its JS bindings into web/pkg/.
@@ -60,9 +76,11 @@ test:
 # checks/out/ (gitignored); about 30 minutes. --only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour; --runs.
 # Asked for by name alone: --only rate (the scene's frames a second), drag
 # (a drag's frames a second), slow (a load on a slow link), cross (--browser
-# firefox|webkit, with wheel), glass (the panel as glass over a group).
+# firefox|webkit, with wheel), glass (the panel as glass over a group),
+# paused (alone: the page with the data paused, behind the Worker).
 # --worker: behind the app's Worker under `wrangler dev`, not `vite preview`
-# (every part but slow). Run `just kirkwood build` first.
+# (every part but slow). --url <the page>: one served elsewhere (production),
+# paint or paused alone. Run `just kirkwood build` first.
 see *args:
     node {{app_dir}}/checks/see.ts {{args}}
 

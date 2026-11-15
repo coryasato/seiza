@@ -12,10 +12,13 @@ import { brotli } from '../../../../shared-web/src/brotli.ts';
 import { walk } from '../../../../shared-web/scripts/walk.ts';
 import { ASSET_LIMIT } from '../../../../shared-web/perf/wrangler.ts';
 import { FILES, PRECOMPRESSED } from '../src/names.ts';
+import { keyOf } from '../src/versions.ts';
 
 export const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 export const dist = join(workerDir, '../web/dist');
 export const dataDir = join(workerDir, '../data');
+/** The bucket (wrangler.toml), local and production's. */
+export const BUCKET = 'kirkwood-data';
 
 const manifest = JSON.parse(readFileSync(join(dataDir, 'MANIFEST.json'), 'utf8')) as Record<string, { bytes: number; sha256: string }>;
 
@@ -42,9 +45,12 @@ export function stageBuild(): { path: string; bytes: number; brBytes: number | n
 /** One of the three files, read and found to be MANIFEST.json's bytes. */
 export interface DataFile {
   name: string;
-  /** Its path in data/: the bucket's object `name` is this file as it is. */
+  /** Its path in data/, and the bucket's key for it as it is (src/versions.ts);
+   *  the brotli 11 copy's key is `<key>.br`. */
   path: string;
-  /** Its SHA-256, the manifest's and the file's own. */
+  key: string;
+  /** Its length and SHA-256, the manifest's and the file's own. */
+  bytes: number;
   sha256: string;
   /** The bucket's object `<name>.br`: the file at brotli 11 (from the cache, or a minute or two). */
   compressed(): Buffer;
@@ -65,6 +71,6 @@ export function dataFiles(): DataFile[] {
     }
     const sha256 = createHash('sha256').update(body).digest('hex');
     if (body.length !== entry.bytes || sha256 !== entry.sha256) throw new Error(`data/${name} (${body.length} bytes, SHA-256 ${sha256.slice(0, 16)}…) isn't MANIFEST.json's (${entry.bytes} bytes, ${entry.sha256.slice(0, 16)}…): docs/data.md says how both are built`);
-    return { name, path, sha256, compressed: () => brotli(body) };
+    return { name, path, key: keyOf(name)!, bytes: body.length, sha256, compressed: () => brotli(body) };
   });
 }

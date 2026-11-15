@@ -95,7 +95,7 @@ seiza/
 ```
 just <app> <recipe>        # e.g. just tycho dev, just tycho perf; each app's recipes are in its CLAUDE.md
 just tall-table <recipe>   # the tall table's bare host: build, size, perf (its CLAUDE.md)
-just kirkwood <recipe>     # the showcase: dev, build, test, see, lint (no check, perf, or report)
+just kirkwood <recipe>     # the showcase: dev, build, worker, deploy, deployed, test, see, lint (no check, perf, or report)
 just <app> report          # every app but a showcase: the numbers in its README, its PLAN.md, and the root README's apps table, from perf/budgets.json and perf/results/
 ```
 

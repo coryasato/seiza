@@ -291,6 +291,12 @@
 //           pixel (out/tour-*.jpg); the arrow's next presses, the smallest
 //           first and the file's order; and what an order costs, the median
 //           of five by diameter and by a.
+//   paused  only when named, and alone: the page with the data paused (the
+//           Worker under `wrangler dev` with its pause on, or `--url` while
+//           production's is): fails unless GPUI's first frame still comes,
+//           the elements and the sky are each refused with a 503 and the rows
+//           never asked for, nothing is held, and the page is told the data
+//           is paused (out/paused.jpg, for the title's line).
 //   glass   only when named: the panel as glass (`?glass`) over a group
 //           flown in to, at a few fills and blurs: a picture of each
 //           (out/glass-*.jpg), the rows' text against what's under it, and
@@ -312,10 +318,12 @@
 //           and its counts, the panel's first row (out/cross-<browser>-*.jpg).
 //           `--browser` runs this and `wheel`, nothing else.
 //
-// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,rate,drag,slow,cross,glass] [--runs 5] [--browser firefox|webkit] [--worker]
+// Usage: node apps/kirkwood/checks/see.ts [--only paint,table,memory,belt,time,bodies,look,color,sky,wheel,camera,tilt,corner,sort,ride,gap,integrated,find,group,flyin,dot,live,tour,rate,drag,slow,cross,glass,paused] [--runs 5] [--browser firefox|webkit] [--worker] [--url <the page>]
 // --worker: the build behind the app's Worker under `wrangler dev`
 // (worker/scripts/dev.ts), not `vite preview`; every part but `slow`, whose
 // bytes on the wire `wrangler dev` re-encodes.
+// --url: a page already served, such as https://tycho.seiza.io/kirkwood/
+// (production): `paint` and `paused` alone, and nothing is started here.
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
 
@@ -329,7 +337,7 @@ import { readElements, type ElementsFile } from '../data/elements.ts';
 import { isBound, place } from '../data/orbit.ts';
 import { BASE } from '../web/src/base.ts';
 import { FOUND, KEYS, TURN as CAMERA_TURN } from '../web/src/camera.ts';
-import { startWorkerDev } from '../worker/scripts/dev.ts';
+import { WORKER_DEV_PORT, startWorkerDev } from '../worker/scripts/dev.ts';
 
 const dir = import.meta.dirname;
 const out = join(dir, 'out');
@@ -337,9 +345,11 @@ const PORT = 4370;
 const RUNS = Number(option('runs') ?? 5);
 /** `--worker`: the build behind the app's Worker (`wrangler dev`), not `vite preview`. */
 const WORKER = flag('worker');
+/** `--url`: a page served elsewhere (production), not one started here. */
+const URL_GIVEN = option('url');
 /** The parts that are loads repeated `--runs` times. */
 const LOADS = ['paint', 'table', 'memory'];
-const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'flyin', 'dot', 'live', 'tour', 'rate', 'drag', 'slow', 'cross', 'glass'];
+const PARTS = [...LOADS, 'belt', 'time', 'bodies', 'look', 'color', 'sky', 'wheel', 'camera', 'tilt', 'corner', 'sort', 'ride', 'gap', 'integrated', 'find', 'group', 'flyin', 'dot', 'live', 'tour', 'rate', 'drag', 'slow', 'cross', 'glass', 'paused'];
 /** `--browser`: the engine `cross` and `wheel` run in; every other part is Chromium's. */
 const BROWSER = option('browser') ?? 'chromium';
 const ENGINE = ({ chromium, firefox, webkit } as Record<string, typeof chromium | undefined>)[BROWSER]!;
@@ -356,10 +366,13 @@ const RATE_MORE = (option('ways') ?? '')
     return [name!, Object.fromEntries(new URLSearchParams(query))];
   });
 /** Asked for by name alone: the frame rates, the slow link, and another browser take minutes more. */
-const ASKED = ['rate', 'drag', 'slow', 'cross', 'glass'];
+const ASKED = ['rate', 'drag', 'slow', 'cross', 'glass', 'paused'];
 const ONLY = new Set((option('only') ?? PARTS.filter((part) => !ASKED.includes(part)).join(',')).split(','));
 if (ENGINE !== chromium && [...ONLY].some((part) => part !== 'cross' && part !== 'wheel')) throw new Error('--browser runs --only cross,wheel; every other part is Chromium\'s');
 if (WORKER && ONLY.has('slow')) throw new Error('--worker and slow: `wrangler dev` re-encodes what the Worker sends, so the bytes on the wire there are not what a deploy sends');
+if (ONLY.has('paused') && ONLY.size > 1) throw new Error('paused runs alone: every other part wants the files');
+if (URL_GIVEN && [...ONLY].some((part) => part !== 'paint' && part !== 'paused')) throw new Error('--url runs --only paint or --only paused; every other part is the local build\'s');
+if (URL_GIVEN && WORKER) throw new Error('--url and --worker: one or the other serves the page');
 if (!Number.isInteger(RUNS) || RUNS < 1) throw new Error(`--runs wants a whole number of loads, 1 or more; got "${option('runs')}"`);
 if (!ONLY.size || [...ONLY].some((part) => !PARTS.includes(part))) throw new Error(`--only wants some of ${PARTS.join(', ')}; got "${option('only')}"`);
 
@@ -393,6 +406,7 @@ type Kirkwood = {
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
   held: number;
+  failed?: string;
   scene?: { stats: SceneStats; viewProjection(): number[]; labels(): Label[]; triangle(): number[] | undefined; marker(): { x: number; y: number; path: number[] } | undefined; found(): { x: number; y: number } | undefined; outline(): { points: number[]; closed: boolean } | undefined; under(x: number, y: number): [number, number] | undefined; named(): Named[]; click(x: number, y: number): number };
   viewsShareMemory?: boolean;
   placeOf(row: number, years: number): number[];
@@ -482,6 +496,49 @@ async function slowShots(url: string): Promise<void> {
     await shot(page, 'first-frame');
     await page.waitForTimeout(6000);
     await shot(page, 'loading');
+  } finally {
+    await close();
+  }
+}
+
+/** Init script: every `fetch`'s URL and status, as the page got them, in
+ *  `__fetched`. (A listener on the page can't be attached before its first
+ *  requests, and what `performance` lists of a refused one is the browser's
+ *  own choice.) */
+function recordFetches(): void {
+  const fetched: { url: string; status: number }[] = [];
+  (globalThis as unknown as { __fetched: typeof fetched }).__fetched = fetched;
+  const plain = globalThis.fetch;
+  globalThis.fetch = async (...args: Parameters<typeof fetch>) => {
+    const response = await plain(...args);
+    fetched.push({ url: response.url, status: response.status });
+    return response;
+  };
+}
+
+/** The page with the data paused: it paints, asks, is refused, and says so. */
+async function seePaused(url: string) {
+  const { page, close } = await open(chromium, url, { init: [recordFetches] });
+  try {
+    const firstFrame = await waitMark(page, FIRST_FRAME);
+    // The elements are refused, so the rows are never asked for; the sky's
+    // file is asked for whatever became of them, and refused too.
+    const files = () => page.evaluate(() => (globalThis as unknown as { __fetched: { url: string; status: number }[] }).__fetched.filter((file) => file.url.includes('/data/')).map((file) => `${file.url.split('/').pop()} ${file.status}`));
+    await page.waitForFunction(() => (globalThis as unknown as Page_).__kirkwood.failed !== undefined, undefined, { timeout: 30_000 });
+    for (let waited = 0; waited < 10_000 && (await files()).length < 2; waited += 100) await page.waitForTimeout(100);
+    // (Long enough for a third to be asked for, were one going to be.)
+    await page.waitForTimeout(500);
+    const seen = await page.evaluate(() => {
+      const kirkwood = (globalThis as unknown as Page_).__kirkwood;
+      return { told: kirkwood.failed, held: kirkwood.held };
+    });
+    const asked = await files();
+    need(/paused/.test(seen.told ?? ''), `the page was told "${seen.told}"`);
+    need(seen.held === 0, `${seen.held} bytes of the files are held`);
+    need(asked.join() === 'elements.bin 503,stars.bin 503', `the files asked for, and each one's answer: ${asked.join(', ') || 'none'}`);
+    await page.waitForSelector('#seiza-placeholder', { state: 'detached' });
+    await shot(page, 'paused');
+    return { firstFrameMs: round(firstFrame), told: seen.told, heldBytes: seen.held, asked };
   } finally {
     await close();
   }
@@ -5130,10 +5187,12 @@ async function seeGap(url: string) {
 
 mkdirSync(out, { recursive: true });
 // The page's URL, the app's base included: `vite preview`'s, or the Worker's.
-const served = WORKER ? await startWorkerDev() : await serveApp(undefined, { webDir: join(dir, '../web'), port: PORT });
-const server = { url: WORKER ? served.url : new URL(BASE, served.url).href, close: () => served.close() };
+const PAUSED = ONLY.has('paused');
+const behindWorker = WORKER || PAUSED;
+const served = URL_GIVEN ? { url: URL_GIVEN, close: async () => {} } : behindWorker ? await startWorkerDev(WORKER_DEV_PORT, { paused: PAUSED }) : await serveApp(undefined, { webDir: join(dir, '../web'), port: PORT });
+const server = { url: URL_GIVEN || behindWorker ? served.url : new URL(BASE, served.url).href, close: () => served.close() };
 try {
-  const seen: Record<string, unknown> = { date: localDate(), ...machineInfo(), runs: RUNS, served: WORKER ? "the app's Worker under wrangler dev, the files from its local bucket" : 'vite preview', viewport: '1440x900 at DPR 2, headless Chromium, cold, unthrottled, the files local and as they are' };
+  const seen: Record<string, unknown> = { date: localDate(), ...machineInfo(), runs: RUNS, served: URL_GIVEN ?? (behindWorker ? "the app's Worker under wrangler dev, the files from its local bucket" : 'vite preview'), viewport: `1440x900 at DPR 2, headless Chromium, cold, unthrottled${URL_GIVEN ? '' : ', the files local and as they are'}` };
   if (LOADS.some((part) => ONLY.has(part))) {
     if (ONLY.has('paint')) await slowShots(server.url);
     const loads: Awaited<ReturnType<typeof load>>[] = [];
@@ -5213,6 +5272,7 @@ try {
   if (ONLY.has('dot')) seen.dot = await seeDot(server.url);
   if (ONLY.has('live')) seen.live = await seeLive(server.url);
   if (ONLY.has('tour')) seen.tour = await seeTour(server.url);
+  if (PAUSED) seen.paused = await seePaused(server.url);
   if (ONLY.has('glass')) seen.glass = await seeGlass(server.url);
   if (ONLY.has('rate')) seen.rate = await seeRate(server.url);
   if (ONLY.has('drag')) seen.drag = await seeDrag(server.url);

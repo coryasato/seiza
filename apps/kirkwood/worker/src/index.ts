@@ -7,7 +7,8 @@
  *   request runs this Worker, which takes the base off. A browser that takes
  *   br gets the file's quality-11 `.br` as it is (scripts/stage.ts writes
  *   them): Cloudflare's own compression is far weaker (.claude/rules/cloudflare.md).
- * - The three files are in R2, each as it is and as `<name>.br`: two of them
+ * - The three files are in R2, each as it is and as `<name>.br`, under a key
+ *   that has the file's hash in it (src/versions.ts): two of them
  *   are over the 25 MiB a static asset may be, and one still is at brotli 11.
  *   Each is read whole, never by range. A browser that holds a copy is
  *   answered 304 (the names are stable, so a copy is always asked about).
@@ -16,7 +17,8 @@
 
 import { accepts } from '../../../../shared-web/src/encoding.ts';
 import { BASE } from '../../web/src/base.ts';
-import { FILES, PAUSED_HEADER, PRECOMPRESSED } from './names.ts';
+import { CONTENT_TYPES, FILES, PAUSED_HEADER, PRECOMPRESSED } from './names.ts';
+import { keyOf } from './versions.ts';
 
 export interface Env {
   KIRKWOOD_DATA: R2Bucket;
@@ -34,13 +36,6 @@ const ISOLATION_HEADERS = {
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Embedder-Policy': 'require-corp',
   'Cross-Origin-Resource-Policy': 'same-origin',
-};
-
-const CONTENT_TYPES: Record<string, string> = {
-  wasm: 'application/wasm',
-  js: 'text/javascript',
-  html: 'text/html; charset=utf-8',
-  ttf: 'font/ttf',
 };
 
 export default {
@@ -102,11 +97,12 @@ async function serveBuild(request: Request, env: Env, url: URL, path: string): P
 
 /** One of the three files, whole: its `.br` object if the browser takes br, else the file. */
 async function serveData(request: Request, env: Env, name: string): Promise<Response> {
-  if (!FILES.includes(name)) return text(404, 'Not found');
+  const file = FILES.includes(name) ? keyOf(name) : undefined;
+  if (!file) return text(404, 'Not found');
   // no-store: a cached 503 would outlive the pause.
   if (env.DATA_PAUSED === '1') return text(503, 'The data is paused.', { [PAUSED_HEADER]: '1', 'Cache-Control': 'no-store' });
   const br = accepts(request, 'br');
-  const key = br ? `${name}.br` : name;
+  const key = br ? `${file}.br` : file;
   const headersFor = (object: R2Object) => ({
     ...ISOLATION_HEADERS,
     'Content-Type': 'application/octet-stream',

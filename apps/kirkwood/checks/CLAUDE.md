@@ -15,11 +15,12 @@
 - **What a check waits on is said where it's made:** the integrated rows catching up after a jump of the clock (`withBelt`; `crate/CLAUDE.md`, "After a jump of the clock"), a find reaching the scene (`chaseIs`; `web/CLAUDE.md`, "The scene is never called for a find"), and the camera at rest (`stats.gliding`), with `?roll=0` for a level one (`web/CLAUDE.md`, "The opening shot is a pose").
 
 - **A request's path in `paint` is what follows the app's base** (`load` takes it off after failing on any request outside it); a check that reads `performance`'s entries in the page finds the data's by `document.baseURI`.
+- **A check that reads a request's status records the page's `fetch`es in an init script** (`see.ts`, `recordFetches`, for `paused`): a listener on the page is attached after its first requests, and whether `performance` lists a refused one is the browser's choice.
 
 ## Commands
 
 From the repo root.
 
 ```
-just kirkwood see [--only <checks>] [--runs 5] [--browser firefox|webkit] [--worker]   # the release build in headless Chromium (`--worker`: behind the app's Worker under `wrangler dev`, every check but `slow`), about 30 minutes for every check; run `build` first. Each check's name and what it covers: see.ts's header (the justfile's comment lists them); `glass`, `rate`, `drag`, `slow`, and `cross` run only when named. Screenshots and seen.json in checks/out/ (gitignored)
+just kirkwood see [--only <checks>] [--runs 5] [--browser firefox|webkit] [--worker] [--url <the page>]   # the release build in headless Chromium (`--worker`: behind the app's Worker under `wrangler dev`, every check but `slow`; `--url`: a page served elsewhere, production's, for `paint` or `paused` alone), about 30 minutes for every check; run `build` first. Each check's name and what it covers: see.ts's header (the justfile's comment lists them); `glass`, `rate`, `drag`, `slow`, `cross`, and `paused` (alone) run only when named. Screenshots and seen.json in checks/out/ (gitignored)
 ```

@@ -342,3 +342,16 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Table" and "Interface"; 
 - **Types decide the module's edges.** The Worker's source can't be imported by a Node script or by the checks (no Worker types there), so the three names both sides share moved to a file with no types of either.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting".
+
+## M7 part B: the deploy (2026-11-15)
+
+- **The first check after a deploy read the old edge.** Five failures, then none 10 s later with nothing changed: the retry the rule asks for isn't a courtesy.
+- **Tycho's check against production compares production with the tree, so it had already drifted.** It failed on Tycho's own hashed files: the build deployed is 2026-11-01's and the tree has moved since. Nothing of Kirkwood's shows in it, but "Tycho is as it was" had to be read from its Worker's deployment history and its live page, not from that check's PASS.
+- **The page needed no new state to say "paused".** The crate's line for a file that didn't arrive takes the page's words, so the pause is a sentence in the host and the wasm didn't change.
+- **A refused request isn't in the browser's resource timings.** The paused check waited on two entries that never come. Review turned down reading them from the console too: the check now records the page's own `fetch`es.
+- **The edge resolves dot segments before it picks a Worker.** A path under `/kirkwood/` with `%2e%2e` in it reached Tycho's Worker as the URL it resolves to. Harmless here, and worth knowing before a path is ever taken as proof of which Worker answered.
+- **`wrangler dev` sent the three files' `.br` through as they are, and re-encoded only the build's.** So the local Worker could run every part of the production check but five lines.
+- **Tycho's lint was failing at HEAD on a type, not on Tycho:** `shared-web/scripts` reads `perf/protocol.ts` without the DOM's types. Found only because this part ran `just tycho check`.
+- **A stable name in a bucket is a deploy that isn't atomic.** The page checks each file's length against the manifest it was built with, so files overwritten before the new Worker was live would have failed every visitor in between. Review caught it; the key now carries the file's hash.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting"; the cost, the gitignored `docs/private/cost.md`.

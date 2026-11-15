@@ -5,7 +5,8 @@
 // (.claude/rules/cloudflare.md), so the bytes on the wire here aren't
 // production's: `see --only slow` reads those through `vite preview`.
 //
-// Usage: node apps/kirkwood/worker/scripts/dev.ts   (`just kirkwood worker`)
+// Usage: node apps/kirkwood/worker/scripts/dev.ts [--paused]   (`just kirkwood worker`)
+// --paused: with the pause on, as `just tycho pause` leaves production.
 // Run `just kirkwood build` first.
 
 import { execFileSync } from 'node:child_process';
@@ -13,9 +14,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { join } from 'node:path';
 import { startWranglerDev, wrangler, wranglerEnv } from '../../../../shared-web/perf/wrangler.ts';
 import { BASE } from '../../web/src/base.ts';
-import { dataFiles, dist, stageBuild, workerDir } from './stage.ts';
+import { BUCKET, dataFiles, dist, stageBuild, workerDir } from './stage.ts';
 
-const BUCKET = 'kirkwood-data';
 export const WORKER_DEV_PORT = 8788;
 
 export interface WorkerDev {
@@ -39,11 +39,11 @@ function fillLocalBucket(): void {
     console.log(`worker: ${key} in the local bucket`);
   };
   for (const file of dataFiles()) {
-    if (put[file.name] !== file.sha256) putObject(file.name, file.path, file.sha256);
-    const key = `${file.name}.br`;
+    if (put[file.key] !== file.sha256) putObject(file.key, file.path, file.sha256);
+    const key = `${file.key}.br`;
     if (put[key] === file.sha256) continue;
     // wrangler reads a file: the compressed bytes, written for the put alone.
-    const temp = join(state, `${key}.tmp`);
+    const temp = join(state, `${file.name}.br.tmp`);
     writeFileSync(temp, file.compressed());
     try {
       putObject(key, temp, file.sha256);
@@ -54,15 +54,17 @@ function fillLocalBucket(): void {
 }
 
 /** Stages the build and the data, starts `wrangler dev` on `port`, and
- *  resolves once it answers and holds the files. */
-export async function startWorkerDev(port = WORKER_DEV_PORT): Promise<WorkerDev> {
+ *  resolves once it answers and holds the files. `paused`: with the pause
+ *  on (`DATA_PAUSED`, production's secret), every file a 503. */
+export async function startWorkerDev(port = WORKER_DEV_PORT, options: { paused?: boolean } = {}): Promise<WorkerDev> {
   if (!existsSync(join(dist, 'index.html'))) throw new Error('web/dist has no build; run `just kirkwood build`');
   stageBuild();
-  fillLocalBucket();
-  const { origin, close } = await startWranglerDev({ workerDir, port, probe: `${BASE}data/` });
+  // Paused, nothing reads the bucket.
+  if (!options.paused) fillLocalBucket();
+  const { origin, close } = await startWranglerDev({ workerDir, port, probe: `${BASE}data/`, ...(options.paused ? { vars: { DATA_PAUSED: '1' } } : {}) });
   const url = `${origin}${BASE}`;
   // The note said the bucket holds them; the bucket has the last word.
-  for (const file of dataFiles()) {
+  for (const file of options.paused ? [] : dataFiles()) {
     const response = await fetch(`${url}data/${file.name}`, { method: 'HEAD', headers: { 'Accept-Encoding': 'br' } });
     if (response.status !== 200) {
       await close();
@@ -73,7 +75,7 @@ export async function startWorkerDev(port = WORKER_DEV_PORT): Promise<WorkerDev>
 }
 
 if (import.meta.main) {
-  const worker = await startWorkerDev();
+  const worker = await startWorkerDev(WORKER_DEV_PORT, { paused: process.argv.includes('--paused') });
   console.log(`worker: ${worker.url}`);
   const stop = () => void worker.close().then(() => process.exit(0));
   process.on('SIGINT', stop);

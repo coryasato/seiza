@@ -70,6 +70,7 @@ From the repo root. One line each; a recipe's flags and what a check covers are 
 ```
 just kirkwood dev | build | preview   # debug dev server, release build, serve that build, each at /kirkwood/ (web)
 just kirkwood worker                  # that build behind the Worker under `wrangler dev` (worker)
+just kirkwood deploy | deployed       # deploy to tycho.seiza.io/kirkwood and check it; the check alone (worker)
 just kirkwood test                    # native tests, the real files' among them (crate), then the Worker's (worker)
 just kirkwood see [flags]             # what the release build shows, in headless Chromium; run `build` first (checks)
 just kirkwood lint     # check-terms, fmt, clippy (wasm32 and native), tsc (the host, the checks, the data's scripts, the Worker)

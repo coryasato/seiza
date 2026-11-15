@@ -106,6 +106,7 @@ import wasmUrl from '../pkg/kirkwood_bg.wasm?url';
 // (data/MANIFEST.json). The crate then checks each file's header and the
 // tables its reads lean on; neither is a check of the file's hash.
 import manifest from '../../data/MANIFEST.json';
+import { PAUSED_HEADER } from '../../worker/src/names.ts';
 import { compositeByAlpha } from './alpha.ts';
 import type { BeltScene } from './scene.ts';
 
@@ -128,6 +129,12 @@ const SKY_MARK = 'kirkwood:sky';
 /** Where the page keeps that the hint was folded (the origin is shared
  *  with other apps: the key says whose it is). */
 const HINT_KEY = 'kirkwood:hint';
+
+/** What the page says, after "didn't load", while the Worker's pause is on
+ *  (its 503 with `PAUSED_HEADER`; worker/src/index.ts). */
+const PAUSED = 'The data is paused for now: try again later.';
+/** Whether a file's answer is the pause's. */
+const paused = (response: Response) => response.status === 503 && response.headers.get(PAUSED_HEADER) === '1';
 
 type Kirkwood = {
   /** Called by the crate once GPUI's first frame is on screen. */
@@ -171,8 +178,10 @@ type Kirkwood = {
    *  when the first frame was on screen (before either file). */
   wasmBytes(): number;
   wasmBytesAtFirstFrame: number;
-  /** For the checks: the bytes of the two files held so far. */
+  /** For the checks: the bytes of the two files held so far, and what the
+   *  page was told when one didn't arrive. */
   held: number;
+  failed?: string;
   /** For the checks: the scene, once it's started; whether the views it
    *  was given were over the wasm's own memory; the crate's 64-bit place
    *  for a row (a Hilda's or a Trojan's as integrated), where its ellipse
@@ -274,6 +283,7 @@ let scene: BeltScene | undefined;
 async function hold(file: (typeof FILES)[number], progress: (bytes: number, held: number) => void): Promise<void> {
   const { bytes } = manifest[file.name];
   const response = await fetch(`${import.meta.env.BASE_URL}data/${file.name}`);
+  if (paused(response)) throw new Error(PAUSED);
   if (!response.ok || !response.body) throw new Error(`${file.name}: ${response.status} ${response.statusText}`);
   const at = file_begin(file.id, bytes);
   const reader = response.body.getReader();
@@ -481,7 +491,8 @@ async function afterFirstFrame(): Promise<void> {
   } catch (error) {
     // Elements that stopped short take what was drawn of them along.
     if (!elementsHeld) endBelt();
-    file_failed(error instanceof Error ? error.message : String(error));
+    kirkwood.failed = error instanceof Error ? error.message : String(error);
+    file_failed(kirkwood.failed);
     failed = error;
   }
   await filled;
@@ -499,6 +510,7 @@ async function holdSky(scene: BeltScene): Promise<void> {
   if (!scene.wantsSky) return;
   try {
     const response = await fetch(`${import.meta.env.BASE_URL}data/${SKY}`);
+    if (paused(response)) throw new Error(PAUSED);
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
     const file = await response.arrayBuffer();
     if (file.byteLength !== manifest[SKY].bytes) throw new Error(`${file.byteLength} bytes, and the manifest's is ${manifest[SKY].bytes}`);

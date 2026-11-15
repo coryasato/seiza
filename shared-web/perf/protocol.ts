@@ -64,7 +64,8 @@ export const PROFILES: Profile[] = [
  * perf-harness.md).
  */
 export function hideDevicePixelContentBox(): void {
-  delete (ResizeObserverEntry.prototype as { devicePixelContentBoxSize?: unknown }).devicePixelContentBoxSize;
+  // (Through `globalThis`: shared-web/scripts' project reads this module without the DOM's types.)
+  delete (globalThis as unknown as { ResizeObserverEntry: { prototype: { devicePixelContentBoxSize?: unknown } } }).ResizeObserverEntry.prototype.devicePixelContentBoxSize;
 }
 
 /** Applies a profile's CPU and network throttling to a Chromium page. */

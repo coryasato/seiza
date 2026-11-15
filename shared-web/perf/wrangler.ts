@@ -23,13 +23,15 @@ export interface WranglerDev {
  * Starts `wrangler dev` (local mode) in `workerDir` on `port` and resolves
  * once it answers a request for `probe` (a path; any status). Fails if the
  * port is taken, since what answered would be another server, or if
- * wrangler exits or doesn't answer within a minute, with its output.
+ * wrangler exits or doesn't answer within a minute, with its output. `vars`
+ * are the Worker's for this run (a secret's stand-in, such as a pause).
  */
-export async function startWranglerDev(options: { workerDir: string; port: number; probe: string }): Promise<WranglerDev> {
+export async function startWranglerDev(options: { workerDir: string; port: number; probe: string; vars?: Record<string, string> }): Promise<WranglerDev> {
   const { workerDir, port, probe } = options;
+  const vars = Object.entries(options.vars ?? {}).flatMap(([name, value]) => ['--var', `${name}:${value}`]);
   const origin = `http://127.0.0.1:${port}`;
   await assertPortFree(port);
-  const child = spawn(wrangler, ['dev', '--ip', '127.0.0.1', '--port', String(port), '--show-interactive-dev-session=false', '--log-level', 'warn'], {
+  const child = spawn(wrangler, ['dev', '--ip', '127.0.0.1', '--port', String(port), '--show-interactive-dev-session=false', '--log-level', 'warn', ...vars], {
     cwd: workerDir,
     env: wranglerEnv(),
     stdio: ['ignore', 'pipe', 'pipe'],
