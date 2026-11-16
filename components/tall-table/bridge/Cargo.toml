@@ -35,6 +35,8 @@ density = ["seiza-tall-table/density"]
 format = ["seiza-tall-table/format"]
 # The table's order, forwarded for a host's build.
 reorder = ["seiza-tall-table/reorder"]
+# The table's presses, forwarded for a host's build.
+clicks = ["seiza-tall-table/clicks"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

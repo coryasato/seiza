@@ -7,6 +7,7 @@
 use gpui_kit::component::ActiveTheme as _;
 #[cfg(not(feature = "pin"))]
 use gpui_kit::component::scroll::Scrollbar;
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::{TallTableEvent, TallTableState, shown_text};
@@ -295,9 +296,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                             cx.stop_propagation();
                             window.focus(&this.focus_handle, cx);
-                            this.press_band(at, event.position.x, event.click_count, window, cx);
+                            // The table's count, which a right press
+                            // doesn't add to (`clicks`).
+                            #[cfg(feature = "clicks")]
+                            let clicks = this.count_left(event.click_count);
+                            #[cfg(not(feature = "clicks"))]
+                            let clicks = event.click_count;
+                            this.press_band(at, event.position.x, clicks, window, cx);
                         }),
                     )
+                    .map(super::click_stops)
                     .child(
                         div()
                             .absolute()

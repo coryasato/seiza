@@ -12,12 +12,13 @@ A file a feature, each built with its feature (`flash.rs` with `live` and `custo
 - **Subscribe as the table is made** to hear its first frame's events: `pin.rs`'s shell view does, for the first `Pinned`.
 - **A table opened at its rows reads before the window has its size:** `copy.rs` opens it at 0 rows and gives it its rows once the window is sized, so only the first page is read; the test app is set up once a test and each case's window closed after it.
 - **`live.rs`'s delegate's values say which read is on screen;** `flash.rs`'s source takes the values each test sets, on the test clock (`advance_clock`).
+- **`click.rs` hangs a gpui-kit `ContextMenuExt` round the table** in its host view, as a host would, and counts the menus its builder makes: the check that a stopped right or long press opens none.
 - **Cmd+C and Ctrl+C are bound only with `copy`,** so `select.rs` doesn't test them.
 
 ## Files
 
 ```
-src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs
+src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs, click.rs (no fixture: the window's checks only)
 ```
 
 ## Commands

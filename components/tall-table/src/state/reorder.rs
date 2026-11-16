@@ -201,21 +201,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
 // --- the drag ---
 
 impl<D: TallTableDelegate> TallTableState<D> {
-    /// The place whose header is under `position` (window pixels), if any:
-    /// the header's row, over the cells area, on a column.
-    fn header_place_at(&self, position: Point<Pixels>) -> Option<usize> {
-        let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
-        let y = f32::from(position.y - self.body.origin.y);
-        let row_h = f32::from(self.sizes().row());
-        if !(-row_h..0.0).contains(&y) || !(0.0..self.cells_width()).contains(&x) {
-            return None;
-        }
-        let x = self.place().content_x(x, self.scroll_x);
-        self.columns
-            .iter()
-            .position(|column| (column.x..column.x + column.width).contains(&x))
-    }
-
     /// Whether every column at `places` is movable.
     fn movable(&self, places: &Range<usize>) -> bool {
         places.clone().all(|place| {

@@ -49,6 +49,9 @@ format = ["seiza-tall-table/format", "tall-table-bridge/format"]
 # columns reversed from the first frame, `?order=` alone or absent in the
 # list's own order (the control).
 reorder = ["seiza-tall-table/reorder", "tall-table-bridge/reorder"]
+# Every press reported (`Clicked`); the bridge's arm publishes each on a
+# global with `?perf`.
+clicks = ["seiza-tall-table/clicks", "tall-table-bridge/clicks"]
 
 [dependencies]
 gpui-kit.workspace = true

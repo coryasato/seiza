@@ -51,7 +51,7 @@ const FEATURES: Record<string, string | string[]> = {
   // Resizing: the state's `resize` module.
   resize: 'seiza_tall_table5state6resize',
   // Selecting: the range type's module and the state's `select` module.
-  select: ['seiza_tall_table9selection', 'seiza_tall_table5state6select'],
+  select: ['seiza_tall_table9selection', 'seiza_tall_table5state6select', 'seiza_tall_table5state3hit'],
   // Copying: the text's module and the state's `copy` module.
   copy: ['seiza_tall_table4copy', 'seiza_tall_table5state4copy'],
   // Sorting: the order's types and the state's `sort` module.
@@ -63,7 +63,10 @@ const FEATURES: Record<string, string | string[]> = {
   // Formatting: the format's own module, beside the automatic format.
   format: 'seiza_tall_table6format6number',
   // Reordering: the move's rules and the state's `reorder` module.
-  reorder: ['seiza_tall_table7reorder', 'seiza_tall_table5state7reorder'],
+  reorder: ['seiza_tall_table7reorder', 'seiza_tall_table5state7reorder', 'seiza_tall_table5state3hit'],
+  // Clicks: the state's `click` module (the pure one's count inlines), and
+  // the presses' hit tests, which `select` and `reorder` build too.
+  clicks: ['seiza_tall_table5state5click', 'seiza_tall_table5state3hit'],
 };
 
 /** A feature that turns on another is measured against it too, and the

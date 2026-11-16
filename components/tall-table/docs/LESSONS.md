@@ -572,3 +572,15 @@ No results note: nothing measured. The build's check was a byte comparison again
 - `DataTable`'s `SelectRow` fires on every click, the same row or not, so Kirkwood's ask is `DataTable`'s behavior that `select`'s change-only `Selected` dropped. The fix is a separate event, not a change to `Selected`, whose hosts mirror the selection and shouldn't hear a no-op.
 - `ContextMenuExt` works round the table only because the table's right-press listener is the inner one in the bubble phase and never stops propagation: the menu's builder is deferred and reads the target the table set. The rule "never stop a right press" is load-bearing and gets a window test.
 - The code review of the spec found what reading `DataTable` and gpui-pre-web hadn't settled: `click_count` counts every button's presses, so a double press has to be the table's own count; a Mac browser's right-click (Ctrl+click) is another system's add-to-selection gesture, so it became a host's setting; the scrollbars stop only their left presses and don't occlude, so a right press there would have hit the cell beneath; and a second button pressed during a drag is a `pointermove` in a browser, never a press. A spec for input reads the platform's event path to the end, not only the library's handlers.
+
+## M16: `clicks` (part B, 2026-11-16)
+
+**Results:** the size check, [`perf/results/2026-11-16-m16-b-size.json`](../perf/results/2026-11-16-m16-b-size.json) (a check, not the cost: part D measures).
+
+**Surprises:**
+- gpui has no element listener for a long press: `ContextMenuExt` registers a window listener and checks a hitbox of its own, so the table does the same, on a canvas that is the root's first child. Its hitbox's place decides who gets the press: first, it sits under the bands and arrows, which occlude it, so they keep their long presses without a check of their own beyond the stop a host's menu needs.
+- `select`'s hit test reads a header's cell, not its column, so with no rows a header press found nothing and would have been reported as a blank. Nothing in the spec's checks caught it; a mutation of the fallback (`header_place_at`) did, and it got a test.
+- Every window test passed on its first run, so the evidence that they test anything is the mutations: fifteen, one a rule, each failing at least one test. Two failures on the way were the tests' own: a band pressed after its fit had moved it, and an arrow's "sorted" control over a source that refuses every sort.
+- The code review found a long press's other half: gpui-pre's recognizer turns a long press nobody claims into a tap when the finger lifts, so a host with its own menu would have had its selection replaced by a press the reader never made. Claiming is preventing the default, which would also stop a host's `ContextMenuExt`; the table drops the tap instead. The tests had sent long presses but never lifted one.
+- GPUI focuses a `track_focus` element on any button's press by itself, so the table's own focus on a right press was redundant and can't be held off during a drag; only a long press, which isn't a press, needs the table to focus.
+

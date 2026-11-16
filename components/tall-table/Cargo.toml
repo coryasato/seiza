@@ -63,3 +63,9 @@ format = []
 # column's index, so a move reads nothing (`TallTableState::order`,
 # `TallTableEvent::ColumnsMoved`).
 reorder = []
+# Every press on the table reported with what it's on and where, whether
+# or not the selection changed: a press, a double press, and a context
+# press (the right button, a long press, and Ctrl+press when the host says
+# so); the table draws no menu (`TallTableEvent::Clicked`,
+# `TallTableState::set_ctrl_press_is_context`).
+clicks = []

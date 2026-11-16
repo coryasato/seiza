@@ -11,6 +11,7 @@ use std::sync::Arc;
 use gpui_kit::component::ActiveTheme as _;
 #[cfg(not(feature = "pin"))]
 use gpui_kit::component::scroll::Scrollbar;
+use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
 use super::{Direction, TallTableEvent, TallTableState};
@@ -455,6 +456,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             }
                         }),
                     )
+                    .map(super::click_stops)
                     .child(mark),
             ));
         }

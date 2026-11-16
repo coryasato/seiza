@@ -9,7 +9,7 @@ The modules, a line each; their doc comments and their items' say the rest.
 - **`state.rs`**: `TallTableState<D>`, the entity: the scroll model and page cache, hover and tooltip, the glyph measurements, the header and body's drawing, its public setters and readers; `TallTableEvent`, `Paging`, `ActivityOptions`, the keys (`init`). Each feature's half is a child in `state/` (`src/state/CLAUDE.md`).
 - **`tall_table.rs`**: `TallTable<D>`, the `RenderOnce` element a host renders (focus, key context and actions, the border), around the state's view: the split of gpui-kit's `DataTable` and `TableState`.
 - **`delegate.rs`**: `TallTableDelegate`, `TallTablePage`, `CellValue`, `PageError`, `PageLoad`. **`column.rs`**: `TallTableColumn`, `ColumnKind`, and the layout (`layout_columns`). **`probe.rs`**: what scripts read (`TallTableProbe`, `TallTableLayout`, `ColumnProbe`, `CellProbe`), and what each feature adds to it: `select`'s `selection` and `sort`'s `sort` on the probe; `pin`'s `pinned` (the run in effect) and `format`'s `advances` (each character a format writes, at the text in effect) on the layout; `sort`'s `arrow` (its box, from the column's left) and `reorder`'s `index` on each column; `custom-cells`' `PaintProbe` on each cell.
-- **Pure, tested natively:** `pages.rs` (`PageCache`: what to fetch, cancel, and evict), `scroll.rs` (`RowScroll`, the f64 row position, and the thumb), `format.rs` (`fit_float`; with `format`, `NumberFormat` and its fit), `activity.rs` (rows/s and filled frames), and each feature's: `density.rs` (`Sizes`), `pin.rs`, `sort.rs`, `copy.rs`, `selection.rs`, `reorder.rs` (a move's rules and the drag's gap), `paint.rs` (`custom-cells`), `flash.rs` (`live` with `custom-cells`).
+- **Pure, tested natively:** `pages.rs` (`PageCache`: what to fetch, cancel, and evict), `scroll.rs` (`RowScroll`, the f64 row position, and the thumb), `format.rs` (`fit_float`; with `format`, `NumberFormat` and its fit), `activity.rs` (rows/s and filled frames), and each feature's: `density.rs` (`Sizes`), `pin.rs`, `sort.rs`, `copy.rs`, `selection.rs`, `reorder.rs` (a move's rules and the drag's gap), `click.rs` (`clicks`' types and its count of left presses), `paint.rs` (`custom-cells`), `flash.rs` (`live` with `custom-cells`).
 - **`cells_text.rs`**: the loaded cells' text (below).
 
 **The page cache's plan** (`PageCache::plan`), in order: the visible pages (no prefetch starts while a visible page is loading), their re-reads (`live`), a copy's pages (none while a visible page has nothing to show), then prefetch, which skips a page a copy reads. A canceled read drains (still answering, counted against `max_in_flight`); re-reads and a copy's reads share `background_limit` (`(max_in_flight − 1).max(1)`); a copy's reads are never cached. Why: `docs/DECISIONS.md`, "Features".
@@ -38,7 +38,7 @@ These are GPUI's, not the web's; the web's are in `.claude/rules/gpui-web.md`.
 ## Files
 
 ```
-  src/              # lib.rs (re-exports), cells_text.rs, state.rs (its children in state/: src/state/CLAUDE.md), tall_table.rs, delegate.rs, column.rs, selection.rs, copy.rs, sort.rs, pin.rs, density.rs, reorder.rs, paint.rs, flash.rs, pages.rs, scroll.rs, format.rs, activity.rs, probe.rs
+  src/              # lib.rs (re-exports), cells_text.rs, click.rs, state.rs (its children in state/: src/state/CLAUDE.md), tall_table.rs, delegate.rs, column.rs, selection.rs, copy.rs, sort.rs, pin.rs, density.rs, reorder.rs, paint.rs, flash.rs, pages.rs, scroll.rs, format.rs, activity.rs, probe.rs
 ```
 
 ## Commands

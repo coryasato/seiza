@@ -10,6 +10,7 @@
 use gpui_kit::component::ActiveTheme as _;
 use gpui_kit::*;
 
+use super::hit::Target;
 use super::{TallTableEvent, TallTableState};
 use crate::delegate::TallTableDelegate;
 use crate::selection::{Cell, Kind, Selectable, TallTableSelection};
@@ -177,30 +178,6 @@ pub(crate) struct Drawn {
 pub(super) struct Selecting {
     rows: bool,
     columns: bool,
-}
-
-/// What a press is on.
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Target {
-    Cell(Cell),
-    /// The row-number gutter: its row, at the first visible column.
-    Gutter(Cell),
-    /// A header cell: its column, at the top visible row.
-    Header(Cell),
-    /// The header over the gutter.
-    Corner,
-}
-
-impl Target {
-    /// The cell, and which of its coordinates the press picked.
-    fn cell(self) -> Option<(Cell, bool, bool)> {
-        match self {
-            Target::Cell(cell) => Some((cell, true, true)),
-            Target::Gutter(cell) => Some((cell, true, false)),
-            Target::Header(cell) => Some((cell, false, true)),
-            Target::Corner => None,
-        }
-    }
 }
 
 /// A key's move.
@@ -392,79 +369,40 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     // --- the pointer ---
 
-    /// The cell nearest `position` (window pixels): the pointer's clamped
-    /// to the visible cells, and past the last column to the last.
-    pub(super) fn cell_clamped(&self, position: Point<Pixels>) -> Option<Cell> {
-        let last_row = self.scroll.rows().checked_sub(1)?;
-        let last_column = self.columns.len().checked_sub(1)?;
-        let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
-        let y = f32::from(position.y - self.body.origin.y);
-        // A hair inside the far edges, so the clamp lands on a cell there.
-        let x = self.place().content_x(
-            x.clamp(0.0, (self.cells_width() - 0.5).max(0.0)),
-            self.scroll_x,
-        );
-        let y = y.clamp(0.0, (f32::from(self.viewport().height) - 0.5).max(0.0));
-        let row = (self.scroll.top() + f64::from(y / f32::from(self.sizes().row()))).floor() as u64;
-        let column = self
-            .columns
-            .iter()
-            .position(|column| x < column.x + column.width)
-            .unwrap_or(last_column);
-        Some((row.min(last_row), column))
-    }
-
     /// The first visible cell: the top row, the leftmost column.
     fn first_visible(&self) -> Option<Cell> {
         self.cell_clamped(self.body.origin + point(px(self.gutter_width()), px(0.)))
-    }
-
-    /// What a press at `position` is on, if it's on the table's cells, its
-    /// gutter, or its header (the header is the row above the body). Past
-    /// the last row or column, nothing.
-    fn target_at(&self, position: Point<Pixels>) -> Option<Target> {
-        let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
-        let y = f32::from(position.y - self.body.origin.y);
-        let row_h = f32::from(self.sizes().row());
-        if x >= 0.0 {
-            if y >= 0.0 {
-                // The hover's hit test.
-                return self.cell_at(position).map(Target::Cell);
-            }
-            let past = !self.columns.last().is_some_and(|column| {
-                self.place().content_x(x, self.scroll_x) < column.x + column.width
-            });
-            if y < -row_h || x >= self.cells_width() || past {
-                return None;
-            }
-            return self.cell_clamped(position).map(Target::Header);
-        }
-        if y < 0.0 {
-            return (y >= -row_h).then_some(Target::Corner);
-        }
-        let row = (self.scroll.top() + f64::from(y / row_h)).floor();
-        if y >= f32::from(self.viewport().height) || row as u64 >= self.scroll.rows() {
-            return None;
-        }
-        self.cell_clamped(position).map(Target::Gutter)
     }
 
     /// A left press anywhere on the table (the bands and scrollbars stop
     /// theirs first). Cmd+press is a plain press; Ctrl+press (a Mac
     /// browser's right-click) and a double-click's second press select
     /// nothing.
+    #[cfg(not(feature = "clicks"))]
     pub(super) fn press_select(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) {
+        let target = self.target_at(event.position);
+        self.press_select_at(event, target, cx);
+    }
+
+    /// [`Self::press_select`] on `target`, what's under the press, found
+    /// once (`clicks` reports it too).
+    #[inline(always)]
+    pub(super) fn press_select_at(
+        &mut self,
+        event: &MouseDownEvent,
+        target: Option<Target>,
+        cx: &mut Context<Self>,
+    ) {
         if event.modifiers.control || event.click_count >= 2 {
             return;
         }
-        let Some(target) = self.target_at(event.position) else {
+        let Some(target) = target else {
             return;
         };
         let Some((cell, rows, columns)) = target.cell() else {
             self.select_everything(cx);
             return;
         };
-        let selectable = self.selection_state.selectable;
         // Shift: the head moves to the press, along what the press picked
         // and the range spans.
         if event.modifiers.shift
@@ -481,13 +419,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             }
             return;
         }
-        let kind = match target {
-            Target::Cell(_) => selectable.smallest(false),
-            Target::Gutter(_) => selectable.rows.then_some(Kind::Rows),
-            Target::Header(_) => selectable.columns.then_some(Kind::Columns),
-            Target::Corner => None,
-        };
-        let Some(kind) = kind else {
+        let Some(kind) = self.press_kind(target) else {
             return;
         };
         self.replace_selection(Some(TallTableSelection::new(kind, cell, cell)), cx);
@@ -498,6 +430,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
             },
             cx,
         );
+    }
+
+    /// The kind a plain press on `target` selects, if that kind is on.
+    #[inline(always)]
+    pub(super) fn press_kind(&self, target: Target) -> Option<Kind> {
+        let selectable = self.selection_state.selectable;
+        match target {
+            Target::Cell(_) => selectable.smallest(false),
+            Target::Gutter(_) => selectable.rows.then_some(Kind::Rows),
+            Target::Header(_) => selectable.columns.then_some(Kind::Columns),
+            Target::Corner => None,
+        }
     }
 
     /// A drag starts: no hover, and so no tooltip, until its release.
@@ -545,7 +489,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// Cmd+A, Ctrl+A, and the corner: every column, else every row, else
     /// every cell.
-    fn select_everything(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn select_everything(&mut self, cx: &mut Context<Self>) {
         let selectable = self.selection_state.selectable;
         let rows = self.scroll.rows();
         let (Some(first), Some(last_column)) =

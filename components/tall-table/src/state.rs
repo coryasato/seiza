@@ -594,6 +594,10 @@ pub enum TallTableEvent {
         #[cfg(feature = "pin")]
         pinned: usize,
     },
+    /// A press on the table (`clicks`), after what it did to the selection
+    /// (`select`).
+    #[cfg(feature = "clicks")]
+    Clicked(crate::click::TallTableClick),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -711,6 +715,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The host's row height and text size, and what's in effect (`density`).
     #[cfg(feature = "density")]
     pub(crate) density_state: density::DensityState,
+    /// The left presses counted and the host's Ctrl+press (`clicks`).
+    #[cfg(feature = "clicks")]
+    clicks_state: click::ClicksState,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -808,6 +815,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             pin_state: pin::PinState::default(),
             #[cfg(feature = "density")]
             density_state: density::DensityState::default(),
+            #[cfg(feature = "clicks")]
+            clicks_state: click::ClicksState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -2748,6 +2757,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             this.press_track(true, event.position, cx);
                         }),
                     )
+                    .map(click_stops)
                     .child(
                         div()
                             .absolute()
@@ -2787,6 +2797,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 this.press_track(false, event.position, cx);
                             }),
                         )
+                        .map(click_stops)
                         .child(
                             div()
                                 .absolute()
@@ -2919,6 +2930,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 }
 
+/// A scrollbar, a band, or an arrow: with `clicks`, it stops a right press
+/// and a long press; without, as it is.
+#[inline(always)]
+fn click_stops<E: InteractiveElement + ParentElement>(element: E) -> E {
+    #[cfg(feature = "clicks")]
+    return click::stops_context(element);
+    #[cfg(not(feature = "clicks"))]
+    element
+}
+
 /// `1567523` → `1,567,523`: the row numbers' format.
 pub(crate) fn format_count(value: u64) -> String {
     let digits = value.to_string();
@@ -2985,14 +3006,14 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         let root = div();
         // A press on a cell, the gutter, a header, or the corner selects
         // (the bands and scrollbars stop theirs first).
-        #[cfg(all(feature = "select", not(feature = "reorder")))]
+        #[cfg(all(feature = "select", not(feature = "reorder"), not(feature = "clicks")))]
         let root = root.on_mouse_down(
             MouseButton::Left,
             cx.listener(|this, event: &MouseDownEvent, _, cx| this.press_select(event, cx)),
         );
         // A press on a header may drag its column (`reorder`): one inside
         // the selected range is the drag's alone (`select`).
-        #[cfg(feature = "reorder")]
+        #[cfg(all(feature = "reorder", not(feature = "clicks")))]
         let root = root.on_mouse_down(
             MouseButton::Left,
             cx.listener(|this, event: &MouseDownEvent, _, cx| {
@@ -3002,6 +3023,14 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
                 }
             }),
         );
+        // Every button's press, counted and reported, the two above's
+        // among them (`clicks`); its first child takes the long presses.
+        #[cfg(feature = "clicks")]
+        let root =
+            root.on_any_mouse_down(cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                this.press(event, window, cx)
+            }))
+            .child(self.clicks_canvas(cx));
         // The cells' and the header's text (`density`); the tooltip sets
         // its own.
         #[cfg(feature = "density")]
@@ -3036,6 +3065,14 @@ mod follow;
 /// `resize`: the bands, the column drag, and the fit.
 #[cfg(feature = "resize")]
 mod resize;
+
+/// The presses' hit tests (`select`, `reorder`, `clicks`).
+#[cfg(any(feature = "select", feature = "reorder", feature = "clicks"))]
+mod hit;
+
+/// `clicks`: the presses counted and reported.
+#[cfg(feature = "clicks")]
+mod click;
 
 /// `select`: the presses, the drag, the keys, and the drawing.
 #[cfg(feature = "select")]

@@ -4,11 +4,12 @@ Each feature's half of `TallTableState` (a child module of `src/state.rs`), and 
 
 ## Architecture
 
-Each feature's child keeps its state in one field of the state (`SelectState`, `CopyState`, `SortState`, `PinState`, `DensityState`, `reorder`'s `order`, `resize`'s `resizing`, `follow`'s flag), and its module's doc comment says the rest: `follow.rs`, `resize.rs`, `select.rs`, `copy.rs` (its window tests in `copy/tests.rs`), `sort.rs`, `pin.rs`, `density.rs`, `reorder.rs`. Tests only: `cells_text_tests.rs`, `fixtures.rs` (below), `random.rs` (below).
+Each feature's child keeps its state in one field of the state (`SelectState`, `CopyState`, `SortState`, `PinState`, `DensityState`, `ClicksState`, `reorder`'s `order`, `resize`'s `resizing`, `follow`'s flag), and its module's doc comment says the rest: `follow.rs`, `resize.rs`, `select.rs`, `copy.rs` (its window tests in `copy/tests.rs`), `sort.rs`, `pin.rs`, `density.rs`, `reorder.rs`, `click.rs`; `hit.rs` holds the presses' hit tests, built with `select`, `reorder`, or `clicks` (the base has only the hover's `cell_at`). Tests only: `cells_text_tests.rs`, `fixtures.rs` (below), `random.rs` (below).
 
 ## Rules
 
 - **A feature's pointer drag is a field of its own, never the scrollbar's `Drag`** (`resize`'s `Resizing`, `select`'s `selecting`, `reorder`'s `Moving`): `drag.is_some()` holds page reads until a scrollbar drag rests (`load_or_settle`). It's followed by the move and release handlers the body's `canvas` registers every frame (`src/CLAUDE.md`'s scrollbar gotcha), with a window-wide wheel where the drag scrolls.
+- **The root's press listener is one with `clicks`** (`click.rs`'s `press`): it takes every button's press and hands `reorder` and `select` a left press at the table's count; without the feature, their listeners are as before. A new feature's press goes through it in a `clicks` build. A scrollbar, band, or arrow added later stops a right and a long press with `click_stops`.
 - **A setter that changes what a held drag or press points at cancels it** (`reorder`'s `cancel_drag` at `move_block`, `set_order`, and `set_columns`, whose places it would hold stale; `sort`'s pressed and hovered arrow forgotten at `set_columns`).
 - **A setter's reads are planned once its update ends** (`live`'s `load_after_update`, `copy_load`, `sort_load`), once for everything the update changed, and after the events it emitted reach their subscribers: a host that can't write a copy cancels it at `Started` before a read is sent.
 - **A copy keeps the cap it started with,** checked a row at a time; a copy that ends cancels its reads still out; `copy` and the keys start nothing on a closed table.
@@ -26,7 +27,7 @@ Each feature's child keeps its state in one field of the state (`SelectState`, `
 ## Files
 
 ```
-src/state/         # follow.rs, resize.rs, select.rs, copy.rs (+ copy/tests.rs), sort.rs, pin.rs, density.rs, reorder.rs; cells_text_tests.rs, fixtures.rs (its children in fixtures/: src/state/fixtures/CLAUDE.md), random.rs, tests only
+src/state/         # follow.rs, resize.rs, select.rs, copy.rs (+ copy/tests.rs), sort.rs, pin.rs, density.rs, reorder.rs, click.rs, hit.rs; cells_text_tests.rs, fixtures.rs (its children in fixtures/: src/state/fixtures/CLAUDE.md), random.rs, tests only
 ```
 
 ## Commands

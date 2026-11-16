@@ -15,6 +15,8 @@
 
 mod activity;
 mod cells_text;
+#[cfg(feature = "clicks")]
+mod click;
 mod column;
 #[cfg(feature = "copy")]
 mod copy;
@@ -41,6 +43,8 @@ mod state;
 mod tall_table;
 
 pub use activity::ActivityStats;
+#[cfg(feature = "clicks")]
+pub use click::{ClickKind, ClickTarget, TallTableClick};
 pub use column::{ColumnKind, TallTableColumn};
 #[cfg(feature = "copy")]
 pub use copy::{CopyFailure, CopyId, CopyOptions, CopyProgress, TallTableCopy};

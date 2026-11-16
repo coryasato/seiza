@@ -73,6 +73,11 @@ mod format;
 #[cfg(feature = "reorder")]
 mod reorder;
 
+/// `clicks`: no fixture; the presses' kinds, targets, and what they do
+/// beside each other feature, in a window.
+#[cfg(feature = "clicks")]
+mod click;
+
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 
