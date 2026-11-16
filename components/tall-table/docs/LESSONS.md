@@ -624,3 +624,14 @@ No results note: nothing measured. The build's check was a byte comparison again
 - A `group-headers` symbol check run by hand found no markers, and that suggested the size script's control would fail. Built as the script builds it (`CARGO_PROFILE_RELEASE_STRIP=false`), both modules were there. A symbol check is only as good as the build it reads.
 - Mutation testing found one equivalent mutation and one blind spot. The equivalent one: cutting the pinned cell at the edge or at the cells' width is the same, since the edge is clamped only to the cells' width. The blind spot: a group cell's right border is drawn, not recorded, so no native test sees it. The smoke check's screens (C3) are its check.
 
+
+## M17: `group-headers` (part C, 2026-11-16)
+
+**Results:** none (no measurement: the presses' checks, the soak, and the smoke check in three browsers).
+
+**Surprises:**
+- The group rule is literally `reorder`'s rule one level up. `reorder::gap` was rewritten to run over a list of siblings instead of the columns, and `reorder.json` passed unchanged with every column its own sibling. Twelve hand-computed gap cases passed the first time.
+- One feature constrained another's checks: the bare host groups its columns by default, so the smoke check's `reorder` runs began failing in a `group-headers` build. The narrow shape's columns 3–4 are now held inside `g1.2`, which is correct. A feature that limits an interaction changes the setup of that interaction's existing checks, not only its own.
+- The random test's setters lay out at once but draw only at the next `Frame` step. A check that the drawn group cells match the runs is only true after a draw, so it runs at frames and drags.
+- The mutation run found a check that couldn't matter: `header_place_at` skipped group cells, but each of its callers had already found the group. It also found a test that the all-on run never built: a `cfg(not(feature = "reorder"))` test is skipped by the very run mutation testing uses. Unmovable columns let the test run in every build.
+- Neither fixture had pinned `reorder`'s answer with every column pinned and the pointer right of the edge (none). The siblings' fallback ("right of the parent, its last gap") would have changed it silently.

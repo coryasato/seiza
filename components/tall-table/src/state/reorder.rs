@@ -75,6 +75,10 @@ pub(crate) struct Moving {
     select: Option<Option<Cell>>,
     /// The gap the line is drawn at.
     pub(crate) gap: Option<Gap>,
+    /// The units the block moves among (`reorder::gap`'s), from the press;
+    /// `None` where the block can't lift (it would split a group,
+    /// `group-headers`): the press acts as one that never dragged.
+    units: Option<Vec<Range<usize>>>,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -222,13 +226,29 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// `select`'s `Columns` kind on, only a press inside the selected
     /// `Columns` range, every column in it movable, and it's the range's:
     /// `true`, so `select`'s press doesn't run (the press selects that
-    /// column alone at a release that never dragged). Shift, Cmd, Ctrl, and
-    /// a double-click's second press never move.
+    /// column alone at a release that never dragged). On a group's cell
+    /// (`group-headers`), every column of its run movable, the group's,
+    /// whatever is selected: `false`, so `select`'s press selects it. Shift,
+    /// Cmd, Ctrl, and a double-click's second press never move. A block
+    /// that would split a group never starts (`groups::children`).
     pub(super) fn press_move(&mut self, event: &MouseDownEvent, cx: &mut Context<Self>) -> bool {
         // A drag whose release went unseen: its drawing goes.
         self.cancel_drag(cx);
         let modifiers = event.modifiers;
         if modifiers.shift || modifiers.platform || modifiers.control || event.click_count >= 2 {
+            return false;
+        }
+        #[cfg(feature = "group-headers")]
+        if let Some(Some((_, start, end))) = self.group_row_at(event.position) {
+            let block = start..end;
+            if self.movable(&block) {
+                self.hold(
+                    block,
+                    event.position,
+                    #[cfg(feature = "select")]
+                    None,
+                );
+            }
             return false;
         }
         let Some(place) = self.header_place_at(event.position) else {
@@ -259,26 +279,53 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if !self.movable(&block) {
             return false;
         }
-        let x = f32::from(event.position.x);
+        self.hold(
+            block,
+            event.position,
+            #[cfg(feature = "select")]
+            select,
+        );
+        #[cfg(feature = "select")]
+        return select.is_some();
+        #[cfg(not(feature = "select"))]
+        false
+    }
+
+    /// A press at `press` holds `block`: a drag once it passes the
+    /// threshold, if the block can lift.
+    fn hold(
+        &mut self,
+        block: Range<usize>,
+        press: Point<Pixels>,
+        #[cfg(feature = "select")] select: Option<Option<Cell>>,
+    ) {
+        let x = f32::from(press.x);
         let left = self
             .place()
             .left(block.start, self.columns[block.start].x, self.scroll_x)
             + f32::from(self.body.origin.x)
             + self.gutter_width();
+        #[cfg(feature = "group-headers")]
+        let units = crate::groups::children(
+            &self.group_state.runs,
+            block.clone(),
+            self.columns.len(),
+            #[cfg(test)]
+            self.group_state.control,
+        );
+        #[cfg(not(feature = "group-headers"))]
+        let units = Some(crate::reorder::single(self.columns.len()));
         self.moving = Some(Moving {
             block,
-            press: event.position,
+            press,
             grab: x - left,
             x,
             started: false,
             #[cfg(feature = "select")]
             select,
             gap: None,
+            units,
         });
-        #[cfg(feature = "select")]
-        return select.is_some();
-        #[cfg(not(feature = "select"))]
-        false
     }
 
     /// Whether a drag is moving columns: no hover, and so no tooltip,
@@ -287,9 +334,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.moving.as_ref().is_some_and(|moving| moving.started)
     }
 
-    /// The gap a drag of `block` shows with the pointer at `x` (window
-    /// pixels).
-    fn gap_at(&self, block: &Range<usize>, x: f32) -> Option<Gap> {
+    /// The gap a drag of `block` among `units` shows with the pointer at
+    /// `x` (window pixels).
+    fn gap_at(&self, block: &Range<usize>, units: &[Range<usize>], x: f32) -> Option<Gap> {
         let place = self.place();
         #[cfg(feature = "pin")]
         let (run, edge, count) = (place.columns, place.edge(), self.pin_state.count);
@@ -306,6 +353,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             count,
             block.clone(),
             x - f32::from(self.body.origin.x) - self.gutter_width(),
+            units,
             #[cfg(test)]
             self.reorder_control,
         )
@@ -320,7 +368,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         };
         if !moving.started {
             let moved = position - moving.press;
-            if f32::from(moved.x).hypot(f32::from(moved.y)) <= THRESHOLD {
+            // A block that can't lift stays a press.
+            if moving.units.is_none() || f32::from(moved.x).hypot(f32::from(moved.y)) <= THRESHOLD {
                 return;
             }
             moving.started = true;
@@ -333,10 +382,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// The pointer's x is `x`, or the columns under it moved: the gap
     /// found again, a redraw if it or the preview moved.
     fn drag_x(&mut self, x: f32, cx: &mut Context<Self>) {
-        let Some(block) = self.moving.as_ref().map(|moving| moving.block.clone()) else {
+        let Some(moving) = self.moving.as_ref() else {
             return;
         };
-        let gap = self.gap_at(&block, x);
+        let gap = moving
+            .units
+            .as_deref()
+            .and_then(|units| self.gap_at(&moving.block, units, x));
         let Some(moving) = self.moving.as_mut() else {
             return;
         };
@@ -406,15 +458,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// host's `set_pinned`, the keys' sideways scroll, a new layout). Never
     /// asks for a frame: it's in one.
     pub(super) fn refresh_gap(&mut self) {
-        let Some((block, x)) = self
-            .moving
-            .as_ref()
-            .filter(|moving| moving.started)
-            .map(|moving| (moving.block.clone(), moving.x))
-        else {
+        let Some(moving) = self.moving.as_ref().filter(|moving| moving.started) else {
             return;
         };
-        let gap = self.gap_at(&block, x);
+        let gap = moving
+            .units
+            .as_deref()
+            .and_then(|units| self.gap_at(&moving.block, units, moving.x));
         if let Some(moving) = self.moving.as_mut() {
             moving.gap = gap;
         }

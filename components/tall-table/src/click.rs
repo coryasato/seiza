@@ -24,8 +24,11 @@ pub enum ClickKind {
 }
 
 /// What a press is on. A column is its place (where it's drawn); with
-/// `reorder`, `order()[place]` is its index.
+/// `reorder`, `order()[place]` is its index. Non-exhaustive: a feature may
+/// add a target (`group-headers`' `Group`), so a match on it builds with
+/// the variant compiled in or not.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClickTarget {
     Cell {
         row: u64,
@@ -40,6 +43,15 @@ pub enum ClickTarget {
     /// The header row or the body (gutter included) where none of the
     /// above is: below the last row, past the last column.
     Blank,
+    /// A group's cell (`group-headers`): its level (0 at the top) and its
+    /// run's places, `start..end`, the whole run even when `pin`'s edge
+    /// splits its cell. A blank in a group row is its column's header.
+    #[cfg(feature = "group-headers")]
+    Group {
+        level: usize,
+        start: usize,
+        end: usize,
+    },
 }
 
 /// A press on the table: its kind, what it's on, and where.

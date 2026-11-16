@@ -408,10 +408,13 @@ pub mod js {
         object.into()
     }
 
-    /// `{kind, target, row, column, x, y, modifiers, count}` (`clicks`):
-    /// `kind` `press`, `double`, or `context`; `target` `cell`, `row`,
-    /// `column`, `corner`, or `blank`, with `row` and `column` (its place)
-    /// where it has one, else `null`; `x` and `y` the pointer in CSS px of
+    /// `{kind, target, row, column, level, start, end, x, y, modifiers,
+    /// count}` (`clicks`): `kind` `press`, `double`, or `context`; `target`
+    /// `cell`, `row`, `column`, `corner`, `blank`, `group`
+    /// (`group-headers`), or `unknown` (a target this bridge doesn't know),
+    /// with `row` and `column` (its place) where it has one, else `null`; a
+    /// group's `level` and its run's places `start` and `end` (`null` for
+    /// another target); `x` and `y` the pointer in CSS px of
     /// the window; `modifiers` the names held (`control`, `alt`, `shift`,
     /// `platform`); `count` the caller's.
     #[cfg(feature = "clicks")]
@@ -427,7 +430,17 @@ pub mod js {
             ClickTarget::Column(column) => ("column", None, Some(column)),
             ClickTarget::Corner => ("corner", None, None),
             ClickTarget::Blank => ("blank", None, None),
+            #[cfg(feature = "group-headers")]
+            ClickTarget::Group { .. } => ("group", None, None),
+            _ => ("unknown", None, None),
         };
+        #[cfg(feature = "group-headers")]
+        let group = match click.target {
+            ClickTarget::Group { level, start, end } => Some((level, start, end)),
+            _ => None,
+        };
+        #[cfg(not(feature = "group-headers"))]
+        let group: Option<(usize, usize, usize)> = None;
         let or_null = |value: Option<f64>| value.map_or(JsValue::NULL, number);
         let held = click.modifiers;
         let modifiers: Array = [
@@ -449,6 +462,12 @@ pub mod js {
             "column",
             or_null(column.map(|column| column as f64)),
         );
+        let place = |pick: fn((usize, usize, usize)) -> usize| {
+            or_null(group.map(|group| pick(group) as f64))
+        };
+        set(&object, "level", place(|group| group.0));
+        set(&object, "start", place(|group| group.1));
+        set(&object, "end", place(|group| group.2));
         set(&object, "x", number(f32::from(click.position.x)));
         set(&object, "y", number(f32::from(click.position.y)));
         set(&object, "modifiers", modifiers.into());

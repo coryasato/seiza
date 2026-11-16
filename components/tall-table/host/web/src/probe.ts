@@ -51,17 +51,41 @@ export interface Layout {
    *  px in the cells' font at the text in effect (what a formatted text's
    *  fit sums). */
   advances?: Record<string, number>;
+  /** With `group-headers`: the header's rows, each `rowHeight`: the
+   *  groups' levels and the names' row, at the bottom. */
+  headerRows?: number;
+}
+
+/** With `group-headers`, a group cell drawn, as `tall-table-bridge`'s
+ *  `js::groups` writes them (`__tallTableGroups`, level by level): its
+ *  level (0 at the top) and label, its run's places `start..end` (both
+ *  halves of a run split at `pin`'s edge share them), its region, and its
+ *  visible part's `left` and `width` and its label's `labelX`, in CSS px
+ *  from the cells area's left. */
+export interface GroupCell {
+  level: number;
+  label: string;
+  start: number;
+  end: number;
+  pinned: boolean;
+  left: number;
+  width: number;
+  labelX: number;
 }
 
 /** With `clicks`, the last press, as `tall-table-bridge`'s `js::click`
  *  writes it (`__tallTableClick`): `column` its place; `row` and `column`
- *  `null` where the target has none; `x` and `y` the pointer in CSS px of
- *  the window; `count` one more at each press. */
+ *  `null` where the target has none; a group's (`group-headers`) `level`
+ *  and run's places `start..end`, `null` for another target; `x` and `y`
+ *  the pointer in CSS px of the window; `count` one more at each press. */
 export interface Click {
   kind: 'press' | 'double' | 'context';
-  target: 'cell' | 'row' | 'column' | 'corner' | 'blank';
+  target: 'cell' | 'row' | 'column' | 'corner' | 'blank' | 'group' | 'unknown';
   row: number | null;
   column: number | null;
+  level: number | null;
+  start: number | null;
+  end: number | null;
   x: number;
   y: number;
   modifiers: ('control' | 'alt' | 'shift' | 'platform')[];

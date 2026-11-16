@@ -19,9 +19,9 @@ Each feature's child keeps its state in one field of the state (`SelectState`, `
 
 - **`fixtures.rs`** (tests only): the fixtures' native tests (`fixtures/README.md`), a child of `state` so the paging scenarios drive the state's own scroll, drag, and paging paths: a `TallTableState` in GPUI's test app (gpui-kit's `test-support`), over a delegate that answers a read only when the scenario says, on GPUI's test clock (only `advance_clock` moves it, so the settle times are the table's own timers). Cell text goes through `shown_text`, what `render_body` draws. The test app's text system gives every character 0.6 em, 8.4 px at the cells' 14 px, which is IBM Plex Sans's digit advance too. Its children, a feature each: `src/state/fixtures/CLAUDE.md`.
 - **`random.rs`** (tests only): the random test of the paging under every feature built (`docs/DECISIONS.md`, "Fixtures"): proptest driven by hand from a plain `#[test]` (gpui-kit's `property_test` doesn't compile at the pin), each case a scheduler seed, a drawn `Paging` and table, and up to 300 steps with the element in a window, over a source that stamps each row's version and era, answers in any order, and logs every read and cancel. The invariants (`Run::check`, numbered as the research's) are checked after every step against the source's books, each read judged as it went out. Its rules:
-  - **A new feature's steps never change an existing case:** they're placed among a case's steps from a stream of their own (`with_pins`, `with_densities`, `with_moves`), never drawn, so every case's draw, and the controls' cases, are the ones without the feature.
+  - **A new feature's steps never change an existing case:** they're placed among a case's steps from a stream of their own (`with_pins`, `with_densities`, `with_moves`, `with_drags`; `group-headers`' paths a case's own, `with_paths`), never drawn, so every case's draw, and the controls' cases, are the ones without the feature.
   - **A bug it finds** is an `#[ignore]`d scenario test there and an `Exclusion` (a step generated, a step run, or a pair checked) until it's fixed.
-  - **Its controls** (the cache's and `copy`'s `Control`s, `reorder`'s `ReadByPlace`; built with each control's feature, run only in the all-on run) must each fail the cases at its invariant.
+  - **Its controls** (the cache's and `copy`'s `Control`s, `reorder`'s `ReadByPlace`, `group-headers`' `GroupsByPlace` and `GapOutsideParent`; built with each control's feature, run only in the all-on run) must each fail the cases at its invariant.
   - A failure shrinks and prints its steps with the scheduler seed; `SEED` picks the cases (0 unset), `PROPTEST_CASES` how many (16, 48 in the all-on run).
 
 ## Files
@@ -33,6 +33,6 @@ src/state/         # follow.rs, resize.rs, select.rs, copy.rs (+ copy/tests.rs),
 ## Commands
 
 ```
-SEED=<n> cargo test -p seiza-tall-table --features custom-cells,follow,resize,copy,sort,pin,density,format,reorder random_paging   # another set of the random test's cases (a failure prints its SEED)
+SEED=<n> cargo test -p seiza-tall-table --features custom-cells,follow,resize,copy,sort,pin,density,format,reorder,group-headers random_paging   # another set of the random test's cases (a failure prints its SEED)
 just tall-table soak [seeds] [cases] # the random test soaked: `cases` (500) for each `SEED` of `seeds` (1 2 3 4), every feature with steps in the random test on (not `format`, which has none), release with debug assertions and overflow checks (its time: `docs/DECISIONS.md`, "Fixtures")
 ```

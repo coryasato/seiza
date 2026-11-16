@@ -39,6 +39,10 @@ pub(crate) enum Control {
     /// The fixture's `no-edge-gap`: the run's end beside the block refused
     /// too, so a column can't be pinned or unpinned where it is.
     NoEdgeGap,
+    /// `group-headers.json`'s `gap-by-column-centers`: the gap after the
+    /// unit of the last column whose center, not its unit's, is left of
+    /// the pointer.
+    GapByColumnCenters,
 }
 
 /// A move: the columns at `places` (a block of places) to land with the
@@ -230,20 +234,26 @@ pub(crate) struct View<'a> {
 
 /// The gap a drag of `block` (places) shows over `view` with the pointer
 /// at `x` (the cells area's pixels, at any height), the host's pin count
-/// `count`. `None`: the release moves nothing.
+/// `count`, among `units`: the block's siblings, side by side, each a run
+/// of places (every column alone without `group-headers`; with it, the
+/// children of the block's parent, `groups::children`). `None`: the
+/// release moves nothing.
 ///
 /// The pointer's region is the run (left of its edge) or the scrolled
-/// columns; among its visible columns the gap is after the last whose
-/// center is left of `x`, else before its first. A gap inside the block or
-/// beside it is none, except the run's end with the pointer on the other
-/// side of the edge from a block wholly on one side: that pins or unpins
-/// it where it is. And a gap is one only where its move changes something
-/// (`Move::moves`).
+/// columns; among the units with a visible place in it the gap is after
+/// the last whose center (of its places visible there) is left of `x`,
+/// else before its first. With none visible there, the units' first gap
+/// if they're right of the pointer, their last if left (none when they're
+/// every column). A gap inside the block or beside it is none, except the
+/// run's end with the pointer on the other side of the edge from a block
+/// wholly on one side: that pins or unpins it where it is. And a gap is
+/// one only where its move changes something (`Move::moves`).
 pub(crate) fn gap(
     view: View<'_>,
     count: usize,
     block: Range<usize>,
     x: f32,
+    units: &[Range<usize>],
     #[cfg(test)] control: Control,
 ) -> Option<Gap> {
     let View {
@@ -253,9 +263,13 @@ pub(crate) fn gap(
         run,
         edge,
     } = view;
-    if block.is_empty() || block.end > columns.len() {
+    let (Some(first_unit), Some(last_unit)) = (units.first(), units.last()) else {
+        return None;
+    };
+    if block.is_empty() || block.end > columns.len() || last_unit.end > columns.len() {
         return None;
     }
+    let span = first_unit.start..last_unit.end;
     let run = run.min(columns.len());
     let pointer_pinned = run > 0 && x < edge;
     let left = |place: usize| {
@@ -266,38 +280,82 @@ pub(crate) fn gap(
             column.x - scroll_x
         }
     };
-    // The region's visible places, contiguous: the run's that start in the
+    let right = |place: usize| left(place) + columns[place].width;
+    // A place visible in the pointer's region: the run's that start in the
     // view, or the scrolled ones overlapping it right of the edge.
-    let mut region = if pointer_pinned {
-        0..run
-    } else {
-        run..columns.len()
-    }
-    .filter(|&place| {
+    let shown = |place: usize| {
         let column = &columns[place];
-        if place < run {
-            column.x < cells_width
+        if pointer_pinned {
+            place < run && column.x < cells_width
         } else {
-            column.x + column.width > scroll_x + edge && column.x < scroll_x + cells_width
+            place >= run
+                && column.x + column.width > scroll_x + edge
+                && column.x < scroll_x + cells_width
         }
-    });
-    let first = region.next()?;
-    let last = region.next_back().unwrap_or(first);
-    let middle = |place: usize| {
-        #[cfg(test)]
-        if control == Control::GapByLeftEdge {
-            return left(place);
-        }
-        left(place) + columns[place].width / 2.0
     };
-    let at = (first..=last)
-        .rev()
-        .find(|&place| middle(place) < x)
-        .map_or(first, |place| place + 1);
-    let line = if at <= last {
-        left(at)
-    } else {
-        left(last) + columns[last].width - LINE
+    // Each unit's first and last place shown in the region, contiguous,
+    // found lazily (no allocation a pointer move).
+    let parts = || {
+        units.iter().enumerate().filter_map(|(unit, places)| {
+            let mut places = places.clone().filter(|&place| shown(place));
+            let first = places.next()?;
+            Some((unit, first, places.next_back().unwrap_or(first)))
+        })
+    };
+    let last_part = parts().next_back();
+    let at = match (parts().next(), last_part) {
+        (Some((first, first_place, _)), Some((.., last))) => {
+            #[cfg(test)]
+            let by_columns = control == Control::GapByColumnCenters;
+            #[cfg(not(test))]
+            let by_columns = false;
+            if by_columns {
+                // Each column's center, then its unit's end.
+                let found = (first_place..=last)
+                    .rev()
+                    .find(|&place| (left(place) + right(place)) / 2.0 < x);
+                found.map_or(units[first].start, |place| {
+                    units
+                        .iter()
+                        .find(|unit| unit.contains(&place))
+                        .map_or(place + 1, |unit| unit.end)
+                })
+            } else {
+                at_center(
+                    parts(),
+                    units[first].start,
+                    units,
+                    &left,
+                    &right,
+                    x,
+                    #[cfg(test)]
+                    control,
+                )
+            }
+        }
+        _ => {
+            // None of them shown in the pointer's region.
+            if span == (0..columns.len()) {
+                return None;
+            }
+            let to_the_right =
+                pointer_pinned || (span.end > run && left(span.start.max(run)) >= cells_width);
+            if to_the_right { span.start } else { span.end }
+        }
+    };
+    // A sibling split by the run's edge (`group-headers`): its boundary in
+    // the other region is its boundary in this one, so the line and the
+    // release agree on the side.
+    let split = || units.iter().find(|unit| unit.start < run && run < unit.end);
+    let at = match split() {
+        Some(unit) if pointer_pinned && at > run => unit.start,
+        Some(unit) if !pointer_pinned && at < run => unit.end,
+        _ => at,
+    };
+    let line = match last_part {
+        Some((.., last)) if at > last => right(last) - LINE,
+        _ if at < columns.len() => left(at),
+        _ => right(columns.len() - 1) - LINE,
     };
     let (low, high) = if pointer_pinned {
         (0.0, edge - LINE)
@@ -363,6 +421,37 @@ pub(crate) fn gap(
         pinned,
         line,
     })
+}
+
+/// The gap among `parts` (each a unit and its first and last place shown,
+/// left to right): after the last unit whose center is left of `x`, else
+/// `first`, before the first.
+fn at_center(
+    parts: impl DoubleEndedIterator<Item = (usize, usize, usize)>,
+    first: usize,
+    units: &[Range<usize>],
+    left: &impl Fn(usize) -> f32,
+    right: &impl Fn(usize) -> f32,
+    x: f32,
+    #[cfg(test)] control: Control,
+) -> usize {
+    let middle = |first: usize, last: usize| {
+        #[cfg(test)]
+        if control == Control::GapByLeftEdge {
+            return left(first);
+        }
+        (left(first) + right(last)) / 2.0
+    };
+    parts
+        .rev()
+        .find(|&(_, first, last)| middle(first, last) < x)
+        .map_or(first, |(unit, ..)| units[unit].end)
+}
+
+/// Every column alone: the units of a drag with no groups.
+#[cfg(any(not(feature = "group-headers"), test))]
+pub(crate) fn single(columns: usize) -> Vec<Range<usize>> {
+    (0..columns).map(|place| place..place + 1).collect()
 }
 
 /// Whether `order` is a permutation of `0..columns`.

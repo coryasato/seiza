@@ -388,6 +388,15 @@ enum Step {
     /// `set_order`: the columns shuffled, seeded by the number.
     #[cfg(feature = "reorder")]
     SetOrder(u64),
+    /// A header row's press (`row` from the top, modulo the rows) at `x`
+    /// (modulo the cells' width), moved by `dx` and released: a column's,
+    /// a group's, or a blank's drag ([`with_drags`]).
+    #[cfg(all(feature = "group-headers", feature = "reorder"))]
+    DragColumns {
+        row: u8,
+        x: u16,
+        dx: i16,
+    },
     Close,
     /// An open read (`k % open`) answered: with its page, failed, or
     /// failed as broken (`how`); a cancelled one with its page or
@@ -509,6 +518,11 @@ struct Case {
     sortable: u8,
     #[cfg(feature = "sort")]
     refused: u8,
+    /// The columns' label paths' stream (`group-headers`): placed from the
+    /// scheduler seed, never drawn ([`with_paths`]), so a case's draw is
+    /// the one without the feature.
+    #[cfg(feature = "group-headers")]
+    paths: u64,
     steps: Vec<Step>,
 }
 
@@ -545,6 +559,8 @@ impl fmt::Display for Case {
             "sortable {:08b}, refused {:08b}",
             self.sortable, self.refused
         )?;
+        #[cfg(feature = "group-headers")]
+        writeln!(f, "paths {:#x}", self.paths)?;
         writeln!(f, "{} steps:", self.steps.len())?;
         for (index, step) in self.steps.iter().enumerate() {
             writeln!(f, "  {index}: {step:?}")?;
@@ -624,6 +640,8 @@ fn case() -> impl Strategy<Value = Case> {
                 sortable,
                 #[cfg(feature = "sort")]
                 refused,
+                #[cfg(feature = "group-headers")]
+                paths: 0,
                 steps,
             }
         },
@@ -647,7 +665,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 8] = [
+const INVARIANTS: [&str; 10] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -656,6 +674,8 @@ const INVARIANTS: [&str; 8] = [
     "every copy ends",
     "a copy's text",
     "nothing stalls",
+    "the group cells drawn are the drawn order's runs",
+    "a drag never splits a run",
 ];
 
 /// The copy running, from its events.
@@ -676,6 +696,8 @@ enum Control {
     Cache(crate::pages::Control),
     #[cfg(feature = "reorder")]
     Reorder(crate::reorder::Control),
+    #[cfg(feature = "group-headers")]
+    Groups(crate::groups::Control),
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -688,6 +710,8 @@ struct Run {
     control: Option<Control>,
     /// How many columns the table has.
     columns: usize,
+    /// The columns' label paths' stream (`group-headers`; 0 without).
+    paths: u64,
     /// The columns made sortable, by bit (`sort`).
     #[cfg(feature = "sort")]
     sortable: u8,
@@ -740,9 +764,13 @@ impl Run {
         let sortable = case.sortable;
         #[cfg(not(feature = "sort"))]
         let sortable = 0;
+        #[cfg(feature = "group-headers")]
+        let paths = case.paths;
+        #[cfg(not(feature = "group-headers"))]
+        let paths = 0;
         let (shell, cx) = cx.add_window_view(move |_, cx| {
             let table = cx.new(|cx| {
-                let columns = columns_of(columns, sortable);
+                let columns = columns_of(columns, sortable, paths);
                 TallTableState::new(Source(source), columns, rows, paging, cx)
             });
             Shell { table }
@@ -762,6 +790,7 @@ impl Run {
             paging,
             control,
             columns,
+            paths,
             #[cfg(feature = "sort")]
             sortable: case.sortable,
             #[cfg(feature = "copy")]
@@ -793,6 +822,8 @@ impl Run {
                 Some(Control::Cache(control)) => table.cache.control = control,
                 #[cfg(feature = "reorder")]
                 Some(Control::Reorder(control)) => table.reorder_control = control,
+                #[cfg(feature = "group-headers")]
+                Some(Control::Groups(control)) => table.group_state.control = control,
                 None => {}
             }
             #[cfg(feature = "copy")]
@@ -821,7 +852,10 @@ impl Run {
     /// replacing a table: once every read the closed one sent has answered.
     fn reopen(&mut self) {
         let (source, paging) = (Source(self.books.clone()), self.paging);
-        let (columns, rows) = (columns_of(self.columns, self.sortable()), self.rows());
+        let (columns, rows) = (
+            columns_of(self.columns, self.sortable(), self.paths),
+            self.rows(),
+        );
         let table = self.shell.update(&mut self.cx, |shell, cx| {
             shell.table = cx.new(|cx| TallTableState::new(source, columns, rows, paging, cx));
             cx.notify();
@@ -917,6 +951,113 @@ impl Run {
         self.update(|table, cx| table.set_rows(rows, cx));
     }
 
+    /// The runs of the drawn order, each its columns' indices, worked out
+    /// here from the columns' paths (`group-headers`).
+    #[cfg(feature = "group-headers")]
+    fn runs_drawn(&self) -> Vec<(crate::groups::Run, Vec<usize>)> {
+        self.read(|table| {
+            let index = |place: usize| table.columns[place].index(place);
+            crate::groups::runs(
+                (0..table.columns.len())
+                    .map(|place| table.column_info[index(place)].group.as_slice()),
+            )
+            .runs
+            .into_iter()
+            .map(|run| {
+                let indices = (run.start..run.end).map(index).collect();
+                (run, indices)
+            })
+            .collect()
+        })
+    }
+
+    /// 9: every group cell the last frame drew is a run of the drawn order.
+    #[cfg(feature = "group-headers")]
+    fn groups_drawn(&self) -> Checked {
+        let runs = self.runs_drawn();
+        let drawn = self.read(|table| table.group_state.drawn.clone());
+        for cell in drawn {
+            let found = runs.iter().any(|(run, _)| {
+                (run.level, run.start, run.end, &run.label)
+                    == (cell.level, cell.start, cell.end, &cell.label)
+            });
+            if !found {
+                return Err(Violation::new(
+                    9,
+                    format!(
+                        "{} drawn over places {}..{} at level {}: not a run of the drawn order",
+                        cell.label, cell.start, cell.end, cell.level
+                    ),
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A drag in a header row (`Step::DragColumns`), then 10: every run
+    /// before it is still side by side, and 9 on its last frame.
+    #[cfg(all(feature = "group-headers", feature = "reorder"))]
+    fn drag_columns(&mut self, row: u8, x: u16, dx: i16) -> Checked {
+        use gpui_kit::{Modifiers, MouseButton, MouseDownEvent, point};
+
+        self.frame();
+        let before = self.runs_drawn();
+        let (origin, gutter, row_h, depth, width) = self.read(|table| {
+            (
+                table.body.origin,
+                table.gutter_width(),
+                f32::from(table.sizes().row()),
+                table.group_rows(),
+                table.cells_width(),
+            )
+        });
+        if width >= 1.0 {
+            let rows = depth + 1;
+            let from_top = usize::from(row) % rows;
+            let y = origin.y - px(row_h * (rows - from_top) as f32 - row_h / 2.0);
+            let from = point(origin.x + px(gutter + f32::from(x) % width), y);
+            let dx = f32::from(dx);
+            self.cx.simulate_event(MouseDownEvent {
+                position: from,
+                modifiers: Modifiers::default(),
+                button: MouseButton::Left,
+                click_count: 1,
+                first_mouse: false,
+            });
+            self.frame();
+            let to = from + point(px(dx), px(0.));
+            for at in [from + point(px(dx / 2.0), px(0.)), to] {
+                self.cx
+                    .simulate_mouse_move(at, MouseButton::Left, Modifiers::default());
+                self.frame();
+            }
+            self.cx
+                .simulate_mouse_up(to, MouseButton::Left, Modifiers::default());
+            self.frame();
+        }
+        let order = self.read(|table| table.order().to_vec());
+        for (run, indices) in before {
+            let places: Vec<usize> = indices
+                .iter()
+                .filter_map(|index| order.iter().position(|drawn| drawn == index))
+                .collect();
+            let (low, high) = (
+                places.iter().min().copied().unwrap_or(0),
+                places.iter().max().copied().unwrap_or(0),
+            );
+            if places.len() == indices.len() && high - low + 1 != indices.len() {
+                return Err(Violation::new(
+                    10,
+                    format!(
+                        "{} (level {}, indices {indices:?}) split by a drag: at places {places:?}",
+                        run.label, run.level
+                    ),
+                ));
+            }
+        }
+        self.groups_drawn()
+    }
+
     /// Runs `step`, then checks the invariants.
     fn step(&mut self, step: &Step) -> Checked {
         let before = self.before();
@@ -960,7 +1101,11 @@ impl Run {
                     .advance_clock(waits[pick as usize % waits.len()]);
                 self.park();
             }
-            Step::Frame => self.frame(),
+            Step::Frame => {
+                self.frame();
+                #[cfg(feature = "group-headers")]
+                self.groups_drawn()?;
+            }
             // One time in two to the end of the last page: a full last
             // page, which a shrink within it keeps.
             Step::Grow(by) if by % 2 == 0 => self.set_rows((rows / page_rows + 1) * page_rows),
@@ -981,7 +1126,7 @@ impl Run {
             Step::Retry => self.update(|table, cx| table.retry_failed(cx)),
             Step::Columns(pick) => {
                 self.columns = column_count(pick, page_rows);
-                let columns = columns_of(self.columns, self.sortable());
+                let columns = columns_of(self.columns, self.sortable(), self.paths);
                 self.update(|table, cx| table.set_columns(columns, cx));
             }
             #[cfg(feature = "live")]
@@ -1092,6 +1237,8 @@ impl Run {
                 let order = shuffled(pick, self.columns);
                 self.update(|table, cx| table.set_order(order, cx));
             }
+            #[cfg(all(feature = "group-headers", feature = "reorder"))]
+            Step::DragColumns { row, x, dx } => self.drag_columns(row, x, dx)?,
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -1532,7 +1679,11 @@ fn following(table: &TallTableState<Source>) -> bool {
 
 /// `count` text columns, named `c0`, `c1`, …; with `sort`, those whose
 /// bit (`index % 8`) is set in `sortable` sortable.
-fn columns_of(count: usize, sortable: u8) -> Vec<TallTableColumn> {
+fn columns_of(count: usize, sortable: u8, paths: u64) -> Vec<TallTableColumn> {
+    #[cfg(feature = "group-headers")]
+    let paths = paths_of(count, paths);
+    #[cfg(not(feature = "group-headers"))]
+    let _ = paths;
     (0..count)
         .map(|index| {
             let column = TallTableColumn::new(format!("c{index}"), ColumnKind::Text);
@@ -1540,9 +1691,75 @@ fn columns_of(count: usize, sortable: u8) -> Vec<TallTableColumn> {
             let column = column.sortable(sortable & (1 << (index % 8)) != 0);
             #[cfg(not(feature = "sort"))]
             let _ = sortable;
+            #[cfg(feature = "group-headers")]
+            let column = column.group(paths[index].clone());
             column
         })
         .collect()
+}
+
+/// A SplitMix64 stream from `seed`.
+#[cfg(feature = "group-headers")]
+fn split_mix(seed: u64) -> impl FnMut() -> u64 {
+    let mut state = seed;
+    move || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    }
+}
+
+/// `count` columns' label paths from `pick` (`group-headers`): none for a
+/// pick of 0 (a written scenario's), else 0 to 3 levels, each level's
+/// columns that reached it cut into runs of 1 to 8, each labeled from three
+/// labels (so equal labels meet under other parents) or, one in four, the
+/// path stopping there.
+#[cfg(feature = "group-headers")]
+fn paths_of(count: usize, pick: u64) -> Vec<Vec<String>> {
+    let mut paths = vec![Vec::new(); count];
+    if pick == 0 {
+        return paths;
+    }
+    let mut next = split_mix(pick ^ count as u64);
+    let depth = (next() % 4) as usize;
+    for level in 0..depth {
+        let mut place = 0;
+        while place < count {
+            let length = 1 + (next() % 8) as usize;
+            let label = format!("g{}", next() % 3);
+            let stops = next().is_multiple_of(4);
+            for path in paths.iter_mut().skip(place).take(length) {
+                if path.len() == level && !stops {
+                    path.push(label.clone());
+                }
+            }
+            place += length;
+        }
+    }
+    paths
+}
+
+/// The case's paths' stream, from the scheduler seed by a stream of its
+/// own: never drawn, so every case's draw is the one without the feature.
+#[cfg(feature = "group-headers")]
+fn with_paths(seed: u64, case: &mut Case) {
+    case.paths = split_mix(seed ^ 0x3c6e_f372_fe94_f82b)().max(1);
+}
+
+/// Header drags, up to eight, placed as `pin`'s are ([`with_pins`]), from
+/// the scheduler seed by a stream of their own (`group-headers` with
+/// `reorder`): a press in a header row, a move, and a release.
+#[cfg(all(feature = "group-headers", feature = "reorder"))]
+fn with_drags(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed ^ 0xa54f_f53a_5f1d_36f1, steps, |pick| {
+        Step::DragColumns {
+            row: pick as u8,
+            x: (pick >> 8) as u16,
+            dx: (pick >> 24) as i16 % 800,
+        }
+    });
 }
 
 /// One case on scheduler `seed`: `Err` names the invariant and the step.
@@ -1727,7 +1944,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 feature = "pin",
                 feature = "density",
                 feature = "follow",
-                feature = "reorder"
+                feature = "reorder",
+                feature = "group-headers"
             ))]
             let case = {
                 let mut case = case;
@@ -1739,6 +1957,10 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 with_let_gos(seed, &mut case.steps);
                 #[cfg(feature = "reorder")]
                 with_moves(seed, &mut case.steps);
+                #[cfg(feature = "group-headers")]
+                with_paths(seed, &mut case);
+                #[cfg(all(feature = "group-headers", feature = "reorder"))]
+                with_drags(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
@@ -1746,7 +1968,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
                     feature = "pin",
                     feature = "density",
                     feature = "follow",
-                    feature = "reorder"
+                    feature = "reorder",
+                    feature = "group-headers"
                 ))]
                 let failure = format!("{failure}\nthe case as run, with the placed steps:\n{case}");
                 TestCaseError::fail(failure)
@@ -1789,6 +2012,8 @@ fn shrink_past_a_page_forgets_the_pages_past_it() {
         sortable: 0,
         #[cfg(feature = "sort")]
         refused: 0,
+        #[cfg(feature = "group-headers")]
+        paths: 0,
         steps: vec![
             Step::Drain { newest: false },
             Step::ShrinkPast(15),
@@ -1822,6 +2047,8 @@ fn shrink_to_a_page_start_reads_its_page_when_grown() {
         sortable: 0,
         #[cfg(feature = "sort")]
         refused: 0,
+        #[cfg(feature = "group-headers")]
+        paths: 0,
         steps: vec![
             Step::Drain { newest: false },
             Step::ShrinkPast(0),
@@ -1854,6 +2081,8 @@ fn a_closed_table_cancels_nothing_again() {
         sortable: 0,
         #[cfg(feature = "sort")]
         refused: 0,
+        #[cfg(feature = "group-headers")]
+        paths: 0,
         steps: vec![Step::Close, Step::ShrinkWithin(0)],
     };
     if let Err(failure) = run_case(0, &case, None) {
@@ -1884,6 +2113,8 @@ fn a_prefetch_reread_skips_a_page_the_copy_reads() {
         sortable: 0,
         #[cfg(feature = "sort")]
         refused: 0,
+        #[cfg(feature = "group-headers")]
+        paths: 0,
         steps: vec![
             Step::Grow(17691),
             Step::AtOnce(false),
@@ -1935,6 +2166,8 @@ fn a_copy_beside_a_short_read_of_a_grown_page() {
         sortable: 0,
         #[cfg(feature = "sort")]
         refused: 0,
+        #[cfg(feature = "group-headers")]
+        paths: 0,
         steps: vec![
             Step::AtOnce(false),
             Step::Grow(13348),
@@ -2059,6 +2292,25 @@ mod controls {
         // Their old rows drawn, or (`live`) a page a shrink to its start
         // kept never read again.
         fails(Control::Cache(Cache::KeepPastShrink), &[5, 8]);
+    }
+
+    /// The runs found over the paths in index order (`DataTable`'s spans):
+    /// a move leaves the groups' cells where they were.
+    #[cfg(feature = "group-headers")]
+    #[test]
+    fn groups_by_place() {
+        fails(Control::Groups(crate::groups::Control::GroupsByPlace), &[9]);
+    }
+
+    /// A drag's gaps found among every column, as without groups: a
+    /// column leaves its group, a group lands inside another.
+    #[cfg(all(feature = "group-headers", feature = "reorder"))]
+    #[test]
+    fn a_gap_outside_the_parent() {
+        fails(
+            Control::Groups(crate::groups::Control::GapOutsideParent),
+            &[10],
+        );
     }
 
     #[cfg(feature = "reorder")]

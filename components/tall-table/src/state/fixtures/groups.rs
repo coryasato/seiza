@@ -6,16 +6,38 @@
 //! layout probe; with `reorder`, a run split by a move; with `pin`, a run
 //! split at the edge and redrawn wherever the edge moves without a layout;
 //! with `select`, the tint; with `sort` and `resize`, the arrows and bands
-//! in the names' row; with `density`, its row height.
+//! in the names' row; with `density`, its row height. The fixture's drag
+//! half (with `reorder`) too, and the presses: with `select`, a group's
+//! press selecting its columns (none without `Columns`), a drag from it
+//! extending nothing, Shift extending to its far edge, a blank its
+//! column's header, either half of a split run the whole run; with
+//! `clicks`, a `Group` target of each kind, and a context press keeping a
+//! `Columns` range that holds the group; with `reorder`, a group moved
+//! among its siblings and held in its parent, a column held in its group,
+//! the selection moved with a lifted group, a selected block cutting a
+//! group not lifting, and with `pin`, a group across the edge whole and a
+//! split one landing on one side.
 
 use std::cell::RefCell;
 use std::ops::Range;
 use std::rc::Rc;
 
-#[cfg(any(feature = "sort", feature = "resize"))]
+#[cfg(any(
+    feature = "sort",
+    feature = "resize",
+    feature = "select",
+    feature = "reorder",
+    feature = "clicks"
+))]
 use gpui_kit::MouseUpEvent;
 use gpui_kit::{App, AppContext as _, SharedString, TestAppContext, VisualTestContext, px, size};
-#[cfg(any(feature = "sort", feature = "resize", feature = "select"))]
+#[cfg(any(
+    feature = "sort",
+    feature = "resize",
+    feature = "select",
+    feature = "reorder",
+    feature = "clicks"
+))]
 use gpui_kit::{Modifiers, MouseButton, MouseDownEvent, Pixels, Point, point};
 use serde_json::{Value, json};
 
@@ -185,6 +207,92 @@ fn mismatches(control: Option<&str>) -> Vec<String> {
             Value::Array(want).to_string(),
         );
     }
+    #[cfg(feature = "reorder")]
+    mismatches.extend(gap_mismatches(&fixture, control));
+    mismatches
+}
+
+/// The drag half: what `gaps` expect that a drag's parent rule and gap
+/// don't give, under `control`. A case that pins runs only with `pin`.
+#[cfg(feature = "reorder")]
+fn gap_mismatches(fixture: &Value, control: Option<&str>) -> Vec<String> {
+    let mut mismatches = Vec::new();
+    for case in fixture["gaps"].as_array().expect("gaps") {
+        let name = case["name"].as_str().expect("name");
+        let pins = case["features"]
+            .as_array()
+            .is_some_and(|features| features.iter().any(|feature| feature == "pin"));
+        if pins && !cfg!(feature = "pin") {
+            continue;
+        }
+        let paths: Vec<Vec<SharedString>> = case["paths"]
+            .as_array()
+            .expect("paths")
+            .iter()
+            .map(path)
+            .collect();
+        let widths: Vec<f32> = case["widths"]
+            .as_array()
+            .expect("widths")
+            .iter()
+            .map(number)
+            .collect();
+        let order: Vec<usize> = (0..paths.len()).collect();
+        let columns = laid_out(&widths, &order);
+        let count = case["count"].as_u64().expect("count") as usize;
+        let cells_width = number(&case["cells_width"]);
+        #[cfg(feature = "pin")]
+        let (run, edge) = {
+            let run = crate::pin::in_effect(&columns, count, cells_width);
+            (run, crate::pin::Pin::new(&columns, run, cells_width).edge())
+        };
+        #[cfg(not(feature = "pin"))]
+        let (run, edge) = (0, 0.0);
+        let block = &case["block"];
+        let block = block[0].as_u64().expect("first") as usize
+            ..block[1].as_u64().expect("last") as usize + 1;
+        let found = groups::runs(paths.iter().map(Vec::as_slice));
+        let units = groups::children(
+            &found,
+            block.clone(),
+            columns.len(),
+            if control == Some("gap-outside-parent") {
+                Control::GapOutsideParent
+            } else {
+                Control::None
+            },
+        );
+        let reorder_control = if control == Some("gap-by-column-centers") {
+            crate::reorder::Control::GapByColumnCenters
+        } else {
+            crate::reorder::Control::None
+        };
+        let got = units.as_deref().and_then(|units| {
+            crate::reorder::gap(
+                crate::reorder::View {
+                    columns: &columns,
+                    cells_width,
+                    scroll_x: number(&case["scroll_x"]),
+                    run,
+                    edge,
+                },
+                count,
+                block.clone(),
+                number(&case["x"]),
+                units,
+                reorder_control,
+            )
+        });
+        let got = json!({
+            "lifts": units.is_some(),
+            "gap": got.map(|gap| gap.at),
+            "to": got.map(|gap| gap.to),
+            "side": got.map(|gap| if gap.pinned { "pinned" } else { "scrolled" }),
+        });
+        if got != case["expect"] {
+            mismatches.push(format!("{name}: {got}; the fixture's {}", case["expect"]));
+        }
+    }
     mismatches
 }
 
@@ -198,10 +306,14 @@ fn group_headers_fixture() {
 fn group_headers_controls_fail() {
     let fixture: Value = serde_json::from_str(GROUPS).expect("group-headers.json");
     let controls = fixture["controls"].as_object().expect("controls");
-    assert_eq!(controls.len(), 3);
+    assert_eq!(controls.len(), 5);
     for control in controls.keys() {
-        // Without `pin`, the split cases don't run.
+        // Without `pin`, the split cases don't run; without `reorder`, the
+        // drag half.
         if control == "no-split-at-edge" && !cfg!(feature = "pin") {
+            continue;
+        }
+        if control.starts_with("gap-") && !cfg!(feature = "reorder") {
             continue;
         }
         assert!(
@@ -282,6 +394,8 @@ struct Sheet<'a> {
     table: gpui_kit::Entity<Table>,
     layouts: Rc<RefCell<Vec<crate::TallTableLayout>>>,
     groups: Rc<RefCell<Vec<Vec<crate::GroupProbe>>>>,
+    #[cfg(feature = "clicks")]
+    clicks: Rc<RefCell<Vec<crate::TallTableClick>>>,
 }
 
 struct Shell {
@@ -310,6 +424,10 @@ impl<'a> Sheet<'a> {
         let layouts: Rc<RefCell<Vec<crate::TallTableLayout>>> = Rc::default();
         let groups: Rc<RefCell<Vec<Vec<crate::GroupProbe>>>> = Rc::default();
         let (heard, heard_groups) = (layouts.clone(), groups.clone());
+        #[cfg(feature = "clicks")]
+        let clicks: Rc<RefCell<Vec<crate::TallTableClick>>> = Rc::default();
+        #[cfg(feature = "clicks")]
+        let heard_clicks = clicks.clone();
         let (shell, cx) = cx.add_window_view(move |_, cx| {
             let table = cx.new(|cx| {
                 TallTableState::new(Memory, columns, 1000, Default::default(), cx)
@@ -319,6 +437,8 @@ impl<'a> Sheet<'a> {
                 cx.subscribe(&table, move |_, _, event: &TallTableEvent, _| match event {
                     TallTableEvent::Layout(layout) => heard.borrow_mut().push(layout.clone()),
                     TallTableEvent::Groups(cells) => heard_groups.borrow_mut().push(cells.clone()),
+                    #[cfg(feature = "clicks")]
+                    TallTableEvent::Clicked(click) => heard_clicks.borrow_mut().push(click.clone()),
                     _ => {}
                 });
             Shell {
@@ -333,6 +453,8 @@ impl<'a> Sheet<'a> {
             table,
             layouts,
             groups,
+            #[cfg(feature = "clicks")]
+            clicks,
         };
         sheet.draw();
         sheet
@@ -400,7 +522,13 @@ impl<'a> Sheet<'a> {
 
     /// A point `x` px right of the cells' left edge, in header row `row`
     /// counted up from the names' (0) row.
-    #[cfg(any(feature = "sort", feature = "resize", feature = "select"))]
+    #[cfg(any(
+        feature = "sort",
+        feature = "resize",
+        feature = "select",
+        feature = "reorder",
+        feature = "clicks"
+    ))]
     fn header_at(&mut self, x: f32, row: f32) -> Point<Pixels> {
         let (origin, gutter) = self.read(|table| (table.body.origin, table.gutter_width()));
         point(
@@ -409,19 +537,62 @@ impl<'a> Sheet<'a> {
         )
     }
 
-    #[cfg(any(feature = "sort", feature = "resize", feature = "select"))]
+    #[cfg(any(
+        feature = "sort",
+        feature = "resize",
+        feature = "select",
+        feature = "reorder",
+        feature = "clicks"
+    ))]
     fn press(&mut self, at: Point<Pixels>) {
+        self.press_with(at, MouseButton::Left, Modifiers::default(), 1);
+    }
+
+    #[cfg(any(
+        feature = "sort",
+        feature = "resize",
+        feature = "select",
+        feature = "reorder",
+        feature = "clicks"
+    ))]
+    fn press_with(
+        &mut self,
+        at: Point<Pixels>,
+        button: MouseButton,
+        modifiers: Modifiers,
+        click_count: usize,
+    ) {
         self.cx.simulate_event(MouseDownEvent {
             position: at,
-            modifiers: Modifiers::default(),
-            button: MouseButton::Left,
-            click_count: 1,
+            modifiers,
+            button,
+            click_count,
             first_mouse: false,
         });
         self.draw();
     }
 
-    #[cfg(any(feature = "sort", feature = "resize"))]
+    /// A left press at `from`, the pointer moved to `to` in two steps, and
+    /// released there.
+    #[cfg(any(feature = "select", feature = "reorder"))]
+    fn drag(&mut self, from: Point<Pixels>, to: Point<Pixels>) {
+        self.press(from);
+        let half = point((from.x + to.x) / 2.0, (from.y + to.y) / 2.0);
+        for at in [half, to] {
+            self.cx
+                .simulate_mouse_move(at, MouseButton::Left, Modifiers::default());
+            self.draw();
+        }
+        self.release(to);
+    }
+
+    #[cfg(any(
+        feature = "sort",
+        feature = "resize",
+        feature = "select",
+        feature = "reorder",
+        feature = "clicks"
+    ))]
     fn release(&mut self, at: Point<Pixels>) {
         self.cx.simulate_event(MouseUpEvent {
             position: at,
@@ -942,5 +1113,432 @@ mod density {
         assert_eq!(sheet.header(), 54.0);
         let layout = sheet.layouts.borrow().last().cloned().expect("a layout");
         assert_eq!((layout.header_rows, layout.row_height), (3, 18.0));
+    }
+}
+
+/// The presses on a group's cell (`select`): its columns selected, Shift
+/// extending to its far edge, a blank its column's header, either half of
+/// a split run the whole run's.
+#[cfg(feature = "select")]
+mod presses {
+    use gpui_kit::{Modifiers, MouseButton, TestAppContext};
+
+    use super::{Sheet, grouped};
+    use crate::{Selectable, TallTableSelection};
+
+    fn selection(sheet: &mut Sheet) -> Option<TallTableSelection> {
+        sheet.read(|table| table.selection_state.current)
+    }
+
+    fn columns(anchor: usize, head: usize) -> TallTableSelection {
+        TallTableSelection::Columns {
+            anchor: (0, anchor),
+            head: (0, head),
+        }
+    }
+
+    fn click(sheet: &mut Sheet, x: f32, row: f32) {
+        let at = sheet.header_at(x, row);
+        sheet.press(at);
+        sheet.release(at);
+    }
+
+    /// A press selects its columns, at either level; with `Columns` off,
+    /// nothing.
+    #[gpui_kit::test]
+    fn a_group_press_selects_its_columns(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 5));
+        click(&mut sheet, 5.0 * 120.0 + 10.0, 1.0);
+        assert_eq!(selection(&mut sheet), Some(columns(5, 9)), "g1.2");
+        click(&mut sheet, 1300.0, 2.0);
+        assert_eq!(selection(&mut sheet), Some(columns(10, 19)), "g2");
+        sheet.update(|table, cx| {
+            table.select(None, cx);
+            table.set_selectable(Selectable::all().columns(false), cx);
+        });
+        click(&mut sheet, 10.0, 2.0);
+        assert_eq!(selection(&mut sheet), None, "no columns kind");
+    }
+
+    /// A drag from a group's press extends nothing (its columns unmovable,
+    /// so `reorder`'s drag doesn't take it).
+    #[gpui_kit::test]
+    fn a_drag_from_a_group_extends_nothing(cx: &mut TestAppContext) {
+        let unmovable = grouped(30, 10, 5);
+        #[cfg(feature = "reorder")]
+        let unmovable = unmovable
+            .into_iter()
+            .map(|column| column.movable(false))
+            .collect();
+        let mut sheet = Sheet::open(cx, 1440., unmovable);
+        let from = sheet.header_at(5.0 * 120.0 + 10.0, 1.0);
+        let to = sheet.header_at(1300.0, -4.0);
+        sheet.drag(from, to);
+        assert_eq!(selection(&mut sheet), Some(columns(5, 9)));
+        assert!(!sheet.read(|table| table.is_selecting()));
+    }
+
+    /// Shift+press on a group moves the head to its edge farther from the
+    /// anchor, in a range that spans columns; a `Rows` range stays.
+    #[gpui_kit::test]
+    fn shift_extends_to_the_groups_far_edge(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 5));
+        let shift_click = |sheet: &mut Sheet, from: TallTableSelection, x: f32| {
+            sheet.update(|table, cx| table.select(Some(from), cx));
+            let at = sheet.header_at(x, 2.0);
+            let shift = Modifiers {
+                shift: true,
+                ..Modifiers::default()
+            };
+            sheet.press_with(at, MouseButton::Left, shift, 1);
+            sheet.release(at);
+            selection(sheet)
+        };
+        assert_eq!(
+            shift_click(&mut sheet, columns(12, 12), 100.0),
+            Some(columns(12, 0)),
+            "from the right: g1's left"
+        );
+        assert_eq!(
+            shift_click(&mut sheet, columns(3, 3), 1300.0),
+            Some(columns(3, 19)),
+            "from the left: g2's right"
+        );
+        assert_eq!(
+            shift_click(&mut sheet, columns(7, 7), 100.0),
+            Some(columns(7, 0)),
+            "from inside: the farther edge"
+        );
+        let cells = TallTableSelection::Cells {
+            anchor: (2, 3),
+            head: (4, 3),
+        };
+        assert_eq!(
+            shift_click(&mut sheet, cells, 1300.0),
+            Some(TallTableSelection::Cells {
+                anchor: (2, 3),
+                head: (4, 19)
+            })
+        );
+        let rows = TallTableSelection::Rows {
+            anchor: (2, 3),
+            head: (4, 3),
+        };
+        assert_eq!(shift_click(&mut sheet, rows, 1300.0), Some(rows));
+    }
+
+    /// A blank in a group row is its column's header.
+    #[gpui_kit::test]
+    fn a_blank_is_its_columns_header(cx: &mut TestAppContext) {
+        let mut columns = grouped(6, 0, 0);
+        columns[0] = columns[0].clone().group(["A", "x"]);
+        columns[1] = columns[1].clone().group(["A"]);
+        let mut sheet = Sheet::open(cx, 1440., columns);
+        click(&mut sheet, 3.0 * 120.0 + 10.0, 2.0);
+        assert_eq!(selection(&mut sheet), Some(self::columns(3, 3)));
+        click(&mut sheet, 130.0, 1.0);
+        assert_eq!(selection(&mut sheet), Some(self::columns(1, 1)), "under A");
+    }
+
+    /// A press between a host's move and the next frame finds the groups
+    /// the move made, not the frame's: the hit test reads the runs in
+    /// effect, as the cells' and headers' do.
+    #[cfg(feature = "reorder")]
+    #[gpui_kit::test]
+    fn a_press_before_the_next_frame_finds_the_new_groups(cx: &mut TestAppContext) {
+        use super::super::super::hit::Target;
+
+        let mut sheet = Sheet::open(cx, 1440., grouped(12, 4, 0));
+        let at = sheet.header_at(60.0, 1.0);
+        // Column 0 moved into g2, g1 places 0..3 now, and the press found
+        // in the same update, before any frame (the test app draws one
+        // before it dispatches an event).
+        let target = sheet.table.update(sheet.cx, |table, cx| {
+            table.move_columns(0..1, 5, cx);
+            table.target_at(at)
+        });
+        assert_eq!(
+            target,
+            Some(Target::Group {
+                level: 0,
+                start: 0,
+                end: 3
+            })
+        );
+    }
+
+    /// Either half of a run split at `pin`'s edge selects the whole run.
+    #[cfg(feature = "pin")]
+    #[gpui_kit::test]
+    fn either_half_of_a_split_group_is_the_whole(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 0));
+        sheet.update(|table, cx| table.set_pinned(3, cx));
+        sheet.update(|table, cx| table.scroll_by(0.0, 120.0, cx));
+        click(&mut sheet, 50.0, 1.0);
+        assert_eq!(selection(&mut sheet), Some(columns(0, 9)), "pinned half");
+        sheet.update(|table, cx| table.select(None, cx));
+        click(&mut sheet, 500.0, 1.0);
+        assert_eq!(selection(&mut sheet), Some(columns(0, 9)), "scrolled half");
+    }
+}
+
+/// A group's press reported (`clicks`): a `Group` target with the whole
+/// run, each kind; a context press keeping a `Columns` range that holds it.
+#[cfg(feature = "clicks")]
+mod clicks {
+    use gpui_kit::{Modifiers, MouseButton, TestAppContext};
+
+    use super::{Sheet, grouped};
+    use crate::{ClickKind, ClickTarget};
+
+    fn last(sheet: &mut Sheet) -> (ClickKind, ClickTarget) {
+        let click = sheet.clicks.borrow().last().cloned().expect("a click");
+        (click.kind, click.target)
+    }
+
+    const FIRST_GROUP: ClickTarget = ClickTarget::Group {
+        level: 0,
+        start: 0,
+        end: 10,
+    };
+
+    #[gpui_kit::test]
+    fn a_group_is_reported_with_its_run(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 5));
+        let at = sheet.header_at(500.0, 2.0);
+        sheet.press(at);
+        sheet.release(at);
+        assert_eq!(last(&mut sheet), (ClickKind::Press, FIRST_GROUP));
+        sheet.press_with(at, MouseButton::Left, Modifiers::default(), 2);
+        sheet.release(at);
+        assert_eq!(last(&mut sheet), (ClickKind::Double, FIRST_GROUP));
+        sheet.press_with(at, MouseButton::Right, Modifiers::default(), 1);
+        assert_eq!(last(&mut sheet), (ClickKind::Context, FIRST_GROUP));
+        let inner = sheet.header_at(700.0, 1.0);
+        sheet.press_with(inner, MouseButton::Right, Modifiers::default(), 1);
+        assert_eq!(
+            last(&mut sheet).1,
+            ClickTarget::Group {
+                level: 1,
+                start: 5,
+                end: 10
+            }
+        );
+    }
+
+    /// Either half of a run split at `pin`'s edge reports the whole run.
+    #[cfg(feature = "pin")]
+    #[gpui_kit::test]
+    fn either_half_reports_the_whole_run(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 0));
+        sheet.update(|table, cx| table.set_pinned(3, cx));
+        sheet.update(|table, cx| table.scroll_by(0.0, 120.0, cx));
+        for x in [50.0, 500.0] {
+            let at = sheet.header_at(x, 1.0);
+            sheet.press_with(at, MouseButton::Right, Modifiers::default(), 1);
+            assert_eq!(last(&mut sheet).1, FIRST_GROUP, "at {x}");
+        }
+    }
+
+    /// A context press on a group whose columns are all in the selected
+    /// `Columns` range keeps it; elsewhere it selects the group.
+    #[cfg(feature = "select")]
+    #[gpui_kit::test]
+    fn a_context_press_keeps_a_range_holding_the_group(cx: &mut TestAppContext) {
+        use crate::TallTableSelection;
+
+        let columns = |anchor, head| TallTableSelection::Columns {
+            anchor: (0, anchor),
+            head: (0, head),
+        };
+        let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 0));
+        let context = |sheet: &mut Sheet, from: TallTableSelection, x: f32| {
+            sheet.update(|table, cx| table.select(Some(from), cx));
+            let at = sheet.header_at(x, 1.0);
+            sheet.press_with(at, MouseButton::Right, Modifiers::default(), 1);
+            sheet.read(|table| table.selection_state.current)
+        };
+        assert_eq!(
+            context(&mut sheet, columns(0, 14), 100.0),
+            Some(columns(0, 14)),
+            "g1 inside: kept"
+        );
+        assert_eq!(
+            context(&mut sheet, columns(0, 14), 1300.0),
+            Some(columns(10, 19)),
+            "g2 partly outside: selected"
+        );
+        let cells = TallTableSelection::Cells {
+            anchor: (0, 0),
+            head: (5, 9),
+        };
+        assert_eq!(
+            context(&mut sheet, cells, 100.0),
+            Some(columns(0, 9)),
+            "not a Columns range: selected"
+        );
+    }
+}
+
+/// A move keeps a group whole (`reorder`): a group dragged among its
+/// siblings and held in its parent, a column held in its group, a block
+/// cutting a group not lifting; with `pin`, a group across the edge whole
+/// and a split one landing on one side.
+#[cfg(feature = "reorder")]
+mod moves {
+    use gpui_kit::TestAppContext;
+
+    use super::{Sheet, grouped};
+
+    fn order(sheet: &mut Sheet) -> Vec<usize> {
+        sheet.read(|table| table.order().to_vec())
+    }
+
+    /// The order with `block` moved to `to`, over `columns` columns.
+    fn moved(columns: usize, block: std::ops::Range<usize>, to: usize) -> Vec<usize> {
+        let mut rest: Vec<usize> = (0..columns).collect();
+        let lifted: Vec<usize> = rest.drain(block).collect();
+        rest.splice(to..to, lifted);
+        rest
+    }
+
+    /// Twelve columns in groups of four, each cut into two; with `select`,
+    /// no kind on, so a header press lifts its column.
+    fn open(cx: &mut TestAppContext) -> Sheet<'_> {
+        #[cfg_attr(not(feature = "select"), allow(unused_mut))]
+        let mut sheet = Sheet::open(cx, 1440., grouped(12, 4, 2));
+        #[cfg(feature = "select")]
+        sheet.update(|table, cx| table.set_selectable(crate::Selectable::none(), cx));
+        sheet
+    }
+
+    fn drag(sheet: &mut Sheet, from: (f32, f32), to: f32) {
+        let (from, to) = (sheet.header_at(from.0, from.1), sheet.header_at(to, from.1));
+        sheet.drag(from, to);
+    }
+
+    fn reset(sheet: &mut Sheet) {
+        sheet.update(|table, cx| table.set_order((0..12).collect(), cx));
+    }
+
+    #[gpui_kit::test]
+    fn a_group_moves_among_its_siblings(cx: &mut TestAppContext) {
+        let mut sheet = open(cx);
+        // g1.1 past g1.2's center (360).
+        drag(&mut sheet, (60.0, 1.0), 400.0);
+        assert_eq!(order(&mut sheet), moved(12, 0..2, 2));
+        reset(&mut sheet);
+        // Far right: held at g1's end.
+        drag(&mut sheet, (60.0, 1.0), 1300.0);
+        assert_eq!(order(&mut sheet), moved(12, 0..2, 2), "held in g1");
+        reset(&mut sheet);
+        // g1 past g2's center (720).
+        drag(&mut sheet, (60.0, 2.0), 800.0);
+        assert_eq!(order(&mut sheet), moved(12, 0..4, 4));
+        assert_eq!(sheet.drawn().len(), 3 + 6, "every run whole");
+    }
+
+    #[gpui_kit::test]
+    fn a_column_moves_only_within_its_group(cx: &mut TestAppContext) {
+        let mut sheet = open(cx);
+        drag(&mut sheet, (60.0, 0.0), 1300.0);
+        assert_eq!(order(&mut sheet), moved(12, 0..1, 1), "held in g1.1");
+        reset(&mut sheet);
+        drag(&mut sheet, (3.0 * 120.0 + 60.0, 0.0), 5.0);
+        assert_eq!(order(&mut sheet), moved(12, 3..4, 2), "held in g1.2");
+    }
+
+    /// With `Columns` on, a group's press selects it, and the selection
+    /// moves with it.
+    #[cfg(feature = "select")]
+    #[gpui_kit::test]
+    fn the_selection_moves_with_a_lifted_group(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(12, 4, 2));
+        drag(&mut sheet, (60.0, 1.0), 400.0);
+        assert_eq!(order(&mut sheet), moved(12, 0..2, 2));
+        assert_eq!(
+            sheet.read(|table| table.selection_state.current),
+            Some(crate::TallTableSelection::Columns {
+                anchor: (0, 2),
+                head: (0, 3)
+            })
+        );
+    }
+
+    /// A selected range that cuts a group doesn't lift: its press is one
+    /// that never dragged, selecting its column alone.
+    #[cfg(feature = "select")]
+    #[gpui_kit::test]
+    fn a_block_cutting_a_group_doesnt_lift(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(12, 4, 2));
+        let range = crate::TallTableSelection::Columns {
+            anchor: (0, 1),
+            head: (0, 4),
+        };
+        sheet.update(|table, cx| table.select(Some(range), cx));
+        drag(&mut sheet, (2.0 * 120.0 + 60.0, 0.0), 1300.0);
+        assert_eq!(order(&mut sheet), (0..12).collect::<Vec<_>>());
+        assert_eq!(
+            sheet.read(|table| table.selection_state.current),
+            Some(crate::TallTableSelection::Columns {
+                anchor: (0, 2),
+                head: (0, 2)
+            })
+        );
+        // A range of whole groups lifts.
+        let whole = crate::TallTableSelection::Columns {
+            anchor: (0, 0),
+            head: (0, 3),
+        };
+        sheet.update(|table, cx| table.select(Some(whole), cx));
+        drag(&mut sheet, (60.0, 0.0), 800.0);
+        assert_eq!(order(&mut sheet), moved(12, 0..4, 4));
+    }
+
+    /// A group dragged into `pin`'s run lands pinned, whole.
+    #[cfg(feature = "pin")]
+    #[gpui_kit::test]
+    fn a_group_crosses_the_edge_whole(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(12, 4, 0));
+        #[cfg(feature = "select")]
+        sheet.update(|table, cx| table.set_selectable(crate::Selectable::none(), cx));
+        sheet.update(|table, cx| table.set_pinned(4, cx));
+        drag(&mut sheet, (4.0 * 120.0 + 60.0, 1.0), 100.0);
+        assert_eq!(order(&mut sheet), moved(12, 4..8, 0));
+        assert_eq!(sheet.read(|table| table.pinned()), 8, "g2 pinned whole");
+    }
+
+    /// A group the host's count split is lifted whole, from either half,
+    /// and lands wholly on one side.
+    #[cfg(feature = "pin")]
+    #[gpui_kit::test]
+    fn a_split_group_lands_whole(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 1440., grouped(12, 4, 0));
+        #[cfg(feature = "select")]
+        sheet.update(|table, cx| table.set_selectable(crate::Selectable::none(), cx));
+        sheet.update(|table, cx| table.set_pinned(2, cx));
+        drag(&mut sheet, (60.0, 1.0), 1300.0);
+        assert_eq!(order(&mut sheet), moved(12, 0..4, 8));
+        assert_eq!(sheet.read(|table| table.pinned()), 0, "unpinned whole");
+        let drawn = sheet.drawn();
+        assert!(drawn.iter().all(|cell| !cell.3), "{drawn:?}");
+        // From the scrolled half, into the run: pinned whole.
+        sheet.update(|table, cx| {
+            table.set_order((0..12).collect(), cx);
+            table.set_pinned(2, cx);
+        });
+        drag(&mut sheet, (300.0, 1.0), 0.0);
+        assert_eq!(
+            order(&mut sheet),
+            (0..12).collect::<Vec<_>>(),
+            "beside itself"
+        );
+        drag(&mut sheet, (4.0 * 120.0 + 60.0, 1.0), 10.0);
+        assert_eq!(order(&mut sheet), moved(12, 4..8, 0));
+        assert_eq!(
+            sheet.read(|table| table.pinned()),
+            6,
+            "g2 pinned whole, g1 still split"
+        );
     }
 }

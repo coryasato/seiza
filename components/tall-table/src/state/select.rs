@@ -399,6 +399,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let Some(target) = target else {
             return;
         };
+        #[cfg(feature = "group-headers")]
+        if let Target::Group { start, end, .. } = target {
+            self.press_group(event.modifiers.shift, start..end, cx);
+            return;
+        }
         let Some((cell, rows, columns)) = target.cell() else {
             self.select_everything(cx);
             return;
@@ -441,7 +446,52 @@ impl<D: TallTableDelegate> TallTableState<D> {
             Target::Gutter(_) => selectable.rows.then_some(Kind::Rows),
             Target::Header(_) => selectable.columns.then_some(Kind::Columns),
             Target::Corner => None,
+            #[cfg(feature = "group-headers")]
+            Target::Group { .. } => selectable.columns.then_some(Kind::Columns),
         }
+    }
+
+    /// A press on a group's cell, its run's `places` (`group-headers`): as
+    /// a press on its first column's header and a Shift+press on its last,
+    /// no drag after. With Shift, a range spanning columns extends to the
+    /// group's far edge from its anchor, as a Shift+press on that header.
+    #[cfg(feature = "group-headers")]
+    pub(super) fn press_group(
+        &mut self,
+        shift: bool,
+        places: std::ops::Range<usize>,
+        cx: &mut Context<Self>,
+    ) {
+        let (start, last) = (places.start, places.end - 1);
+        if shift && let Some(selection) = self.selection_state.current {
+            if selection.kind().spans_columns() {
+                self.hide_tooltip(cx);
+                let anchor = selection.anchor();
+                let far = if anchor.1.abs_diff(start) > anchor.1.abs_diff(last) {
+                    start
+                } else {
+                    last
+                };
+                let head = (selection.head().0, far);
+                self.replace_selection(Some(selection.with(anchor, head)), cx);
+            }
+            return;
+        }
+        if !self.selection_state.selectable.columns {
+            return;
+        }
+        let Some((row, _)) = self.first_visible() else {
+            return;
+        };
+        self.hide_tooltip(cx);
+        self.replace_selection(
+            Some(TallTableSelection::new(
+                Kind::Columns,
+                (row, start),
+                (row, last),
+            )),
+            cx,
+        );
     }
 
     /// A drag starts: no hover, and so no tooltip, until its release.

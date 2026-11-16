@@ -169,6 +169,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             Some(Target::Gutter((row, _))) => ClickTarget::Row(row),
             Some(Target::Header((_, column))) => ClickTarget::Column(column),
             Some(Target::Corner) => ClickTarget::Corner,
+            #[cfg(feature = "group-headers")]
+            Some(Target::Group { level, start, end }) => ClickTarget::Group { level, start, end },
             // A header with no rows (`target_at` reads a header's cell).
             None => self
                 .header_place_at(position)
@@ -196,6 +198,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .current
             .is_some_and(|selection| inside(selection, target))
         {
+            return;
+        }
+        // A group outside the selection: selected.
+        #[cfg(feature = "group-headers")]
+        if let Target::Group { start, end, .. } = target {
+            self.press_group(false, start..end, cx);
             return;
         }
         let Some((cell, ..)) = target.cell() else {
@@ -257,8 +265,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
 }
 
 /// Whether a context press on `target` is inside `selection`: a cell it
-/// covers, a row's number under a `Rows` range, a header under a `Columns`
-/// range, the corner under any.
+/// covers, a row's number under a `Rows` range, a header or a group (all
+/// its columns) under a `Columns` range, the corner under any.
 #[cfg(feature = "select")]
 fn inside(selection: TallTableSelection, target: Target) -> bool {
     match target {
@@ -270,6 +278,13 @@ fn inside(selection: TallTableSelection, target: Target) -> bool {
             selection.kind() == Kind::Columns && selection.contains(row, column)
         }
         Target::Corner => true,
+        // Its columns all in a `Columns` range.
+        #[cfg(feature = "group-headers")]
+        Target::Group { start, end, .. } => {
+            selection.kind() == Kind::Columns
+                && selection.contains(0, start)
+                && selection.contains(0, end - 1)
+        }
     }
 }
 

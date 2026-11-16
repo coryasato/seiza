@@ -104,7 +104,22 @@
 // reported, and, with `select`, the drag
 // selecting its range; with `select`, a right press inside a block
 // keeping it and outside selecting its cell; in Chromium, a long press
-// by touch (CDP's touch events) a `Context`, its tap dropped. Chromium is granted
+// by touch (CDP's touch events) a `Context`, its tap dropped. Built with
+// `group-headers`, every run is at the host's default groups (two levels;
+// the reorder runs at `?groups=0`, since a drag is held to its group), and
+// it runs both shapes again: the header's rows, and the group cells
+// published (`__tallTableGroups`) against the runs of the columns' paths
+// cut to the view, and on screen (each closed cell's right border and its
+// label's ink where the probe puts them, no ink elsewhere but `pin`'s
+// edge), at open (with `pin`, the host's run splitting the first groups)
+// and scrolled sideways; with `clicks`, a press on each half of a split
+// run published as a `group` with the whole run's level and places; then
+// with nothing pinned, a press on the second inner group (with `select`,
+// its columns selected, and a Shift+press on the first outer group
+// extending to its far edge), and with `reorder` its drag before the
+// first inner group: the order, the cells drawn from the source, the
+// groups drawn whole, and with `select` the selection moved with it.
+// Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
 // WebKit on macOS writes the system pasteboard, so the run overwrites
@@ -129,7 +144,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -157,6 +172,7 @@ const density = builtFeatures().includes('density');
 const format = builtFeatures().includes('format');
 const reorder = builtFeatures().includes('reorder');
 const clicks = builtFeatures().includes('clicks');
+const groupHeaders = builtFeatures().includes('group-headers');
 /** The reorder runs: a header dragged (and with `select` a range, with
  *  `pin` across the edge, with `copy` a block copied, with `sort` a sorted
  *  column), or opened at `?order=reverse`. */
@@ -1483,6 +1499,165 @@ async function checkReorder(page: Page, label: string, start: Layout, run: Reord
   return notes.length ? `, ${notes.join('; ')}` : '';
 }
 
+/** The group cells on screen against the probe's, one row at a time
+ *  (polled up to 1 s: Firefox's screenshot can be a frame behind): in each
+ *  group row, every closed cell's right border has ink, every cell wide
+ *  enough for one has its label's ink starting at its `labelX`, and no ink
+ *  lies elsewhere but at `pin`'s edge line. A note, or `null` after a
+ *  failure. */
+async function groupsOnScreen(page: Page, label: string, what: string, layout: Layout, cells: GroupCell[]): Promise<string | null> {
+  const depth = (layout.headerRows ?? 1) - 1;
+  const edge = pinEdge(layout);
+  // Within 1.5 px: GPUI snaps lines to device pixels.
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1.5;
+  let wrong = '';
+  for (let waited = 0; waited <= 1_000; waited += 100) {
+    wrong = '';
+    let checked = 0;
+    for (let level = 0; level < depth && !wrong; level++) {
+      const row = cells.filter((cell) => cell.level === level);
+      // The row's middle, short of its bottom border.
+      const top = layout.top - layout.rowHeight * (depth + 1 - level);
+      const clip = { x: layout.left, y: top + 2, width: layout.cellsWidth, height: layout.rowHeight - 4 };
+      const ink = await inkIn(page, clip, 16);
+      const runs = runsOf(ink.x, ink.scale, 0);
+      for (const cell of row) {
+        const right = cell.left + cell.width;
+        const closed = cell.pinned ? right < edge - 1 : right < layout.cellsWidth - 1;
+        if (closed && !runs.some(([from, to]) => near(from, right - 1) || near(to, right))) wrong ||= `${cell.label}'s right border at ${right.toFixed(1)} px has no ink (level ${level}: ${JSON.stringify(runs.map(([a, b]) => [+a.toFixed(1), +b.toFixed(1)]))})`;
+        if (cell.width > 40 && !runs.some(([from]) => from >= cell.labelX - 1.5 && from <= cell.labelX + 4)) wrong ||= `${cell.label}'s label at ${cell.labelX.toFixed(1)} px has no ink there (level ${level})`;
+        checked++;
+      }
+      const explained = ([from, to]: [number, number]) =>
+        (edge > 0 && near(from, edge - 1)) || row.some((cell) => near(to, cell.left + cell.width) || (from >= cell.labelX - 1.5 && to <= cell.left + cell.width + 0.5));
+      const stray = runs.find((run) => !explained(run));
+      if (stray) wrong ||= `ink at ${stray[0].toFixed(1)}–${stray[1].toFixed(1)} px in level ${level}'s row that no group cell draws`;
+    }
+    if (!wrong) return `${checked} cells on screen`;
+    await page.waitForTimeout(100);
+  }
+  return failed(`${label}: ${what}: ${wrong}`);
+}
+
+/** With `group-headers`, at the host's groups: the header's rows, and the
+ *  group cells published against the runs of the columns' paths and the
+ *  layout (each cut to its region's visible part) and on screen, at open
+ *  (with `pin`, the host's run splitting the first group) and after a
+ *  sideways scroll; with `clicks`, a press on each half of a run split at
+ *  the edge published as a `group` with the whole run's level and places.
+ *  Then with nothing pinned: with `select`, a group's press selecting its
+ *  columns and a Shift+press on another group extending to its far edge;
+ *  with `clicks`, those presses published; with `reorder`, the second
+ *  inner group dragged before the first, the order, the groups drawn whole
+ *  in it, (with `select`) the selection moved with the group, then the
+ *  list's own order through the hook. */
+async function checkGroups(page: Page, label: string, opened: Layout, shape: Shape): Promise<string> {
+  const notes: string[] = [];
+  const view = () => shown(page).then(({ shown }) => shown);
+  const pathsIn = (layout: Layout) => layout.columns.map((column, place) => hostPath(shape, column.index ?? place));
+  const depth = 2;
+  if (opened.headerRows !== depth + 1) failed(`${label}: ${opened.headerRows} header rows, not ${depth + 1}`);
+  /** The probe and the screen at `layout` as it is now. */
+  const drawnAs = async (what: string, layout: Layout): Promise<boolean> => {
+    // Off the header, so nothing hovered is drawn over it.
+    await page.mouse.move(layout.left + 200, layout.top + 200);
+    const want = groupCellsOf(layout, (await view()).scrollX, groupRuns(pathsIn(layout)));
+    const { ok, cells } = await groupsAs(page, want);
+    if (!ok) {
+      failed(`${label}: ${what}: the groups published ${JSON.stringify(cells.map(({ level, label, start, end, pinned, left, width }) => [level, label, start, end, pinned, +left.toFixed(2), +width.toFixed(2)]))}, the runs drawn ${JSON.stringify(want.map(({ level, label, start, end, pinned, left, width }) => [level, label, start, end, pinned, +left.toFixed(2), +width.toFixed(2)]))}`);
+      return false;
+    }
+    const screen = await groupsOnScreen(page, label, what, layout, cells);
+    if (screen) notes.push(`${what}: ${cells.length} group cells (${screen})`);
+    return screen !== null;
+  };
+  /** A point inside `cell`, `into` px right of its visible left. */
+  const inside = (layout: Layout, cell: GroupCell, into = 0.5) => ({
+    x: layout.left + cell.left + Math.min(cell.width - 4, Math.max(4, cell.width * into)),
+    y: layout.top - layout.rowHeight * (depth + 1 - cell.level) + layout.rowHeight / 2,
+  });
+  const cellsNow = async () => (await global<GroupCell[]>(page, GROUPS_GLOBAL)) ?? [];
+  /** A press at `at` published as `cell`'s run's group (`clicks`). */
+  const pressedAs = async (what: string, at: { x: number; y: number }, cell: GroupCell, shift = false) => {
+    const before = clicks ? await clickCount(page) : 0;
+    await pressAt(page, at, shift);
+    if (!clicks) return;
+    const click = await clickAfter(page, before);
+    if (!click || click.target !== 'group' || click.level !== cell.level || click.start !== cell.start || click.end !== cell.end) failed(`${label}: ${what}: published ${JSON.stringify(click)}, not group ${cell.label} (level ${cell.level}, ${cell.start}..${cell.end})`);
+  };
+
+  // At open (with `pin`, the host's run cutting the first inner group).
+  let layout = opened;
+  await drawnAs('at open', layout);
+  const split = (await cellsNow()).filter((cell, _, all) => all.some((other) => other !== cell && other.level === cell.level && other.start === cell.start));
+  if (pin && (layout.pinned ?? 0) && !split.length) failed(`${label}: the host's pin (${layout.pinned}) cuts no group's cell in two`);
+  if (clicks && split.length) {
+    for (const half of split) await pressedAs(`the ${half.pinned ? 'pinned' : 'scrolled'} half of ${half.label}`, inside(layout, half), half);
+    notes.push(`${split.map((half) => `${half.label}'s ${half.pinned ? 'pinned' : 'scrolled'} half`).join(', ')} pressed as the whole run`);
+  }
+  // Sideways, where there's room: the cells cut at the view's left.
+  if (sidewaysRoom(layout) > 0) {
+    await page.mouse.move(layout.left + 200, layout.top + 200);
+    await wheel(page, 0, Math.min(400.3, sidewaysRoom(layout)));
+    await filledWhere(page, 's.scrollX > 0');
+    await drawnAs('scrolled sideways', layout);
+    await page.mouse.move(layout.left + 200, layout.top + 200);
+    await wheel(page, 0, -10_000);
+    await filledWhere(page, 's.scrollX === 0');
+  }
+
+  // Nothing pinned, so no group is split, for the presses and the drag.
+  if (pin && (layout.pinned ?? 0)) layout = await pinThrough(page, 0);
+  const own = layout.columns.map((_, place) => place);
+  const [, inner] = HOST_GROUPS[shape];
+  const selects = selectOn();
+  const at = async (level: number, start: number) => (await cellsNow()).find((cell) => cell.level === level && cell.start === start);
+  const columnsAt = (from: number, to: number): Selection => ({ kind: 'columns', anchor: [0, from], head: [0, to] });
+
+  // A press on the second inner group: its columns (`select`).
+  const second = await at(1, inner);
+  if (!second) return failed(`${label}: no cell of the second inner group (from place ${inner})`) ?? '';
+  await pressedAs(`a press on ${second.label}`, inside(layout, second), second);
+  if (selects) {
+    const ok = await selected(page, columnsAt(second.start, second.end - 1)).catch(async () => failed(`${label}: a press on ${second.label}: selected ${JSON.stringify((await view()).selection ?? null)}, not columns ${second.start}–${second.end - 1}`));
+    // Shift on the first outer group, from the anchor: its edge farther
+    // from it.
+    const outer = await at(0, 0);
+    if (ok && outer) {
+      const far = second.start - outer.start > outer.end - 1 - second.start ? outer.start : outer.end - 1;
+      await page.waitForTimeout(500);
+      await pressedAs(`a Shift+press on ${outer.label}`, inside(layout, outer, 0.1), outer, true);
+      const extended = await selected(page, columnsAt(second.start, far)).catch(async () => failed(`${label}: a Shift+press on ${outer.label}: selected ${JSON.stringify((await view()).selection ?? null)}, not columns ${second.start} to ${far}`));
+      if (extended) notes.push(`${second.label} pressed (its columns selected), then Shift+${outer.label} (to its far edge)`);
+    }
+  } else notes.push(`${second.label} pressed`);
+
+  // Its drag before the first inner group (`reorder`).
+  if (reorder) {
+    const first = await at(1, 0);
+    if (!first) return failed(`${label}: no cell of the first inner group`) ?? '';
+    await page.waitForTimeout(500);
+    const from = inside(layout, second, 0.3);
+    await dragHeader(page, from, layout.left + first.left + 4);
+    const want = movedOrder(own, second.start, second.end, 0);
+    const moved = await orderedAs(page, want).catch(async () => failed(`${label}: ${second.label} dragged before ${first.label}: the order ${JSON.stringify((await shown(page)).layout.columns.map((column) => column.index))}, not ${JSON.stringify(want)}`));
+    if (moved) {
+      layout = moved;
+      if (selects) {
+        await selected(page, columnsAt(0, second.end - second.start - 1)).catch(async () => failed(`${label}: ${second.label} moved: selected ${JSON.stringify((await view()).selection ?? null)}, not its new places`));
+        // No tint over the cells read on screen.
+        await page.keyboard.press('Escape');
+        await selected(page, null).catch(() => failed(`${label}: Escape kept the selection`));
+      }
+      const whole = await drawnAs(`${second.label} moved before ${first.label}`, moved);
+      const drawn = await cellsInOrder(page, label, `${second.label} moved`, want);
+      if (whole && drawn) notes.push(`${second.label} dragged before ${first.label}, every group whole (${drawn})`);
+      layout = await orderThrough(page, own);
+    }
+  }
+  return notes.length ? `, ${notes.join('; ')}` : '';
+}
+
 /** With `clicks`: each `pointerdown` the page saw (its button, Ctrl, and
  *  type) and each `contextmenu` (and whether it came prevented, read in
  *  the window's bubble phase, after gpui-pre-web's canvas listener). */
@@ -1971,7 +2146,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -1994,16 +2169,20 @@ try {
     if (format) runs.push(...SHAPES.flatMap((shape) => (['on', 'off'] as FormatRun[]).map((formatting) => ({ ...quiet, shape, formatting }))));
     if (reorder) runs.push(...SHAPES.flatMap((shape) => (['drag', 'reverse'] as ReorderRun[]).map((reordering) => ({ ...quiet, shape, reordering }))));
     if (clicks) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, clicking: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}`;
+    if (groupHeaders) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, grouping: true })));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
       // advances' size) with `density`; `?format=off` for the control.
       if (formatting) Object.assign(params, { 'probe-cells': '', ...(density ? { density: '30,14' } : {}), ...(formatting === 'off' ? { format: 'off' } : {}) });
       if (sorting) params['probe-cells'] = '';
-      if (reordering) params['probe-cells'] = '';
+      if (reordering || grouping) params['probe-cells'] = '';
       if (reordering === 'reverse') params.order = 'reverse';
+      // A drag is held to its group (`group-headers`): the reorder runs'
+      // moves are the ungrouped table's; the group runs drag groups.
+      if (reordering && groupHeaders) params.groups = '0';
       if (sorting === 'icons') params['sort-icons'] = '';
       if (sorting === 'opened') params.sort = `${OPEN_SORT.column},${OPEN_SORT.direction === 'ascending' ? 'asc' : 'desc'}`;
       if (cells) Object.assign(params, { cells, 'probe-cells': '' });
@@ -2033,6 +2212,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The group runs check their own, from the first screen.
+        if (grouping) {
+          const grouped = await checkGroups(page, label, layout, shape);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${grouped}`);
+          continue;
         }
         // The clicks runs check their own, from the first screen.
         if (clicking) {

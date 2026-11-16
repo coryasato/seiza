@@ -203,6 +203,7 @@ fn gap_mismatches(fixture: &Value, control: Control) -> Vec<(String, String)> {
             count,
             first..last + 1,
             float("x"),
+            &crate::reorder::single(columns.len()),
             control,
         )
         .map(|gap| {

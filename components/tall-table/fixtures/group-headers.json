@@ -1,9 +1,11 @@
 {
-  "about": "group-headers: the group cells a frame draws. Each case: each column's label path and width (by index), the order drawn (order[place] is the index; absent, the list's own), the host's pin count (the run in effect is pin.json's rule: the leading columns within half the cells' width), the cells' width, the sideways scroll, and a cell's padding on one side. Expected: the header's group rows (the deepest path) and each cell drawn, level by level, left to right, pinned region first: [level, label, start, end, pinned, left, width, label_x], start..end the whole run's places, left and width the visible part in its region, from the cells area's left, label_x that part's left plus the padding. The drag half (a block and a pointer's x to its gap) is added with the presses.",
+  "about": "group-headers: the group cells a frame draws. Each case: each column's label path and width (by index), the order drawn (order[place] is the index; absent, the list's own), the host's pin count (the run in effect is pin.json's rule: the leading columns within half the cells' width), the cells' width, the sideways scroll, and a cell's padding on one side. Expected: the header's group rows (the deepest path) and each cell drawn, level by level, left to right, pinned region first: [level, label, start, end, pinned, left, width, label_x], start..end the whole run's places, left and width the visible part in its region, from the cells area's left, label_x that part's left plus the padding. And the drag half, `gaps`: each column's label path and width, the host's pin count, the cells' width, the sideways scroll, a dragged block of places [first, last], and the pointer's x (the cells area's pixels) → whether the block lifts, and the gap (or null), its `to`, and its side, by reorder.json's gap rule over the block's parent's children (a gap among them, by their centers, inside the parent's span).",
   "controls": {
     "groups-by-place": "DataTable's spans: the runs found over the paths in index order and laid on the places, so a move leaves the groups where they were.",
     "no-split-at-edge": "A run across pin's edge drawn whole in the region where it starts, the scrolled region drawing none of it.",
-    "label-centered": "The label at the run's middle, not at its visible part's left: a wide group scrolled half out loses it."
+    "label-centered": "The label at the run's middle, not at its visible part's left: a wide group scrolled half out loses it.",
+    "gap-outside-parent": "A drag's gaps found among every column over the whole table, as without groups: a column leaves its group, a group lands inside another.",
+    "gap-by-column-centers": "The gap after the child holding the last column whose center, not the child's, is left of the pointer: past a sibling group's first column is past the group."
   },
   "cases": [
     {
@@ -126,6 +128,270 @@
       "expect": {
         "group_rows": 0,
         "cells": []
+      }
+    }
+  ],
+  "gaps": [
+    {
+      "name": "a-column-within-its-group",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. Column 0, in x, past column 1's center (150): the gap after it, x's end.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [0, 0],
+      "x": 190,
+      "expect": {
+        "lifts": true,
+        "gap": 2,
+        "to": 1,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "held-at-its-groups-edge",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. Column 0 with the pointer over B: x's last gap, never outside x.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [0, 0],
+      "x": 650,
+      "expect": {
+        "lifts": true,
+        "gap": 2,
+        "to": 1,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "a-group-among-its-siblings",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. x among A's children (x, y, column 4), past y's center (300): the gap after y.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [0, 1],
+      "x": 360,
+      "expect": {
+        "lifts": true,
+        "gap": 4,
+        "to": 2,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "past-a-siblings-first-column",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. x with the pointer past y's first column's center (250) but not y's (300): the gap beside x, none.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [0, 1],
+      "x": 280,
+      "expect": {
+        "lifts": true,
+        "gap": null,
+        "to": null,
+        "side": null
+      }
+    },
+    {
+      "name": "a-group-held-in-its-parent",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. x with the pointer over B: A's last gap, past column 4.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [0, 1],
+      "x": 900,
+      "expect": {
+        "lifts": true,
+        "gap": 5,
+        "to": 3,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "a-top-group-among-the-tables-children",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. B among the table's children (A, B, column 7), left of A's center (250): the first gap.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [5, 6],
+      "x": 100,
+      "expect": {
+        "lifts": true,
+        "gap": 0,
+        "to": 0,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "a-block-cutting-a-group",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. Columns 1-2 cut x: the block doesn't lift.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [1, 2],
+      "x": 700,
+      "expect": {
+        "lifts": false,
+        "gap": null,
+        "to": null,
+        "side": null
+      }
+    },
+    {
+      "name": "right-of-its-parent-its-last-gap",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. The view 300 wide scrolled to 500, so only B and the last column show: column 2, in y, with y wholly left of the view, takes y's last gap.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 300,
+      "scroll_x": 500,
+      "block": [2, 2],
+      "x": 100,
+      "expect": {
+        "lifts": true,
+        "gap": 4,
+        "to": 3,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "a-split-group-lands-whole",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. The host pins 3, splitting A at its fourth column: A dragged right of the last column lands wholly scrolled, the count 0.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 3,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [0, 4],
+      "x": 900,
+      "features": ["pin"],
+      "expect": {
+        "lifts": true,
+        "gap": 8,
+        "to": 3,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "a-group-pinned-before-a-split-one",
+      "why": "Eight columns: A over 0-4, its x over 0-1 and y over 2-3, B over 5-6, the last in none. The host pins 3: B dragged into the run, left of A's pinned part's center (150), lands pinned, wholly, before A.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["A"], ["B"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 3,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [5, 6],
+      "x": 100,
+      "features": ["pin"],
+      "expect": {
+        "lifts": true,
+        "gap": 0,
+        "to": 0,
+        "side": "pinned"
+      }
+    },
+    {
+      "name": "a-group-pinned-across-the-edge",
+      "why": "A, B, C, two columns each; the host pins A. B dragged left of A's center (100) lands pinned.",
+      "paths": [["A"], ["A"], ["B"], ["B"], ["C"], ["C"]],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 2,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [2, 3],
+      "x": 50,
+      "features": ["pin"],
+      "expect": {
+        "lifts": true,
+        "gap": 0,
+        "to": 0,
+        "side": "pinned"
+      }
+    },
+    {
+      "name": "a-pinned-group-unpinned-where-it-is",
+      "why": "A, B, C, two columns each; the host pins A. A dragged just right of the edge (200), left of B's center: the run's end, across it, unpins A where it is.",
+      "paths": [["A"], ["A"], ["B"], ["B"], ["C"], ["C"]],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 2,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [0, 1],
+      "x": 250,
+      "features": ["pin"],
+      "expect": {
+        "lifts": true,
+        "gap": 2,
+        "to": 0,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "every-column-pinned-pointer-past-them",
+      "why": "A, B, C, two columns each, all six pinned (600 px within half the view): with the pointer right of the edge, no scrolled column shows, and the table's own span gives no gap there, as reorder.json's rule has it.",
+      "paths": [["A"], ["A"], ["B"], ["B"], ["C"], ["C"]],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 6,
+      "cells_width": 1400,
+      "scroll_x": 0,
+      "block": [2, 3],
+      "x": 900,
+      "features": ["pin"],
+      "expect": {
+        "lifts": true,
+        "gap": null,
+        "to": null,
+        "side": null
+      }
+    },
+    {
+      "name": "a-split-sibling-from-its-scrolled-half",
+      "why": "A over 0-2 and three columns in none; the host pins 2, splitting A. Column 4 with the pointer right of the edge, left of A's scrolled half's center (250): A's start is in the pinned region, so in the scrolled one A's gap is its end, where the line is drawn.",
+      "paths": [["A"], ["A"], ["A"], [], [], []],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 2,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [4, 4],
+      "x": 220,
+      "features": ["pin"],
+      "expect": {
+        "lifts": true,
+        "gap": 3,
+        "to": 3,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "a-split-sibling-from-its-pinned-half",
+      "why": "A over 0-2 and three columns in none; the host pins 2, splitting A. Column 4 with the pointer left of the edge, right of A's pinned half's center (100): A's end is in the scrolled region, so in the pinned one A's gap is its start, and the column lands pinned there.",
+      "paths": [["A"], ["A"], ["A"], [], [], []],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 2,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "block": [4, 4],
+      "x": 150,
+      "features": ["pin"],
+      "expect": {
+        "lifts": true,
+        "gap": 0,
+        "to": 0,
+        "side": "pinned"
       }
     }
   ]

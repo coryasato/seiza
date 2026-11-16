@@ -44,6 +44,11 @@ pub(crate) enum Control {
     NoSplitAtEdge,
     /// The label at the run's middle, not kept at its visible part's left.
     LabelCentered,
+    /// The drag half's `gap-outside-parent`: a drag's units every column
+    /// alone, over the whole table, as without groups, so a column leaves
+    /// its group and a group lands inside another.
+    #[cfg(feature = "reorder")]
+    GapOutsideParent,
 }
 
 /// The runs of `paths`, given in drawn order (`paths[place]`, outermost
@@ -78,6 +83,63 @@ pub(crate) fn runs<'a>(paths: impl ExactSizeIterator<Item = &'a [SharedString]> 
         }
     }
     Groups { depth, runs }
+}
+
+/// The units a drag of `block` (places) moves among, `reorder`'s rule one
+/// level up: the children of its parent (the deepest run holding all of it
+/// and more, or the whole table of `columns`), each a run one level below
+/// the parent or a column in none, side by side across the parent's span.
+/// `None` where the block can't lift: a run deeper than its parent meets
+/// it without lying inside it (a drag would split that group).
+#[cfg(feature = "reorder")]
+pub(crate) fn children(
+    groups: &Groups,
+    block: Range<usize>,
+    columns: usize,
+    #[cfg(test)] control: Control,
+) -> Option<Vec<Range<usize>>> {
+    if block.is_empty() || block.end > columns {
+        return None;
+    }
+    let parent = groups
+        .runs
+        .iter()
+        .filter(|run| {
+            run.start <= block.start
+                && block.end <= run.end
+                && (run.start, run.end) != (block.start, block.end)
+        })
+        .max_by_key(|run| run.level);
+    let cuts = groups.runs.iter().any(|run| {
+        parent.is_none_or(|parent| run.level > parent.level)
+            && run.start < block.end
+            && block.start < run.end
+            && !(block.start <= run.start && run.end <= block.end)
+    });
+    if cuts {
+        return None;
+    }
+    #[cfg(test)]
+    if control == Control::GapOutsideParent {
+        return Some(crate::reorder::single(columns));
+    }
+    let (level, span) = match parent {
+        Some(parent) => (parent.level + 1, parent.start..parent.end),
+        None => (0, 0..columns),
+    };
+    let mut units = Vec::new();
+    let mut place = span.start;
+    for run in groups
+        .runs
+        .iter()
+        .filter(|run| run.level == level && span.start <= run.start && run.end <= span.end)
+    {
+        units.extend((place..run.start).map(|place| place..place + 1));
+        units.push(run.start..run.end);
+        place = run.end;
+    }
+    units.extend((place..span.end).map(|place| place..place + 1));
+    Some(units)
 }
 
 /// Where a frame draws the columns: `pinned` columns in effect, the run's
@@ -206,6 +268,8 @@ pub(crate) fn cells(
 mod tests {
     use gpui_kit::SharedString;
 
+    #[cfg(feature = "reorder")]
+    use super::children;
     use super::{Control, Run, View, cells, runs};
 
     fn paths(paths: &[&[&str]]) -> Vec<Vec<SharedString>> {
@@ -339,6 +403,34 @@ mod tests {
             got,
             [(true, 0.0, 150.0)],
             "the scrolled part is out of view"
+        );
+    }
+
+    /// A block's units: its parent's children (deeper runs, or columns in
+    /// none), a run equal to the block not its parent; a block that cuts a
+    /// deeper run doesn't lift.
+    #[cfg(feature = "reorder")]
+    #[test]
+    fn a_block_moves_among_its_parents_children() {
+        let paths = paths(&[&["A", "x"], &["A", "x"], &["A"], &["A", "y"], &["B"], &[]]);
+        let groups = runs(paths.iter().map(Vec::as_slice));
+        let units = |block| children(&groups, block, 6, Control::None);
+        // A column in `x`: among `x`'s columns.
+        assert_eq!(units(0..1), Some(vec![0..1, 1..2]));
+        // `x` itself: among `A`'s children.
+        assert_eq!(units(0..2), Some(vec![0..2, 2..3, 3..4]));
+        // A column in `A` and no deeper run.
+        assert_eq!(units(2..3), Some(vec![0..2, 2..3, 3..4]));
+        // `A`, `B`, the last column: the table's.
+        assert_eq!(units(0..4), Some(vec![0..4, 4..5, 5..6]));
+        assert_eq!(units(5..6), Some(vec![0..4, 4..5, 5..6]));
+        // Cutting `x`, or `A`.
+        assert_eq!(units(1..3), None);
+        assert_eq!(units(3..5), None);
+        // The control: every column alone.
+        assert_eq!(
+            children(&groups, 0..1, 6, Control::GapOutsideParent).map(|units| units.len()),
+            Some(6)
         );
     }
 }

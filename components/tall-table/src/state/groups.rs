@@ -60,7 +60,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// Where the frame draws the columns, for the groups' cells.
-    fn group_view(&self) -> View {
+    pub(super) fn group_view(&self) -> View {
         let place = self.place();
         #[cfg(feature = "pin")]
         let pinned = place.columns;

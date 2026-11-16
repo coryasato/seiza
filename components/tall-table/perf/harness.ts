@@ -67,6 +67,82 @@ export const SELECTION_GLOBAL = '__tallTableSelection';
  *  the last press (`Click`), replaced at each, its `count` one more. */
 export const CLICK_GLOBAL = '__tallTableClick';
 
+/** With `group-headers` and `?perf` (`host/crate/src/host.rs`,
+ *  `GROUPS_GLOBAL`): the group cells drawn (`GroupCell[]`), replaced as
+ *  they change. */
+export const GROUPS_GLOBAL = '__tallTableGroups';
+
+/** With `group-headers`: the host's groups in each shape (`rows.rs`'s
+ *  `Shape::groups`), `[outer, inner]`: the columns in groups of `outer`
+ *  (`g1`, `g2`, …), each cut into groups of `inner` (`g1.1`, …). */
+export const HOST_GROUPS: Record<Shape, [number, number]> = { narrow: [6, 3], wide: [50, 10] };
+
+/** The host's label path of the column at `index` (`rows.rs`'s
+ *  `with_groups`). */
+export function hostPath(shape: Shape, index: number): string[] {
+  const [outer, inner] = HOST_GROUPS[shape];
+  const group = `g${Math.floor(index / outer) + 1}`;
+  return [group, `${group}.${Math.floor((index % outer) / inner) + 1}`];
+}
+
+/** The runs of `paths` (drawn order, outermost first), level by level,
+ *  each level's left to right: neighbors whose paths are both deeper than
+ *  the level and agree through it (`src/groups.rs`'s rule). */
+export function groupRuns(paths: string[][]): { level: number; label: string; start: number; end: number }[] {
+  const depth = Math.max(0, ...paths.map((path) => path.length));
+  const runs: { level: number; label: string; start: number; end: number }[] = [];
+  const through = (path: string[], level: number) => JSON.stringify(path.slice(0, level + 1));
+  for (let level = 0; level < depth; level++) {
+    for (let place = 0; place < paths.length; ) {
+      if (paths[place]!.length <= level) {
+        place++;
+        continue;
+      }
+      const start = place;
+      const key = through(paths[place]!, level);
+      while (place < paths.length && paths[place]!.length > level && through(paths[place]!, level) === key) place++;
+      runs.push({ level, label: paths[start]![level]!, start, end: place });
+    }
+  }
+  return runs;
+}
+
+/** The group cells `runs` draw over `layout` at `scrollX` (without the
+ *  label's x): each run's pinned part and scrolled part, each cut to its
+ *  region's visible part (`fixtures/README.md`, `group-headers.json`). */
+export function groupCellsOf(layout: Layout, scrollX: number, runs: ReturnType<typeof groupRuns>): Omit<GroupCell, 'labelX'>[] {
+  const pinned = layout.pinned ?? 0;
+  const edge = pinEdge(layout);
+  const cells: Omit<GroupCell, 'labelX'>[] = [];
+  for (const run of runs) {
+    const part = (inPin: boolean, first: number, last: number) => {
+      const left = screenLeft(layout, first, scrollX);
+      const right = screenLeft(layout, last, scrollX) + layout.columns[last]!.width;
+      const [from, to] = inPin ? [0, edge] : [edge, layout.cellsWidth];
+      const [visibleLeft, visibleRight] = [Math.max(left, from), Math.min(right, to)];
+      if (visibleRight > visibleLeft) cells.push({ ...run, pinned: inPin, left: visibleLeft, width: visibleRight - visibleLeft });
+    };
+    if (run.start < pinned) part(true, run.start, Math.min(run.end, pinned) - 1);
+    if (run.end > pinned) part(false, Math.max(run.start, pinned), run.end - 1);
+  }
+  return cells;
+}
+
+/** With `group-headers`: the group cells once they're `want`'s (each
+ *  field within 0.01 px, `labelX` aside), or after `timeout` ms the last
+ *  published, for the caller's message. */
+export async function groupsAs(page: Page, want: Omit<GroupCell, 'labelX'>[], timeout = 5_000): Promise<{ ok: boolean; cells: GroupCell[] }> {
+  let cells: GroupCell[] = [];
+  const same = (a: Omit<GroupCell, 'labelX'>, b: Omit<GroupCell, 'labelX'>) =>
+    a.level === b.level && a.label === b.label && a.start === b.start && a.end === b.end && a.pinned === b.pinned && Math.abs(a.left - b.left) < 0.01 && Math.abs(a.width - b.width) < 0.01;
+  for (let waited = 0; waited <= timeout; waited += 50) {
+    cells = (await global<GroupCell[]>(page, GROUPS_GLOBAL)) ?? [];
+    if (cells.length === want.length && cells.every((cell, index) => same(cell, want[index]!))) return { ok: true, cells };
+    await page.waitForTimeout(50);
+  }
+  return { ok: false, cells };
+}
+
 /** With `sort` (`host/crate/src/host.rs`): the order (`Sort`, or `null`),
  *  replaced at each change, and the mark set as it changes, in the task
  *  that changed it (a click's). */
@@ -286,8 +362,8 @@ export function buildName(features: string[]): string {
   return features.length ? features.join('+') : 'base';
 }
 
-export type { Cell, Click, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
-import type { Cell, Click, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+export type { Cell, Click, CopyState, GroupCell, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+import type { Cell, Click, CopyState, GroupCell, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
 
 type Global = {
   __tallTable?: Shown;
