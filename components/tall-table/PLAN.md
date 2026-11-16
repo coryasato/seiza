@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`copy`'s fixture, asked for by the observatory's wide sheet on 2026-11-12, built the same day), then M15 (`reorder`, built 2026-11-13), then M16 (`clicks`, drafted as `context-menu`, with Kirkwood's press folded in; built 2026-11-16), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`copy`'s fixture, asked for by the observatory's wide sheet on 2026-11-12, built the same day), then M15 (`reorder`, built 2026-11-13), then M16 (`clicks`, drafted as `context-menu`, with Kirkwood's press folded in; built 2026-11-16), then M17 (`group-headers`, researched and specced 2026-11-16), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -35,7 +35,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M14 | `copy`'s fixture: a selection → its text, and the limits | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
 | M15 | `reorder`: drag a column to move it | Done 2026-11-13 ([`docs/milestones.md`](docs/milestones.md)) |
 | M16 | `clicks`: a press, a double press, and a context press reported | Done 2026-11-16 ([`docs/milestones.md`](docs/milestones.md)) |
-| M17 | `group-headers`: header rows over column groups | Planned |
+| M17 | `group-headers`: header rows over column groups | Active: part A done 2026-11-16 |
 
 One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features"; its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
 
@@ -76,7 +76,7 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 | `resize` | Drag a header edge to set a column's width, within a min and max; a double-click fits it; an event with the new widths, for a host to keep | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged`; `fit_col` (0.8.0) | — (it adds the column-width model the rest build on) | No | Column sizing (`columnResizeMode`) |
 | `pin` | The first *n* columns fixed at the left while the rest scroll sideways (M9's research) | `ColumnFixed::Left`, `fixed_left` (`ColumnFixed::Right`, `fixed_right`, since 0.9.1: "Right-pinned columns", below) | — (`resize` moves its edge) | No | Column pinning (left and right), with the first *n* ids |
 | `reorder` | Drag a header to move its column; with `pin`, a drag across the run's edge pins or unpins it (the count by the columns that crossed); with `select`, a selected range moves whole (M15's research) | `col_movable`, `MoveColumn` | `resize`'s width model | No | Column ordering (the drag is the app's) |
-| `group-headers` | Header rows spanning column groups | `group_headers`, `ColumnGroup` | `pin`, `reorder` (a group must move and pin whole) | No | Header groups |
+| `group-headers` | Header rows over groups of columns, any depth, from a label path on each column; a group's cell selects and drags the group, and the table's drags keep a group whole (M17's research) | `group_headers`, `ColumnGroup` | `pin`, `reorder` (a group moves whole; at `pin`'s edge it's drawn split) | No | Header groups |
 
 ### Selection
 
@@ -174,7 +174,88 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None. M17 (`group-headers`) opens with its research ("Next milestones", below).
+### M17: `group-headers`, header rows over groups of columns
+
+**What it adds** (behind the `group-headers` feature, off by default): rows over the header naming groups of columns, any number of levels deep, from a label path on each column. A group follows its columns through a move. The table's own drags keep a group whole: a group's cell drags the group, and a column moves only within its group. Pressing a group's cell selects its columns. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`group-headers`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-16, M17 part A).
+
+```rust
+impl TallTableColumn {
+    /// The groups this column sits under, outermost first (`group-headers`).
+    /// Neighbors in drawn order whose paths agree through a level share
+    /// that level's cell; with none set, the column is in no group.
+    #[cfg(feature = "group-headers")]
+    pub fn group<S: Into<SharedString>>(self, path: impl IntoIterator<Item = S>) -> Self;
+}
+
+// With `clicks`, a new target. `ClickTarget` becomes `#[non_exhaustive]`
+// (part C), so a crate matching it builds whether or not the variant is
+// compiled in; it stays `Copy`.
+#[non_exhaustive]
+pub enum ClickTarget {
+    // …
+    /// A group's cell: its level (0 at the top) and its run's places,
+    /// `start..end`, the whole run even when `pin`'s edge splits its cell.
+    #[cfg(feature = "group-headers")]
+    Group { level: usize, start: usize, end: usize },
+}
+
+// The layout probe (`probe.rs`), with the feature.
+pub struct TallTableLayout {
+    // …
+    /// The header's rows: the groups' levels plus the names' row.
+    pub header_rows: usize,
+    /// Each group cell drawn this frame.
+    pub groups: Vec<GroupProbe>,
+}
+
+pub struct GroupProbe {
+    pub level: usize,
+    pub label: String,
+    /// The run's places, `start..end`: the whole run, so the two cells of
+    /// a run split by `pin`'s edge share them.
+    pub start: usize,
+    pub end: usize,
+    pub pinned: bool,
+    /// The drawn cell's left and width, cut to its region's visible part,
+    /// from the cells area's left; the label's left from the same edge.
+    pub left: f32,
+    pub width: f32,
+    pub label_x: f32,
+}
+```
+
+The spec below is what parts B and C build; why each rule is so is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", and the root's research.
+
+- **The runs** (part B): at level *i*, neighboring places whose paths are both deeper than *i* and agree through *i* are one run. A run is a group's columns, never cut by `pin`: the edge splits only its drawn cell (below), so a press, a selection, and a move take the whole run. The runs are worked out where the columns are laid out (`lay_out`: a change in the columns, the order, or the widths), never during a frame. They're a pure function in `src/groups.rs` (the paths in drawn order → each level's runs), tested natively. Their cells' geometry is the frame's, from the run in effect, which `repin` changes without `lay_out` (a window resize, `set_pinned`, a resize's release).
+- **The header** (part B): one row per level of the deepest path plus the names' row, each the row height in effect (`sizes()`). With no paths it's one row and draws as today. Level *i* is row *i* from the top, and the names are always the bottom row. A shorter path leaves blanks below its last group. The corner (over the gutter) is one cell the header's full height, and a press anywhere in it is the corner's. The body gets what's left, so a change in depth refits the viewport as a resize does.
+- **A group's cell** (part B): its run's columns at their laid-out x and widths, cut to each region's visible part: a run across `pin`'s edge in effect draws two cells, one a region, each labeled. A 1 px `border` line at its right and bottom. Its label sits at the left of the visible part plus the padding, truncated to that part, in `table_head_foreground`. A blank draws nothing. With `select`, a cell takes the selection's tint when all its columns are among the selection's columns (`selected_lines`, any kind), as a column's header does.
+- **The layers over the header** (part B): `sort`'s arrows and `resize`'s bands on the bottom row only, `pin`'s edge line and `reorder`'s gap line through every row, `reorder`'s preview drawing the block's header in every row (its group cells cut to the block).
+- **The probe** (part B): `header_rows` and `groups` on the layout, so the scripts and the fixture read what's drawn.
+- **The presses** (part C), by the hit test's new arm: a point in a group row over a run's cell is the group, and over a blank it's the column's header. With `select`, a press on a group selects as a press on its first column's header followed by a Shift+press on its last would; a Shift+press on a group extends to the group's far edge from the anchor; a drag starting there extends nothing. With `reorder`, a drag past 2 px from a group's cell lifts the group (with `Columns` on, it's selected at the press, so the selection moves with it). With `clicks`, a `Group { level, start, end }` target, the whole run's places from either half of a split cell; a context press on a group whose columns are all in the selected `Columns` range keeps the range, and elsewhere selects the group.
+- **A move keeps a group whole** (part C): a block's parent is the deepest run that holds all of it and more (a run equal to the block is the block, not its parent), or the whole table. A lifted group's parent is so the run around it. The block lifts only if every run deeper than its parent that it meets lies inside it; if not, the press acts as one that never passed 2 px. Its gaps are the boundaries between the parent's children (deeper runs, or columns in no deeper run), inside the parent's span, by `reorder`'s rule over the children's centers. Left of the span it's the first gap, right of it the last. A gap beside the block moves nothing. `pin`'s edge works as in `reorder`: a group the host's count split is lifted whole and lands wholly on one side (`Move::count_after`), so the table's drag mends a split and never makes one. A host's `move_columns` and `set_order` aren't held to this; what they split is drawn split.
+- **`copy`** (part B): the header line stays the names alone.
+- **The fixture** (B for the drawing, C for the drag): `fixtures/group-headers.json`. Cases of paths, widths, an order, a pin count, the cells' width, and a sideways scroll → each group cell drawn (level, label, places, region, left, width, the label's x). Cases of a block and a pointer's x (and side) → the gap or none. Run natively against the table's own functions, with negative controls: `GroupsByPlace` (`DataTable`'s spans), `NoSplitAtEdge`, `LabelCentered`, `GapOutsideParent`, `GapByColumnCenters`. `fixtures/CLAUDE.md` gets its line, and a DOM contender's test names it skipped.
+- **The random test** (part C): the case's columns get paths from a stream of their own (depth 0–3, runs of 1–8 columns), so every existing case's draw is unchanged. Two new invariants: the drawn group cells are the runs of the drawn order, and a move the drag makes never splits a run. Each gets a control that must fail it (`GroupsByPlace`, `GapOutsideParent`). The soak runs on the final build: the paging is unchanged, but the viewport's height changes with every grouped case.
+- **The bare host** (part B, so `size` measures it): the host's `group-headers` feature forwarding the table's and the bridge's, and `?groups=<outer>,<inner>`: the columns in groups of `outer`, each cut into groups of `inner` (by default 50,10 in the wide shape and 6,3 in the narrow), so the feature is used, not only compiled. The bridge publishes a `Group` click (part C) as `target: "group"` with `level`, `start`, and `end` (each `null` for another target), and an unknown target (the enum's `#[non_exhaustive]` arm) as `"unknown"`.
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
+
+- **A. Research and spec** (no shipped code). *Done 2026-11-16,* revised the same day after a code review (`pin`'s edge cuts a run's cell, not the run, since `repin` moves the edge without `lay_out` and a cut run would let a drag split its group; a block's parent strictly around it; `ClickTarget::Group`'s places as fields and the enum `#[non_exhaustive]`; the corner the header's height; the tint under any kind; the bridge's fields). The research, the decisions, this spec, and the README's "How it differs from `DataTable`" table (asked for while the research ran). Check A1.
+- **B. The groups drawn.** `TallTableColumn::group`, `src/groups.rs`'s runs, the header's rows and cells, the label kept in view, the layers moved to the bottom row, the probe, `copy`'s header line, the bare host's `?groups=`, the fixture's drawing half. Checks B1–B3.
+- **C. The presses and the moves.** The hit test's group arm, `select`'s group press, `reorder`'s parent rule, gaps, and preview, `clicks`' `Group`, the bridge's publish, the fixture's drag half, the random test, the soak, the smoke check in three browsers. Checks C1–C3.
+- **D. The measurement and the close.** The cost on the final build, then every remaining check and the close-out ("Closing a milestone", above). Checks D1–D3.
+
+**Done when:**
+- [x] **A1. The research and the spec:** the research in the root's `docs/research/tall-table-features.md`, "`group-headers`"; its decisions in `docs/DECISIONS.md`; the API and the checks here. *Evidence (2026-11-16):* the research section (`DataTable`'s `group_headers` and `ColumnGroup` spans by place in gpui-component 0.9.1, which `move_column` doesn't move; TanStack's header groups, placeholders, and per-region rows); six decisions in `docs/DECISIONS.md`, "Features" (the model, the depth, and the presses decided with the owner); this spec, revised after its code review (part A's line).
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table size --against <M17's parent>` (the base after wasm-opt within 0.1 KiB, no `group-headers` symbols in it, the feature's build present). `just tall-table test` passes with every feature off, each on (`group-headers` among them), and all on; `just tall-table lint` passes.
+- [ ] **B2. The groups drawn, natively:** in a window, with `group-headers` alone and with `pin`, `select`, `resize`, `sort`, `density`: the header's height at one, two, and three levels (and one row with no paths); each run's cell, its cut at the view's left and right and at `pin`'s edge, and its label's x scrolled half out; the blanks; the corner the header's height; a run split by `move_columns` and by `set_order` drawn as two cells; a run split at `pin`'s edge redrawn at a window resize, `set_pinned`, and a resize's release that move the edge (without `lay_out`); a group's tint under a `Columns` range and a `Cells` block over its columns; the arrows and bands on the bottom row, the hit tests of a cell, a header, and a band unchanged; `copy`'s header line the names alone. The fixture's drawing half passes, each control fails it, and every check mutated fails a test.
+- [ ] **B3. The host builds it:** the bare host's `group-headers` feature forwards the table's and the bridge's, `?groups=` groups both shapes, and `just tall-table size` reports the build.
+- [ ] **C1. The presses and the moves, natively:** a press, a Shift+press, and a drag on a group's cell with `select` (each kind), with `reorder` (with and without `Columns` on), with `clicks` (each kind; a context press inside and outside the selection); a blank's press as its column's; a press in the corner's group rows as the corner's; a press on either half of a group split at `pin`'s edge as the whole run's; a column dragged within its group, held at the group's edges; a group dragged among its siblings and across `pin`'s edge; a group split at the edge lifted whole and landing on one side; a selected block that cuts a group not lifting. The fixture's drag half passes, each control fails it, and every rule mutated fails a test.
+- [ ] **C2. The random test and the soak:** the paths' stream and the two invariants, each control failing its invariant; `just tall-table soak` passes on the final build.
+- [ ] **C3. In the browsers:** `just tall-table smoke` with `group-headers` (and `group-headers,pin,select,reorder,clicks`), in both shapes, in Chromium, Firefox, and WebKit: the probe's group cells against the screens (`--screens save`), a group's press, its drag, and its published `Group` click (`level`, `start`, `end`).
+- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) against the base. The scroll and flings with `?groups=` against the same build without and the base, at the reference run, compared at the cells drawn (a taller header draws fewer rows). `reorder`'s drag segment with a group lifted.
+- [ ] **D2. The README:** `group-headers`' use (`group`, the runs, the presses, moves kept whole), its Features row and cost, its row in "How it differs from `DataTable`", its limits (copy writes no group rows; a host's moves can split a group), and its canvas gap (groups aren't announced).
+- [ ] **D3. Waiting apps told:** `group-headers` joins Tycho's "Ready so far" list. No other app has a row.
 
 ---
 
@@ -203,7 +284,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-M17's (`group-headers`) is written after its research, which opens it next; until then its spec is its row under "Features".
+None: M17 (`group-headers`) is the last feature in the order. The next one comes from an app's ask, or from TanStack's candidates ("Beyond `DataTable`", above) once one is measured.
 
 ---
 

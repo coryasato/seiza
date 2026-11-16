@@ -1026,3 +1026,87 @@ Nothing: no scenario, and TanStack has no click handling of its own. No fixture:
 ### What the random test gains
 
 Nothing: the feature touches no paging, no cache, and no state a step reads. No soak (the table's `CLAUDE.md`, rule 5).
+
+## `group-headers`
+
+Researched 2026-11-16, from the table's header (`src/state.rs`'s `render_header` and its layers over it: `sort`'s arrows, `resize`'s bands, `pin`'s edge line, `reorder`'s gap line and preview), its hit tests (`src/state/hit.rs`: `target_at`, `header_place_at`, each finding the header as the row above the body), `reorder`'s gap and move (`src/reorder.rs`: `Move`, `gap`, `View`), `pin`'s regions (`src/pin.rs`, `src/state/pin.rs`'s `split_layer`), `DataTable`'s group headers in gpui-component 0.9.1 (`src/table/column.rs`: `ColumnGroup`; `src/table/delegate.rs`: `group_headers`, `render_group_th`; `src/table/state.rs`: `update_header_layout`, `HeaderCell`, `header_band_height`, the header's rows in `render_table_head` and `render_fixed_head_cols`, `move_column`), and TanStack Table's header groups (v8: nested `columns` definitions, `getHeaderGroups`, `getLeftHeaderGroups`/`getCenterHeaderGroups`, a header's `isPlaceholder` and `colSpan`). No spike: a group's cell is a header cell over several columns, and a frame draws at most one more per visible column per level (below).
+
+### What asks for it
+
+- **Tycho:** a DuckDB `STRUCT` column draws as `<struct>` today (`engines/duckdb/crate/src/arrow.rs`). Flattened to its fields, which is the engine's work and not this feature's, the fields would sit under their struct's name, and a nested struct under each level's name. Tycho adopts every feature.
+- **No observatory scenario** asks for it. TanStack has header groups, so a feature level could compare them, but none is planned.
+- **The order** put it last because it depends on `pin` and `reorder` (the table's `PLAN.md`, "Columns": "a group must move and pin whole").
+
+### What `DataTable` does
+
+- **The model:** the delegate's `group_headers()` returns rows of `ColumnGroup { label, span }`, outermost first, any number of them. Each row's spans count columns from the left by position. A row's spans don't have to cover every column, and the columns past them get no group cell. `update_header_layout` turns each group into a cell as wide as its spans' columns, and the column names become a last row. Each header row is the row height; the header is that times the rows.
+- **Drawing:** the group rows aren't virtualized (every group is drawn; "far fewer cells"). Each group cell is centered text with a right border; each row has a bottom border. With fixed columns, a group cell is drawn in the region where it starts, at its full width.
+- **Position, not identity:** a group spans places. `move_column` moves the column and its `ColGroup` but not the spans, so a column moved out of its group takes the group's label of wherever it lands, and the group keeps its count of columns. A resize updates the groups' widths.
+- **Presses:** none on a group cell: no select, sort, resize, or drag. A column's own header drags as without groups, anywhere among the columns of its region.
+- **Nothing to reuse but the shape:** its header is flex rows of elements. The tall table draws positioned cells in regions, so it carries over the rows over the names, the cell a group spans, and a row's height.
+
+### TanStack Table
+
+Groups are a tree of column definitions (a group's `columns`), so a group belongs to its columns. `getHeaderGroups` builds one row per depth, deepest last. A leaf shallower than the tree gets placeholder headers (`isPlaceholder`) in the rows above it, and a group's cell spans its leaves (`colSpan`). The rows are built from the leaves in drawn order: when `columnOrder` or pinning leaves a group's leaves apart, the group appears once per run, each a header of its own with the same column definition. Pinning builds each region's rows apart (`getLeftHeaderGroups`, `getCenterHeaderGroups`), so a group across the edge is drawn twice. The drag is the app's, so keeping a group whole is the app's too.
+
+### Groups on the columns, by label
+
+Two models: spans by place, set on the table (`DataTable`'s), or a label path on each column (TanStack's tree, flattened).
+
+- **Spans by place:** a move changes a column's group (above), and `reorder` has kept everything that belongs to a column by its index since `reorder` was built (`src/CLAUDE.md`, "Places and indices"). With spans, every move would have to rewrite them, and a host's `move_columns` or `set_order` would have to come with spans. Rejected.
+- **A label path on each column:** `TallTableColumn::group(["Astrometry", "Position"])`, outermost first, travels with its column by index as every other setting on `TallTableColumn` does, and `set_columns` brings new groups with new columns. A group is a run: at level *i*, neighboring places whose paths are both deeper than *i* and agree through *i* share one cell. So a group split by a host's `move_columns` or `set_order` is two runs, drawn as one cell each, both labeled, as TanStack does. `pin`'s edge doesn't cut a run: it splits only the run's drawn cell ("Drawn", below), so a press, a selection, and a move still take the whole group. Two separate groups with the same path become one run when they're neighbors; a host that wants them apart names them apart. The owner chose this model.
+
+**Any depth,** as `DataTable` and TanStack allow and nested structs need. The header has one row per level of the deepest path plus the names' row. Level *i* is header row *i* from the top. A column whose path is shorter than the deepest has blanks under its last group, down to its name, which is always in the bottom row (TanStack's placeholders). With no column grouped, the header is one row and the base draws as today.
+
+### Drawn
+
+- **Each group row is the row height** (`density`'s, through `sizes()`), as `DataTable`'s are. The header grows by a row per level and the body loses it: the viewport is the body's bounds, so a change in depth refits the visible rows as a window resize does, and the paging is unchanged.
+- **A group's cell** spans its run's columns at their laid-out x and widths, cut to each region's visible part: a run across `pin`'s edge in effect draws two cells, one a region, each labeled. The run in effect changes without `lay_out` (`repin`: a window resize, `set_pinned`, a resize's release), so the cut is the frame's, not the runs'. A cell is cut to what's visible: a cell that starts left of the view is drawn from the view's left edge. A 1 px `border` line at its right and its bottom. A blank cell draws nothing, the header's `table_head` showing through.
+- **Its label** is drawn at the left of the cell's visible part, plus the padding, and truncated to that part. So a wide group scrolled half out of view keeps its name in view, which a centered label (`DataTable`'s) loses: in the wide shape, a group of 50 columns is 6,000 px wide.
+- **The names' row, the arrows (`sort`), and the bands (`resize`)** are the bottom row's, as today. The hit tests already find the header as the row above the body, so they hold. Today the arrows and bands take the header's full height, so they move to the bottom row. `pin`'s edge line and `reorder`'s gap line run through every header row. The corner, over the gutter, is one cell the header's full height: `target_at` finds it only in the row above the body today, so its hit test grows with the header.
+- **With `select`,** a group's cell takes the selection's tint when every one of its columns is among the selection's columns, in any kind (`selected_lines`), as a column's header does.
+
+### The presses
+
+The owner chose presses for the group cells: `DataTable` has none, and a press is the only way to select or lift a group as one.
+
+- **`select`:** a press on a group's cell selects as a press on its first column's header followed by a Shift+press on its last would. In the `Columns` kind, that's the group's columns. Shift+press on a group's cell extends the range to the group's far edge from the anchor. A drag starting on a group's cell doesn't extend the selection (below). A press on a blank selects as a press on the column below it.
+- **`reorder`:** a drag starting on a group's cell, past 2 px, moves the whole group. With `select`'s `Columns` kind on, the press has already selected the group, so the selection moves with it as with any selected block (`reorder`'s Sheets rule). A blank's press drags its column, as the column's own header does.
+- **`clicks`:** a new target, `ClickTarget::Group { level, start, end }`, the whole run's places from either half of a cell `pin` split. Fields, not a `Range`, so `ClickTarget` stays `Copy`; and since the variant is behind a feature, the enum becomes `#[non_exhaustive]`, so the bridge (its only matcher) builds whether or not a crate in the build turns the feature on. The bridge publishes the level and places with the target's name. A blank is the column's `Column(place)`. A context press on a group whose columns are all in the selected `Columns` range keeps the range; elsewhere it selects the group, as `clicks`' Google Sheets rule does for a column.
+- **Not on a group's cell:** no sort (a group has no order of its own) and no resize band (a group's width is its columns'; `DataTable` has neither).
+
+### Moves keep a group whole
+
+`DataTable` lets a column leave its group (its spans stay), and TanStack leaves it to the app. Here the table's own drags never split a group, and a host's `move_columns` and `set_order` may (they're drawn split, above).
+
+- **A block's parent** is the deepest run that holds every place of the block and more (a run equal to the block is the block itself), or the whole table. A block moves only if it is **whole**: every run deeper than its parent that meets the block lies inside it. A column in a group is whole, with that group as its parent. A group lifted by its cell is whole, with the run around it as the parent. A selected range that cuts a group doesn't move: the press acts as one that never passed 2 px (`reorder`'s rule for a block with a column that can't move).
+- **Its gaps** are only the boundaries between the parent's children, inside the parent's span. A child is a deeper run, or a column with no deeper run. The gap is `reorder`'s rule over the children's centers rather than the columns': the gap after the last child whose center is left of the pointer. Left of the parent's span it's the first gap, right of it the last. A gap beside the block is no move, as in `reorder`. With no groups every column is a child of the whole table, and the rule is `reorder`'s.
+- **`pin`'s edge** works as in `reorder`. The edge is a gap when it falls on a boundary between the parent's children. A move across it changes the count by the columns that crossed, so a group dragged across the edge pins or unpins whole. A group the host's count split is still one run, so lifting it lifts the whole run, and `reorder`'s count lands a block wholly on one side (`Move::count_after`): the table's drag mends a split and never makes one. A column inside a split group crosses the edge only within the group's span, by the same rule.
+- **The preview** is the block's header in every row: its names, and its group cells cut to the block (a lifted group carries its label, and a lifted column under a group carries the group's row as a blank).
+
+### What a group does to the rest
+
+- **`pin`:** the count stays the host's, and the half-view cap applies as today. A run across the edge is drawn as two cells, each labeled, which the owner chose over moving the count to the group's edge: that would make the run in effect differ from the host's count in one more way than the cap already does.
+- **`copy`:** the header line (`headers(true)`) stays the names alone. A TSV with one header line stays parseable; the group rows aren't copied.
+- **`sort`, `resize`, `format`, `custom-cells`, `live`, `follow`, the paging:** nothing. Every setting stays the column's, and the widths event stays in index order.
+- **`density`:** each group row is the row height in effect, its text the cells'.
+- **The probe:** the layout gains `header_rows` and `groups`, each drawn cell's level, label, places, left, width, and region, so the scripts and a fixture read what's drawn.
+
+### Frame-work risk
+
+- **Scrolling:** a frame draws each visible run's cell per level, at most a visible column's worth per level, plus the clipping of each label. The wide shape with two levels (groups of 50 columns, and of 10 inside them) draws 3–5 more cells than today's ~12 visible headers: ~1,380 px of cells show 2–3 inner groups (1,200 px each) and 1–2 outer ones (6,000 px). Measured: the scroll and flings with groups against the same build without, and the base. A taller header shows fewer rows (two rows fewer of ~30 at the base's density), so a grouped frame draws fewer cells, and the note compares at the cells drawn.
+- **The runs** are worked out in `lay_out`, not a frame: one pass over the columns per level, in drawn order, again when the columns, the order, or the widths change. A pin count doesn't change them; it changes only where a frame cuts their cells.
+- **The drag:** `reorder`'s, with the preview's group cells added. Measured as `reorder`'s drag segment with a group lifted.
+
+### Canvas gaps
+
+- **A screen reader isn't told** the groups, or which group a column is in: the accessibility gap the README tracks. *To close it:* the DOM mirror, its header rows as `role="row"`s with `aria-colspan`.
+- **Copy** writes no group rows (above). The README's limits say so.
+
+### What a DOM contender does
+
+TanStack's header groups, from the same paths as nested definitions, with its own drag. Its cells would match only if it draws the same runs, cut and labeled the same way, and finds the same gaps. A fixture pins them: `fixtures/group-headers.json`, with cases of the columns' paths and widths, the order, the pin count, the cells' width, and the sideways scroll → each drawn group cell (level, label, places, region, left, width, the label's x). Its drag cases take a block and a pointer's x (and side) → the gap or none, run natively against the table's own functions. Its negative controls: groups by place (`DataTable`'s spans); a run not split at the pin edge; the label centered, not kept in view; a gap outside the parent; a gap by the columns' centers, not the children's. A DOM contender's test names it skipped until the observatory builds a group level, which no scenario asks for.
+
+### What the random test gains
+
+The case's columns get paths from a stream of their own (depth 0–3, runs of 1–8 columns), as `density`'s steps do, so every existing case's draw is unchanged. That puts the header's depth, and so the viewport, in every case with groups. `Move` steps then meet the parent rule, and the invariants gain two. The drawn group cells are the runs of the drawn order, which a `GroupsByPlace` control must fail. A move the drag makes never splits a run, which a `GapOutsideParent` control must fail. The paging's code doesn't change, but the viewport's height does with every grouped case, so the soak runs on the final build.

@@ -602,3 +602,13 @@ No results note: nothing measured. The build's check was a byte comparison again
 - The cost part B worried about, a canvas, a hitbox, and a window listener on every band and arrow, doesn't show: at ~10 headers a view, `clicks,resize,sort` reads within `resize,sort`'s spread in every segment and the drag. A per-element listener is cheap at a header's count; it would be worth re-reading only for something drawn a cell.
 - The base moved 0.22 ms between the session's first and last runs (the sideways fling 4.54 → 4.32), more than any difference the feature shows. Running the base at both ends of the session is what makes a "no cost" reading honest; one base run would have put `clicks`' sideways fling at +0.04 or +0.26, depending on which.
 - The size the PLAN expects for a feature isn't settled at its own part: `clicks`' build grew from +7.4 KiB after wasm-opt (part B) to +11.4 once part C's bridge arm and the host's published click were in, and brotli read +1.2 against part B's −0.1, both under its swing. The cost on the final build is the one to quote.
+
+## M17: `group-headers` (part A, 2026-11-16)
+
+**Results:** none (research only, no spike).
+
+**Surprises:**
+- `DataTable`'s groups are spans by place, and `move_column` moves the column but not the spans, so moving a column changes its group under it. A model that `reorder` (places and indices) settled for every other setting settled this one too: the group goes on the column.
+- The hit tests needed no change for the bottom row: each already finds the header as "the row above the body", so a taller header leaves them right. The layers drawn at the header's full height (the arrows, the bands) are what move.
+- Nothing waits on it. Its first real use is Tycho's `STRUCT` columns, which draw as `<struct>` today and would need the engine to flatten them first. Being last in the order, it was planned from `DataTable`'s inventory, not from an ask.
+- The code review found the spec had put `pin`'s edge in the wrong layer: cutting the runs at the edge made them stale whenever `repin` moved it (three paths skip `lay_out`), and let the table's own drag lift half a group. A group is the columns' fact, and the edge only the frame's. A spec reads each input's every writer, not only the one it names.

@@ -405,6 +405,26 @@ Each feature's bytes are its build against the base in one run on 2026-11-04 (gp
 
 What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
+## How it differs from `DataTable`
+
+The features are gpui-kit's [`DataTable`](https://docs.rs/gpui-component/0.9.1/gpui_component/table/)'s (gpui-component 0.9.1), but several work differently here. Each row links to the decision behind it, by its date.
+
+| Area | `DataTable` | The tall table | Decision |
+|---|---|---|---|
+| Scrolling | Rows placed in f32 pixels (`uniform_list`) | An f64 row index, with its own scrollbars, wheel, and keys | [Table and paging, 2026-09-25](docs/DECISIONS.md#table-and-paging) |
+| Rows | Held by the delegate, which renders each one; `load_more` grows them | Read a page at a time from the delegate, never all held; placeholders until a page lands | [Table and paging](docs/DECISIONS.md#table-and-paging) |
+| A cell's look | `render_td`, an element the host builds per cell | `custom-cells`: a fill, a bar, and a text color the page answers | [Features, 2026-10-23](docs/DECISIONS.md#features) |
+| Stripes, row lines, row numbers | `stripe`, `bordered`, `row_header` settings | Always drawn by the base | [Features, 2026-10-23](docs/DECISIONS.md#features) |
+| Sizes | Presets (`Size`), each a row height with its own padding and text | `density`: a row height and a text size set together, no presets | [Features, 2026-11-01](docs/DECISIONS.md#features) |
+| Selection | One row, one column, or one cell | `select`: one range of rows, columns, or a block of cells, extended by Shift, a drag, and keys | [Features, 2026-10-26](docs/DECISIONS.md#features) |
+| Copy | `dump_range` over rows in memory | `copy`: tab-separated exact values, reading rows that aren't loaded; the host writes the clipboard | [Features, 2026-10-26](docs/DECISIONS.md#features) |
+| Sorting | The delegate sorts the rows it holds | `sort`: the source reads pages in the order, or refuses | [Features, 2026-10-29](docs/DECISIONS.md#features) |
+| Pinning | A flag per column, left or right | `pin`: a count, the first *n* columns, left only, at most half the view | [Features, 2026-10-29](docs/DECISIONS.md#features) |
+| Moving columns | The delegate moves its own columns; the selection stays at its index; one column | `reorder`: the table keeps the order (no page read again), a selected block moves whole, a move across `pin`'s edge pins or unpins, and the selection follows its columns | [Features, 2026-11-13](docs/DECISIONS.md#features) |
+| Presses and menus | Right and double click events, on the release; the delegate builds a menu the table draws; a right-clicked row drawn apart | `clicks`: a press, double press, and context press on the press, with any target; the host draws the menu; a context press selects what it's on (Google Sheets' rule) | [Features, 2026-11-16](docs/DECISIONS.md#features) |
+
+Not carried over at all (`load_more`, `render_empty`, `scroll_to_col`, and others): [`PLAN.md`, "Features"](PLAN.md#features).
+
 ## Limits
 
 - **Read-only.** No editing or filtering.
