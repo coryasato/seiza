@@ -7,7 +7,7 @@
 //! flag, with `resize` the widths a resize left, with `select` the
 //! selection, with `copy` the clipboard's writer ([`clipboard`]), with
 //! `sort` the order and its mark, with `pin` the columns pinned, with
-//! `reorder` the columns' order, and the probes (`TallTableProbe`,
+//! `reorder` the columns' order, with `clicks` each press, and the probes (`TallTableProbe`,
 //! `TallTableLayout`, `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -88,6 +88,13 @@ pub struct Publish {
     /// drawn at each place, replaced at each change. Unset until the first.
     #[cfg(feature = "reorder")]
     pub column_order: Option<&'static str>,
+    /// The global holding the last press (`clicks`'
+    /// [`TallTableEvent::Clicked`], [`js::click`]), replaced at each, its
+    /// `count` the presses published so far (the bridge's own count, every
+    /// `Publish` in the page together: a host may build one an event), so
+    /// a script sees a second press on the same target.
+    #[cfg(feature = "clicks")]
+    pub click: Option<&'static str>,
 }
 
 impl Publish {
@@ -178,6 +185,15 @@ impl Publish {
                     js::set_global(name, &js::order(order));
                 }
             }
+            #[cfg(all(feature = "clicks", target_family = "wasm"))]
+            TallTableEvent::Clicked(click) => {
+                if let Some(name) = self.click {
+                    use std::sync::atomic::{AtomicU32, Ordering};
+                    static PUBLISHED: AtomicU32 = AtomicU32::new(0);
+                    let count = PUBLISHED.fetch_add(1, Ordering::Relaxed) + 1;
+                    js::set_global(name, &js::click(click, count.into()));
+                }
+            }
             #[cfg(target_family = "wasm")]
             TallTableEvent::Cells(cells) => {
                 if let Some(name) = self.cells {
@@ -196,6 +212,8 @@ pub mod js {
     #[cfg(feature = "select")]
     use seiza_tall_table::{Cell, TallTableSelection};
     use seiza_tall_table::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
+    #[cfg(feature = "clicks")]
+    use seiza_tall_table::{ClickKind, ClickTarget, TallTableClick};
     #[cfg(feature = "sort")]
     use seiza_tall_table::{Sort, SortDirection};
     use wasm_bindgen::JsValue;
@@ -349,6 +367,54 @@ pub mod js {
         set(&object, "kind", JsValue::from_str(kind));
         set(&object, "anchor", cell(selection.anchor()));
         set(&object, "head", cell(selection.head()));
+        object.into()
+    }
+
+    /// `{kind, target, row, column, x, y, modifiers, count}` (`clicks`):
+    /// `kind` `press`, `double`, or `context`; `target` `cell`, `row`,
+    /// `column`, `corner`, or `blank`, with `row` and `column` (its place)
+    /// where it has one, else `null`; `x` and `y` the pointer in CSS px of
+    /// the window; `modifiers` the names held (`control`, `alt`, `shift`,
+    /// `platform`); `count` the caller's.
+    #[cfg(feature = "clicks")]
+    pub fn click(click: &TallTableClick, count: f64) -> JsValue {
+        let kind = match click.kind {
+            ClickKind::Press => "press",
+            ClickKind::Double => "double",
+            ClickKind::Context => "context",
+        };
+        let (target, row, column) = match click.target {
+            ClickTarget::Cell { row, column } => ("cell", Some(row), Some(column)),
+            ClickTarget::Row(row) => ("row", Some(row), None),
+            ClickTarget::Column(column) => ("column", None, Some(column)),
+            ClickTarget::Corner => ("corner", None, None),
+            ClickTarget::Blank => ("blank", None, None),
+        };
+        let or_null = |value: Option<f64>| value.map_or(JsValue::NULL, number);
+        let held = click.modifiers;
+        let modifiers: Array = [
+            ("control", held.control),
+            ("alt", held.alt),
+            ("shift", held.shift),
+            ("platform", held.platform),
+        ]
+        .into_iter()
+        .filter(|(_, on)| *on)
+        .map(|(name, _)| JsValue::from_str(name))
+        .collect();
+        let object = Object::new();
+        set(&object, "kind", JsValue::from_str(kind));
+        set(&object, "target", JsValue::from_str(target));
+        set(&object, "row", or_null(row.map(|row| row as f64)));
+        set(
+            &object,
+            "column",
+            or_null(column.map(|column| column as f64)),
+        );
+        set(&object, "x", number(f32::from(click.position.x)));
+        set(&object, "y", number(f32::from(click.position.y)));
+        set(&object, "modifiers", modifiers.into());
+        set(&object, "count", number(count));
         object.into()
     }
 

@@ -584,3 +584,12 @@ No results note: nothing measured. The build's check was a byte comparison again
 - The code review found a long press's other half: gpui-pre's recognizer turns a long press nobody claims into a tap when the finger lifts, so a host with its own menu would have had its selection replaced by a press the reader never made. Claiming is preventing the default, which would also stop a host's `ContextMenuExt`; the table drops the tap instead. The tests had sent long presses but never lifted one.
 - GPUI focuses a `track_focus` element on any button's press by itself, so the table's own focus on a right press was redundant and can't be held off during a drag; only a long press, which isn't a press, needs the table to focus.
 
+## M16: `clicks` (part C, 2026-11-16)
+
+**Results:** none measured (the smoke check, in `PLAN.md`'s C1).
+
+**Surprises:**
+- The open question had a one-line answer in source: gpui-pre-macos turns a Ctrl+left press into a right press, and gpui-pre-web doesn't, so the same GPUI app opens a `ContextMenuExt` on Ctrl+click on the desktop and not in a Mac browser. The browsers agreed on the press (button 0 with Ctrl in all three) and differed only in the `contextmenu` they fire for it (Chromium and WebKit one, Firefox none), which gpui-pre-web swallows anyway.
+- The narrow shape's 11 columns run past the 1440 px view, so the blank past the last column, which every window test had room for, didn't exist in the browsers until the run widened the view: a target the native tests sized for themselves has to be found again on the real page.
+- A long press needed no touch emulation in Chromium: CDP's touch events alone reach gpui-pre-web as touch pointers, and the tap that follows was dropped as part B's fix says. Firefox and WebKit can't be driven to one, so a touch device stays a manual check.
+- Every check passed on its first run in all three browsers, so the evidence is a mutation (the bridge's double press published as a press), which fails every double press.

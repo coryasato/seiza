@@ -89,7 +89,22 @@
 // `resize`, a float column narrowed to 56 px, its cells checked again and
 // some falling back. At `?format=off` (the control): no cell formatted,
 // and on a build with `format` alone, the first screen the same, pixel for
-// pixel, as the base build's. Chromium is granted
+// pixel, as the base build's. Built with `clicks`, it runs both shapes
+// again (the narrow one widened for room past the last column), each
+// press checked against the published click (`__tallTableClick`: its
+// kind, its target's row and place by the layout probe, the pointer, the
+// modifiers): on a cell, a row's number, a header, the corner, and in the
+// narrow shape a blank in the body and the header, a press, a double
+// press, the same press again apart (reported again), and a right press,
+// each `contextmenu` prevented; Ctrl+click a `Press` with Ctrl, then with
+// the host's hook (`set_ctrl_press_is_context`) a `Context`, each
+// `pointerdown` button 0 with Ctrl (`.claude/rules/gpui-web.md` rests on
+// it) and the `contextmenu`s recorded; a right press during a left
+// drag sent as no `pointerdown` (so GPUI never sees it), nothing
+// reported, and, with `select`, the drag
+// selecting its range; with `select`, a right press inside a block
+// keeping it and outside selecting its cell; in Chromium, a long press
+// by touch (CDP's touch events) a `Context`, its tap dropped. Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
 // WebKit on macOS writes the system pasteboard, so the run overwrites
@@ -114,7 +129,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -141,6 +156,7 @@ const pin = builtFeatures().includes('pin');
 const density = builtFeatures().includes('density');
 const format = builtFeatures().includes('format');
 const reorder = builtFeatures().includes('reorder');
+const clicks = builtFeatures().includes('clicks');
 /** The reorder runs: a header dragged (and with `select` a range, with
  *  `pin` across the edge, with `copy` a block copied, with `sort` a sorted
  *  column), or opened at `?order=reverse`. */
@@ -1467,6 +1483,237 @@ async function checkReorder(page: Page, label: string, start: Layout, run: Reord
   return notes.length ? `, ${notes.join('; ')}` : '';
 }
 
+/** With `clicks`: each `pointerdown` the page saw (its button, Ctrl, and
+ *  type) and each `contextmenu` (and whether it came prevented, read in
+ *  the window's bubble phase, after gpui-pre-web's canvas listener). */
+function recordPointers(): void {
+  const g = globalThis as unknown as { __smokePointers: { button: number; ctrl: boolean; type: string }[]; __smokeMenus: { seen: number; prevented: number } };
+  g.__smokePointers = [];
+  g.__smokeMenus = { seen: 0, prevented: 0 };
+  addEventListener('pointerdown', (event) => g.__smokePointers.push({ button: event.button, ctrl: event.ctrlKey, type: event.pointerType }), true);
+  addEventListener('contextmenu', (event) => {
+    g.__smokeMenus.seen++;
+    if (event.defaultPrevented) g.__smokeMenus.prevented++;
+  });
+}
+type Pointers = { button: number; ctrl: boolean; type: string }[];
+const pointersSeen = (page: Page) => page.evaluate(() => (globalThis as unknown as { __smokePointers: Pointers }).__smokePointers.slice());
+const menusSeen = (page: Page) => page.evaluate(() => ({ ...(globalThis as unknown as { __smokeMenus: { seen: number; prevented: number } }).__smokeMenus }));
+
+/** The widest the clicks run makes the view for a blank past the last
+ *  column. */
+const BLANK_VIEW_PX = 3_000;
+/** Past gpui-pre-web's double-click window (400 ms, timed at handling). */
+const APART_MS = 500;
+/** How long a press that reports nothing is waited on. */
+const QUIET_MS = 400;
+/** A long press held this long: gpui-pre's is 500 ms. */
+const LONG_PRESS_MS = 800;
+
+/** With `clicks`: each kind on each target, published at the pointer
+ *  with the layout's row and place; the same target pressed twice
+ *  reported twice; a right press's `contextmenu` prevented; Ctrl+click a
+ *  `Press` with Ctrl, then a `Context` with the host's setting on (and
+ *  what the page's `pointerdown` said of it); a right press during a left
+ *  drag reporting nothing and leaving the drag whole (with `select`, its
+ *  range); with `select`, a context press inside a block keeping it and
+ *  outside selecting its cell; in Chromium, a long press by touch. */
+async function checkClicks(page: Page, label: string, opened: Layout, opening: Shown, chromiumPage: boolean): Promise<string> {
+  const notes: string[] = [];
+  // Room past the last column for a blank: the view widened where the
+  // content ends within reach (the narrow shape), else none.
+  let [layout, start] = [opened, opening];
+  const ends = (laid: Layout) => laid.left + laid.columns.at(-1)!.x + laid.columns.at(-1)!.width;
+  const viewport = page.viewportSize()!;
+  const width = Math.ceil(viewport.width + ends(layout) - (layout.left + layout.cellsWidth) + 160);
+  if (ends(layout) + 30 > layout.left + layout.cellsWidth && width <= BLANK_VIEW_PX) {
+    await page.setViewportSize({ width, height: viewport.height });
+    const wide = await page.waitForFunction((cells) => ((globalThis as { __tallTableLayout?: Layout }).__tallTableLayout?.cellsWidth ?? 0) > cells + 100, layout.cellsWidth, { timeout: 10_000, polling: 10 }).catch(() => null);
+    if (!wide) failed(`${label}: the view widened to ${width} px didn't lay out wider`);
+    ({ shown: start, layout } = await filledWhere(page, 's.first === 0').then(() => shown(page)));
+    notes.push(`the view widened to ${width} px`);
+  }
+  const selects = selectOn();
+  type Want = Pick<Click, 'target' | 'row' | 'column'>;
+  const press = async (at: { x: number; y: number }, { button = 'left' as 'left' | 'right', ctrl = false, move = true } = {}) => {
+    if (move) {
+      await page.mouse.move(at.x, at.y);
+      await page.waitForTimeout(50);
+    }
+    if (ctrl) await page.keyboard.down('Control');
+    await page.mouse.down({ button, clickCount: 1 });
+    await page.mouse.up({ button, clickCount: 1 });
+    if (ctrl) await page.keyboard.up('Control');
+  };
+  /** The next report after `count`, checked against `kind`, `want`, the
+   *  pointer, and the modifiers. */
+  const expect = async (what: string, count: number, kind: Click['kind'], want: Want, at: { x: number; y: number }, modifiers: Click['modifiers'] = []): Promise<Click | null> => {
+    const click = await clickAfter(page, count);
+    if (!click) return failed(`${label}: ${what}: nothing reported`);
+    const off = Math.max(Math.abs(click.x - at.x), Math.abs(click.y - at.y));
+    if (click.count !== count + 1 || click.kind !== kind || click.target !== want.target || click.row !== want.row || click.column !== want.column || off > 1 || JSON.stringify(click.modifiers) !== JSON.stringify(modifiers))
+      return failed(`${label}: ${what}: reported ${JSON.stringify(click)}, not ${kind} on ${JSON.stringify(want)} at (${at.x.toFixed(1)}, ${at.y.toFixed(1)}) with ${JSON.stringify(modifiers)}, count ${count + 1}`);
+    return click;
+  };
+  /** Nothing reported after `count` for `QUIET_MS`. */
+  const quiet = async (what: string, count: number): Promise<boolean> => {
+    const click = await clickAfter(page, count, QUIET_MS);
+    if (click) failed(`${label}: ${what}: reported ${JSON.stringify(click)}`);
+    return !click;
+  };
+
+  // The targets: a cell, a row's number, a header, the corner, and where
+  // the content ends left of the view's right edge, a blank past the last
+  // column in the body and in the header.
+  const view = start;
+  const targets: { name: string; at: { x: number; y: number }; want: Want }[] = [
+    { name: 'a cell', at: cellAt(layout, view, view.first + 3, 2), want: { target: 'cell', row: view.first + 3, column: 2 } },
+    { name: "a row's number", at: gutterAt(layout, view, view.first + 4), want: { target: 'row', row: view.first + 4, column: null } },
+    { name: 'a header', at: headerAt(layout, view, 1), want: { target: 'column', row: null, column: 1 } },
+    { name: 'the corner', at: cornerAt(layout), want: { target: 'corner', row: null, column: null } },
+  ];
+  const last = layout.columns[layout.columns.length - 1]!;
+  const contentEnd = layout.left + last.x + last.width - view.scrollX;
+  const blankX = contentEnd + 20;
+  if (blankX < layout.left + layout.cellsWidth - 10) {
+    targets.push({ name: 'a blank in the body', at: { x: blankX, y: cellAt(layout, view, view.first + 2, 0).y }, want: { target: 'blank', row: null, column: null } });
+    targets.push({ name: 'a blank in the header', at: { x: blankX, y: layout.top - layout.rowHeight / 2 }, want: { target: 'blank', row: null, column: null } });
+  } else notes.push('no blank past the last column in view');
+
+  const menusBefore = await menusSeen(page);
+  let rights = 0;
+  for (const { name, at, want } of targets) {
+    let count = await clickCount(page);
+    await press(at);
+    if (!(await expect(`a press on ${name}`, count++, 'press', want, at))) continue;
+    // The second press at once (inside 400 ms and 5 px): a double press.
+    await press(at, { move: false });
+    if (!(await expect(`a double press on ${name}`, count++, 'double', want, at))) continue;
+    // The same target again, apart: a press again, reported again.
+    await page.waitForTimeout(APART_MS);
+    await press(at, { move: false });
+    if (!(await expect(`a second press on ${name}`, count++, 'press', want, at))) continue;
+    await page.waitForTimeout(APART_MS);
+    await press(at, { button: 'right', move: false });
+    rights++;
+    await expect(`a right press on ${name}`, count++, 'context', want, at);
+    await page.waitForTimeout(APART_MS);
+  }
+  const menus = await menusSeen(page);
+  const seen = menus.seen - menusBefore.seen;
+  const prevented = menus.prevented - menusBefore.prevented;
+  if (seen !== rights) failed(`${label}: ${seen} contextmenu events for ${rights} right presses: the browser's menu went unwatched`);
+  else if (seen !== prevented) failed(`${label}: ${seen - prevented} of ${seen} contextmenu events not prevented (the browser's menu would show)`);
+  notes.push(`each kind on ${targets.map(({ name }) => name).join(', ')}; ${rights} right presses, ${seen} contextmenu events, ${prevented} prevented`);
+
+  // Ctrl+click: a `Press` with Ctrl by default (and with `select`,
+  // nothing selected by it), a `Context` with the host's setting on.
+  {
+    const cell = { row: view.first + 6, column: 3 };
+    const at = cellAt(layout, view, cell.row, cell.column);
+    const want: Want = { target: 'cell', ...cell };
+    if (selects) {
+      await page.keyboard.press('Escape');
+      await selected(page, null).catch(() => failed(`${label}: Escape kept the selection before Ctrl+click`));
+    }
+    const pointers = (await pointersSeen(page)).length;
+    const menusBefore = await menusSeen(page);
+    let count = await clickCount(page);
+    await press(at, { ctrl: true });
+    const off = await expect('Ctrl+click with the setting off', count++, 'press', want, at, ['control']);
+    if (selects) await selected(page, null, 1_000).catch(async () => failed(`${label}: Ctrl+click with the setting off selected ${JSON.stringify((await shown(page)).shown.selection)}`));
+    await page.waitForTimeout(APART_MS);
+    await ctrlContext(page, true);
+    await press(at, { ctrl: true, move: false });
+    const on = await expect('Ctrl+click with the setting on', count++, 'context', want, at, ['control']);
+    await ctrlContext(page, false);
+    const downs = (await pointersSeen(page)).slice(pointers);
+    const menus = await menusSeen(page);
+    // What `.claude/rules/gpui-web.md`'s Ctrl+click line rests on: the
+    // browser's press is button 0 with Ctrl, which gpui-pre-web makes a
+    // left press (a `ContextMenuExt` doesn't open on it).
+    if (downs.length !== 2 || downs.some(({ button, ctrl }) => button !== 0 || !ctrl)) failed(`${label}: Ctrl+click's pointerdowns ${JSON.stringify(downs)}, not two of button 0 with Ctrl`);
+    if (off && on) notes.push(`Ctrl+click a press, and a context press with the setting on (the page's pointerdowns: ${JSON.stringify(downs.map(({ button, ctrl }) => ({ button, ctrl })))}, ${menus.seen - menusBefore.seen} contextmenu events)`);
+    await page.waitForTimeout(APART_MS);
+  }
+
+  // A right press during a left drag: no pointerdown, nothing reported,
+  // and (with `select`) the drag's range at its release.
+  {
+    const from = cellAt(layout, view, view.first + 2, 1);
+    const to = cellAt(layout, view, view.first + 7, 4);
+    const pointers = (await pointersSeen(page)).length;
+    const count = await clickCount(page);
+    await page.mouse.move(from.x, from.y);
+    await page.waitForTimeout(50);
+    await page.mouse.down({ clickCount: 1 });
+    const step = (index: number) => page.mouse.move(from.x + ((to.x - from.x) * index) / DRAG_MOVES, from.y + ((to.y - from.y) * index) / DRAG_MOVES);
+    for (let index = 1; index <= DRAG_MOVES / 2; index++) await step(index);
+    await page.mouse.down({ button: 'right', clickCount: 1 });
+    await page.waitForTimeout(50);
+    await page.mouse.up({ button: 'right', clickCount: 1 });
+    for (let index = DRAG_MOVES / 2 + 1; index <= DRAG_MOVES; index++) await step(index);
+    await page.mouse.up({ clickCount: 1 });
+    const first = await expect("a left drag's press", count, 'press', { target: 'cell', row: view.first + 2, column: 1 }, from);
+    const still = first ? await quiet('a right press during a left drag', count + 1) : false;
+    // The browser sends the right press as a move, never a pointerdown, so
+    // GPUI never sees it: this checks the browser's half and the drag;
+    // the table's own rule for a press mid-drag is the window test's.
+    const downs = (await pointersSeen(page)).slice(pointers);
+    if (downs.length !== 1) failed(`${label}: a right press during a left drag: ${downs.length} pointerdowns, not the drag's one`);
+    let dragged = true;
+    if (selects) {
+      const want: Selection = { kind: 'cells', anchor: [view.first + 2, 1], head: [view.first + 7, 4] };
+      dragged = !!(await selected(page, want).catch(async () => failed(`${label}: a right press during a left drag: selected ${JSON.stringify((await shown(page)).shown.selection)}, not ${JSON.stringify(want)}`)));
+    }
+    if (first && still && dragged && downs.length === 1) notes.push(`a right press during a left drag no pointerdown and nothing reported${selects ? ', the drag selecting its range' : ''}`);
+    await page.waitForTimeout(APART_MS);
+  }
+
+  // With `select`, Sheets' rule: a context press inside a block keeps it,
+  // outside selects its cell.
+  if (selects) {
+    const block: Selection = { kind: 'cells', anchor: [view.first + 2, 1], head: [view.first + 5, 3] };
+    await pressAt(page, cellAt(layout, view, view.first + 2, 1));
+    await page.waitForTimeout(APART_MS);
+    await pressAt(page, cellAt(layout, view, view.first + 5, 3), true);
+    if (await selected(page, block).catch(() => failed(`${label}: the block before the context presses not selected`))) {
+      let count = await clickCount(page);
+      const inside = cellAt(layout, view, view.first + 4, 2);
+      await press(inside, { button: 'right' });
+      await expect('a right press inside a block', count++, 'context', { target: 'cell', row: view.first + 4, column: 2 }, inside);
+      const kept = await selected(page, block, 1_000).catch(async () => failed(`${label}: a right press inside a block: selected ${JSON.stringify((await shown(page)).shown.selection)}`));
+      await page.waitForTimeout(APART_MS);
+      const outside = cellAt(layout, view, view.first + 8, 5);
+      await press(outside, { button: 'right' });
+      await expect('a right press outside a block', count++, 'context', { target: 'cell', row: view.first + 8, column: 5 }, outside);
+      const moved = await selected(page, { kind: 'cells', anchor: [view.first + 8, 5], head: [view.first + 8, 5] }).catch(async () => failed(`${label}: a right press outside a block: selected ${JSON.stringify((await shown(page)).shown.selection)}, not its cell`));
+      if (kept && moved) notes.push('a right press inside a block kept it, outside selected its cell');
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(APART_MS);
+  }
+
+  // A long press by touch (Chromium's, through CDP): a context press at
+  // its start, and its tap dropped.
+  if (chromiumPage) {
+    const at = cellAt(layout, view, view.first + 9, 2);
+    const cdp = await page.context().newCDPSession(page);
+    const pointers = (await pointersSeen(page)).length;
+    const count = await clickCount(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: at.x, y: at.y }] });
+    await page.waitForTimeout(LONG_PRESS_MS);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    const long = await expect('a long press', count, 'context', { target: 'cell', row: view.first + 9, column: 2 }, at);
+    const tapDropped = long ? await quiet("a long press's tap", count + 1) : false;
+    const touched = (await pointersSeen(page)).slice(pointers).some(({ type }) => type === 'touch');
+    if (long && tapDropped) notes.push(`a long press a context press, its tap dropped (pointer type touch seen: ${touched})`);
+    if (selects) await selected(page, { kind: 'cells', anchor: [view.first + 9, 2], head: [view.first + 9, 2] }).catch(async () => failed(`${label}: a long press: selected ${JSON.stringify((await shown(page)).shown.selection)}, not its cell`));
+    await cdp.detach();
+  } else notes.push('no long press (not drivable here)');
+  return `, ${notes.join('; ')}`;
+}
+
 /** The sideways room `checkPin` narrows the viewport for, where it has
  *  less. */
 const PIN_ROOM_PX = 150;
@@ -1724,7 +1971,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -1746,8 +1993,9 @@ try {
     if (density) runs.push(...SHAPES.flatMap((shape) => (controlled ? (['dense', 'control'] as DensityRun[]) : (['dense'] as DensityRun[])).map((densities) => ({ ...quiet, shape, densities }))));
     if (format) runs.push(...SHAPES.flatMap((shape) => (['on', 'off'] as FormatRun[]).map((formatting) => ({ ...quiet, shape, formatting }))));
     if (reorder) runs.push(...SHAPES.flatMap((shape) => (['drag', 'reverse'] as ReorderRun[]).map((reordering) => ({ ...quiet, shape, reordering }))));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}`;
+    if (clicks) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, clicking: true })));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -1770,7 +2018,7 @@ try {
         if (copying === 'insecure') lanServer ??= await serveApp(undefined, { webDir: hostWebDir, port: PORT + 1, lan: true });
         const url = copying === 'insecure' ? lanServer!.url : server.url;
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
-        session = await open(engine, url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : densities ? [firstDrawProbe, workRecorder] : [firstDrawProbe] });
+        session = await open(engine, url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : densities ? [firstDrawProbe, workRecorder] : clicking ? [firstDrawProbe, recordPointers] : [firstDrawProbe] });
         const { page } = session;
         // The clipboard's permissions, which a real Chrome grants a focused
         // page (the write); none to grant in an insecure context.
@@ -1785,6 +2033,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The clicks runs check their own, from the first screen.
+        if (clicking) {
+          const clicked = await checkClicks(page, label, layout, start, engine === chromium);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${clicked}`);
+          continue;
         }
         // The reorder runs check their own, from the first screen.
         if (reordering) {

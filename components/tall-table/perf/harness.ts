@@ -63,6 +63,10 @@ export const WIDTHS_GLOBAL = '__tallTableWidths';
  *  selected (`Selection`, or `null`), replaced at each change. */
 export const SELECTION_GLOBAL = '__tallTableSelection';
 
+/** With `clicks` and `?perf` (`host/crate/src/host.rs`, `CLICK_GLOBAL`):
+ *  the last press (`Click`), replaced at each, its `count` one more. */
+export const CLICK_GLOBAL = '__tallTableClick';
+
 /** With `sort` (`host/crate/src/host.rs`): the order (`Sort`, or `null`),
  *  replaced at each change, and the mark set as it changes, in the task
  *  that changed it (a click's). */
@@ -282,8 +286,8 @@ export function buildName(features: string[]): string {
   return features.length ? features.join('+') : 'base';
 }
 
-export type { Cell, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
-import type { Cell, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+export type { Cell, Click, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+import type { Cell, Click, CopyState, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
 
 type Global = {
   __tallTable?: Shown;
@@ -511,6 +515,31 @@ export function headerAt(layout: Layout, view: Shown, column: number): { x: numb
 }
 export function cornerAt(layout: Layout): { x: number; y: number } {
   return { x: layout.left - 6, y: layout.top - layout.rowHeight / 2 };
+}
+
+/** With `clicks`: how many presses the host has published (0 before the
+ *  first). */
+export async function clickCount(page: Page): Promise<number> {
+  return (await global<Click>(page, CLICK_GLOBAL))?.count ?? 0;
+}
+
+/** With `clicks`: the first press published after `count`, or null if
+ *  none comes in `timeout` ms. */
+export async function clickAfter(page: Page, count: number, timeout = 5_000): Promise<Click | null> {
+  const handle = await page
+    .waitForFunction(({ name, count }) => {
+      const click = (globalThis as Record<string, unknown>)[name] as Click | undefined;
+      return click && click.count > count ? click : false;
+    }, { name: CLICK_GLOBAL, count }, { timeout, polling: 10 })
+    .catch(() => null);
+  return handle ? ((await handle.jsonValue()) as Click) : null;
+}
+
+/** With `clicks`: the table's `set_ctrl_press_is_context`, through the
+ *  host's hook, once the host says the table has it. */
+export async function ctrlContext(page: Page, on: boolean): Promise<void> {
+  await page.evaluate((on) => (globalThis as unknown as { __tallTableCtrlContext: (on: boolean) => void }).__tallTableCtrlContext(on), on);
+  await page.waitForFunction((on) => (globalThis as { __tallTableCtrlContextOn?: boolean }).__tallTableCtrlContextOn === on, on, { timeout: 5_000, polling: 10 });
 }
 
 /** The probe once its selection is `want` (compared as JSON; `null` for

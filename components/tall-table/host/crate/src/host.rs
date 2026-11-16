@@ -77,6 +77,12 @@ pub const PINNED_GLOBAL: &str = "__tallTablePinned";
 #[cfg(feature = "reorder")]
 pub const COLUMN_ORDER_GLOBAL: &str = "__tallTableColumnOrder";
 
+/// The last press, `{kind, target, row, column, x, y, modifiers, count}`
+/// (`tall-table-bridge`'s `js::click`), replaced at each, with `?perf`
+/// (`clicks`' `Clicked`).
+#[cfg(feature = "clicks")]
+pub const CLICK_GLOBAL: &str = "__tallTableClick";
+
 /// What became of the last copy (`copy`), as `tall-table-bridge`'s
 /// `clipboard::Outcome::to_js` writes it, replaced at each step.
 #[cfg(feature = "copy")]
@@ -92,7 +98,7 @@ pub const COPIED_MARK: &str = "tall-table:copied";
 pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 
 /// The scripts' hooks with `?perf` (`copy`, `sort`, `pin`, `density`,
-/// `follow`, or `reorder`). With `copy`, `sort`, or `reorder`:
+/// `follow`, `reorder`, or `clicks`). With `copy`, `sort`, or `reorder`:
 /// `__tallTableExact(row, column)`, a value's exact text (`null` for NULL)
 /// at a row of the order read now, `column` the column's index. With
 /// `copy`: `__tallTableSelect(kind, anchorRow, anchorColumn, headRow,
@@ -115,7 +121,9 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// `__tallTableOrder(order)`, its `set_order` (an array, `order[place]` the
 /// column's index drawn there); each `false`, and nothing sent, for numbers
 /// that aren't whole, a block past the columns or a `to` past what fits, or
-/// an order that isn't one of the columns.
+/// an order that isn't one of the columns. With `clicks`:
+/// `__tallTableCtrlContext(on)`, the table's `set_ctrl_press_is_context`,
+/// `__tallTableCtrlContextOn` set to `on` once the table has it.
 #[cfg(all(
     any(feature = "copy", feature = "sort", feature = "reorder"),
     target_family = "wasm"
@@ -143,6 +151,11 @@ const LET_GO_HOOK: &str = "__tallTableLetGo";
 const MOVE_HOOK: &str = "__tallTableMove";
 #[cfg(all(feature = "reorder", target_family = "wasm"))]
 const ORDER_HOOK: &str = "__tallTableOrder";
+#[cfg(all(feature = "clicks", target_family = "wasm"))]
+const CTRL_CONTEXT_HOOK: &str = "__tallTableCtrlContext";
+/// The setting [`CTRL_CONTEXT_HOOK`] last set, once the table has it.
+#[cfg(all(feature = "clicks", target_family = "wasm"))]
+const CTRL_CONTEXT_GLOBAL: &str = "__tallTableCtrlContextOn";
 
 // gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
 // `assets`), for `?sort-icons`: bundled whichever the page draws, so the
@@ -353,6 +366,8 @@ impl Host {
             pinned: Some(PINNED_GLOBAL),
             #[cfg(feature = "reorder")]
             column_order: Some(COLUMN_ORDER_GLOBAL),
+            #[cfg(feature = "clicks")]
+            click: probing.then_some(CLICK_GLOBAL),
             ..Publish::default()
         };
         // The table emits while its frame renders, so GPUI runs this in the
@@ -391,7 +406,8 @@ impl Host {
                 feature = "pin",
                 feature = "density",
                 feature = "follow",
-                feature = "reorder"
+                feature = "reorder",
+                feature = "clicks"
             ),
             target_family = "wasm"
         ))]
@@ -640,7 +656,8 @@ impl Density {
         feature = "pin",
         feature = "density",
         feature = "follow",
-        feature = "reorder"
+        feature = "reorder",
+        feature = "clicks"
     ),
     target_family = "wasm"
 ))]
@@ -657,12 +674,13 @@ struct Source {
 }
 
 /// Publishes the scripts' hooks (`?perf`, `copy`, `sort`, `pin`,
-/// `density`, `follow`, or `reorder`): with
+/// `density`, `follow`, `reorder`, or `clicks`): with
 /// `copy`, `sort`, or `reorder` [`EXACT_HOOK`], with `copy` [`HEAP_HOOK`],
 /// [`SELECT_HOOK`], and [`CLOSE_HOOK`], with `sort` [`SORT_HOOK`],
 /// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`], with
 /// `density` [`DENSITY_HOOK`], with `follow` [`LET_GO_HOOK`], with
-/// `reorder` [`MOVE_HOOK`] and [`ORDER_HOOK`].
+/// `reorder` [`MOVE_HOOK`] and [`ORDER_HOOK`], with `clicks`
+/// [`CTRL_CONTEXT_HOOK`].
 /// Those that change the table enter GPUI through its foreground executor,
 /// so they've happened by the next turn.
 #[cfg(all(
@@ -672,7 +690,8 @@ struct Source {
         feature = "pin",
         feature = "density",
         feature = "follow",
-        feature = "reorder"
+        feature = "reorder",
+        feature = "clicks"
     ),
     target_family = "wasm"
 ))]
@@ -791,6 +810,24 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                         .update(cx, |table, cx| table.set_density(density.density(), cx));
                 }));
                 true
+            })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "clicks")]
+    {
+        let on_ctrl = enter.clone();
+        set(
+            CTRL_CONTEXT_HOOK,
+            Closure::<dyn Fn(bool)>::new(move |on: bool| {
+                on_ctrl(Box::new(move |host, _, cx| {
+                    host.table
+                        .update(cx, |table, _| table.set_ctrl_press_is_context(on));
+                    tall_table_bridge::js::set_global(
+                        CTRL_CONTEXT_GLOBAL,
+                        &wasm_bindgen::JsValue::from_bool(on),
+                    );
+                }));
             })
             .into_js_value(),
         );

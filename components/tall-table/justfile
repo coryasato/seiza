@@ -136,7 +136,11 @@ sort *args:
 # `?format=off` none formatted, and on a build with `format` alone its
 # first screen against the base build's saved one; with `reorder`, in
 # both, a header dragged two places right and back, its cells following,
-# with each other feature built, and `?order=reverse`'s first screen).
+# with each other feature built, and `?order=reverse`'s first screen;
+# with `clicks`, in both, each kind on each target against the published
+# click, Ctrl+click with the setting off and on, a right press during a
+# left drag, with `select` a right press inside and outside a block, and
+# in Chromium a long press by touch).
 # --browsers. `--screens save` runs only the reference screens and keeps
 # them under this tree's commit; `--screens <commit>` compares them with
 # that commit's, pixel for pixel (smoke.ts's header). Run `just

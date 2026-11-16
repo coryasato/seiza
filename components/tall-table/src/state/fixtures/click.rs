@@ -2,7 +2,9 @@
 //! checks, driven through the element and the pointer in a window of GPUI's
 //! test app, over rows answered from memory: each kind on each target, at
 //! the pointer and with the modifiers; the table's own count of left
-//! presses; Ctrl+press with the host's setting on and off; the scrollbars',
+//! presses; Ctrl+press with the host's setting on and off (and on, a
+//! `ContextMenuExt` round the table opening nothing: a Mac browser's
+//! Ctrl+click is a left press, and it opens on the right button); the scrollbars',
 //! bands', and arrows' right and long presses stopped (a listener and a
 //! `ContextMenuExt` round the table never see them); a long press at its
 //! start; a scrolled and a sideways-scrolled table; the right press's
@@ -521,6 +523,32 @@ fn ctrl_press_with_the_setting_off_is_a_press(cx: &mut TestAppContext) {
     );
     #[cfg(feature = "select")]
     assert_eq!(sheet.read(|table| table.selection()), None);
+}
+
+/// A Mac browser's Ctrl+click reaches GPUI as a left press with Ctrl
+/// (gpui-pre-web maps the DOM's button 0 to `Left`, and the smoke check
+/// sees it so in each browser): with the setting on, the table reports a
+/// context press, but a host's `ContextMenuExt`, which opens on the right
+/// button alone, opens nothing.
+#[gpui_kit::test]
+fn a_ctrl_press_opens_no_context_menu_ext(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(3), 3, 10.0, 600.0, true);
+    sheet.update(|table, _| table.set_ctrl_press_is_context(true));
+    let at = sheet.cell(1, 1);
+    sheet.click(at, ctrl(), 1);
+    assert_eq!(
+        sheet.clicks(),
+        [click(
+            ClickKind::Context,
+            ClickTarget::Cell { row: 1, column: 1 },
+            at,
+            ctrl()
+        )]
+    );
+    assert_eq!(sheet.menus(), 0, "no menu on Ctrl+left");
+    // The control: the right button opens one.
+    sheet.right_click(at, Modifiers::default());
+    assert_eq!(sheet.menus(), 1, "a menu on the right button");
 }
 
 #[gpui_kit::test]

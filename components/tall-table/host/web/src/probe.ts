@@ -53,6 +53,21 @@ export interface Layout {
   advances?: Record<string, number>;
 }
 
+/** With `clicks`, the last press, as `tall-table-bridge`'s `js::click`
+ *  writes it (`__tallTableClick`): `column` its place; `row` and `column`
+ *  `null` where the target has none; `x` and `y` the pointer in CSS px of
+ *  the window; `count` one more at each press. */
+export interface Click {
+  kind: 'press' | 'double' | 'context';
+  target: 'cell' | 'row' | 'column' | 'corner' | 'blank';
+  row: number | null;
+  column: number | null;
+  x: number;
+  y: number;
+  modifiers: ('control' | 'alt' | 'shift' | 'platform')[];
+  count: number;
+}
+
 /** A drawn cell, as `tall-table-bridge`'s `js::cells` writes it (`column`
  *  its place; with `reorder`, the layout's `index` there names it): with
  *  `custom-cells`, its paint (colors 8-bit RGBA; the bar in CSS px from the
