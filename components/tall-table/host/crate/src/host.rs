@@ -72,6 +72,12 @@ pub const SORTED_MARK: &str = "tall-table:sorted";
 #[cfg(feature = "pin")]
 pub const PINNED_GLOBAL: &str = "__tallTablePinned";
 
+/// The group cells drawn, `[{level, label, start, end, pinned, left,
+/// width, labelX}]`, replaced as they change (`group-headers`' `Groups`),
+/// with `?perf`.
+#[cfg(feature = "group-headers")]
+pub const GROUPS_GLOBAL: &str = "__tallTableGroups";
+
 /// The columns' order, `[index]` drawn at each place, replaced at each
 /// change (`reorder`'s `ColumnsMoved`); unset until the first.
 #[cfg(feature = "reorder")]
@@ -326,6 +332,18 @@ impl Host {
                 crate::rows::with_format(columns)
             }
         };
+        // The columns in groups (`group-headers`, `?groups=<outer>,<inner>`,
+        // by default the shape's); `?groups=0` builds the feature with none.
+        #[cfg(feature = "group-headers")]
+        let columns = {
+            #[cfg(target_family = "wasm")]
+            let (outer, inner) = seiza::url::param("groups")
+                .and_then(|groups| parse_groups(&groups))
+                .unwrap_or(shape.groups());
+            #[cfg(not(target_family = "wasm"))]
+            let (outer, inner) = shape.groups();
+            crate::rows::with_groups(columns, outer, inner)
+        };
         let table = cx.new(|cx| {
             #[cfg_attr(not(feature = "density"), expect(unused_mut))]
             let mut table = Table::new(rows, columns, count, Paging::default(), cx)
@@ -368,6 +386,8 @@ impl Host {
             column_order: Some(COLUMN_ORDER_GLOBAL),
             #[cfg(feature = "clicks")]
             click: probing.then_some(CLICK_GLOBAL),
+            #[cfg(feature = "group-headers")]
+            groups: probing.then_some(GROUPS_GLOBAL),
             ..Publish::default()
         };
         // The table emits while its frame renders, so GPUI runs this in the
@@ -544,6 +564,19 @@ impl Host {
         self.clipboard.closed();
         cx.notify();
     }
+}
+
+/// `?groups=`'s `<outer>[,<inner>]` (`group-headers`): `None` for
+/// anything else, which leaves the shape's.
+#[cfg(all(feature = "group-headers", any(test, target_family = "wasm")))]
+fn parse_groups(groups: &str) -> Option<(usize, usize)> {
+    let mut parts = groups.split(',');
+    let outer = parts.next()?.trim().parse().ok()?;
+    let inner = match parts.next() {
+        Some(inner) => inner.trim().parse().ok()?,
+        None => 0,
+    };
+    parts.next().is_none().then_some((outer, inner))
 }
 
 /// `?sort=`'s `<column>,<asc|desc>` (`sort`), for a column of the
@@ -1260,5 +1293,35 @@ mod density_tests {
             assert_eq!(parse(bad), None, "{bad:?}");
         }
         assert_eq!(Density::default(), parse("18,11,56").unwrap());
+    }
+}
+
+#[cfg(all(test, feature = "group-headers"))]
+mod group_tests {
+    use super::parse_groups;
+    use crate::rows::{Shape, with_groups};
+
+    #[test]
+    fn groups_parse_their_sizes() {
+        assert_eq!(parse_groups("50,10"), Some((50, 10)));
+        assert_eq!(parse_groups("6"), Some((6, 0)));
+        assert_eq!(parse_groups("0"), Some((0, 0)));
+        assert_eq!(parse_groups("6,3,1"), None);
+        assert_eq!(parse_groups("six"), None);
+    }
+
+    /// The default groups: two levels in both shapes, every column under
+    /// a group; `?groups=0` none.
+    #[test]
+    fn the_shapes_are_grouped() {
+        for shape in [Shape::Narrow, Shape::Wide] {
+            let (outer, inner) = shape.groups();
+            let columns = with_groups(shape.columns(), outer, inner);
+            assert!(columns.iter().all(|column| column.group_path().len() == 2));
+            assert_eq!(columns[outer].group_path()[0].as_ref(), "g2");
+            assert_eq!(columns[inner].group_path()[1].as_ref(), "g1.2");
+            let none = with_groups(shape.columns(), 0, 0);
+            assert!(none.iter().all(|column| column.group_path().is_empty()));
+        }
     }
 }

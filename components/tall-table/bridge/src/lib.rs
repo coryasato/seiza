@@ -95,6 +95,10 @@ pub struct Publish {
     /// a script sees a second press on the same target.
     #[cfg(feature = "clicks")]
     pub click: Option<&'static str>,
+    /// The global holding the group cells drawn (`group-headers`'
+    /// [`TallTableEvent::Groups`], [`js::groups`]), replaced as they change.
+    #[cfg(feature = "group-headers")]
+    pub groups: Option<&'static str>,
 }
 
 impl Publish {
@@ -194,6 +198,12 @@ impl Publish {
                     js::set_global(name, &js::click(click, count.into()));
                 }
             }
+            #[cfg(all(feature = "group-headers", target_family = "wasm"))]
+            TallTableEvent::Groups(groups) => {
+                if let Some(name) = self.groups {
+                    js::set_global(name, &js::groups(groups));
+                }
+            }
             #[cfg(target_family = "wasm")]
             TallTableEvent::Cells(cells) => {
                 if let Some(name) = self.cells {
@@ -279,7 +289,9 @@ pub mod js {
     /// `pin`, also `pinned`: the columns pinned in effect, the first
     /// `pinned` drawn at `left + x` whatever the sideways scroll. With
     /// `format`, also `advances`: `{char: px}`, each character a format
-    /// writes and its advance at the text in effect.
+    /// writes and its advance at the text in effect. With `group-headers`,
+    /// also `headerRows`: the header's rows, each `rowHeight`, the names'
+    /// the bottom one.
     pub fn layout(layout: &TallTableLayout) -> JsValue {
         let object = Object::new();
         set(&object, "left", number(layout.left));
@@ -297,7 +309,33 @@ pub mod js {
             }
             set(&object, "advances", advances.into());
         }
+        #[cfg(feature = "group-headers")]
+        set(&object, "headerRows", number(layout.header_rows as f64));
         object.into()
+    }
+
+    /// `[{level, label, start, end, pinned, left, width, labelX}]`
+    /// (`group-headers`): each group cell drawn, level by level, `left`
+    /// and `labelX` in CSS px from the cells area's left, `start..end` the
+    /// run's places (both halves of a run split at `pin`'s edge share them).
+    #[cfg(feature = "group-headers")]
+    pub fn groups(groups: &[seiza_tall_table::GroupProbe]) -> JsValue {
+        let list: Array = groups
+            .iter()
+            .map(|group| {
+                let object = Object::new();
+                set(&object, "level", number(group.level as f64));
+                set(&object, "label", JsValue::from_str(&group.label));
+                set(&object, "start", number(group.start as f64));
+                set(&object, "end", number(group.end as f64));
+                set(&object, "pinned", JsValue::from_bool(group.pinned));
+                set(&object, "left", number(group.left));
+                set(&object, "width", number(group.width));
+                set(&object, "labelX", number(group.label_x));
+                JsValue::from(object)
+            })
+            .collect();
+        list.into()
     }
 
     /// `[{name, x, width, kind, budget}]`: `budget` is the characters a

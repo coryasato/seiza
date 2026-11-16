@@ -612,3 +612,15 @@ No results note: nothing measured. The build's check was a byte comparison again
 - The hit tests needed no change for the bottom row: each already finds the header as "the row above the body", so a taller header leaves them right. The layers drawn at the header's full height (the arrows, the bands) are what move.
 - Nothing waits on it. Its first real use is Tycho's `STRUCT` columns, which draw as `<struct>` today and would need the engine to flatten them first. Being last in the order, it was planned from `DataTable`'s inventory, not from an ask.
 - The code review found the spec had put `pin`'s edge in the wrong layer: cutting the runs at the edge made them stale whenever `repin` moved it (three paths skip `lay_out`), and let the table's own drag lift half a group. A group is the columns' fact, and the edge only the frame's. A spec reads each input's every writer, not only the one it names.
+
+## M17: `group-headers` (part B, 2026-11-16)
+
+**Results:** the size check, [`perf/results/2026-11-16-m17-b-size.json`](../perf/results/2026-11-16-m17-b-size.json) (a check, not the cost: part D measures).
+
+**Surprises:**
+- The spec put the group cells on the layout probe, and the layout is reported only when it changes. But a cell's cut and its label follow the sideways scroll, so every frame of a sideways scroll would have re-sent the whole layout, 500 columns in the wide shape, to JS. The code review caught it. A probe field that follows the scroll goes in its own event, not beside fields that stay still.
+- Two of the `pin` window tests' hand-written expectations were wrong, and the code was right: a group's scrolled half is cut at the run's edge, not at its first scrolled column; and a pinned band's drag stops at half the view, so it can never unpin a column. The release that moves the cut had to come from a narrowed pinned column letting one more pin.
+- The milestone-term check reads `G1` as a milestone ID, so the host's group labels are `g1`, `g1.2`. A label scheme for test data has to clear the repo's own lints.
+- A `group-headers` symbol check run by hand found no markers, and that suggested the size script's control would fail. Built as the script builds it (`CARGO_PROFILE_RELEASE_STRIP=false`), both modules were there. A symbol check is only as good as the build it reads.
+- Mutation testing found one equivalent mutation and one blind spot. The equivalent one: cutting the pinned cell at the edge or at the cells' width is the same, since the edge is clamped only to the cells' width. The blind spot: a group cell's right border is drawn, not recorded, so no native test sees it. The smoke check's screens (C3) are its check.
+

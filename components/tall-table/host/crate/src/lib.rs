@@ -58,7 +58,12 @@
 //! value's exact text and the table's `move_columns` and `set_order`. With
 //! `clicks`, every press is reported; with `?perf` each is published
 //! (`__tallTableClick`) and the scripts get the table's
-//! `set_ctrl_press_is_context` (off at open).
+//! `set_ctrl_press_is_context` (off at open). With `group-headers`,
+//! `?groups=<outer>[,<inner>]` puts the columns in groups of `outer`, each
+//! cut into groups of `inner` (by default 50,10 in the wide shape and 6,3
+//! in the narrow; `?groups=0` builds the feature with none,
+//! `rows::with_groups`), the layout probe carries the header's rows, and
+//! with `?perf` the group cells drawn are published as they change.
 //!
 //! The script hooks enter GPUI through its foreground executor; one that
 //! sends a column, a count, a density, or an order answers `false`, sending

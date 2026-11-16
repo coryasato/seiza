@@ -69,3 +69,7 @@ reorder = []
 # so); the table draws no menu (`TallTableEvent::Clicked`,
 # `TallTableState::set_ctrl_press_is_context`).
 clicks = []
+# Rows over the header naming groups of columns, any depth, from a label
+# path on each column (`TallTableColumn::group`): neighbors whose paths
+# agree through a level share its cell, cut to each region's visible part.
+group-headers = []

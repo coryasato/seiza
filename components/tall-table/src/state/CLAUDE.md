@@ -4,7 +4,7 @@ Each feature's half of `TallTableState` (a child module of `src/state.rs`), and 
 
 ## Architecture
 
-Each feature's child keeps its state in one field of the state (`SelectState`, `CopyState`, `SortState`, `PinState`, `DensityState`, `ClicksState`, `reorder`'s `order`, `resize`'s `resizing`, `follow`'s flag), and its module's doc comment says the rest: `follow.rs`, `resize.rs`, `select.rs`, `copy.rs` (its window tests in `copy/tests.rs`), `sort.rs`, `pin.rs`, `density.rs`, `reorder.rs`, `click.rs`; `hit.rs` holds the presses' hit tests, built with `select`, `reorder`, or `clicks` (the base has only the hover's `cell_at`). Tests only: `cells_text_tests.rs`, `fixtures.rs` (below), `random.rs` (below).
+Each feature's child keeps its state in one field of the state (`SelectState`, `CopyState`, `SortState`, `PinState`, `DensityState`, `ClicksState`, `GroupState`, `reorder`'s `order`, `resize`'s `resizing`, `follow`'s flag), and its module's doc comment says the rest: `follow.rs`, `resize.rs`, `select.rs`, `copy.rs` (its window tests in `copy/tests.rs`), `sort.rs`, `pin.rs`, `density.rs`, `reorder.rs`, `groups.rs`, `click.rs`; `hit.rs` holds the presses' hit tests, built with `select`, `reorder`, or `clicks` (the base has only the hover's `cell_at`). Tests only: `cells_text_tests.rs`, `fixtures.rs` (below), `random.rs` (below).
 
 ## Rules
 
@@ -27,7 +27,7 @@ Each feature's child keeps its state in one field of the state (`SelectState`, `
 ## Files
 
 ```
-src/state/         # follow.rs, resize.rs, select.rs, copy.rs (+ copy/tests.rs), sort.rs, pin.rs, density.rs, reorder.rs, click.rs, hit.rs; cells_text_tests.rs, fixtures.rs (its children in fixtures/: src/state/fixtures/CLAUDE.md), random.rs, tests only
+src/state/         # follow.rs, resize.rs, select.rs, copy.rs (+ copy/tests.rs), sort.rs, pin.rs, density.rs, reorder.rs, groups.rs, click.rs, hit.rs; cells_text_tests.rs, fixtures.rs (its children in fixtures/: src/state/fixtures/CLAUDE.md), random.rs, tests only
 ```
 
 ## Commands

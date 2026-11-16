@@ -26,6 +26,8 @@ mod density;
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
 mod format;
+#[cfg(feature = "group-headers")]
+mod groups;
 mod pages;
 #[cfg(feature = "custom-cells")]
 mod paint;
@@ -55,6 +57,8 @@ pub use density::Density;
 pub use format::{NumberFormat, Sign};
 #[cfg(feature = "custom-cells")]
 pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
+#[cfg(feature = "group-headers")]
+pub use probe::GroupProbe;
 #[cfg(feature = "custom-cells")]
 pub use probe::PaintProbe;
 pub use probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};

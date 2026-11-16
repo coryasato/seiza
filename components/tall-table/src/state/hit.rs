@@ -64,8 +64,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// What a press at `position` is on, if it's on the table's cells, its
-    /// gutter, or its header (the header is the row above the body). Past
-    /// the last row or column, nothing.
+    /// gutter, or its header (the header is the row above the body; with
+    /// `group-headers`, the corner is the header's full height). Past the
+    /// last row or column, nothing.
     #[cfg(any(feature = "select", feature = "clicks"))]
     pub(super) fn target_at(&self, position: Point<Pixels>) -> Option<Target> {
         let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
@@ -85,7 +86,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return self.cell_clamped(position).map(Target::Header);
         }
         if y < 0.0 {
-            return (y >= -row_h).then_some(Target::Corner);
+            // The corner is the header's full height (`group-headers`).
+            #[cfg(feature = "group-headers")]
+            let header = row_h * (self.group_rows() + 1) as f32;
+            #[cfg(not(feature = "group-headers"))]
+            let header = row_h;
+            return (y >= -header).then_some(Target::Corner);
         }
         let row = (self.scroll.top() + f64::from(y / row_h)).floor();
         if y >= f32::from(self.viewport().height) || row as u64 >= self.scroll.rows() {

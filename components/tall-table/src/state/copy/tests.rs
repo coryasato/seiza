@@ -1471,3 +1471,23 @@ fn a_visible_grown_page_whose_reread_failed_holds_nothing_back(cx: &mut TestAppC
     assert_eq!(kinds(&events).last(), Some(&"copied"));
     assert_eq!(Sheet::text_of(&events), tsv(0..=999, 0..=0, grid));
 }
+
+/// With `group-headers`, the header line is the names alone: no group
+/// rows (`docs/DECISIONS.md`, "Features").
+#[cfg(feature = "group-headers")]
+#[gpui_kit::test]
+fn the_header_line_is_the_names_alone(cx: &mut TestAppContext) {
+    let mut sheet = open(cx);
+    let grouped: Vec<TallTableColumn> = columns(4, ColumnKind::Float)
+        .into_iter()
+        .map(|column| column.group(["outer", "inner"]))
+        .collect();
+    sheet.update(|table, cx| table.set_columns(grouped, cx));
+    assert_eq!(sheet.read(|table| table.group_rows()), 2);
+    sheet.update(|table, _| table.set_copy_options(CopyOptions::default().headers(true)));
+    sheet.select(cells((0, 0), (0, 1)));
+    sheet.copy();
+    let text = Sheet::text_of(&sheet.take_copies());
+    assert_eq!(text.lines().next(), Some("c0\tc1"));
+    assert_eq!(text.lines().count(), 2);
+}

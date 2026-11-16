@@ -37,6 +37,9 @@ format = ["seiza-tall-table/format"]
 reorder = ["seiza-tall-table/reorder"]
 # The table's presses, forwarded for a host's build.
 clicks = ["seiza-tall-table/clicks"]
+# The header's rows on the layout probe, and the group cells drawn
+# (`Groups`) on a global.
+group-headers = ["seiza-tall-table/group-headers"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

@@ -530,6 +530,12 @@ pub enum TallTableEvent {
     /// Every drawn cell's exact and shown text, every frame. Only while
     /// [`TallTableState::probe_cells`] is on.
     Cells(Vec<CellProbe>),
+    /// The group cells drawn, level by level, when they change
+    /// (`group-headers`): a sideways scroll moves their cut and labels, so
+    /// they come apart from the layout, which carries every column. Only
+    /// while [`TallTableState::probe_frames`] is on.
+    #[cfg(feature = "group-headers")]
+    Groups(Vec<crate::GroupProbe>),
     /// A re-read page (`live`) is drawn for the first time, its rows
     /// visible. Emitted while the frame renders, as `Filled` is; none for a
     /// page re-read off screen, then or when scrolled to. Its read started
@@ -718,6 +724,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The left presses counted and the host's Ctrl+press (`clicks`).
     #[cfg(feature = "clicks")]
     clicks_state: click::ClicksState,
+    /// The runs of the columns' groups, and the cells drawn (`group-headers`).
+    #[cfg(feature = "group-headers")]
+    pub(crate) group_state: groups::GroupState,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -817,6 +826,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             density_state: density::DensityState::default(),
             #[cfg(feature = "clicks")]
             clicks_state: click::ClicksState::default(),
+            #[cfg(feature = "group-headers")]
+            group_state: groups::GroupState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -826,6 +837,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         };
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         table.track_flashes();
+        #[cfg(feature = "group-headers")]
+        table.regroup();
         table.load_pages(cx);
         table
     }
@@ -1096,6 +1109,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.scroll_x = self.scroll_x.clamp(0.0, self.max_scroll_x());
         self.hover = None;
         self.layout_generation += 1;
+        #[cfg(feature = "group-headers")]
+        self.regroup();
         #[cfg(feature = "pin")]
         self.repin(cx);
     }
@@ -1923,6 +1938,22 @@ impl<D: TallTableDelegate> TallTableState<D> {
         Some(Bounds::new(origin, size(px(width), row_h)))
     }
 
+    /// A layer over the columns, from the gutter's edge to the vertical
+    /// scrollbar, clipped: the header's names, and with `group-headers` its
+    /// groups. With `pin`, `split_layer`'s two regions.
+    #[cfg(not(feature = "pin"))]
+    #[inline(always)]
+    fn columns_layer(&self, children: impl IntoIterator<Item = impl IntoElement>) -> Div {
+        div()
+            .absolute()
+            .top_0()
+            .bottom_0()
+            .left(px(self.gutter_width()))
+            .right(Scrollbar::width())
+            .overflow_hidden()
+            .children(children)
+    }
+
     /// Every column scrolls (without `pin`).
     #[cfg(not(feature = "pin"))]
     #[inline(always)]
@@ -1972,8 +2003,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
         #[cfg(feature = "reorder")]
         self.refresh_gap();
         let sizes = self.sizes();
-        #[cfg(not(feature = "pin"))]
-        let gutter = self.gutter_width();
         #[cfg(feature = "select")]
         let (_, selected) = self.selected_lines();
         #[cfg(all(test, feature = "select"))]
@@ -2037,14 +2066,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         });
         // With `pin`, the pinned columns' region and the scrolled ones'.
         #[cfg(not(feature = "pin"))]
-        let layer = div()
-            .absolute()
-            .top_0()
-            .bottom_0()
-            .left(px(gutter))
-            .right(Scrollbar::width())
-            .overflow_hidden()
-            .children(cells);
+        let layer = self.columns_layer(cells);
         #[cfg(feature = "pin")]
         let layer = {
             let (pinned, scrolled): (Vec<_>, Vec<_>) = cells.partition(|(holds, _)| *holds);
@@ -2054,15 +2076,27 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 scrolled.into_iter().map(|(_, cell)| cell),
             )
         };
+        // The names in the bottom row, under the groups' (`group-headers`).
+        #[cfg(feature = "group-headers")]
+        let layer = self.in_names_row(layer);
+        #[cfg(not(feature = "group-headers"))]
+        let height = sizes.row();
+        // A row a level, and the names' (`group-headers`).
+        #[cfg(feature = "group-headers")]
+        let height = sizes.row() * (self.group_rows() + 1) as f32;
         let header = div()
             .relative()
             .flex_shrink_0()
-            .h(sizes.row())
+            .h(height)
             .bg(theme.tokens.table_head)
             .text_color(theme.table_head_foreground)
             .border_b_1()
             .border_color(theme.border)
             .child(layer);
+        #[cfg(all(feature = "group-headers", feature = "select"))]
+        let header = header.children(self.render_groups(selected.as_ref(), cx));
+        #[cfg(all(feature = "group-headers", not(feature = "select")))]
+        let header = header.children(self.render_groups(cx));
         #[cfg(all(test, feature = "sort"))]
         {
             self.sort_state.header_padding = header_padding.into_inner();
@@ -2501,7 +2535,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         .collect(),
                     #[cfg(feature = "format")]
                     advances: self.glyphs.advances.each().collect(),
+                    #[cfg(feature = "group-headers")]
+                    header_rows: self.group_rows() + 1,
                 }));
+            }
+            // The group cells, which follow the sideways scroll, on their
+            // own (`group-headers`).
+            #[cfg(feature = "group-headers")]
+            if self.groups_moved() {
+                cx.emit(TallTableEvent::Groups(self.group_probes()));
             }
         }
         if let Some(probes) = cell_probes {
@@ -2984,10 +3026,20 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         }
         let header = self.render_header(cx);
         // Under the bands, which stay the edge's.
-        #[cfg(feature = "sort")]
+        #[cfg(all(feature = "sort", not(feature = "group-headers")))]
         let header = header.children(self.render_arrows(cx));
         #[cfg(feature = "resize")]
-        let header = header.child(self.render_bands(cx));
+        let bands = self.render_bands(cx);
+        #[cfg(all(feature = "resize", not(feature = "group-headers")))]
+        let header = header.child(bands);
+        // The arrows and bands in the names' row (`group-headers`).
+        #[cfg(all(feature = "sort", feature = "group-headers"))]
+        let header = {
+            let arrows = self.render_arrows(cx);
+            header.children(arrows.map(|arrows| self.in_names_row(arrows)))
+        };
+        #[cfg(all(feature = "resize", feature = "group-headers"))]
+        let header = header.child(self.in_names_row(bands));
         // Over the bands: the last pinned column's hairline is under it.
         #[cfg(feature = "pin")]
         let header = header.children(self.edge_line(self.place(), false, cx));
@@ -3098,6 +3150,10 @@ pub(crate) mod density;
 /// `reorder`: the order, a move, and what follows it.
 #[cfg(feature = "reorder")]
 pub(crate) mod reorder;
+
+/// `group-headers`: the runs, and the header's group rows.
+#[cfg(feature = "group-headers")]
+pub(crate) mod groups;
 
 #[cfg(test)]
 mod tests {

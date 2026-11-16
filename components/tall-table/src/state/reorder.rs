@@ -46,6 +46,12 @@ pub(crate) struct Drawn {
     pub(crate) preview: Option<(f32, f32)>,
     /// The line's left in the header, and in the body.
     pub(crate) lines: [Option<f32>; 2],
+    /// The preview's group cells, `(level, top, left, width)`, and its
+    /// names' top (`group-headers`).
+    #[cfg(feature = "group-headers")]
+    pub(crate) groups: Vec<(usize, f32, f32, f32)>,
+    #[cfg(feature = "group-headers")]
+    pub(crate) names_top: f32,
 }
 
 /// A header pressed to move its block: a drag once the pointer passes
@@ -458,21 +464,28 @@ impl<D: TallTableDelegate> TallTableState<D> {
         {
             self.move_drawn.borrow_mut().preview = Some((left, width));
         }
+        // The names in the bottom row, under the block's group cells
+        // (`group-headers`).
+        #[cfg(feature = "group-headers")]
+        let names_top = sizes.row() * self.group_rows() as f32;
+        #[cfg(all(test, feature = "group-headers"))]
+        {
+            self.move_drawn.borrow_mut().names_top = f32::from(names_top);
+        }
         let cells = columns.iter().map(|column| {
-            padded(
-                div()
-                    .absolute()
-                    .top_0()
-                    .h_full()
-                    .left(px(column.x - first))
-                    .w(px(column.width)),
-                sizes,
-            )
-            .line_height(sizes.row())
-            .when(column.kind.numeric(), |cell| cell.text_right())
-            .truncate()
-            .child(column.name.clone())
+            let cell = div().absolute();
+            #[cfg(not(feature = "group-headers"))]
+            let cell = cell.top_0().h_full();
+            #[cfg(feature = "group-headers")]
+            let cell = cell.top(names_top).h(sizes.row());
+            padded(cell.left(px(column.x - first)).w(px(column.width)), sizes)
+                .line_height(sizes.row())
+                .when(column.kind.numeric(), |cell| cell.text_right())
+                .truncate()
+                .child(column.name.clone())
         });
+        #[cfg(feature = "group-headers")]
+        let cells = cells.chain(self.preview_groups(moving.block.clone(), first, cx));
         Some(
             div()
                 .absolute()

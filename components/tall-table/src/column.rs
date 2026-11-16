@@ -52,6 +52,9 @@ pub struct TallTableColumn {
     /// Whether a drag of its header can move it (`reorder`).
     #[cfg(feature = "reorder")]
     pub(crate) movable: bool,
+    /// The groups it sits under, outermost first (`group-headers`).
+    #[cfg(feature = "group-headers")]
+    pub(crate) group: Vec<SharedString>,
 }
 
 /// A set width's least and most, unless a column sets its own (`resize`):
@@ -90,7 +93,26 @@ impl TallTableColumn {
             format: None,
             #[cfg(feature = "reorder")]
             movable: true,
+            #[cfg(feature = "group-headers")]
+            group: Vec::new(),
         }
+    }
+
+    /// The groups this column sits under, outermost first (`group-headers`).
+    /// Neighbors in drawn order whose paths agree through a level share
+    /// that level's cell; with none set, the column is in no group.
+    #[cfg(feature = "group-headers")]
+    pub fn group<S: Into<SharedString>>(self, path: impl IntoIterator<Item = S>) -> Self {
+        Self {
+            group: path.into_iter().map(Into::into).collect(),
+            ..self
+        }
+    }
+
+    /// The groups it sits under, as set (`group-headers`).
+    #[cfg(feature = "group-headers")]
+    pub fn group_path(&self) -> &[SharedString] {
+        &self.group
     }
 
     /// Whether a drag of its header can move it (`reorder`): on unless

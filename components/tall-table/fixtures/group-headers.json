@@ -1,0 +1,132 @@
+{
+  "about": "group-headers: the group cells a frame draws. Each case: each column's label path and width (by index), the order drawn (order[place] is the index; absent, the list's own), the host's pin count (the run in effect is pin.json's rule: the leading columns within half the cells' width), the cells' width, the sideways scroll, and a cell's padding on one side. Expected: the header's group rows (the deepest path) and each cell drawn, level by level, left to right, pinned region first: [level, label, start, end, pinned, left, width, label_x], start..end the whole run's places, left and width the visible part in its region, from the cells area's left, label_x that part's left plus the padding. The drag half (a block and a pointer's x to its gap) is added with the presses.",
+  "controls": {
+    "groups-by-place": "DataTable's spans: the runs found over the paths in index order and laid on the places, so a move leaves the groups where they were.",
+    "no-split-at-edge": "A run across pin's edge drawn whole in the region where it starts, the scrolled region drawing none of it.",
+    "label-centered": "The label at the run's middle, not at its visible part's left: a wide group scrolled half out loses it."
+  },
+  "cases": [
+    {
+      "name": "two-levels-at-rest",
+      "why": "Neighbors agreeing through a level share its cell; a path shorter than a level leaves a blank there; no path, no cell.",
+      "paths": [["A", "x"], ["A", "x"], ["A", "y"], ["A", "y"], ["B"], []],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "pad": 8,
+      "expect": {
+        "group_rows": 2,
+        "cells": [
+          [0, "A", 0, 4, false, 0, 400, 8],
+          [0, "B", 4, 5, false, 400, 100, 408],
+          [1, "x", 0, 2, false, 0, 200, 8],
+          [1, "y", 2, 4, false, 200, 200, 208]
+        ]
+      }
+    },
+    {
+      "name": "blanks-under-a-shorter-path",
+      "why": "Three levels: each column's name stays on the bottom row, a shorter path's levels below its last group blank.",
+      "paths": [["A", "x", "1"], ["A", "x"], ["A"], []],
+      "widths": [100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "pad": 8,
+      "expect": {
+        "group_rows": 3,
+        "cells": [
+          [0, "A", 0, 3, false, 0, 300, 8],
+          [1, "x", 0, 2, false, 0, 200, 8],
+          [2, "1", 0, 1, false, 0, 100, 8]
+        ]
+      }
+    },
+    {
+      "name": "scrolled-half-out",
+      "why": "A wide group scrolled half out of view is cut at the view's left, its label kept at the visible part's left; one cut at the view's right ends there.",
+      "paths": [["A"], ["A"], ["A"], ["A"], ["A"], ["A"], ["B"], ["B"]],
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "count": 0,
+      "cells_width": 300,
+      "scroll_x": 450,
+      "pad": 8,
+      "expect": {
+        "group_rows": 1,
+        "cells": [
+          [0, "A", 0, 6, false, 0, 150, 8],
+          [0, "B", 6, 8, false, 150, 150, 158]
+        ]
+      }
+    },
+    {
+      "name": "split-at-the-edge",
+      "why": "A run across pin's edge draws a cell in each region, each labeled, both with the whole run's places; the scrolled half is cut at the edge.",
+      "paths": [["A"], ["A"], ["A"], ["A"], [], []],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 2,
+      "cells_width": 800,
+      "scroll_x": 100,
+      "pad": 8,
+      "expect": {
+        "group_rows": 1,
+        "cells": [
+          [0, "A", 0, 4, true, 0, 200, 8],
+          [0, "A", 0, 4, false, 200, 100, 208]
+        ]
+      }
+    },
+    {
+      "name": "the-cap-splits",
+      "why": "The host pins 4, but only 2 fit in half the view: the cap in effect falls inside the group, which is drawn split there.",
+      "paths": [["A"], ["A"], ["A"], ["A"], ["B"], ["B"]],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "count": 4,
+      "cells_width": 500,
+      "scroll_x": 0,
+      "pad": 8,
+      "expect": {
+        "group_rows": 1,
+        "cells": [
+          [0, "A", 0, 4, true, 0, 200, 8],
+          [0, "A", 0, 4, false, 200, 200, 208],
+          [0, "B", 4, 6, false, 400, 100, 408]
+        ]
+      }
+    },
+    {
+      "name": "a-move-splits-a-run",
+      "why": "A path travels with its column: a column moved into another group's columns splits that group into two runs, a cell each, both labeled.",
+      "paths": [["A"], ["A"], ["A"], ["B"]],
+      "widths": [100, 150, 120, 80],
+      "order": [0, 3, 1, 2],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "pad": 8,
+      "expect": {
+        "group_rows": 1,
+        "cells": [
+          [0, "A", 0, 1, false, 0, 100, 8],
+          [0, "B", 1, 2, false, 100, 80, 108],
+          [0, "A", 2, 4, false, 180, 270, 188]
+        ]
+      }
+    },
+    {
+      "name": "no-groups",
+      "why": "No path: no group row, the header as without the feature.",
+      "paths": [[], [], []],
+      "widths": [100, 100, 100],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "pad": 8,
+      "expect": {
+        "group_rows": 0,
+        "cells": []
+      }
+    }
+  ]
+}

@@ -100,6 +100,15 @@ impl Shape {
         }
     }
 
+    /// The groups without `?groups=` (`group-headers`): `(outer, inner)`.
+    #[cfg(feature = "group-headers")]
+    pub fn groups(self) -> (usize, usize) {
+        match self {
+            Self::Narrow => (6, 3),
+            Self::Wide => (50, 10),
+        }
+    }
+
     /// How many columns it has.
     pub fn column_count(self) -> usize {
         match self {
@@ -154,6 +163,33 @@ impl Shape {
                 .collect(),
         }
     }
+}
+
+/// `columns` in groups (`group-headers`): runs of `outer` columns, `g1`,
+/// `g2`, …, each cut into runs of `inner`, `g1.1`, `g1.2`, …; `inner` of 0
+/// or at least `outer` gives one level, an `outer` of 0 none.
+#[cfg(feature = "group-headers")]
+pub fn with_groups(
+    columns: Vec<TallTableColumn>,
+    outer: usize,
+    inner: usize,
+) -> Vec<TallTableColumn> {
+    if outer == 0 {
+        return columns;
+    }
+    columns
+        .into_iter()
+        .enumerate()
+        .map(|(index, column)| {
+            let (group, within) = (index / outer + 1, index % outer);
+            let outer_label = format!("g{group}");
+            if inner == 0 || inner >= outer {
+                column.group([outer_label])
+            } else {
+                column.group([outer_label, format!("g{group}.{}", within / inner + 1)])
+            }
+        })
+        .collect()
 }
 
 /// splitmix64 of the cell's place: the same value every run.

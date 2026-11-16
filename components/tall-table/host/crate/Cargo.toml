@@ -52,6 +52,10 @@ reorder = ["seiza-tall-table/reorder", "tall-table-bridge/reorder"]
 # Every press reported (`Clicked`); the bridge's arm publishes each on a
 # global with `?perf`.
 clicks = ["seiza-tall-table/clicks", "tall-table-bridge/clicks"]
+# The columns in groups: `?groups=<outer>,<inner>`, groups of `outer`
+# columns each cut into groups of `inner` (by default 50,10 in the wide
+# shape and 6,3 in the narrow); `?groups=0` builds the feature with none.
+group-headers = ["seiza-tall-table/group-headers", "tall-table-bridge/group-headers"]
 
 [dependencies]
 gpui-kit.workspace = true

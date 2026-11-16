@@ -67,6 +67,8 @@ const FEATURES: Record<string, string | string[]> = {
   // Clicks: the state's `click` module (the pure one's count inlines), and
   // the presses' hit tests, which `select` and `reorder` build too.
   clicks: ['seiza_tall_table5state5click', 'seiza_tall_table5state3hit'],
+  // Group headers: the runs' module and the state's `groups` module.
+  'group-headers': ['seiza_tall_table6groups', 'seiza_tall_table5state6groups'],
 };
 
 /** A feature that turns on another is measured against it too, and the

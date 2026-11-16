@@ -54,6 +54,35 @@ pub struct TallTableLayout {
     /// at the size in effect (`format`): what a formatted text's fit sums.
     #[cfg(feature = "format")]
     pub advances: Vec<(char, f32)>,
+    /// The header's rows (`group-headers`): the groups' levels plus the
+    /// names' row, each `row_height` tall, the names' the bottom one. The
+    /// group cells drawn come in their own event
+    /// ([`TallTableEvent::Groups`](crate::TallTableEvent)).
+    #[cfg(feature = "group-headers")]
+    pub header_rows: usize,
+}
+
+/// A group's cell as drawn (`group-headers`): one a region where `pin`'s
+/// edge splits its run. [`TallTableEvent::Groups`](crate::TallTableEvent)
+/// reports a frame's, level by level.
+#[cfg(feature = "group-headers")]
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct GroupProbe {
+    /// Its header row, 0 at the top.
+    pub level: usize,
+    pub label: String,
+    /// The run's places, `start..end`: the whole run, so the two cells of
+    /// a run split by `pin`'s edge share them.
+    pub start: usize,
+    pub end: usize,
+    /// In the pinned region (`pin`).
+    pub pinned: bool,
+    /// The drawn cell's left and width, cut to its region's visible part,
+    /// from the cells area's left; the label's left from the same edge.
+    pub left: f32,
+    pub width: f32,
+    pub label_x: f32,
 }
 
 #[derive(Debug, Clone, PartialEq)]

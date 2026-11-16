@@ -73,6 +73,11 @@ mod format;
 #[cfg(feature = "reorder")]
 mod reorder;
 
+/// `group-headers.json` (the drawing half), with the feature: the group
+/// rows drawn in a window, beside each other feature built.
+#[cfg(feature = "group-headers")]
+mod groups;
+
 /// `clicks`: no fixture; the presses' kinds, targets, and what they do
 /// beside each other feature, in a window.
 #[cfg(feature = "clicks")]

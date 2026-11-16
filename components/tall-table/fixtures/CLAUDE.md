@@ -11,7 +11,7 @@ What "the same" means for a DOM contender, pinned in JSON and run natively again
 ## Files
 
 ```
-  fixtures/         # paging.json, cells.json, sql.json, paint.json, selection.json, sort.json, pin.json, density.json, copy.json, reorder.json; README.md (the formats)
+  fixtures/         # paging.json, cells.json, sql.json, paint.json, selection.json, sort.json, pin.json, density.json, copy.json, reorder.json, group-headers.json; README.md (the formats)
 ```
 
 ## Commands
