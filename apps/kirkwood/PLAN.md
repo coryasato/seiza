@@ -39,7 +39,7 @@ A milestone's spec, "done when" checks, and parts are written when the milestone
 
 | Needs | For | Status |
 |---|---|---|
-| The tall table reporting a press on a row whether or not its selection changed ([its `PLAN.md`](../../components/tall-table/PLAN.md), "Asked for by Kirkwood": a draft, not yet specced) | The same row pressed again flies the camera back to it, after a pan let it go (`docs/DECISIONS.md`, "Interface") | *Not ready* |
+| The tall table reporting a press on a row whether or not its selection changed ([its `PLAN.md`](../../components/tall-table/PLAN.md): `clicks`' `Press`, its M16, being built) | The same row pressed again flies the camera back to it, after a pan let it go (`docs/DECISIONS.md`, "Interface") | *Not ready* |
 
 Nothing else. The tall table's `sort`, `select`, `format`, and `density` are built and the app builds them (`live` it doesn't need: a live cell is worked out when it's drawn), and with the rows held in Rust a filter to a drawn group and a sort are both the delegate's work, an index it reads its pages through (`docs/DECISIONS.md`, "Table"). Nothing is asked of `engines/duckdb/`: the app doesn't use it.
 

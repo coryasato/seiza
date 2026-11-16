@@ -10,7 +10,7 @@ What's next for the tall table: its features to come, in order, the active miles
 
 ## Where planning stands
 
-Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`copy`'s fixture, asked for by the observatory's wide sheet on 2026-11-12, built the same day), then M15 (`reorder`, built 2026-11-13), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
+Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"; this file holds what follows from them: the [order](#order), the [bare host](#measuring-a-feature), M1 to M12 (built, in [`docs/milestones.md`](docs/milestones.md)), the hardening between M7 and M8 (done, in [`docs/milestones.md`](docs/milestones.md)), M10 (`density`, asked for by the observatory's wide sheet on 2026-10-30, built 2026-11-01), M11 (the flash's frames, built 2026-11-04: the cells' text drawn from one element a region on the base) and M12 (`format`, asked for by the observatory's market watch on 2026-11-04, built 2026-11-05), then M13 (`follow`'s `let_go`, asked for by the observatory's live tail on 2026-11-09, built the same day), then M14 (`copy`'s fixture, asked for by the observatory's wide sheet on 2026-11-12, built the same day), then M15 (`reorder`, built 2026-11-13), then M16 (`clicks`, drafted as `context-menu`, with Kirkwood's press folded in; opened 2026-11-16), `custom-cells`' [later notes](#follow-ups-to-built-features) (built when a host asks; its follow-ups built 2026-10-25), and research per feature (["Long-term goals"](#long-term-goals)). The Cargo names stay drafts until each feature's milestone.
 
 ---
 
@@ -34,7 +34,7 @@ Planned on 2026-10-23. Each decision, with its reasons, is in [`docs/DECISIONS.m
 | M13 | `follow`'s `let_go`: following turned off by the host | Done 2026-11-09 ([`docs/milestones.md`](docs/milestones.md)) |
 | M14 | `copy`'s fixture: a selection → its text, and the limits | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
 | M15 | `reorder`: drag a column to move it | Done 2026-11-13 ([`docs/milestones.md`](docs/milestones.md)) |
-| M16 | `context-menu`: right- and double-click events | Planned |
+| M16 | `clicks`: a press, a double press, and a context press reported | Active (part A done 2026-11-16) |
 | M17 | `group-headers`: header rows over column groups | Planned |
 
 One milestone per feature, in the order below. A *Planned* row's spec is its row under "Features"; its spec and checks are written into "Next milestones" when the one before it closes, after its research ("Long-term goals").
@@ -84,7 +84,7 @@ Why the table isn't `DataTable`: its `uniform_list` places rows in f32 pixels an
 |---|---|---|---|---|---|
 | `select` | Row, column, and cell selection, by click, Shift-extend, and keys; events for each; held as ranges, never a set of rows (25 M rows select in one range). One feature for all three modes, the host picking at run time | `row_selectable`, `col_selectable`, `cell_selectable`, `loop_selection`, `SelectRow`/`SelectColumn`/`SelectCell` | — | No | Row selection (a map of row ids: select-all over 1.57 M rows is a fair stress) |
 | `copy` | Copy a selection as TSV; a selection larger than the loaded pages asks the delegate for its rows; the host writes the clipboard (M7's research) | `dump_range` (rows held in memory) | `select` | Yes: rows not loaded are read, in pages | — |
-| `context-menu` | Right-click and double-click events on a row or cell, for a host's menu | `context_menu`, `RightClickedRow`/`RightClickedCell`, `DoubleClickedRow`/`DoubleClickedCell` | `select` (the clicked cell becomes the selection) | No | — |
+| `clicks` (drafted as `context-menu`) | A press, a double press, and a context press (right button, Ctrl+click, long press) on a cell, row number, header, corner, or blank, reported whether or not the selection changed, for a host's menu (M16's research; Kirkwood's press folded in) | `context_menu`, `RightClickedRow`/`RightClickedCell`, `DoubleClickedRow`/`DoubleClickedCell` | — (with `select`, a context press outside the selection selects its target) | No | — |
 
 ### Data
 
@@ -137,11 +137,11 @@ What each scenario needs from the rows above: the wide sheet `custom-cells` (hea
 
 ### Asked for by Kirkwood
 
-A draft, like the rows above; not specced, measured, or placed in the order. Asked for 2026-11-13 ([`apps/kirkwood/docs/DECISIONS.md`](../../apps/kirkwood/docs/DECISIONS.md), "Interface").
+Asked for 2026-11-13 ([`apps/kirkwood/docs/DECISIONS.md`](../../apps/kirkwood/docs/DECISIONS.md), "Interface"); folded into `clicks` (M16) on 2026-11-16 as its `Press` ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features").
 
 | Feature (Cargo) | What it adds | Asked for by | Depends on | Data | TanStack |
 |---|---|---|---|---|---|
-| A press reported (part of `select`, or a feature of its own: to decide) | The host hears a press on a row or a cell whether or not the selection changed: today `Selected` is emitted only at a change, so a press on the row already selected says nothing. Kirkwood flies its camera to the pressed row's dot, and a second press on the same row should fly it there again | Kirkwood: a found row a pan let go, and its tour's rows | `select` | No | A row's `onClick` |
+| A press reported: `clicks`' `Press` (M16) | The host hears a press on a row or a cell whether or not the selection changed: today `Selected` is emitted only at a change, so a press on the row already selected says nothing. Kirkwood flies its camera to the pressed row's dot, and a second press on the same row should fly it there again | Kirkwood: a found row a pan let go, and its tour's rows | — (its spec: the `clicks` row under "Selection") | No | — |
 
 ### Who's waiting
 
@@ -152,13 +152,13 @@ Only this file builds the table's features, whichever app asks (root `CLAUDE.md`
 | `follow` | Observatory: live tail | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `follow`'s `let_go` (M13, built) | Observatory: live tail's Pause button (its M11 part E2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | `resize`, `select`, `copy` | Observatory: the wide sheet's later steps (a resize drag, a range copied; its M14, after its other scenarios) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
-| A press reported (a draft: "Asked for by Kirkwood") | Kirkwood: the same row pressed again flies the camera back to it | [`apps/kirkwood/PLAN.md`](../../apps/kirkwood/PLAN.md), "Waiting on" |
+| `clicks`' `Press` (M16; "Asked for by Kirkwood") | Kirkwood: the same row pressed again flies the camera back to it | [`apps/kirkwood/PLAN.md`](../../apps/kirkwood/PLAN.md), "Waiting on" |
 | `copy`'s fixture (M14, built) | Observatory: the wide sheet's TanStack copy, ported against it (its M14 part C2) | [`apps/observatory/PLAN.md`](../../apps/observatory/PLAN.md), "Waiting on" |
 | Every feature | Tycho adopts each one as it's ready | [`apps/tycho/PLAN.md`](../../apps/tycho/PLAN.md), "Waiting on" |
 
 ### Order
 
-Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already.) Since 2026-10-30, `density` goes after `pin`, ahead of `reorder`; since 2026-11-04, the flash's frames and then `format` go after `density`, ahead of `reorder` (below).
+Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `select` → `copy` → `sort` → `pin` → `reorder` → `context-menu` → `group-headers`. (`row-header` left the list: the base draws a row-number gutter already; `context-menu` became `clicks` on 2026-11-16, Kirkwood's press folded in.) Since 2026-10-30, `density` goes after `pin`, ahead of `reorder`; since 2026-11-04, the flash's frames and then `format` go after `density`, ahead of `reorder` (below).
 
 - **The scenarios' features first,** in the observatory's scenario order: the wide sheet (`custom-cells`), market watch (`live`, and `custom-cells` for its flash), live tail (`follow`). Each is small, none breaks the paging, and Tycho uses them too (a growing CSV, a refreshed query).
 - **Then Tycho's core:** `resize` first because `reorder` and `group-headers` build on its width model (and it moves `pin`'s edge); `select` and `copy` next because copy closes a canvas tradeoff (README, "Canvas tradeoffs"), and they're the wide sheet's later steps; `sort` is the hardest: paging by row-group range stops working, and its research settles how the delegate reads pages in a sorted order.
@@ -174,7 +174,90 @@ Decided 2026-10-23: `custom-cells` → `live` → `follow` → `resize` → `sel
 
 ## Active milestone
 
-None: M15 (`reorder`) closed 2026-11-13 ([`docs/milestones.md`](docs/milestones.md)). Next: M16 (`context-menu`), opening with its research ("Next milestones").
+### M16: `clicks`, a press, a double press, and a context press reported
+
+**What it adds** (behind the `clicks` feature, off by default; drafted as `context-menu`): every press on the table's cells, row numbers, headers, corner, or blank reported with what it's on and where, whether or not the selection changed: a press, a double press, and a context press (the right button, a Mac browser's Ctrl+click, a touch's long press), for a host's menu, its detail view, or Kirkwood's camera. The table draws no menu. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`clicks`"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-16, M16 part A).
+
+```rust
+// click.rs, behind `clicks`.
+pub enum ClickKind {
+    /// A left press the table counts first ("The kinds", below).
+    Press,
+    /// A left press the table counts second; the first was a `Press`.
+    Double,
+    /// The right button's press, a touch's long press, or (when the host
+    /// says Ctrl+press is one, `set_ctrl_press_is_context`) a left press
+    /// with Ctrl.
+    Context,
+}
+
+/// What a press is on. A column is its place (where it's drawn); with
+/// `reorder`, `order()[place]` is its index.
+pub enum ClickTarget {
+    Cell { row: u64, column: usize },
+    /// A row's number, in the gutter.
+    Row(u64),
+    /// A header cell.
+    Column(usize),
+    /// The header over the gutter.
+    Corner,
+    /// The header row or the body (gutter included) where none of the
+    /// above is: below the last row, past the last column.
+    Blank,
+}
+
+pub struct TallTableClick {
+    pub kind: ClickKind,
+    pub target: ClickTarget,
+    /// The pointer, in window coordinates (a long press's start).
+    pub position: Point<Pixels>,
+    pub modifiers: Modifiers,
+}
+
+pub enum TallTableEvent {
+    // …
+    /// A press on the table, after what it did to the selection (`select`).
+    #[cfg(feature = "clicks")]
+    Clicked(TallTableClick),
+}
+
+impl<D: TallTableDelegate> TallTableState<D> {
+    /// Whether a left press with Ctrl is a context press (off by default:
+    /// a Mac browser's right-click, which a host in a Mac browser turns on;
+    /// elsewhere Ctrl+click is the host's to give a meaning). Off, it's a
+    /// `Press` whose modifiers say Ctrl, and `select` ignores it as today.
+    #[cfg(feature = "clicks")]
+    pub fn set_ctrl_press_is_context(&mut self, on: bool);
+}
+```
+
+The spec below is what parts B and C build; why each rule is so is in [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", and the root's research.
+
+- **The kinds** (part B), each on the press: `Context`, the right button's press, a `LongPressEvent` in `TouchPhase::Started` (at its `start_position`), or with `set_ctrl_press_is_context(true)` a left press with Ctrl, at any count. Every other left press is counted by the table, since gpui-pre-web's `click_count` counts presses of any button (a right press then a left one within 400 ms and 5 px is 2): a left press's count is the last left press's plus one when `click_count` is 2 or more and the last press the table saw was a left press it counted, otherwise 1. Count 1 is a `Press`, 2 a `Double`, 3 and after nothing. So a `Double` always follows a `Press`, and a left press after a context press is a `Press`. A Ctrl+left press, when it isn't a context press, is counted as any left press is.
+- **The target** (part B): the hit test `select`'s `target_at` does today, moved where a build with `select` or `clicks` reaches it (the base unchanged), returning the target above; `Blank` for a point of the header row or the body (the gutter included) where `target_at` finds nothing: below the last row, past the last column. The scrollbars, the bands, and the arrows are no target: their left presses stop as today (the band's double press stays `resize`'s fit), and with `clicks` they stop a right press too and prevent a long press's default, so nothing is reported and a host's `ContextMenuExt` round the table doesn't open over them (it would read a stale target).
+- **With `select`** (part B): a press and a double press select as today, and the event follows what the press did to the selection, so `selection()` in a host's handler is the press's result. The exception is `reorder`'s: a press inside the selected `Columns` range selects its column only at a release that didn't drag, so its `Press` comes with the range still selected and `Selected` follows at the release. A context press inside the selection keeps it (a `Cell` the range covers, whatever its kind; a `Row` under a `Rows` range; a `Column` under a `Columns` range; the `Corner` under any); elsewhere it selects its target as an unmodified press would (Shift doesn't extend, Cmd does nothing more), the corner's every-column select included, and no drag starts; `Blank` changes nothing; the event follows, so `selection()` is what a menu acts on.
+- **Drags** (part B): a context press during `select`'s drag, `reorder`'s move, `resize`'s drag, or a scrollbar's does nothing (no event, nothing changed). In a browser this comes from a long press only: a second button pressed while the left is held arrives as a `pointermove` with its `buttons` changed, never a `pointerdown`, so the drag carries on (C1 checks it). A press that starts a drag is reported at its press.
+- **Focus and the tooltip** (part B): a context press hides the tooltip and focuses the table, as a left press does; the table never stops a right press's propagation, so a host's `ContextMenuExt` round it opens after the table's handler.
+- **Nothing drawn**, no frame asked for by the event itself (a selection's change redraws as today).
+- **The bare host** (part B, so `size` measures it): the host's `clicks` feature forwarding the table's and the bridge's, and the bridge's arm (part C) publishing each `Clicked` (with `?perf`) on a global the host names (`__tallTableClick`: kind, target, row, column, x, y, and a running count, so a script sees a second press on the same row), so the event is used, not only compiled.
+- **No fixture, no random test steps, no soak:** no DOM contender level (no scenario, TanStack has none), no paging touched (the research's last two sections).
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
+
+- **A. Research and spec** (no shipped code). *Done 2026-11-16,* revised the same day after a code review (the table's own count of left presses, since `click_count` counts every button; Ctrl+press a context press only when the host says so, as Ctrl+click means something else off a Mac; the scrollbars', bands', and arrows' right and long presses stopped; Shift ignored by a context press; `reorder`'s press inside a range, whose selection comes at the release; `Blank` pinned; a chorded right press in a browser being a move): the research in the root's `docs/research/tall-table-features.md`, "`clicks`"; four decisions in `docs/DECISIONS.md`, "Features"; a `docs/LESSONS.md` entry; the API above and the checks below. No spike (the research's "Frame-work risk").
+- **B. The events, natively.** `click.rs`; the hit test moved; the three kinds and the table's count, `set_ctrl_press_is_context`, the scrollbars', bands', and arrows' right and long presses stopped, `select`'s rule, the drags, focus and the tooltip; the host's `clicks` feature; `clicks` in `perf/size.ts`'s `FEATURES` and the justfile's `test` runs; window tests. Checks B1–B3.
+- **C. The bridge and the browsers.** The bridge's `Clicked` arm and the host's global; the smoke check's clicks runs (each kind and target in three browsers, Ctrl+click with the setting on and off, a long press where the browser can be driven to one, a right press during a left drag); whether a host's `ContextMenuExt` opens on a Mac browser's Ctrl+click, and if not, its line in `.claude/rules/gpui-web.md` after a look upstream. Check C1.
+- **D. The measurement and the close.** The cost on the final build, then every remaining check and the close-out ("Closing a milestone", above). Checks D1–D3.
+
+**Done when:**
+- [x] **A1. The research and the spec:** the research in the root's `docs/research/tall-table-features.md`, "`clicks`"; its decisions in `docs/DECISIONS.md`; the API and the checks here. *Evidence (2026-11-16):* the research section (`DataTable`'s four click events and its delegate's menu in gpui-component 0.9.1; gpui-pre-web 0.3.12's right button, swallowed `contextmenu`, and `click_count`; gpui-pre 0.3.12's taps and 500 ms long press; `ContextMenuExt`'s order beside the table's handler and its Ctrl+click gap; the presses' kinds and targets; Sheets' rule for a context press); `docs/DECISIONS.md`, "Features" (2026-11-16, M16 part A, five entries).
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table size --against <M16's parent>` (the base after wasm-opt within 0.1 KiB, no `clicks` symbols in it, the `clicks` build's present; `select`'s build unchanged by the hit test's move, to 0.1 KiB). `just tall-table test` passes with every feature off, each on (`clicks` among them), and all on; `just tall-table lint` passes.
+- [ ] **B2. The events, natively:** in a window (`simulate_event`), with `clicks` alone: a press, a double press, and a context press (right button; Ctrl+left with the setting on, at a count of 1 and 2) on a cell, a row's number, a header, the corner, and a blank (below the last row in the body and the gutter, past the last column in the body and the header) each report their kind and target, at the pointer, with the modifiers; a third press reports nothing; a right press then a left press at `click_count` 2 reports `Context` then `Press`; Ctrl+left with the setting off reports `Press` with Ctrl and, with `select`, selects nothing; a right press and a long press on a scrollbar (and with `resize`, a band; with `sort`, an arrow) report nothing and don't reach a listener round the table; a long press reports `Context` at its start; a press on a scrolled and a sideways-scrolled table reports the row and place under it; the right press reaches a listener round the table (not stopped) and focuses the table, hiding a tooltip shown. With `select`: a press on the selected row reports again with no `Selected`; a press's event comes after its `Selected`; a context press inside a `Cells`, `Rows`, and `Columns` range keeps it, outside each selects its target (no drag started: a pointer move after it moves nothing; with Shift, the same, not extended), on the corner with nothing selected selects every column, on a blank changes nothing; a context press mid-drag does nothing. With `resize` and `sort`: the band's double press fits and reports nothing, the arrow's press reports nothing. With `reorder`: a press that starts a move reports `Press` once; with `select`, a press inside the selected `Columns` range reports `Press` with the range still selected, then `Selected` with its column at a release that didn't drag; the target's column is the place with the order reversed. Each test fails under a mutation of what it covers.
+- [ ] **B3. The host builds it:** the bare host's `clicks` feature forwards the table's and the bridge's; `just tall-table size` reports the `clicks` build.
+- [ ] **C1. In the browsers:** `just tall-table smoke` with `clicks` (and `clicks,select,reorder`), in both shapes, in Chromium, Firefox, and WebKit: each kind on each target, the published click against the layout probe's cells; the same row pressed twice, two reports; a right press with no browser menu shown; Ctrl+click as `Context` with the setting on and a `Press` with it off; a right press during a left selection drag, nothing reported and the drag unbroken; with `select`, a right-click outside a range selecting its target and inside it keeping it; a long press where the browser can be driven to one (Chromium's touch emulation). Whether a `ContextMenuExt` round a GPUI element opens on a Mac browser's Ctrl+click, recorded.
+- [ ] **D1. Its cost, in the host:** the added wasm (brotli 11, and after wasm-opt) against the base; the scroll and flings on the `clicks` build against the base's spread at the same place in the session, the reference run (the feature adds no per-frame work but its listeners: the research's "Frame-work risk"). On the final build. In `perf/results/` and the README's Features table.
+- [ ] **D2. The README:** `clicks`' use (`Clicked`, its kinds and targets, places), a menu hung on `ContextMenuExt` round the table, Sheets' rule with `select`, what the bands and arrows keep; the pointer line's "`context-menu`'s, later" replaced; `set_ctrl_press_is_context` (a host in a Mac browser turns it on); limits (no key opens a menu; a Mac browser's Ctrl+click and `ContextMenuExt`, per C1); canvas tradeoffs (a menu's target not announced; touch's long press).
+- [ ] **D3. Waiting apps told:** `clicks` joins Tycho's "Ready so far" list; Kirkwood's "Waiting on" row (a press reported) flips to *Ready* (the date and M16), its text naming `clicks`' `Press` (a double press's first press is a `Press`, so a second press within 400 ms is a `Double` Kirkwood can ignore). The observatory has no row.
 
 ---
 
@@ -203,7 +286,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-M16's (`context-menu`) is written after its research, which opens it; until then its spec is its row under "Features".
+M17's (`group-headers`) is written after its research, which opens it once M16 closes; until then its spec is its row under "Features".
 
 ---
 

@@ -951,3 +951,78 @@ TanStack's `columnOrder` with its own drag (pointer events on the header, a gap 
 ### What the random test gains
 
 `Move` steps (a block, a `to`, and with `pin` a side, through `move_columns_pinned` or `move_columns`) and `SetOrder` steps (a permutation), placed from a stream of their own as `density`'s are (the case's seed mixed with a constant of their own), each a `u64` drawn there and expanded into the step (a seeded shuffle for an order: one byte, as `place_steps` gives `pin`'s, can't hold a block and a gap or a permutation), so every case's draw and the other features' places are unchanged. Its rows' text already carries the column (`r{row}c{column}…`), so invariants 5 and 7 gain the column: a drawn cell at a place holds its column's index's text, and a `Copied` text holds the indices the copy started with, in that order. A control that reads a page by place (`ReadByPlace`) must fail at invariant 5. The copy's turn changes (above), so the soak runs on the final build.
+
+## `clicks`
+
+Researched 2026-11-16, from the table's presses (`src/state.rs`: the root's `on_mouse_down`, `cell_at`; `src/tall_table.rs`: the element's press, which hides the tooltip and focuses; `src/state/select.rs`: `target_at`, `press_select`; `src/state/reorder.rs`: `press_move`; `resize`'s bands and `sort`'s arrows, which stop their presses), `DataTable`'s clicks in gpui-component 0.9.1 (`src/table/state.rs`: `on_row_right_click`, `on_cell_right_click`, `on_row_left_click`, `on_cell_click`, the right-clicked row's and cell's borders, the `context_menu` wrapper reading `right_clicked_row`; `src/table/delegate.rs`: `context_menu`), gpui-component's `ContextMenuExt` (`src/menu/context_menu.rs`), gpui-pre-web 0.3.12's pointer events (`src/events.rs`: `register_click`, `register_context_menu`, the touch path), and gpui-pre 0.3.12's gesture recognizer (`src/gestures.rs`: taps as presses, `LongPressEvent`). Drafted as `context-menu` (right- and double-click events); renamed `clicks` here, since it now carries Kirkwood's plain press too (below). No spike: nothing is drawn and nothing runs a frame (below).
+
+### What asks for it
+
+- **Tycho:** a menu on a cell, a row, or a header (copy, sort, pin, move, hide), and a double-click to open a row's detail; Tycho adopts every feature. `pin`'s count and `reorder`'s `move_columns` were left to "a host's menu" in their research.
+- **Kirkwood** (asked 2026-11-13, the table's `PLAN.md`, "Asked for by Kirkwood"): a press on a row reported whether or not the selection changed. `Selected` fires only at a change, so the row already selected, pressed again, says nothing, and Kirkwood's camera can't fly back to it. This is the same shape as a right-click's event (a press, its kind, what it's on), so it's one feature: a press, a double press, and a context press.
+- **No observatory scenario** asks for it, and TanStack has nothing (a row's `onClick` and `onContextMenu` are the DOM's): no feature level.
+
+### What `DataTable` does
+
+- **Events:** `RightClickedRow(Option<usize>)` (a row, or `None` for the empty area), `RightClickedCell(row, col)` (cell selection only), `DoubleClickedRow(row)`, `DoubleClickedCell(row, col)`. The right-click events fire on the right button's press; the double-clicks on the second click's release (`ClickEvent::click_count() == 2`). There's no plain-press event apart from `SelectRow`/`SelectCell`, but `set_selected_row` emits `SelectRow` on every click, the same row or not, which is what Kirkwood lacks here.
+- **The selection:** a right-click doesn't change it. The right-clicked row or cell is remembered (`right_clicked_row`, `right_clicked_cell`) and drawn: a 1 px `selection` border round the row, a half-opacity `table_active_border` round the cell, until a left click selects something else.
+- **The menu is the table's:** the table's inner element is wrapped in `ContextMenuExt::context_menu`, whose builder calls the delegate's `context_menu(row, menu)` for the right-clicked row. A cell's menu has no hook of its own.
+- **What carries over:** the events' kinds, the right press's timing, and the empty area as a target of its own. Not the menu (below), not the remembered target drawn apart from the selection (below), and not the double-click on the release (below).
+
+### The browser and GPUI
+
+- **The right button reaches GPUI:** gpui-pre-web maps a `pointerdown`'s button 2 to `MouseButton::Right` and always `preventDefault`s `contextmenu` on its canvas, so the browser's own menu never shows.
+- **A Mac browser's Ctrl+click** is a `pointerdown` with button 0 and `ctrlKey`, then a `contextmenu` the canvas swallows: GPUI sees a left press with `control`. `select` already ignores Ctrl+press for this reason ("`select`", "The pointer").
+- **`click_count`** is gpui-pre-web's own: 400 ms and 5 px from the last press, whatever its button (a right press then a left press within them counts 2). A Ctrl+press counts as well. So the table can't read a double press off `click_count` alone (below).
+- **A second button while the first is held** arrives, under Pointer Events, as a `pointermove` with its `buttons` changed, never a `pointerdown`: a right press during a left drag never reaches GPUI as a press, and gpui-pre-web's move keeps the left as its pressed button.
+- **Touch:** gpui-pre's portable recognizer turns a tap into a left press and a double tap into one with `click_count` 2, and a hold of 500 ms without moving into a `LongPressEvent` (`TouchPhase::Started`, at its start). The browser's long-press menu is the canvas's `contextmenu`, swallowed too. So a long press is the touch screen's right-click, as gpui-kit's `ContextMenuExt` already treats it.
+- **`ContextMenuExt`** opens a gpui-kit `PopupMenu` on a right press (bubble phase, stopping it) or a long press over its element, at the pointer, and builds it in a deferred call. Wrapped round the table, it runs after the table's own handler (the inner element's bubble listener goes first), so the table's target is set before the menu reads it, as long as the table never stops a right press. It captures the focused element at the press and gives focus back to it when the menu closes. It doesn't open on a Mac browser's Ctrl+click (a left press).
+
+### Who draws the menu
+
+- **The host** (chosen, 2026-11-16): the table reports the press, what it's on, and where, and a host draws its own menu, most simply by wrapping the table's element in `.context_menu(…)` and reading the target from the event. The feature stays an event and a hit test, and the table, which reports through events (its `CLAUDE.md`, rule 1), never decides what a menu holds.
+- **The table, as `DataTable`'s:** a delegate method building a `PopupMenu`, drawn by the table. Simpler for a host, but gpui-kit's menu (its items, keys, submenus, and focus handling) would link into every build with the feature, and a host with a menu of its own (Tycho's, which may hold a filter field) would pay for both. Not taken.
+- **The Ctrl+click gap:** a host using `ContextMenuExt` gets the context event on a Mac browser's Ctrl+click but no menu, since `ContextMenuExt` waits for the right button. The table can't open a host's menu. A gpui-kit web gotcha, not the table's; checked in the browsers before it's written into `.claude/rules/gpui-web.md` and looked for upstream.
+
+### The presses
+
+Three kinds, each with what it's on and where:
+
+- **The table counts left presses itself,** since `click_count` counts every button's: a left press's count is the last left press's plus one when `click_count` is 2 or more and the last press the table saw was a left press it counted, otherwise 1. So a left press after a right one is a first press, and a double press always follows a press.
+- **A press:** a left press the table counts first. On the press, not the release: `Selected` changes on the press, so a host acting on a press acts in the same frame as the selection, and a press that starts a drag (a selection, a column's move) is still a press. Weighed: a click on the release, as `DataTable`'s, which would leave out a press that drags; but a host that wants that can watch the drag's events, and Kirkwood's flight should start with the press, as its selection does.
+- **A double press:** a left press the table counts second; a third and after report nothing. The first press was already a press. On the press, as the first was (`DataTable` reports it on the release). The target is the second press's.
+- **A context press:** the right button's press; a touch's long press, at its start; and a left press with Ctrl when the host says it's one (`set_ctrl_press_is_context`, off by default). In a Mac browser Ctrl+click is the right-click; on Windows and Linux it's the add-to-selection gesture of most tables, and making it a context press would open a host's menu and, with `select`, replace the selection (Sheets' rule, below) on a press that today does nothing. The table can't tell the system (it knows no `navigator`, and gpui's `Modifiers::secondary` is Mac-only by `cfg`, never true on wasm), so the host, which can (`shared/`'s bootstrap already asks for Mac browsers' key bindings), says so (the table's `CLAUDE.md`, rule 1: what only a host knows comes in as settings). Off, a Ctrl+left press is a press whose modifiers say Ctrl, and `select` ignores it as today.
+
+**What it's on:** a cell (its row, an `u64`, and its column's place), a row's number in the gutter (the row), a header cell (the column's place), the corner over the gutter, or a blank: inside the table but on no row or column (below the last row, past the last column), `DataTable`'s `RightClickedRow(None)`, where a host may still want a menu (paste, the table's settings): any point of the header row or the body, gutter included, where the hit test finds nothing. Not on the bands, the arrows, or the scrollbars: they stop their left presses today (the band's double press stays `resize`'s fit) but not a right one, and the scrollbars don't occlude, so a right press there would reach the root and hit-test the cell under them. With the feature they stop a right press and prevent a long press's default too: nothing reported, and a host's `ContextMenuExt`, which opens only when nothing prevented it, doesn't open there with the last target, now stale. The column is a place, as every screen number is (`src/CLAUDE.md`, "Places and indices"); a host turns it into its index with `order()` (`reorder`).
+
+**Where:** the pointer's window position, so a host's own menu (one not hung on `ContextMenuExt`) can be placed, and the modifiers, so a host can tell Shift+press from a press.
+
+### What a press does to the rest
+
+- **`select`, a press and a double press:** as today (a press selects; a double press's second press selects nothing, keeping what the first selected). The event follows what the press did to the selection, so a host reading `selection()` in its handler sees the press's result. Except with `reorder`: a press inside the selected `Columns` range may start a move, so it selects its column only at a release that didn't drag; its press is reported with the range still selected, and `Selected` follows at the release.
+- **`select`, a context press: Google Sheets' rule.** A context press inside the selection keeps it, so the menu acts on the range; anywhere else it selects what's pressed as an unmodified press would (Shift doesn't extend: a plain Shift press extends and starts a drag, and a right press that started a drag would leave one running after the menu opens), no drag starts, and the menu acts on that. Inside means: on a cell the selection covers (a `Cells`, `Rows`, or `Columns` range over it); on the gutter, a `Rows` range over the row; on a header, a `Columns` range over the column; on the corner, any selection. A blank changes nothing. `DataTable` leaves the selection alone and draws the right-clicked target apart, a second highlight a menu's reader must tell from the first; Sheets, Excel, and Finder select it.
+- **Drags:** a context press during a selection's drag, a column's move, or a resize does nothing (no event, nothing changed); the drag's own release ends it. In a browser only a long press can come mid-drag (a chorded right press is a move, above); the rule is for it and for platforms that send a chord as a press.
+- **The tooltip and focus:** a context press hides the tooltip and focuses the table, as a left press does, so a menu hung on `ContextMenuExt` gives focus back to the table when it closes.
+- **`reorder`:** a press that may start a move is reported at the press; a double press never drags (as today). **`resize`, `sort`:** their presses stop at the band and the arrow and aren't reported. **`copy`, `pin`, `live`, `follow`, the paging:** nothing.
+
+### What's drawn
+
+Nothing. With `select` the selection shows what a context press is on (Sheets' rule, above); without it, the host's menu at the pointer does. `DataTable`'s remembered right-click borders aren't carried over.
+
+### Frame-work risk
+
+None while scrolling: the feature adds listeners each frame and nothing in the cells or the paging: on the root a right-press listener, a long-press listener, and a left one (the base registers none; `select` and `reorder` do, and the feature's branch joins theirs); the element's right press, for focus; and with `resize`, `sort`, and the scrollbars a right-press stop on each band, arrow, and track (a band a visible column). Measured anyway: the scroll and flings on the `clicks` build against the base, the reference run, at the same place in a session.
+
+### Canvas gaps
+
+- **No key opens a menu.** A keyboard's menu key (and Shift with the tenth function key) opens `contextmenu` on the focused element, which the canvas swallows; GPUI gets the key as a key. A key binding for it is the host's (a context press needs a target, and the keys' target is the selection's head), a line in the README's limits.
+- **A screen reader isn't told** of a menu's target; the README's accessibility gap covers it.
+- **Touch:** the long press is the only way to a menu; a host must hang its menu on the event or `ContextMenuExt` to get it.
+
+### What a DOM contender does
+
+Nothing: no scenario, and TanStack has no click handling of its own. No fixture: the hit test is `select`'s (`target_at`), and there's no rule a contender would have to match.
+
+### What the random test gains
+
+Nothing: the feature touches no paging, no cache, and no state a step reads. No soak (the table's `CLAUDE.md`, rule 5).
