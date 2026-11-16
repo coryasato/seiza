@@ -593,3 +593,12 @@ No results note: nothing measured. The build's check was a byte comparison again
 - The narrow shape's 11 columns run past the 1440 px view, so the blank past the last column, which every window test had room for, didn't exist in the browsers until the run widened the view: a target the native tests sized for themselves has to be found again on the real page.
 - A long press needed no touch emulation in Chromium: CDP's touch events alone reach gpui-pre-web as touch pointers, and the tap that follows was dropped as part B's fix says. Firefox and WebKit can't be driven to one, so a touch device stays a manual check.
 - Every check passed on its first run in all three browsers, so the evidence is a mutation (the bridge's double press published as a press), which fails every double press.
+
+## M16: `clicks` (part D, 2026-11-16)
+
+**Results:** [`perf/results/2026-11-16-m16-d.md`](../perf/results/2026-11-16-m16-d.md)
+
+**Surprises:**
+- The cost part B worried about, a canvas, a hitbox, and a window listener on every band and arrow, doesn't show: at ~10 headers a view, `clicks,resize,sort` reads within `resize,sort`'s spread in every segment and the drag. A per-element listener is cheap at a header's count; it would be worth re-reading only for something drawn a cell.
+- The base moved 0.22 ms between the session's first and last runs (the sideways fling 4.54 → 4.32), more than any difference the feature shows. Running the base at both ends of the session is what makes a "no cost" reading honest; one base run would have put `clicks`' sideways fling at +0.04 or +0.26, depending on which.
+- The size the PLAN expects for a feature isn't settled at its own part: `clicks`' build grew from +7.4 KiB after wasm-opt (part B) to +11.4 once part C's bridge arm and the host's published click were in, and brotli read +1.2 against part B's −0.1, both under its swing. The cost on the final build is the one to quote.
