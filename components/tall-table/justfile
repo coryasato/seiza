@@ -114,6 +114,18 @@ copy *args:
 sort *args:
     node {{component_dir}}/perf/sort.ts {{args}}
 
+# What a fling's late frames are made of, kept builds run in turn (the
+# order reversed every round), cold, the wide shape throttled unless
+# --shape or --profile say otherwise: each late rAF interval read against
+# the trace as a long frame, a frame with tasks outside it, or idle; the
+# timer tasks outside frames (a page's read and landing) counted and timed.
+# A build is a kept `host/web/dist` under perf/results/raw/late-builds/<name>/.
+# --builds, --runs, --each (every late interval), --traces, --cpu (the
+# functions inside those tasks and the slow frames: perf/late.ts's header),
+# --label.
+late *args:
+    node {{component_dir}}/perf/late.ts {{args}}
+
 # The bare host on its release build in Chromium, Firefox, and WebKit: it
 # loads, fills, and scrolls in both shapes (a smoke check, not a manual
 # one), and with each feature built runs its own checks (with `resize`, a

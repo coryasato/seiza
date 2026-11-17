@@ -30,6 +30,7 @@ They serve the host's release build themselves (`vite preview` of `host/web/dist
 - **A scripted drag moves the pointer every 8 ms, not once a frame,** as the sideways fling sends its wheels: under the throttled profile moves sent a frame apart left half the traced frames empty, and the trace's p50 read their idle time (`docs/DECISIONS.md`, "Features").
 - **A drag-select moves a row a move:** the table redraws only when the selection changes, so moves within a cell draw nothing and the p50 reads idle frames (`docs/DECISIONS.md`, "Features"). Between `perf`'s segments the select-all is cleared before Home and pressed again after: Home moves the active cell, which the select-all left at row 0, so it scrolls nothing.
 - **Playwright resolves a wheel before the page handles it:** at a throttled dense table's ~90 ms frames, queued wheels kept the view scrolling for seconds, so a filled frame mid-scroll passed for a rest and a Home pressed then was undone. A rest waits for the view filled and no frame presented for 300 ms (`restedWhere`, with `workRecorder` installed), and `perf.ts` ends each reading 300 ms after the last presented frame, so the quiet spell isn't counted.
+- **A throttled wide fling's late frames are the bare host's page reads, not a feature's cost:** its source builds each page on the main thread, in a task of its own (~4 ms throttled, ~10 at p95), and a ~14 ms frame with one beside it misses the refresh; three in four late frames are that, in every build, and a run's share swings 0–11% with how the tasks fall. Read a feature by its frame work; a late share that differs from the base's by a few points is this (`late.ts` splits a late frame into its parts; `results/2026-11-17-late-frames.md`). A build with `live` (so `follow`) reads a page ~1.3 ms slower in the host's own source, which keys each row by its version.
 - **A copy that outlasts a scroll doesn't belong in the scroll's window:** `copy.ts` ends the traced window at the scroll's rest and reads the copy's end afterwards from its mark.
 - **A move to the page's corner never reaches the canvas:** gpui-pre-web's key textarea sits at (1, 1), over it, so GPUI's hover stays where it was. Move the pointer "away" into the body.
 - **A second press within 5 px of the last is a double-click unless 400 ms passed when gpui-pre-web handled it** (`register_click`, timed with `Date.now()` at handling, not the event's time), so a script's wait can come up short on a busy machine. A script that selects a header and then drags it presses 8 px apart (`SELECT_OFFSET_PX`).
@@ -43,7 +44,7 @@ They serve the host's release build themselves (`vite preview` of `host/web/dist
 ## Files
 
 ```
-  perf/             # harness.ts (the host's names, waits, and hooks), size.ts, perf.ts, build-info.ts (dist/build.json), live.ts, follow.ts, copy.ts, sort.ts, smoke.ts, paint-fixture.ts, density-fixture.ts, format-fixture.ts, pairs.ts (every feature alone and in pairs, compiled and tested: no build of the host's, no browser); results/: each feature's own cost, dated (no budgets)
+  perf/             # harness.ts (the host's names, waits, and hooks), size.ts, perf.ts, build-info.ts (dist/build.json), live.ts, follow.ts, copy.ts, sort.ts, late.ts (what a fling's late frames are made of, kept builds side by side), smoke.ts, paint-fixture.ts, density-fixture.ts, format-fixture.ts, pairs.ts (every feature alone and in pairs, compiled and tested: no build of the host's, no browser); results/: each feature's own cost, dated (no budgets)
 ```
 
 ## Commands
@@ -54,6 +55,7 @@ What each covers and its flags are in its script's header and the justfile's com
 just tall-table size [flags]   # the wasm of the base and each feature's build; fails on an engine or the panel linked, a feature's symbols in the base, or a home-directory path
 just tall-table perf [flags]   # frame work per shape and each feature's segments, reference + throttled, cold, median of 10
 just tall-table live | follow | copy | sort [flags]   # each feature's own latency and frame work, cold, median of 10
+just tall-table late --builds <name>,<name> [flags]   # a fling's late frames by cause, kept builds run in turn; --cpu names the functions
 just tall-table smoke [flags]  # the release build in Chromium, Firefox, and WebKit: loads, fills, scrolls, and each feature built checked against the source
 just tall-table smoke --screens save|<commit>   # the reference screens alone: saved under this tree, or compared pixel for pixel with a commit's
 just tall-table paint-fixture | density-fixture | format-fixture [--check]   # write (or compare) the fixtures' values read from Chromium

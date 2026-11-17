@@ -699,3 +699,14 @@ Results: [`perf/results/2026-11-17-api-review-b.md`](../perf/results/2026-11-17-
 - Brotli isn't a measure of a change this small: builds whose wasm-opt size didn't move a byte moved by up to 2 KiB either way in brotli, and `sort`'s, which grew 0.7 KiB after wasm-opt, shrank 1.2 KiB. The size after wasm-opt is the reading.
 - A lint that fails at its first stale file hides the steps after it. The observatory's stopped at a theme header left by the gpui-kit bump, so its clippy and tsc had to be run by hand to know this change passed them.
 
+## The late frames in the throttled wide fling (2026-11-17)
+
+Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-late-frames.md).
+
+**Surprises:**
+- The open question asked what was slow in the slow frames, and most late frames had no slow frame. Three in four were a frame that fit the refresh (~14 ms throttled) with a page read's task beside it; the question had been read from work per frame, which can't see a task outside a frame.
+- The work was the measuring host's. 95% of those tasks' time is the bare host's source building a page on the main thread, the table's landing 3%. A host made to keep the table's numbers its own (pages from memory, no worker) put its own cost in the one metric that reads the main thread between frames.
+- `follow`'s build did differ, in every run, and not in the table: the host's source with `live` built keys each row by its version, ~1.3 ms more a page. Four milestones had compared the table's code on that path and found nothing, rightly.
+- A run's late share isn't one distribution. About one run in six, in every build, draws on half its frames and reads 0% late; the rest read 2–11%. A median of 10 moves by points with how many of those it holds, which is the difference the earlier notes recorded.
+- The release build's wasm has no names, and a named build's bindings differ from the stripped one's (the closures' names), so swapping a named wasm under the shipped page fails; the named build is bundled whole.
+
