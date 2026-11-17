@@ -55,6 +55,16 @@
 // the first frame (`?order=reverse`, checked at open), so every segment
 // reads the columns through the order; without it, the list's own.
 //
+// Built with `group-headers`, every segment runs under the host's default
+// groups (two levels, so the header is three rows tall and the body shows
+// two rows fewer: compare the work at the cells drawn), or with
+// `--groups 0` none (`?groups=0`: the control that splits the code's cost
+// from the drawing's); the header's rows checked at open. With `reorder`
+// too, the reorder drag's column is held to its group, and a
+// `reorder-group` drag follows it: the inner group holding that column
+// lifted by its cell and dragged as the column is, released where it was
+// pressed, so nothing moves.
+//
 // Built with `format`, every float column formatted (2 decimals, 3 on
 // every fourth row, a `+` on a rise, grouped) and the narrow shape's
 // `spkid` grouped (the host's), or with `--format off` none (`?format=off`:
@@ -92,6 +102,7 @@
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
 //          [--density <row>,<text>[,<width>]] [--format off] [--order reverse]
+//          [--groups 0]
 //          [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
@@ -102,7 +113,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
-import { CELL_STYLES, COLUMN_ORDER_GLOBAL, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SELECT_OFFSET_PX, SORTED_COLUMN, bandAt, global, moveGripAt, selectOn, buildName, builtFeatures, cellAt, cornerAt, hostWebDir, restedWhere, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, pick } from './harness.ts';
+import { CELL_STYLES, COLUMN_ORDER_GLOBAL, GROUPS_GLOBAL, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SELECT_OFFSET_PX, SORTED_COLUMN, bandAt, global, moveGripAt, selectOn, buildName, builtFeatures, cellAt, cornerAt, hostWebDir, restedWhere, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, type GroupCell, pick } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
 const shapes = pick('shape', SHAPES);
@@ -139,7 +150,14 @@ const REORDER = features.includes('reorder');
 const ORDER_OPTION = option('order');
 if (ORDER_OPTION !== undefined && !REORDER) throw new Error('--order needs the host built with reorder: `just tall-table build reorder`');
 if (ORDER_OPTION !== undefined && ORDER_OPTION !== 'reverse') throw new Error(`--order ${ORDER_OPTION}: only \`reverse\``);
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}`);
+const GROUPS = features.includes('group-headers');
+const GROUPS_OPTION = option('groups');
+if (GROUPS_OPTION !== undefined && !GROUPS) throw new Error('--groups needs the host built with group-headers: `just tall-table build group-headers`');
+if (GROUPS_OPTION !== undefined && GROUPS_OPTION !== '0') throw new Error(`--groups ${GROUPS_OPTION}: only \`0\` (the control)`);
+/** The header's rows at open (`group-headers`): the host's two levels and
+ *  the names, or the names alone under `--groups 0`. */
+const HEADER_ROWS = GROUPS_OPTION === '0' ? 1 : 3;
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -173,8 +191,8 @@ const REST_CAP_MS = 300_000;
 /** A rest presents no frame for this long. */
 const QUIET_MS = 300;
 
-type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select' | 'reorder';
-const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select', 'reorder'];
+type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select' | 'reorder' | 'reorder-group';
+const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select', 'reorder', 'reorder-group'];
 type Sample = Partial<Pick<Shown, 'top' | 'first' | 'end' | 'loaded' | 'pending' | 'scrollX'>>;
 
 interface Reading {
@@ -301,6 +319,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (DENSITY_OPTION !== undefined) params.density = DENSITY_OPTION;
     if (FORMAT_OPTION !== undefined) params.format = FORMAT_OPTION;
     if (ORDER_OPTION !== undefined) params.order = ORDER_OPTION;
+    if (GROUPS_OPTION !== undefined) params.groups = GROUPS_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -309,6 +328,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     // The run in effect, at 1440 wide: every count here within the half.
     if (PIN && layout.pinned !== pinned(shape)) throw new Error(`${layout.pinned} columns pinned at open, not ${pinned(shape)}`);
     if (DENSITY && layout.rowHeight !== densityRow) throw new Error(`rows ${layout.rowHeight} px at open, not ${densityRow}`);
+    if (GROUPS && layout.headerRows !== HEADER_ROWS) throw new Error(`the header ${layout.headerRows} rows tall at open, not ${HEADER_ROWS}`);
     const order = layout.columns.map((column, place) => column.index ?? place);
     if (REORDER && JSON.stringify(order) !== JSON.stringify(ORDER_OPTION === 'reverse' ? order.map((_, place) => order.length - 1 - place) : order.map((_, place) => place))) throw new Error(`the columns at open in the order ${JSON.stringify(order.slice(0, 12))}…, not ${ORDER_OPTION ?? "the list's own"}`);
     // Over the cells, clear of the scrollbar.
@@ -457,26 +477,44 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
         await page.mouse.click(grip.x + SELECT_OFFSET_PX, grip.y);
         await selected(page, { kind: 'columns', anchor: [0, place], head: [0, place] });
       }
-      await page.mouse.move(grip.x, grip.y);
-      await page.mouse.down();
-      readings.reorder = await traced(browser, page, layout, async () => {
-        // On a fixed schedule, as the resize drag's.
-        const sent: Promise<void>[] = [];
-        for (let trip = 0; trip < DRAG_TRIPS; trip++) {
-          for (let step = 1; step <= 2 * DRAG_MOVES; step++) {
-            const out = step <= DRAG_MOVES ? step : 2 * DRAG_MOVES - step;
-            sent.push(page.mouse.move(grip.x + (MOVE_PX * out) / DRAG_MOVES, grip.y));
-            await page.waitForTimeout(DRAG_EVERY_MS);
+      /** Right `MOVE_PX` and back from `from`, `DRAG_TRIPS` times, on a
+       *  fixed schedule (the resize drag's), released where it was pressed,
+       *  beside the block: a failure if anything moved or next to nothing
+       *  drew. */
+      const drag = async (segment: 'reorder' | 'reorder-group', from: { x: number; y: number }) => {
+        await page.mouse.move(from.x, from.y);
+        await page.mouse.down();
+        const reading = (readings[segment] = await traced(browser, page, layout, async () => {
+          const sent: Promise<void>[] = [];
+          for (let trip = 0; trip < DRAG_TRIPS; trip++) {
+            for (let step = 1; step <= 2 * DRAG_MOVES; step++) {
+              const out = step <= DRAG_MOVES ? step : 2 * DRAG_MOVES - step;
+              sent.push(page.mouse.move(from.x + (MOVE_PX * out) / DRAG_MOVES, from.y));
+              await page.waitForTimeout(DRAG_EVERY_MS);
+            }
           }
-        }
-        await Promise.all(sent);
-        await page.mouse.up();
-      });
-      // Released beside the block: nothing moved.
-      const after = (await shown(page)).layout.columns.map((column, at) => column.index ?? at);
-      const published = await global<number[]>(page, COLUMN_ORDER_GLOBAL);
-      if (JSON.stringify(after) !== JSON.stringify(order) || (published && JSON.stringify(published) !== JSON.stringify(order))) failures.push(`the reorder drag's release moved the columns (${JSON.stringify(after.slice(0, 12))}…)`);
-      if (readings.reorder.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the reorder drag drew ${readings.reorder.recorder.frames} frames for ${DRAG_TRIPS * 2 * DRAG_MOVES} moves: did it press the header?`);
+          await Promise.all(sent);
+          await page.mouse.up();
+        }));
+        const after = (await shown(page)).layout.columns.map((column, at) => column.index ?? at);
+        const published = await global<number[]>(page, COLUMN_ORDER_GLOBAL);
+        if (JSON.stringify(after) !== JSON.stringify(order) || (published && JSON.stringify(published) !== JSON.stringify(order))) failures.push(`the ${segment} drag's release moved the columns (${JSON.stringify(after.slice(0, 12))}…)`);
+        if (reading.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the ${segment} drag drew ${reading.recorder.frames} frames for ${DRAG_TRIPS * 2 * DRAG_MOVES} moves: did it press the header?`);
+      };
+      await drag('reorder', grip);
+
+      // With the host's groups: the inner group holding that column, lifted
+      // by its cell (with `select`, the press selects its columns, so their
+      // tint moves with it), nothing selected before.
+      if (GROUPS && GROUPS_OPTION === undefined) {
+        await home(page, layout, false);
+        const cells = (await global<GroupCell[]>(page, GROUPS_GLOBAL)) ?? [];
+        const group = cells.find((cell) => cell.level === HEADER_ROWS - 2 && cell.start <= place && place < cell.end);
+        if (!group) throw new Error(`no inner group cell holds place ${place}: ${JSON.stringify(cells.slice(0, 6))}`);
+        const y = layout.top - layout.rowHeight * (HEADER_ROWS - group.level) + layout.rowHeight / 2;
+        await drag('reorder-group', { x: layout.left + group.left + Math.min(12, group.width / 4), y });
+        if (selectOn(features)) await selected(page, { kind: 'columns', anchor: [0, group.start], head: [0, group.end - 1] }).catch(() => failures.push(`the reorder-group drag left a selection other than ${group.label}'s columns`));
+      }
     }
     for (const [segment, reading] of Object.entries(readings)) {
       if (reading.reached) continue;
@@ -543,7 +581,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

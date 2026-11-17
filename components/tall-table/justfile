@@ -66,7 +66,7 @@ size *args:
 # Chromium's trace, cross-checked by `workRecorder`; late frames and the
 # presented frames; frame intervals; visible cells; a throttled segment
 # that doesn't rest reported, not failed. --runs, --shape, --profile,
-# --cells, --pin, --density, --format, --order, --label
+# --cells, --pin, --density, --format, --order, --groups, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:

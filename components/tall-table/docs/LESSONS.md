@@ -635,3 +635,12 @@ No results note: nothing measured. The build's check was a byte comparison again
 - The random test's setters lay out at once but draw only at the next `Frame` step. A check that the drawn group cells match the runs is only true after a draw, so it runs at frames and drags.
 - The mutation run found a check that couldn't matter: `header_place_at` skipped group cells, but each of its callers had already found the group. It also found a test that the all-on run never built: a `cfg(not(feature = "reorder"))` test is skipped by the very run mutation testing uses. Unmovable columns let the test run in every build.
 - Neither fixture had pinned `reorder`'s answer with every column pinned and the pointer right of the edge (none). The siblings' fallback ("right of the parent, its last gap") would have changed it silently.
+
+## M17: `group-headers` (part D, 2026-11-16)
+
+**Results:** [`perf/results/2026-11-16-m17-d.md`](../perf/results/2026-11-16-m17-d.md)
+
+**Surprises:**
+- Against the base, a grouped table reads cheaper per frame (the wide fling 4.26 ms against 4.39). The two group rows take two body rows, so the frame draws 7% fewer cells. Only the same build at `--groups 0` and the cells drawn show what the header costs: about what those cells would have, ≤ ~0.07 ms. A feature that changes the viewport's shape needs a control at the same shape, not just the base.
+- Part C's code never reached the `group-headers` build alone: the presses, parent rule, and gaps compile only with `select`, `reorder`, or `clicks`, so a host that only labels its columns pays part B's +7.6 KiB to the byte. Part C's rewrite of `reorder`'s gap over siblings did grow `reorder` alone, by 1.1 KiB after wasm-opt. B1's size check compares only the base, so a feature's milestone can change another feature's build without any check noticing; the size run's per-feature list against the last one does catch it.
+- A group dragged costs what a column does. A 10-column preview over three header rows reads 3.98 ms against the column's 3.91–3.97: the preview's work is in moving it, not in how much it carries.
