@@ -14,7 +14,7 @@ M1–M17 and the hardening between M7 and M8 are done, the last on 2026-11-16: `
 
 | Milestone | Title | Status |
 |---|---|---|
-| — | Hardening 2: the features since the first hardening, together | Planned, next ("Next milestones") |
+| — | Hardening 2: the features since the first hardening, together | **Active**: part A done 2026-11-16, part B next ("Active milestone") |
 | — | The public API reviewed, with `sort`'s keys: one break, if any | Planned, after the hardening ("Next milestones") |
 | M18 | `replace_rows`: every row index changed meaning, one call | Planned (its row under ["Candidates"](#drafted)) |
 | M19 | Column visibility: hide and show columns | Planned (its row under ["Candidates"](#drafted)) |
@@ -78,7 +78,44 @@ None open: every ask so far is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-None. The second hardening comes next, then the API review with `sort`'s keys, then M18 (`replace_rows`), unless an app's ask comes first ("Next milestones", below).
+### Hardening 2: the features since the first hardening, together
+
+Not a feature: work of its own after M17 and before the API review (decided 2026-11-16, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Fixtures"). Ten pieces of work went in since the first hardening (`sort` through `group-headers`), each reviewed alone, never tested together. Three parts, one session each, as the first's ([`docs/milestones.md`](docs/milestones.md), "Hardening"). Its commits read `tall-table: … (hardening 2 part <X>)`; it closes into `docs/milestones.md` as "Hardening 2". The research, with the audit's table, the findings, and the random test's new steps and invariants in full: the root's [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "Hardening 2".
+
+**Part A: audits and spec** (2026-11-16). Every piece of state the features keep, by what it's held (a column's index, its place, a row) and what a move, `set_order`, `set_columns`, `set_rows`, and a sort do to it; every press's hit test, for one that reads the last frame instead of what's in effect; the README's promises since the first hardening matched to their tests. Found, each confirmed by a spike (not kept) or, where the test app can't reach it, by reading:
+
+1. **A tooltip outlives its value:** decided once, it keeps the old exact text over a cell a re-read (`live`) redrew, or over rows `set_rows` cut and grew back.
+2. **A band's press holds its column by the place it was drawn at:** after a host's `move_columns` or `set_order` and before the next frame, it drags or fits another column (by reading: the test app draws before it dispatches a press).
+3. **Any button's release ends a scrollbar drag, a drag selecting, and a resize;** only `reorder`'s is the left button's own. A native host's only: a browser sends a second button's release as a move.
+4. **The jump's mark survives a shrink past its row,** and comes back on another row when the rows grow.
+5. **A `Columns` range's rows aren't clamped by `set_rows`,** nor is the cell `reorder`'s held press selects at a release that never dragged.
+6. **`set_density` with a new text size is half in effect until the next frame** (new row height, old columns). Left as it is: no fix reads a font without a window.
+7. **A flash survives its row being cut** (by reading).
+
+And seven promises with no test (the research's table): the tooltip through a re-read; a sort clearing the hover and the tooltip; `set_order` keeping `pin`'s count; a fill and a bar read by index after a move; the copy's exact text under a format; the copy's header line under groups; a context press during `resize`'s and `reorder`'s drags.
+
+**Part B: the random test grown, and every feature pair compiled.** In `src/state/random.rs`:
+
+- **Gestures, placed from a stream of their own** (up to six a case, so no case's draw changes): a `Down` (a header row, a band, an arrow, a body cell, a row's number, the corner, a scrollbar's track; a button, a count, Shift or Ctrl), up to three `Drag`s (one in eight with the button up) or `PointerWheel`s, and an `Up` (one in eight the right button's), in order among the case's steps, so a setter, a sort, an answer, or a `set_rows` falls between a press and its release. `DragColumns` goes: a header `Down` and its `Drag`s are it, in a `reorder` build without `group-headers` too.
+- **Invariants 11 to 18,** each with the control that must fail it: every drag ends (a release that leaves the resize on); the widths within their least and most, and the last `ColumnWidthsChanged` theirs (a drag's width unclamped); the order a permutation, and the last `ColumnsMoved` it (a move that writes its block over a neighbor; `set_columns` resetting the order with no event); `pin`'s count moved only by the columns that crossed (`reorder`'s `CountKept` and `Recount`); the selection valid for the columns, the rows, and the kinds on (`select`'s `KeepPastRows`); a point in a drawn column hits it, under `pin`, `density`, and the groups' rows, and each arrow and band lies in its column (a hit test that ignores the run); nothing kept by row outlives its row (a shrink that keeps the mark); the last `Pinned`, `Sorted`, and `Following` are the state (`repin` with no event).
+- **A finding it reaches is excluded until part C** (an `Exclusion`, with an `#[ignore]`d scenario test), as the first hardening's were. It must find 3, 4, and 5 by itself.
+- **`just tall-table pairs`:** every feature alone and every pair (13 and 78) compiled and clippy-clean for the table, the bridge, and the host; its tool chosen by its wall time here (`cargo hack --feature-powerset --depth 2`, `cargo-all-features`, a script over the feature list), not in `lint`. The tests run on the pairs with code gated on both (the research's first list of 30, the final one by script).
+- **The soak's features and `ALL_ON`** gain `clicks` (and `ALL_ON` `group-headers`).
+
+**Part C: the fixes, the soak, the close.** Findings 1 to 5 and 7 fixed as the owner confirmed them (2026-11-16: the tooltip decided again and kept up, a `Columns` range's rows clamped with `Selected`, finding 6 left and documented; [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"), each with a scenario test (2's calls the press inside the update that moved the columns), every exclusion removed; the seven promises' tests; whatever part B finds; the soak on the final build; the fixes' size effect, since 1, 3, and 4 change the base's code (root `CLAUDE.md`, rule 1); the close.
+
+**Done when:**
+- [x] **A1.** The audit, its findings, the promises without a test, and the spec of the new steps, invariants, and controls are in the root's `docs/research/tall-table-features.md`, "Hardening 2"; its decisions are in `docs/DECISIONS.md`. *Evidence (2026-11-16):* the research section (the audit's table of 16 kinds of state, seven findings, seven promises, invariants 11 to 18 each with its control, 30 of 78 pairs with code gated on both); `docs/DECISIONS.md`, "Fixtures" and "Features" (2026-11-16); a spike of four window tests in the all-on build (not kept) printed finding 1 (the tooltip `r1c1v0…` over a cell drawn `r1c1v1…`), 3 (no resize after a right release, the left still down), 4 (marked 500 after 1,000 → 100 → 1,000 rows), and 5 (a `Columns` anchor at row 500 of 100), and showed 2 can't be dispatched in the test app (`App::flush_effects` draws a dirty window in test mode); `docs/LESSONS.md`, "Hardening 2" part A.
+- [ ] **B1.** The gestures run in `just tall-table test`, in each run with the zones its features have; no case's draw changes (the cases without the gestures' steps are the ones before: the first hardening's and M8 to M17's scenario tests pass unchanged); the all-on run's wall time and the random test's own are recorded against today's.
+- [ ] **B2.** Each of invariants 11 to 18 fails under its control within the all-on run's cases, and the paging's controls still fail theirs (the counts over `SEED`s 0–6 recorded).
+- [ ] **B3.** It finds findings 3, 4, and 5 without being told; each finding it reaches (those and any new) is recorded here with its shrunk steps and scheduler seed, an `#[ignore]`d scenario test, and its exclusion; `just tall-table test` passes with them excluded.
+- [ ] **B4.** `just tall-table pairs` passes: 13 single builds and 78 pairs, the table, the bridge, and the host, clippy with `-D warnings`; its tool's audit (each candidate's wall time) is in the part's results note; the pairs with code gated on both are listed by script and their tests pass. A pair that didn't compile is recorded with its fix.
+- [ ] **B5.** The soak's feature list and `ALL_ON` name every feature with steps or controls; `just tall-table soak` passes (the gestures are window steps beside the paging: `CLAUDE.md`, rule 5, since the test changed, not the paging).
+- [ ] **C1.** Findings 1 to 5 and 7 are fixed, each with a scenario test that fails on the commit before its fix; no exclusion is left; finding 6 is in the README's limits.
+- [ ] **C2.** Each of the seven promises has a window test that names it.
+- [ ] **C3.** `just tall-table test`, `lint`, and `pairs` pass; `just tall-table soak` passes on the final build (again after the code review's fixes if they touch the paging).
+- [ ] **C4.** The fixes' effect on the base build and each feature's (`just tall-table size --against` part C's parent) is in a `perf/results/` note, and on each app that builds the table in its own `perf/results/` (root `CLAUDE.md`, rule 1).
+- [ ] **C5.** A `docs/LESSONS.md` entry per part; the README and the `CLAUDE.md` files say what changed (the tooltip, the mark, a `Columns` range's rows, the releases, the gestures and invariants, `pairs`); the spec and evidence move to `docs/milestones.md`.
 
 ---
 
@@ -106,10 +143,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-- **Hardening 2** (decided 2026-11-16; not a feature, three parts as the first hardening's: [`docs/milestones.md`](docs/milestones.md), "Hardening"). Ten pieces of work went in since the first (`sort` through `group-headers`), each reviewed alone, never tested together.
-  - **A. Audits and spec:** every piece of state held by index or by place (`sort`'s column, `resize`'s drag and `column_width`, `select`'s ranges, `clicks`' targets, `pin`'s count, `group-headers`' paths), each mapping checked through a move, `set_columns`, and `set_order`; every press or key that reads the last frame's geometry instead of what's in effect after a host's call (M17's group press was one); each behavior the README promises matched to the test that proves it, the gaps listed. The new steps and invariants specced, each with the control that must fail it.
-  - **B. The random test grown:** pointer steps it lacks (`resize`'s band drag and fit, a wheel during a drag, a move with the button up, `clicks`' presses and their counts) and header drags in a `reorder` build without `group-headers` (today `DragColumns` needs both). Invariants beyond the paging: every drag ends idle, widths within their least and most, the order a permutation, the table's own moves keep groups whole, `pin`'s count moves only by the columns that crossed, the selection valid for the columns and rows, a point in a drawn column hits it (under `pin`, `density`, the groups' rows, the arrows, and the bands). Every feature pair compiled and clippy-clean (13 features: 13 builds and 78 pairs, the table, the bridge, the host): its tool audited first (`cargo-hack`'s `--feature-powerset --depth 2` against the alternatives and a script over the feature list, by time), then a recipe of its own, not in `lint`; the tests run only on the pairs with code gated on both. The soak's feature list checked against every feature built.
-  - **C. The fixes, the soak, the close:** each bug found a scenario test, the soak on the final build, the size effect if shipped code changed.
+- **Hardening 2:** active ("Active milestone", above).
 - **The public API reviewed, with `sort`'s keys** (after the hardening). Every public item listed and read against gpui-kit's Coding Guides ("Public API design", "File and naming conventions") and the table's own prefixes: public fields (`Sort`, `GroupProbe`, `TallTableLayout`, …) against the guides' builders and readers, decided type by type (a probe is a snapshot); `#[non_exhaustive]` where a type may grow; events emitted only at a change, marks in render (`CLAUDE.md`, rule 4); a doc comment on every item (`#![warn(missing_docs)]`). With it, whether `sort`'s API takes a list of keys (the multi-column sort note under ["Candidates"](#notes)), the one candidate whose cost grows the longer it waits. Findings first; the clear non-breaking fixes applied; every breaking change listed with its reason for the owner's yes, then made as one change while every consumer is in this repo (0.1.0).
 - **M18. `replace_rows`:** drafted as a spec row with research questions (["Candidates"](#drafted)); its spec and checks are written in its part A.
 - **M19. Column visibility:** the same, after M18. If its research finds the delegate's narrowed read is more than a part, that read becomes a milestone of its own after M19, decided there.

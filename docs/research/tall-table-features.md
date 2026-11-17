@@ -1,6 +1,6 @@
 # Research: the tall table's features
 
-The research that opens each feature's milestone (the table's [`PLAN.md`](../../components/tall-table/PLAN.md), "Research each feature's design before building it"): how a feature is built on the table's f64-row scroll model, not whether. One section per feature, in the order they're built, and one for the hardening's random test of the paging. Each section's decisions are logged in the table's [`docs/DECISIONS.md`](../../components/tall-table/docs/DECISIONS.md), "Features", and its numbers are in the table's `perf/results/`; this file keeps the reasoning and the options weighed.
+The research that opens each feature's milestone (the table's [`PLAN.md`](../../components/tall-table/PLAN.md), "Research each feature's design before building it"): how a feature is built on the table's f64-row scroll model, not whether. One section per feature, in the order they're built, one for the hardening's random test of the paging, and one for the second hardening's audits. Each section's decisions are logged in the table's [`docs/DECISIONS.md`](../../components/tall-table/docs/DECISIONS.md), "Features", and its numbers are in the table's `perf/results/`; this file keeps the reasoning and the options weighed.
 
 ---
 
@@ -1110,3 +1110,111 @@ TanStack's header groups, from the same paths as nested definitions, with its ow
 ### What the random test gains
 
 The case's columns get paths from a stream of their own (depth 0–3, runs of 1–8 columns), as `density`'s steps do, so every existing case's draw is unchanged. That puts the header's depth, and so the viewport, in every case with groups. `Move` steps then meet the parent rule, and the invariants gain two. The drawn group cells are the runs of the drawn order, which a `GroupsByPlace` control must fail. A move the drag makes never splits a run, which a `GapOutsideParent` control must fail. The paging's code doesn't change, but the viewport's height does with every grouped case, so the soak runs on the final build.
+
+---
+
+## Hardening 2: the features since the first, together
+
+Not a feature: the research that opens the second hardening (the table's `PLAN.md`, "Active milestone"). The first hardening's random test checks the paging; ten pieces of work went in after it (`sort`, `pin`, `density`, the cells' text element, `format`, `follow`'s `let_go`, `reorder`, `clicks`, `group-headers`, and the gpui-kit bumps between), each reviewed alone. This section audits what they keep and how they read a press, lists what the audit found, matches the README's promises to their tests, and specs what the random test gains. Its decisions are in the table's `docs/DECISIONS.md`, "Fixtures" and "Features".
+
+### What asks for it
+
+The last two milestones' code reviews each found a bug of one of two kinds: state held by a column's place where its index was meant (or the other way), and a press that read the cells the last frame drew where the layout in effect was meant (`group-headers`' press). Both are bugs between features, or between a host's call and the reader's hand, and a feature's own tests don't look there.
+
+### How a stale frame is reached, and why the window tests can't
+
+GPUI hit-tests a press against the frame it last drew (`Window::dispatch_mouse_event` reads `rendered_frame`), and a listener an element registered is that frame's closure. A host's call from a timer or a task changes the table and asks for a frame; a press that arrives before that frame runs the old frame's listeners against the new state. In a browser that's a press within one frame of the host's call.
+
+GPUI's test app can't dispatch such a press: in test mode it draws every dirty window when an update's effects flush (`App::flush_effects`), so `simulate_event` after a setter always meets a fresh frame. A spike confirmed it (a band pressed after `move_columns`, no draw between, met the new layout). So a test of this kind calls the press's own function inside the update that made the change, as `a_press_before_the_next_frame_finds_the_new_groups` does, and an audit by reading is the only way to find them.
+
+### The audit: what's held by index, by place, and by row
+
+Each piece of state that outlives a call, what it's held by, and what happens to it at a move (`move_columns`, a drag's release), `set_order`, `set_columns`, `set_rows`, and a sort.
+
+| State | Held by | A move | `set_order` | `set_columns` | `set_rows` cutting it | A sort | Verdict |
+|---|---|---|---|---|---|---|---|
+| `sort`'s column (`SortState::current`) | index | stays | stays | kept if the column at its index has its name and is sortable, else cleared, the source told | — | replaced | sound |
+| `sort`'s pressed and hovered arrow | index (the listener captures it) | stays | stays | forgotten | — | pressed forgotten | sound |
+| `resize`'s drag (`Resizing::column`) | index | stays on its column | stays | ended, no event | — | — | sound |
+| `resize`'s band press and fit (`render_bands`' listener) | **place, from the frame that drew it** | — | — | — | — | — | **finding 2** |
+| `column_width`, `ColumnWidthsChanged` | index | — | — | replaced | — | — | sound |
+| `select`'s range (`anchor`, `head`) | place and row | `Columns`, `Cells`: mapped, kept while side by side; `Rows`: kept as it was (decided) | `Columns`, `Cells` cleared | cleared | `Rows`, `Cells` cut or cleared; **`Columns` rows left past the end** | `Rows`, `Cells` cleared; `Columns` rows to 0 | **finding 5** |
+| `select`'s drag (`selecting`) | the range's kind | ends if the range changed | ends | ends | ends if cut | ends if the range changed | sound |
+| `pin`'s count | places | changed by the columns that crossed | kept as a count of places (documented) | kept, clamped in effect | — | — | sound |
+| `reorder`'s held press and drag (`Moving::block`, `units`, `select`'s cell) | places, from the press | cancelled | cancelled | cancelled | **its cell's row kept** (a release that never dragged selects it) | kept | finding 5 |
+| `group-headers`' runs | places, worked out in every `lay_out` | recomputed | recomputed | recomputed | — | — | sound (a press reads them in effect) |
+| `clicks`' target | worked out at the press | — | — | — | — | — | sound |
+| `copy`'s columns | indices, taken at its start | kept | kept | cancelled | cancelled under its last row | cancelled | sound |
+| The hover and its tooltip (`Hover`) | place and row, **its text decided once** | cleared (`lay_out`) | cleared | cleared | cleared only if the top row moved | cleared | **finding 1** |
+| The jump's mark (`marked`) | row | — | — | — | **kept** | cleared | **finding 4** |
+| `live`'s flashes | row and index | stay on their column | stay | cleared | **kept** | cleared | **finding 7** |
+| `follow`'s drawn tail | row | — | — | — | lowered to the rows | reset by the pages forgotten | sound |
+
+Every hit test (`cell_at`, `cell_clamped`, `target_at`, `header_place_at`, `group_row_at`, the scrollbars' thumbs, `reorder`'s gap) reads the layout, the scroll, and `pin`'s run in effect at the call. The one listener that carries a frame's value into a press is the band's.
+
+### What the audit found
+
+Each is fixed with a scenario test before the hardening closes; a spike (not kept) confirmed 1, 3, 4, and 5 in the all-on build.
+
+1. **A tooltip outlives its value.** The hovered cell's tooltip is decided once the pointer rests and its page is loaded, and kept until the pointer, the scroll, or the layout moves. A re-read that lands under it (`live`) leaves the old exact value showing over a cell that draws the new one: the spike's tooltip read `r1c1v0…` over a cell drawn `r1c1v1…`. Rows cut and grown back by `set_rows` with the top row unmoved do the same without `live`. *Fix:* a page landing on the hovered row, and `set_rows`, undo the decision, so the next frame decides again from the page it draws (the tooltip stays up, its text new, or goes if the new value isn't rounded or cut). The base's code changes.
+2. **A band's press holds its column by the place it was drawn at.** `render_bands`' listener captures the place and `press_band` and `fit_column` map it through the order in effect at the press, so after a host's `move_columns` or `set_order` and before the next frame, a press on column X's band drags or fits whichever column is at X's old place. By reading (above); the arrows' listeners capture the index and are right. *Fix:* the listener captures the index, and the press finds its place in the order in effect (nothing if the column is gone).
+3. **Any button's release ends a scrollbar drag, a drag selecting, and a column's resize;** only `reorder`'s is the left button's own (from its code review). The spike: a right release during a band drag ended it with the left still down. A browser sends a second button's release as a pointer move, so only a native host meets it. *Fix:* the left button's release for all four.
+4. **The jump's mark survives a shrink past its row,** and is drawn on whichever row has its index when the rows grow back (the spike: marked 500 after 1,000 → 100 → 1,000). A sort clears it. *Fix:* `set_rows` clears a mark at or past the new end.
+5. **A `Columns` range's rows aren't clamped by `set_rows`** (the spike: anchor row 500 at 100 rows), though `select` clamps them and a sort moves them to 0. `selection()` and the probe then name a row that isn't there, and the active cell's edge is drawn nowhere. `reorder`'s held press keeps the cell it would select at a release that never dragged, so a shrink between its press and release selects a row past the end the same way. *Fix:* `set_rows` moves a `Columns` range's rows to the last row (0 with none; still never cleared: it covers rows that arrive later), with `Selected`; the held press's cell is clamped at its release.
+6. **`set_density` with a new text size is half in effect until the next frame:** `sizes()` is new at once, the columns are laid out by the new font only at the next render (the font needs a window), and `pin`'s run with them. A press before that frame reads the new row height over the old columns. *Left as it is,* as a narrowed view's one frame with the old run is (the table's `docs/DECISIONS.md`, "Features", 2026-10-29): no fix reads a font without a window, and laying out by the old font moved the run twice.
+7. **A flash survives its row being cut:** flashes are cleared by a sort and `set_columns`, not by `set_rows`, so a row cut and grown back within a flash's duration draws it on the new row. By reading. *Fix:* `set_rows` drops the flashes at or past the new end.
+
+### The README's promises and their tests
+
+Each "Use it" section's promises were matched to a window test, a fixture, or a pure test by name. Those since the first hardening (`sort` through `group-headers`) all have one but these:
+
+| Promise | Where | Gap |
+|---|---|---|
+| A rounded or cut value's exact text is in a tooltip | "Columns", with "Live rows" | No test hovers a cell through a re-read (finding 1) |
+| "The jump's highlight, hover, and the tooltip are cleared" by a sort | "Sorting" | The mark is checked; the hover and the tooltip aren't |
+| `set_order` keeps `pin`'s count as a count of places | "Moving columns", with `pin` | No test calls `set_order` with a count set |
+| A page's `paint` is read by index | "Moving columns" | Only the flash is checked after a move; a fill and a bar aren't |
+| The copy's text stays the exact value under a format | "Format" | No copy test builds a formatted column |
+| "The header line is the names alone, no group rows" | "Header groups", with `copy` | No copy test builds grouped columns |
+| "A context press does nothing" during a drag | "Presses" | Checked for a scrollbar's and `select`'s; not `resize`'s or `reorder`'s |
+
+Part C writes each as a window test (the first with finding 1's fix).
+
+### What the random test gains
+
+**Gestures, placed.** Pointer steps through the window, as `DragColumns` is: `Down` (a zone, a point in it, a button, a count, Shift or Ctrl), `Drag` (a move by a few to a few hundred px, the button held or, one in eight, up: a release unseen), `PointerWheel` (at the pointer), and `Up` (the left button's, or one in eight the right's). The zones are a header row (the names' or a group's), a band, an arrow, a body cell, a row's number, the corner, and a scrollbar's track, each skipped by a build without it. A gesture is a `Down`, up to three `Drag`s or `PointerWheel`s, and an `Up`, its steps placed in order among the case's steps from a stream of its own (up to six a case), so every case's draw is unchanged and the case's other steps (a setter, a sort, an answer, a `set_rows`) fall between a press and its release. That's the timing no window test has. It covers `resize`'s band drag and its fit (a `Down` of count 2), a wheel during any drag, a move with the button up, `clicks`' presses and their counts, `select`'s drag, and header drags in a `reorder` build without `group-headers` (`DragColumns` goes: a `Down` in a header row and its `Drag`s are it, and invariant 10 is checked at each `Up`).
+
+**The invariants,** numbered on from the paging's ten, checked after every step unless they say when:
+
+11. **Every drag ends.** After a left `Up` or a move with the button up, and a frame: no scrollbar drag, no resize, no drag selecting, no held or moving block. *Control:* a release that leaves the resize on.
+12. **The widths.** Every column with a set width is within its least and most; the content's width is the columns' sum; the last `ColumnWidthsChanged` is the set widths. *Control:* a drag's width unclamped.
+13. **The order.** `order()` is a permutation of the columns' indices, each laid-out column's index is the order's at its place, and the last `ColumnsMoved` is it. *Controls:* a move that writes its block over a neighbor; `set_columns` resetting the order with no event (a bug `reorder`'s review found).
+14. **`pin`'s count moves only by the columns that crossed.** Across a move or a release: with the same columns in the run before and after, the host's count is unchanged (past the columns or not); otherwise it's the run's length, and the columns that joined or left are the block's. *Controls:* `reorder`'s `CountKept` and `Recount`, which its fixture has.
+15. **The selection is valid.** Its columns are places that exist; a `Rows` or `Cells` range's rows exist (a `Columns` range's too, once finding 5 is fixed: an exclusion until then); its kind is on; a drag selecting has a selection; the last `Selected` is it. *Control:* `select`'s `KeepPastRows`, which its fixture has.
+16. **A point in a drawn column hits it.** At a `Frame`: for each column the frame drew, the middle of its visible part in the body is that place's cell (`cell_at`), and in the names' row its header (`target_at`), under `pin`'s run, the row height in effect, and the group rows; each group cell drawn is its run at its middle (`group_row_at`); each arrow's target and each band lies inside its column's visible part. *Control:* a hit test that ignores the run (`pin`'s `Control`, one of its fixture's).
+17. **Nothing kept by row outlives its row.** The hover's row, the mark, and every flash's row are below `rows()` (the mark and the flashes once findings 4 and 7 are fixed: exclusions until then), and a tooltip showing at a `Frame` is the exact text of the value its cell draws (finding 1: an exclusion until then). *Control:* a shrink that keeps the mark.
+18. **The last event is the state.** The last `Pinned` is `pinned_in_effect()`, the last `Sorted` is `sort()`, the last `Following` is `is_following()` (with 12, 13, and 15's): a host's copy never goes stale. *Control:* `repin` changing the run with no event.
+
+**It must find findings 3, 4, and 5** by itself (a right `Up` during a drag; a `Jump`, a `ShrinkPast`, a `GrowBack`; a `Columns` selection and a shrink), as the first hardening's had to find the shrink: the proof the gestures and invariants reach what the audit did. Findings 1 and 7 need a cut text or a flash under the pointer, which the test's short values and unflashed columns never draw; their scenario tests are written by hand. Finding 2 can't be dispatched (above).
+
+**What a run costs** is measured when the gestures are built: a pointer step draws a frame, as `DragColumns`' do (~2.5 ms a step in the all-on run), so six gestures add about 30 frames a case.
+
+### Every feature pair, compiled
+
+13 features; `follow` turns on `live` and `copy` turns on `select`, so 13 single builds and 78 pairs, each for the table, the bridge, and the host. `just tall-table test` runs 18 feature sets and `lint` clippies none and all, so a pair that doesn't compile alone (an import gated on one feature, used under two) reaches no check today. Part B audits the tool first, by its wall time here: `cargo hack --feature-powerset --depth 2` (not installed on this machine: `cargo install cargo-hack`), `cargo-all-features`, and a script over the feature list calling `cargo clippy` a pair; then a recipe of its own (`just tall-table pairs`), not in `lint`.
+
+The tests run only on the pairs with code gated on both. A first list, from `all(feature = …, feature = …)` and from each feature's module naming another's `cfg` (the recipe's script derives the final one, `src/state.rs`'s own nesting included):
+
+`custom-cells` + `live`, `custom-cells` + `pin`, `custom-cells` + `density`, `custom-cells` + `sort`; `live` + `copy`, `live` + `sort`; `follow` + `sort`; `resize` + `pin`, `resize` + `sort`, `resize` + `format`, `resize` + `reorder`, `resize` + `clicks`, `resize` + `group-headers`; `select` + `pin`, `select` + `sort`, `select` + `reorder`, `select` + `clicks`, `select` + `group-headers`; `copy` + `sort`, `copy` + `reorder`; `sort` + `pin`, `sort` + `reorder`, `sort` + `format`, `sort` + `group-headers`; `pin` + `format`, `pin` + `reorder`, `pin` + `group-headers`; `reorder` + `clicks`, `reorder` + `group-headers`; `clicks` + `group-headers`.
+
+Thirty of the 78; `just tall-table test` runs three of them today (`custom-cells` + `live`, `custom-cells` + `follow`, `format` + `resize`).
+
+### The soak's features
+
+`just tall-table soak` builds every feature with steps in the random test: `custom-cells`, `follow`, `resize`, `copy`, `sort`, `pin`, `density`, `reorder`, `group-headers`. `clicks` has none today and gets them (the gestures' buttons and counts), so it joins; `format` still has none. The random test's `ALL_ON` (the run that takes 48 cases and the controls) names eight features and gains `clicks` and `group-headers`, whose controls it already runs.
+
+### What it leaves out
+
+- **Browsers:** the native test runs GPUI's test platform; the smoke checks stay the browsers'.
+- **A press against a stale frame** (finding 2's kind): found by reading, tested by calling the press inside the update.
+- **Touch:** `clicks`' long press and its tap are a window test's; the gestures are a mouse's.
