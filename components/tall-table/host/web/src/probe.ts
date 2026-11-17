@@ -79,7 +79,7 @@ export interface GroupCell {
  *  and run's places `start..end`, `null` for another target; `x` and `y`
  *  the pointer in CSS px of the window; `count` one more at each press. */
 export interface Click {
-  kind: 'press' | 'double' | 'context';
+  kind: 'press' | 'double' | 'context' | 'unknown';
   target: 'cell' | 'row' | 'column' | 'corner' | 'blank' | 'group' | 'unknown';
   row: number | null;
   column: number | null;

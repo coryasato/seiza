@@ -13,7 +13,7 @@
 /// different float (no shorter text reads back the same), so the caller can
 /// tell a rounded value by `shown != exact`. If even the shortest scientific
 /// text doesn't fit, it's returned anyway, and the cell cuts it.
-pub fn fit_float(value: f64, exact: String, budget: usize) -> String {
+pub(crate) fn fit_float(value: f64, exact: String, budget: usize) -> String {
     if exact.len() <= budget || !value.is_finite() {
         return exact;
     }
@@ -166,6 +166,7 @@ mod number {
             }
         }
 
+        /// Which values show a sign.
         pub fn sign(self, sign: Sign) -> Self {
             Self { sign, ..self }
         }
@@ -195,6 +196,7 @@ mod number {
     /// Which values a formatted number shows a sign on, by its raw value
     /// (a tiny rise is `+0.00`); an exact zero (`-0.0` too) never has one.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+    #[non_exhaustive]
     pub enum Sign {
         /// A `-` on a negative.
         #[default]

@@ -283,7 +283,7 @@ impl Sheet {
     }
 
     fn select(&mut self, selection: TallTableSelection) {
-        self.update(|table, cx| table.select(Some(selection), cx));
+        self.update(|table, cx| table.set_selection(Some(selection), cx));
     }
 
     fn copy(&mut self) -> Option<CopyId> {
@@ -622,7 +622,7 @@ fn the_keys_copy_and_nothing_selected_goes_on(cx: &mut TestAppContext) {
         assert_eq!(Sheet::text_of(&events), "0.0");
     }
     assert_eq!(sheet.host_copies.get(), 0, "the table's");
-    sheet.update(|table, cx| table.select(None, cx));
+    sheet.update(|table, cx| table.set_selection(None, cx));
     sheet.key("cmd-c");
     assert_eq!(sheet.host_copies.get(), 1, "nothing selected: the host's");
     assert!(sheet.take_copies().is_empty());
@@ -645,7 +645,7 @@ fn past_the_keys_limit_its_declined(cx: &mut TestAppContext) {
         }]
     );
     assert!(sheet.take_log().is_empty(), "nothing read");
-    assert_eq!(sheet.read(|table| table.copying()), None, "no copy");
+    assert_eq!(sheet.read(|table| table.copy_progress()), None, "no copy");
     // The host's confirmation copies it.
     sheet.copy().expect("a copy");
     sheet.answer_all();
@@ -660,7 +660,7 @@ fn escape_cancels_a_copy_then_clears(cx: &mut TestAppContext) {
     sheet.hold();
     sheet.select(rows(0, 999));
     let id = sheet.copy().unwrap();
-    assert!(sheet.read(|table| table.copying()).is_some());
+    assert!(sheet.read(|table| table.copy_progress()).is_some());
     sheet.key("escape");
     assert_eq!(
         sheet.take_copies().last(),
@@ -669,7 +669,7 @@ fn escape_cancels_a_copy_then_clears(cx: &mut TestAppContext) {
             reason: CopyFailure::Cancelled
         })
     );
-    assert_eq!(sheet.read(|table| table.copying()), None);
+    assert_eq!(sheet.read(|table| table.copy_progress()), None);
     assert_eq!(sheet.read(|table| table.selection()), Some(rows(0, 999)));
     sheet.key("escape");
     assert_eq!(sheet.read(|table| table.selection()), None);
@@ -742,7 +742,7 @@ fn a_copy_reads_beside_the_cache(cx: &mut TestAppContext) {
     // Pages 0 to 2 from the cache, at once; then two reads (one fewer than
     // `max_in_flight`), from the turn's page.
     assert_eq!(sheet.take_log(), ["load 3", "load 4"]);
-    let progress = sheet.read(|table| table.copying()).unwrap();
+    let progress = sheet.read(|table| table.copy_progress()).unwrap();
     assert_eq!(
         (progress.id, progress.rows_done, progress.rows),
         (id, 300, 1000)
@@ -750,10 +750,16 @@ fn a_copy_reads_beside_the_cache(cx: &mut TestAppContext) {
     // Out of order: page 4 waits for page 3, and holds its place in the
     // copy's two.
     sheet.answer(4);
-    assert_eq!(sheet.read(|table| table.copying()).unwrap().rows_done, 300);
+    assert_eq!(
+        sheet.read(|table| table.copy_progress()).unwrap().rows_done,
+        300
+    );
     assert!(sheet.take_log().is_empty());
     sheet.answer(3);
-    assert_eq!(sheet.read(|table| table.copying()).unwrap().rows_done, 500);
+    assert_eq!(
+        sheet.read(|table| table.copy_progress()).unwrap().rows_done,
+        500
+    );
     assert_eq!(sheet.take_log(), ["load 5", "load 6"]);
     while !sheet.open_pages().is_empty() {
         assert!(sheet.open_pages().len() <= 2, "{:?}", sheet.open_pages());
@@ -831,7 +837,10 @@ fn a_page_evicted_before_its_turn_is_read_then(cx: &mut TestAppContext) {
     // Page 0 copied from the cache, page 1 read at its turn and page 2
     // ahead of its.
     assert_eq!(sheet.take_log(), ["load 1", "load 2"]);
-    assert_eq!(sheet.read(|table| table.copying()).unwrap().rows_done, 100);
+    assert_eq!(
+        sheet.read(|table| table.copy_progress()).unwrap().rows_done,
+        100
+    );
     sheet.answer_all();
     let events = sheet.take_copies();
     assert_eq!(kinds(&events).last(), Some(&"copied"));
@@ -948,7 +957,10 @@ fn a_copy_ending_on_the_caches_page_frees_its_own_read(cx: &mut TestAppContext) 
 #[gpui_kit::test]
 fn a_page_passed_on_the_caches_copy_is_let_go(cx: &mut TestAppContext) {
     let mut sheet = copy_racing_the_cache(cx, 999);
-    assert_eq!(sheet.read(|table| table.copying()).unwrap().rows_done, 500);
+    assert_eq!(
+        sheet.read(|table| table.copy_progress()).unwrap().rows_done,
+        500
+    );
     let log = sheet.take_log();
     assert!(
         log.contains(&"cancel 4".to_string()),
@@ -1416,7 +1428,7 @@ fn close_cancels_its_reads_quietly(cx: &mut TestAppContext) {
     sheet.update(|table, cx| table.close(cx));
     assert_eq!(sheet.take_log(), ["cancel 3", "cancel 4"]);
     assert!(sheet.take_copies().is_empty(), "no event");
-    assert_eq!(sheet.read(|table| table.copying()), None);
+    assert_eq!(sheet.read(|table| table.copy_progress()), None);
     sheet.answer_all();
     assert!(sheet.take_copies().is_empty());
 }
@@ -1431,7 +1443,7 @@ fn a_selection_change_and_a_scroll_dont_cancel(cx: &mut TestAppContext) {
     sheet.key("down");
     sheet.key("pagedown");
     sheet.select(cells((1, 1), (1, 1)));
-    assert!(sheet.read(|table| table.copying()).is_some());
+    assert!(sheet.read(|table| table.copy_progress()).is_some());
     sheet.answer_all();
     let events = sheet.take_copies();
     assert_eq!(kinds(&events).last(), Some(&"copied"));

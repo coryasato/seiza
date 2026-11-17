@@ -376,7 +376,7 @@ impl TallTableDelegate for Memory {
     fn cancel(&mut self, _: u64, _: &mut App) {}
 
     #[cfg(feature = "sort")]
-    fn sort(&mut self, _: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+    fn sort(&mut self, _: &[crate::Sort], _: &mut App) -> Result<(), crate::SortRefused> {
         self.sorts.set(self.sorts.get() + 1);
         Ok(())
     }
@@ -843,7 +843,7 @@ fn the_selection_follows_a_move(cx: &mut TestAppContext) {
         anchor: (0, anchor),
         head: (0, head),
     };
-    sheet.update(|table, cx| table.select(Some(columns(1, 2)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(columns(1, 2)), cx));
     selected(&mut sheet);
     // Inside the block moved: it moves with it.
     sheet.move_columns(1..3, 2);
@@ -860,7 +860,7 @@ fn the_selection_follows_a_move(cx: &mut TestAppContext) {
     sheet.move_columns(0..1, 3);
     assert_eq!(selected(&mut sheet), [Some(columns(1, 2))]);
     // Holding the block and every place it shifts: kept in place.
-    sheet.update(|table, cx| table.select(Some(columns(0, 3)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(columns(0, 3)), cx));
     selected(&mut sheet);
     sheet.move_columns(0..1, 3);
     assert_eq!(
@@ -869,7 +869,7 @@ fn the_selection_follows_a_move(cx: &mut TestAppContext) {
     );
     assert_eq!(sheet.read(|table| table.selection()), Some(columns(0, 3)));
     // Split: cleared.
-    sheet.update(|table, cx| table.select(Some(columns(1, 2)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(columns(1, 2)), cx));
     selected(&mut sheet);
     sheet.move_columns(2..3, 0);
     assert_eq!(selected(&mut sheet), [None]);
@@ -879,7 +879,7 @@ fn the_selection_follows_a_move(cx: &mut TestAppContext) {
         anchor: (3, 1),
         head: (5, 1),
     };
-    sheet.update(|table, cx| table.select(Some(rows), cx));
+    sheet.update(|table, cx| table.set_selection(Some(rows), cx));
     selected(&mut sheet);
     sheet.move_columns(0..2, 2);
     sheet.set_order(&[0, 1, 2, 3]);
@@ -892,7 +892,7 @@ fn the_selection_follows_a_move(cx: &mut TestAppContext) {
         anchor: (3, 1),
         head: (5, 2),
     };
-    sheet.update(|table, cx| table.select(Some(cells), cx));
+    sheet.update(|table, cx| table.set_selection(Some(cells), cx));
     selected(&mut sheet);
     sheet.set_order(&[3, 2, 1, 0]);
     assert_eq!(selected(&mut sheet), [None]);
@@ -999,10 +999,10 @@ fn the_sort_stays_on_its_column(cx: &mut TestAppContext) {
 
     let mut sheet = Sheet::open(cx, 1000);
     let sort = Sort::new(2, SortDirection::Ascending);
-    sheet.update(|table, cx| table.set_sort(Some(sort), cx).expect("sorted"));
+    sheet.update(|table, cx| table.set_sort(vec![sort], cx).expect("sorted"));
     let sorts = sheet.source.sorts.get();
     sheet.move_columns(2..3, 0);
-    assert_eq!(sheet.read(|table| table.sort()), Some(sort));
+    assert_eq!(sheet.read(|table| table.sort().to_vec()), [sort]);
     assert_eq!(sheet.source.sorts.get(), sorts, "the source told nothing");
     let drawn = sheet.read(|table| table.sort_state.drawn.clone());
     let sorted = drawn
@@ -1042,7 +1042,7 @@ fn a_copy_keeps_the_columns_it_started_with(cx: &mut TestAppContext) {
     sheet.update(|table, _| table.set_copy_options(CopyOptions::default().headers(true)));
     sheet.set_order(&[3, 0, 2, 1]);
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Columns {
                 anchor: (0, 2),
                 head: (0, 3),
@@ -1055,7 +1055,7 @@ fn a_copy_keeps_the_columns_it_started_with(cx: &mut TestAppContext) {
     // update: the first turn ran, the rest come after the move.
     sheet.update(|table, cx| {
         table.copy(cx).expect("a copy");
-        assert!(table.copying().is_some(), "still copying");
+        assert!(table.copy_progress().is_some(), "still copying");
         table.move_columns(0..2, 2, cx);
     });
     sheet.draw();
@@ -1260,7 +1260,7 @@ fn a_held_press_selects_a_row_that_exists(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, 1000);
     sheet.update(|table, cx| {
         table.move_top_to(500.0, cx);
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Columns {
                 anchor: (500, 1),
                 head: (500, 2),
@@ -1421,7 +1421,7 @@ fn a_press_within_2_px_moves_nothing(cx: &mut TestAppContext) {
             anchor: (0, 1),
             head: (0, 2),
         };
-        sheet.update(|table, cx| table.select(Some(range), cx));
+        sheet.update(|table, cx| table.set_selection(Some(range), cx));
         let at = sheet.header(2);
         sheet.press(at);
         assert_eq!(
@@ -1600,7 +1600,7 @@ fn with_select_a_selected_range_moves(cx: &mut TestAppContext) {
         head: (0, head),
     };
     // Outside the range: a drag selecting, as today.
-    sheet.update(|table, cx| table.select(Some(range(0, 0)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(range(0, 0)), cx));
     let at = sheet.header(2);
     sheet.press(at);
     let to = sheet.header(3);
@@ -1612,7 +1612,7 @@ fn with_select_a_selected_range_moves(cx: &mut TestAppContext) {
     assert_eq!(sheet.order(), [0, 1, 2, 3]);
     // Inside it: the range moves, past the last column, and stays
     // selected at its places.
-    sheet.update(|table, cx| table.select(Some(range(1, 2)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(range(1, 2)), cx));
     sheet.heard();
     let at = sheet.header(1);
     sheet.press(at);
@@ -1636,7 +1636,7 @@ fn with_select_a_selected_range_moves(cx: &mut TestAppContext) {
     let mut list = columns();
     list[1] = list[1].clone().movable(false);
     sheet.update(|table, cx| table.set_columns(list, cx));
-    sheet.update(|table, cx| table.select(Some(range(0, 1)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(range(0, 1)), cx));
     let at = sheet.header(0);
     sheet.press(at);
     let to = sheet.over(700.);
@@ -1646,7 +1646,7 @@ fn with_select_a_selected_range_moves(cx: &mut TestAppContext) {
     assert_eq!(sheet.order(), [0, 1, 2, 3]);
     assert_eq!(sheet.read(|table| table.selection()), Some(range(0, 3)));
     // Alone, the unmovable column doesn't drag either.
-    sheet.update(|table, cx| table.select(Some(range(1, 1)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(range(1, 1)), cx));
     let at = sheet.header(1);
     sheet.press(at);
     sheet.drag_to(to);
@@ -1658,7 +1658,7 @@ fn with_select_a_selected_range_moves(cx: &mut TestAppContext) {
         anchor: (0, 0),
         head: (2, 1),
     };
-    sheet.update(|table, cx| table.select(Some(cells), cx));
+    sheet.update(|table, cx| table.set_selection(Some(cells), cx));
     let at = sheet.header(0);
     sheet.press(at);
     sheet.drag_to(to);
@@ -1671,7 +1671,7 @@ fn with_select_a_selected_range_moves(cx: &mut TestAppContext) {
         anchor: (1, 0),
         head: (2, 0),
     };
-    sheet.update(|table, cx| table.select(Some(rows), cx));
+    sheet.update(|table, cx| table.set_selection(Some(rows), cx));
     sheet.drag_header(0, to);
     assert_eq!(sheet.order(), [1, 2, 3, 0]);
     assert_eq!(sheet.read(|table| table.selection()), Some(rows), "kept");
@@ -1846,7 +1846,7 @@ fn escape_before_a_drag_clears_for_good(cx: &mut TestAppContext) {
         anchor: (0, anchor),
         head: (0, head),
     };
-    sheet.update(|table, cx| table.select(Some(range(1, 2)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(range(1, 2)), cx));
     let at = sheet.header(2);
     sheet.press(at);
     sheet.key("escape");
@@ -1854,7 +1854,7 @@ fn escape_before_a_drag_clears_for_good(cx: &mut TestAppContext) {
     sheet.release();
     assert_eq!(sheet.read(|table| table.selection()), None, "still cleared");
     assert_eq!(sheet.escapes.get(), 0);
-    sheet.update(|table, cx| table.select(Some(range(1, 2)), cx));
+    sheet.update(|table, cx| table.set_selection(Some(range(1, 2)), cx));
     sheet.press(at);
     sheet.cx.simulate_mouse_move(at, None, Modifiers::default());
     sheet.draw();

@@ -290,7 +290,8 @@ impl TallTableDelegate for Source {
     /// from now on: every row's era bumped, so a row drawn or copied from a
     /// read of the old order is of an era gone.
     #[cfg(feature = "sort")]
-    fn sort(&mut self, sort: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+    fn sort(&mut self, keys: &[crate::Sort], _: &mut App) -> Result<(), crate::SortRefused> {
+        let sort = keys.first().copied();
         let mut books = self.0.borrow_mut();
         if let Some(sort) = sort
             && books.refused & (1 << (sort.column % 8)) != 0
@@ -1013,7 +1014,7 @@ impl Run {
                 #[cfg(feature = "pin")]
                 pinned: table.pinned_in_effect(),
                 #[cfg(feature = "sort")]
-                sorted: table.sort(),
+                sorted: table.sort().first().copied(),
                 #[cfg(feature = "follow")]
                 following: table.is_following(),
             }
@@ -1040,7 +1041,9 @@ impl Run {
                     #[cfg(feature = "pin")]
                     TallTableEvent::Pinned(pinned) => heard.borrow_mut().pinned = *pinned,
                     #[cfg(feature = "sort")]
-                    TallTableEvent::Sorted(sort) => heard.borrow_mut().sorted = *sort,
+                    TallTableEvent::Sorted(keys) => {
+                        heard.borrow_mut().sorted = keys.first().copied()
+                    }
                     #[cfg(feature = "follow")]
                     TallTableEvent::Following(following) => {
                         heard.borrow_mut().following = *following;
@@ -1703,7 +1706,7 @@ impl Run {
                 ));
             }
             #[cfg(feature = "sort")]
-            if heard.sorted != table.sort() {
+            if heard.sorted != table.sort().first().copied() {
                 return Err(Violation::new(
                     18,
                     format!(
@@ -2052,7 +2055,7 @@ impl Run {
                     (anchor, column as usize % count),
                     (head, columns as usize % count),
                 );
-                self.update(|table, cx| table.select(Some(selection), cx));
+                self.update(|table, cx| table.set_selection(Some(selection), cx));
             }
             #[cfg(feature = "copy")]
             Step::Copy => {
@@ -2081,7 +2084,7 @@ impl Run {
                     _ => Some(crate::Sort::new(column, crate::SortDirection::Descending)),
                 };
                 self.update(|table, cx| {
-                    let _ = table.set_sort(sort, cx);
+                    let _ = table.set_sort(Vec::from_iter(sort), cx);
                 });
             }
             // Past the columns, by up to two: the run clamped to them.
@@ -2416,7 +2419,7 @@ impl Run {
                     format!("{:?} waits with no read open", copying.id),
                 ));
             }
-            if let Some(progress) = self.read(|table| table.copying()) {
+            if let Some(progress) = self.read(|table| table.copy_progress()) {
                 return Err(Violation::new(6, format!("{progress:?} runs, unreported")));
             }
         }

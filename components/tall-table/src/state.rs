@@ -58,6 +58,7 @@ pub fn init(cx: &mut App) {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub struct Paging {
+    /// The rows a page holds: what one read asks the delegate for.
     pub page_rows: u64,
     /// Pages kept loaded on each side of the viewport (twice that ahead
     /// while scrolling).
@@ -104,6 +105,8 @@ pub struct ActivityOptions {
 }
 
 impl ActivityOptions {
+    /// Recording over the last `window_ms` on `clock`, while
+    /// `is_recording` says so.
     pub fn new(window_ms: f64, clock: fn() -> f64, is_recording: fn(&App) -> bool) -> Self {
         Self {
             window_ms,
@@ -504,13 +507,17 @@ enum Drag {
 
 /// What the table reports. The host decides what to show for it.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum TallTableEvent {
     /// A frame with every visible row loaded is being drawn, after one that
     /// wasn't; `first` for the table's first. Emitted while the frame
     /// renders, so it reaches subscribers in the task that presents the
     /// frame: a mark set right after that task lands right after it's on
     /// screen.
-    Filled { first: bool },
+    Filled {
+        /// Whether it's the table's first filled frame.
+        first: bool,
+    },
     /// A page read failed with [`PageError::Failed`]'s `read_failure`: the
     /// source is broken (a file it can no longer read). The host repairs
     /// it, then calls [`TallTableState::retry_failed`].
@@ -518,7 +525,9 @@ pub enum TallTableEvent {
     /// The vertical scrollbar's track and thumb, in window pixels, when they
     /// change: for scripts that drag it.
     Scrollbar {
+        /// The track: the body's height, less the horizontal scrollbar's.
         track: Bounds<Pixels>,
+        /// The thumb, within the track.
         thumb: Bounds<Pixels>,
     },
     /// What the frame shows, when it changes. Only while
@@ -543,7 +552,10 @@ pub enum TallTableEvent {
     /// ([`TallTableState::invalidate_rows`]).
     #[cfg(feature = "live")]
     Refreshed {
+        /// The page's rows, as it was read: a last page that grew since
+        /// is cut to the rows its read held.
         rows: std::ops::Range<u64>,
+        /// The last invalidation its read started after.
         generation: u64,
     },
     /// Following started (`true`) or stopped (`follow`): for a host's "back
@@ -555,7 +567,10 @@ pub enum TallTableEvent {
     /// `Filled` is; a host that called `set_rows(n)` takes the first at or
     /// past `n`.
     #[cfg(feature = "follow")]
-    TailDrawn { rows: u64 },
+    TailDrawn {
+        /// The drawn tail's end: one past the last row drawn.
+        rows: u64,
+    },
     /// A drag released or a fit changed a width (`resize`): each column's
     /// set width (by the host's [`TallTableColumn::width`], a drag, or a
     /// fit), `None` where it's still its kind's, in the order of
@@ -565,8 +580,8 @@ pub enum TallTableEvent {
     /// when nothing changed.
     #[cfg(feature = "resize")]
     ColumnWidthsChanged(Vec<Option<Pixels>>),
-    /// The selection changed (`select`): a press, a drag, a key, `select`,
-    /// `jump_to`, `set_rows` cutting it, `set_columns` clearing it, and with
+    /// The selection changed (`select`): a press, a drag, a key,
+    /// `set_selection`, `jump_to`, `set_rows` cutting it, `set_columns` clearing it, and with
     /// `reorder` a move changing its places or `set_order` clearing it. Not
     /// emitted when an input leaves it as it was.
     #[cfg(feature = "select")]
@@ -575,12 +590,19 @@ pub enum TallTableEvent {
     /// pieces, and its end ([`TallTableState::copy`]).
     #[cfg(feature = "copy")]
     Copy(crate::copy::TallTableCopy),
-    /// The order changed (`sort`), by a click or `set_sort`.
+    /// The rows are read in this order from now on (`sort`), its keys as
+    /// [`TallTableState::sort`] returns them (none: the source's own): a
+    /// click or `set_sort` the source accepted, or `set_columns` clearing
+    /// a sort whose column is gone (whatever the source answers). Every
+    /// page is forgotten and read again. The same sort again emits it too
+    /// (a host whose rows moved within the order), so it marks a re-read,
+    /// not only a new order.
     #[cfg(feature = "sort")]
-    Sorted(Option<crate::sort::Sort>),
-    /// A click's sort the source refused (`sort`); the order is as it was.
+    Sorted(Vec<crate::sort::Sort>),
+    /// A click's sort the source refused (`sort`), the keys it asked for;
+    /// the order is as it was.
     #[cfg(feature = "sort")]
-    SortRefused(crate::sort::Sort, crate::sort::SortRefused),
+    SortRefused(Vec<crate::sort::Sort>, crate::sort::SortRefused),
     /// The columns pinned in effect changed (`pin`): by
     /// [`TallTableState::set_pinned`], `set_columns`, the view's width, or a
     /// width (`resize`). Fewer than the host's count while they'd take more
@@ -592,11 +614,14 @@ pub enum TallTableEvent {
     /// or [`TallTableState::set_columns`] resetting another order to the
     /// list's own. `order[place]` is the index drawn
     /// there after; with `pin`, `pinned` is the host's count after
-    /// ([`TallTableState::pinned`]), which a move across the run's edge
+    /// (`TallTableState::pinned`), which a move across the run's edge
     /// changes.
     #[cfg(feature = "reorder")]
+    #[non_exhaustive]
     ColumnsMoved {
+        /// The order after: `order[place]` is the index drawn there.
         order: Vec<usize>,
+        /// The host's pinned count after (`pin`).
         #[cfg(feature = "pin")]
         pinned: usize,
     },
@@ -610,16 +635,24 @@ pub enum TallTableEvent {
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub struct TallTableStats {
+    /// The pages the cache holds.
     pub loaded_pages: usize,
     /// Reads in flight, with `copy` the copy's too (never cached).
     pub in_flight: usize,
     /// Cancelled reads the delegate is still answering.
     pub draining: usize,
+    /// The loaded pages' bytes, counted against `Paging::budget_bytes`.
     pub cache_bytes: usize,
     /// Over [`ActivityOptions::window_ms`]: rows/s and filled frames.
     pub activity: ActivityStats,
 }
 
+/// A table's retained state: its delegate, columns, scroll position, page
+/// cache, and hover, and each feature's own. The host creates it once
+/// (`cx.new`), keeps the entity, and renders it through
+/// [`TallTable`](crate::TallTable); every setter here is called inside an
+/// update of it, and what it reports comes back as [`TallTableEvent`]s
+/// (`cx.subscribe`).
 pub struct TallTableState<D: TallTableDelegate> {
     delegate: D,
     /// As the host gave them; [`TallTableState::set_columns`] replaces them.
@@ -879,24 +912,32 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self
     }
 
+    /// The rows' source.
     pub fn delegate(&self) -> &D {
         &self.delegate
     }
 
+    /// The rows' source, to change it. The table isn't told: a change to
+    /// what its rows hold is followed by the call that says so
+    /// ([`TallTableState::set_rows`], and with `live`
+    /// `TallTableState::invalidate_rows`).
     pub fn delegate_mut(&mut self) -> &mut D {
         &mut self.delegate
     }
 
+    /// The handle the table's keys follow: a press on the table focuses
+    /// it, and a host focuses it to hand the keys over.
     pub fn focus_handle(&self) -> &FocusHandle {
         &self.focus_handle
     }
 
+    /// The rows the table shows: `new`'s, or the last `set_rows`'.
     pub fn rows(&self) -> u64 {
         self.scroll.rows()
     }
 
     /// As the host gave them: a column's index is its place here (with
-    /// `reorder`, [`TallTableState::order`] says where each is drawn).
+    /// `reorder`, `TallTableState::order` says where each is drawn).
     pub fn columns(&self) -> &[TallTableColumn] {
         &self.column_info
     }
@@ -906,7 +947,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ///
     /// With `select`, it selects the row (rows on), else its cell (cells
     /// on: in the active cell's column, else the first visible), emitting
-    /// [`TallTableEvent::Selected`], and the selection is its highlight;
+    /// `TallTableEvent::Selected`, and the selection is its highlight;
     /// with only columns on, it highlights as without the feature.
     pub fn jump_to(&mut self, row: u64, cx: &mut Context<Self>) {
         self.marked = Some(row);
@@ -933,16 +974,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// jump's highlight, the hover and its tooltip, and with `live` and
     /// `custom-cells` the flashes. With `select`, a `Rows` or `Cells` range
     /// is cut and a `Columns` range's rows move to the last row
-    /// ([`TallTableEvent::Selected`]).
+    /// (`TallTableEvent::Selected`).
     ///
     /// With `live`, a short last page that grows stays drawn, placeholders
     /// past the rows it was read with, and is read again as an invalidated
     /// page is (never cancelled for growing); the reads start once the
     /// update that called this ends, one plan for every `set_rows` and
-    /// [`TallTableState::invalidate_rows`] in it.
+    /// `TallTableState::invalidate_rows` in it.
     ///
     /// With `follow`, while following, the view moves on only as the new
-    /// rows' reads land ([`TallTableState::follow`]).
+    /// rows' reads land (`TallTableState::follow`).
     pub fn set_rows(&mut self, rows: u64, cx: &mut Context<Self>) {
         let top = self.scroll.top();
         #[cfg(all(feature = "live", feature = "custom-cells"))]
@@ -1042,20 +1083,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// loaded keep their values.
     ///
     /// With `resize`, the widths are what `columns` set
-    /// ([`TallTableColumn::width`]): a host keeping widths passes them back.
+    /// (`TallTableColumn::width`): a host keeping widths passes them back.
     /// A column drag in progress ends, with no event.
     ///
     /// With `select`, the selection is cleared (a host keeping it calls
-    /// `select` after). With `copy`, a copy running is cancelled.
+    /// `set_selection` after). With `copy`, a copy running is cancelled.
     ///
     /// With `sort`, the sort stays if the column at its index (in
     /// `columns`) has the name it had and is sortable; otherwise it's
-    /// cleared as `set_sort(None)` would (a host that moved the sorted
+    /// cleared as `set_sort` with no keys would (a host that moved the sorted
     /// column in its list calls `set_sort` with its new index).
     ///
     /// With `reorder`, the order is the list's own (each place its index):
     /// a host keeping an order calls `set_order` after.
-    /// [`TallTableEvent::ColumnsMoved`] if another order was in effect, so
+    /// `TallTableEvent::ColumnsMoved` if another order was in effect, so
     /// a host's copy of the order never goes stale.
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         #[cfg(feature = "copy")]
@@ -2561,7 +2602,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 #[cfg(feature = "select")]
                 selection: self.selection_state.current,
                 #[cfg(feature = "sort")]
-                sort: self.sort_state.current,
+                sort: self.sort().to_vec(),
                 tooltip: self
                     .hover
                     .as_ref()

@@ -25,7 +25,7 @@ pub(crate) fn into_view(left: f32, right: f32, view_left: f32, view_right: f32) 
 
 /// Where the viewport's top edge is, in rows, and how many rows it shows.
 #[derive(Debug, Clone, PartialEq)]
-pub struct RowScroll {
+pub(crate) struct RowScroll {
     rows: u64,
     /// The row at the viewport's top edge; the fraction is how much of that
     /// row is scrolled out of view.
@@ -35,7 +35,7 @@ pub struct RowScroll {
 }
 
 impl RowScroll {
-    pub fn new(rows: u64) -> Self {
+    pub(crate) fn new(rows: u64) -> Self {
         Self {
             rows,
             top: 0.0,
@@ -43,26 +43,26 @@ impl RowScroll {
         }
     }
 
-    pub fn rows(&self) -> u64 {
+    pub(crate) fn rows(&self) -> u64 {
         self.rows
     }
 
-    pub fn top(&self) -> f64 {
+    pub(crate) fn top(&self) -> f64 {
         self.top
     }
 
-    pub fn viewport_rows(&self) -> f64 {
+    pub(crate) fn viewport_rows(&self) -> f64 {
         self.viewport_rows
     }
 
     /// The largest `top`: the last row's bottom at the viewport's bottom.
-    pub fn max_top(&self) -> f64 {
+    pub(crate) fn max_top(&self) -> f64 {
         (self.rows as f64 - self.viewport_rows).max(0.0)
     }
 
     /// Resizes the viewport, keeping the top row where it is when possible.
     /// Returns whether anything changed.
-    pub fn set_viewport_rows(&mut self, viewport_rows: f64) -> bool {
+    pub(crate) fn set_viewport_rows(&mut self, viewport_rows: f64) -> bool {
         let viewport_rows = viewport_rows.max(0.0);
         if viewport_rows == self.viewport_rows {
             return false;
@@ -74,13 +74,13 @@ impl RowScroll {
 
     /// Changes the row count (a CSV grows while it loads), keeping the top
     /// row where it is when possible.
-    pub fn set_rows(&mut self, rows: u64) {
+    pub(crate) fn set_rows(&mut self, rows: u64) {
         self.rows = rows;
         self.top = self.top.clamp(0.0, self.max_top());
     }
 
     /// Moves the top to `top`, clamped. Returns whether it moved.
-    pub fn set_top(&mut self, top: f64) -> bool {
+    pub(crate) fn set_top(&mut self, top: f64) -> bool {
         let top = if top.is_finite() {
             top.clamp(0.0, self.max_top())
         } else {
@@ -92,23 +92,23 @@ impl RowScroll {
     }
 
     /// Scrolls by `delta` rows (positive is down).
-    pub fn scroll_by(&mut self, delta: f64) -> bool {
+    pub(crate) fn scroll_by(&mut self, delta: f64) -> bool {
         self.set_top(self.top + delta)
     }
 
     /// How far down the table is, from 0 (top) to 1 (bottom).
-    pub fn fraction(&self) -> f64 {
+    pub(crate) fn fraction(&self) -> f64 {
         let max = self.max_top();
         if max > 0.0 { self.top / max } else { 0.0 }
     }
 
     #[cfg(test)]
-    pub fn set_fraction(&mut self, fraction: f64) -> bool {
+    pub(crate) fn set_fraction(&mut self, fraction: f64) -> bool {
         self.set_top(fraction.clamp(0.0, 1.0) * self.max_top())
     }
 
     /// The rows at least partly in view.
-    pub fn visible(&self) -> Range<u64> {
+    pub(crate) fn visible(&self) -> Range<u64> {
         let start = (self.top.floor() as u64).min(self.rows);
         let end = ((self.top + self.viewport_rows).ceil() as u64).min(self.rows);
         start..end.max(start)
@@ -116,22 +116,22 @@ impl RowScroll {
 
     /// Where `row`'s top edge is, in rows from the viewport's top edge. Small
     /// for every visible row, so it converts to f32 pixels exactly enough.
-    pub fn offset_of(&self, row: u64) -> f64 {
+    pub(crate) fn offset_of(&self, row: u64) -> f64 {
         row as f64 - self.top
     }
 }
 
 /// A scrollbar thumb's position and length along its track, in pixels.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Thumb {
-    pub offset: f32,
-    pub length: f32,
+pub(crate) struct Thumb {
+    pub(crate) offset: f32,
+    pub(crate) length: f32,
 }
 
 /// The thumb for a track of `track` pixels showing `visible` of `total`
 /// (any unit), scrolled to `fraction`. Never shorter than `min_length`, so it
 /// stays grabbable over 25 M rows.
-pub fn thumb(track: f32, visible: f64, total: f64, fraction: f64, min_length: f32) -> Thumb {
+pub(crate) fn thumb(track: f32, visible: f64, total: f64, fraction: f64, min_length: f32) -> Thumb {
     let ratio = if total > 0.0 {
         (visible / total).clamp(0.0, 1.0)
     } else {
@@ -144,7 +144,7 @@ pub fn thumb(track: f32, visible: f64, total: f64, fraction: f64, min_length: f3
 
 /// The scroll fraction that puts the thumb's start at `offset` pixels along
 /// the track. Its inverse is [`thumb`].
-pub fn fraction_at(track: f32, length: f32, offset: f32) -> f64 {
+pub(crate) fn fraction_at(track: f32, length: f32, offset: f32) -> f64 {
     let travel = track - length;
     if travel > 0.0 {
         (f64::from(offset) / f64::from(travel)).clamp(0.0, 1.0)

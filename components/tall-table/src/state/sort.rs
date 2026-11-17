@@ -53,6 +53,8 @@ pub(super) fn room(arrow_px: f32, sizes: Sizes) -> f32 {
 /// The table's sort, with the feature.
 #[derive(Default)]
 pub(crate) struct SortState {
+    /// The key in effect. One at most, until sorting by several columns
+    /// is built: the public API's shape is a list already.
     pub(super) current: Option<Sort>,
     /// The host's icons, all three loaded; `None`: the glyphs.
     icons: Option<SortIcons>,
@@ -109,25 +111,35 @@ pub(crate) enum Arrow {
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
-    /// The order the rows are read in.
-    pub fn sort(&self) -> Option<Sort> {
-        self.sort_state.current
+    /// The order the rows are read in: its keys, the first the most
+    /// significant; none for the source's own order. At most one today.
+    pub fn sort(&self) -> &[Sort] {
+        self.sort_state.current.as_slice()
     }
 
-    /// Sorts by `sort` (`None`: the source's own order), as a click on its
+    /// Sorts by `keys` (none: the source's own order), as a click on an
     /// arrow does; the same sort again re-reads every row (a host whose rows
     /// moved within the order). The source's refusal is returned, and
     /// nothing changes; so is the table's own, for a column past the end or
-    /// not sortable (and a debug assertion), and on a closed table, whose
-    /// source is never told anything again.
-    pub fn set_sort(
-        &mut self,
-        sort: Option<Sort>,
-        cx: &mut Context<Self>,
-    ) -> Result<(), SortRefused> {
+    /// not sortable (a host's mistake: a debug assertion), for more than one
+    /// key (sorting by several columns isn't built; the list is the API's
+    /// shape, so a host may ask and fall back to one), and on a closed
+    /// table, whose source is never told anything again.
+    pub fn set_sort(&mut self, keys: Vec<Sort>, cx: &mut Context<Self>) -> Result<(), SortRefused> {
+        self.sort_by(&keys, cx)
+    }
+
+    /// `set_sort`, and a click's sort, by `keys`.
+    fn sort_by(&mut self, keys: &[Sort], cx: &mut Context<Self>) -> Result<(), SortRefused> {
         if self.closed {
             return Err(SortRefused::new("The table is closed"));
         }
+        if keys.len() > 1 {
+            return Err(SortRefused::new(
+                "Sorting by more than one column isn't built",
+            ));
+        }
+        let sort = keys.first().copied();
         if let Some(sort) = sort
             && !self
                 .column_info
@@ -143,7 +155,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             debug_assert!(false, "set_sort: {}", refused.message);
             return Err(refused);
         }
-        self.delegate.sort(sort, cx)?;
+        self.delegate.sort(keys, cx)?;
         self.apply_sort(sort, cx);
         Ok(())
     }
@@ -193,9 +205,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         };
         #[cfg(not(test))]
         let kind = info.kind();
-        let sort = order::next(self.sort_state.current, column, kind);
-        if let (Err(refused), Some(sort)) = (self.set_sort(sort, cx), sort) {
-            cx.emit(TallTableEvent::SortRefused(sort, refused));
+        let keys = Vec::from_iter(order::next(self.sort_state.current, column, kind));
+        if let Err(refused) = self.sort_by(&keys, cx)
+            && !keys.is_empty()
+        {
+            cx.emit(TallTableEvent::SortRefused(keys, refused));
         }
     }
 
@@ -225,7 +239,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.scroll_settle = None;
         #[cfg(feature = "follow")]
         self.sort_lets_go(cx);
-        cx.emit(TallTableEvent::Sorted(sort));
+        cx.emit(TallTableEvent::Sorted(Vec::from_iter(sort)));
         self.sort_load(cx);
         cx.notify();
     }
@@ -256,7 +270,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// The columns were replaced: the arrow pressed and hovered forgotten
     /// (their indices are other columns now), and the sort stays if the
     /// column at its index has the name it had (`name`) and is sortable,
-    /// else it's cleared as `set_sort(None)` would. It's cleared whatever
+    /// else it's cleared as `set_sort` with no keys would. It's cleared whatever
     /// the source answers (a source must accept going back to none: one
     /// that refuses is told, and debug-asserted), since its index no longer
     /// names its column; a closed table's source isn't told.
@@ -277,7 +291,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             self.sort_state.current = None;
             return;
         }
-        let cleared = self.delegate.sort(None, cx);
+        let cleared = self.delegate.sort(&[], cx);
         debug_assert!(cleared.is_ok(), "a source refused going back to none");
         self.apply_sort(None, cx);
     }

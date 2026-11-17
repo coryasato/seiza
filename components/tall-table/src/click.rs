@@ -9,8 +9,9 @@
 
 use gpui_kit::{Modifiers, Pixels, Point};
 
-/// A press's kind.
+/// A press's kind. Non-exhaustive: another button's press may join it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum ClickKind {
     /// A left press the table counts first.
     Press,
@@ -30,8 +31,11 @@ pub enum ClickKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ClickTarget {
+    /// A body cell.
     Cell {
+        /// Its row, 0-based.
         row: u64,
+        /// Its column's place.
         column: usize,
     },
     /// A row's number, in the gutter.
@@ -48,19 +52,26 @@ pub enum ClickTarget {
     /// splits its cell. A blank in a group row is its column's header.
     #[cfg(feature = "group-headers")]
     Group {
+        /// Its header row, 0 at the top.
         level: usize,
+        /// The run's first place.
         start: usize,
+        /// One past the run's last place.
         end: usize,
     },
 }
 
 /// A press on the table: its kind, what it's on, and where.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub struct TallTableClick {
+    /// A press, a double press, or a context press.
     pub kind: ClickKind,
+    /// What the pointer is on.
     pub target: ClickTarget,
     /// The pointer, in window coordinates (a long press's start).
     pub position: Point<Pixels>,
+    /// The keys held at the press.
     pub modifiers: Modifiers,
 }
 

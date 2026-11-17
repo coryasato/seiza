@@ -11,7 +11,9 @@ use crate::column::ColumnKind;
 /// Which way a column sorts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SortDirection {
+    /// Smallest first: A to Z, oldest first.
     Ascending,
+    /// Largest first.
     Descending,
 }
 
@@ -43,10 +45,12 @@ pub struct Sort {
     /// `TallTablePage::value` reads it: with `reorder`, wherever it's drawn,
     /// so a sort follows its column across a move.
     pub column: usize,
+    /// Which way its values run.
     pub direction: SortDirection,
 }
 
 impl Sort {
+    /// By the column at index `column`, `direction`'s way.
     pub fn new(column: usize, direction: SortDirection) -> Self {
         Self { column, direction }
     }
@@ -69,10 +73,12 @@ pub(crate) fn next(current: Option<Sort>, column: usize, kind: ColumnKind) -> Op
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct SortRefused {
+    /// The reason, as a sentence for the reader.
     pub message: String,
 }
 
 impl SortRefused {
+    /// A refusal that says `message`.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -87,12 +93,16 @@ impl SortRefused {
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct SortIcons {
+    /// The sorted column's arrow while ascending: an asset path.
     pub ascending: SharedString,
+    /// The sorted column's arrow while descending.
     pub descending: SharedString,
+    /// Every other sortable column's arrow.
     pub unsorted: SharedString,
 }
 
 impl SortIcons {
+    /// The three arrows' asset paths.
     pub fn new(
         ascending: impl Into<SharedString>,
         descending: impl Into<SharedString>,

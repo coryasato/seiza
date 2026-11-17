@@ -67,10 +67,10 @@ just tall-table size | perf | live | copy | follow | sort [flags]   # each featu
 just tall-table smoke [flags] | smoke --screens save|<commit>       # the release build in three browsers; the reference screens (perf)
 just tall-table paint-fixture | density-fixture | format-fixture [--check]   # the fixtures read from Chromium (perf)
 just tall-table soak [seeds] [cases]               # the random test soaked (src/state)
-just tall-table pairs [--list] [--only clippy|test] [--from <n>]   # every feature alone and every pair: clippy for the table, the bridge, and the host, and the tests on the pairs with code gated on both (perf/pairs.ts)
+just tall-table pairs [--list] [--only clippy|test|doc] [--from <n>]   # every feature alone and every pair: clippy for the table, the bridge, and the host, the tests on the pairs with code gated on both, and the table's rustdoc, its links checked (perf/pairs.ts)
 cargo test -p seiza-tall-table   # the native tests at the features given (the fixtures and the random test among them)
 just tall-table test         # those with every feature off, each on, then all on, and the host's rows and feed (the bridge's JS is wasm-only; Tycho's checks and the cell fixture read its fields)
-just tall-table lint         # check-terms, fmt, clippy (the table, the bridge, the host; wasm32 and native, with no feature and with every one: `pairs` builds what's between), tsc (the host's page, perf/)
+just tall-table lint         # check-terms, fmt, clippy (the table, the bridge, the host; wasm32 and native, with no feature and with every one: `pairs` builds what's between), the table's rustdoc with none and every one, tsc (the host's page, perf/)
 ```
 
 The view also runs in Tycho's checks (`just tycho table`, `jump`, `cells`, `errors`, and the suite's table and jump parts).

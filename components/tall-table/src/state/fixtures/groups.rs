@@ -353,7 +353,7 @@ impl TallTableDelegate for Memory {
     fn cancel(&mut self, _: u64, _: &mut App) {}
 
     #[cfg(feature = "sort")]
-    fn sort(&mut self, _: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+    fn sort(&mut self, _: &[crate::Sort], _: &mut App) -> Result<(), crate::SortRefused> {
         Ok(())
     }
 }
@@ -953,7 +953,7 @@ mod select {
     fn a_group_takes_the_tint(cx: &mut TestAppContext) {
         let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 5));
         let select = |sheet: &mut Sheet, selection| {
-            sheet.update(|table, cx| table.select(Some(selection), cx));
+            sheet.update(|table, cx| table.set_selection(Some(selection), cx));
             sheet.read(|table| table.group_state.tinted.clone())
         };
         let columns = TallTableSelection::Columns {
@@ -974,7 +974,7 @@ mod select {
             head: (5, 4),
         };
         assert_eq!(select(&mut sheet, block), [(1, 0, false)]);
-        sheet.update(|table, cx| table.select(None, cx));
+        sheet.update(|table, cx| table.set_selection(None, cx));
         assert!(sheet.read(|table| table.group_state.tinted.is_empty()));
 
         // The names' row's press selects its column, a cell's its cell.
@@ -1003,7 +1003,7 @@ mod select {
         let corner = |sheet: &mut Sheet, row: f32| {
             let at =
                 sheet.header_at(0.0, row) - gpui_kit::point(gpui_kit::px(10.), gpui_kit::px(0.));
-            sheet.update(|table, cx| table.select(None, cx));
+            sheet.update(|table, cx| table.set_selection(None, cx));
             sheet.press(at);
             sheet.read(|table| table.selection_state.current)
         };
@@ -1020,7 +1020,7 @@ mod select {
         let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 0));
         sheet.update(|table, cx| table.set_pinned(3, cx));
         sheet.update(|table, cx| {
-            table.select(
+            table.set_selection(
                 Some(TallTableSelection::Columns {
                     anchor: (0, 0),
                     head: (0, 9),
@@ -1054,12 +1054,12 @@ mod sort {
         let above = sheet.header_at(x, 1.0);
         sheet.press(above);
         sheet.release(above);
-        assert_eq!(sheet.read(|table| table.sort()), None, "a group row");
+        assert_eq!(sheet.read(|table| table.sort().to_vec()), [], "a group row");
         let arrow = sheet.header_at(x, 0.0);
         sheet.press(arrow);
         sheet.release(arrow);
         assert_eq!(
-            sheet.read(|table| table.sort()).map(|sort| sort.column),
+            sheet.read(|table| table.sort().first().map(|sort| sort.column)),
             Some(1)
         );
     }
@@ -1153,7 +1153,7 @@ mod presses {
         click(&mut sheet, 1300.0, 2.0);
         assert_eq!(selection(&mut sheet), Some(columns(10, 19)), "g2");
         sheet.update(|table, cx| {
-            table.select(None, cx);
+            table.set_selection(None, cx);
             table.set_selectable(Selectable::all().columns(false), cx);
         });
         click(&mut sheet, 10.0, 2.0);
@@ -1184,7 +1184,7 @@ mod presses {
     fn shift_extends_to_the_groups_far_edge(cx: &mut TestAppContext) {
         let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 5));
         let shift_click = |sheet: &mut Sheet, from: TallTableSelection, x: f32| {
-            sheet.update(|table, cx| table.select(Some(from), cx));
+            sheet.update(|table, cx| table.set_selection(Some(from), cx));
             let at = sheet.header_at(x, 2.0);
             let shift = Modifiers {
                 shift: true,
@@ -1276,7 +1276,7 @@ mod presses {
         sheet.update(|table, cx| table.scroll_by(0.0, 120.0, cx));
         click(&mut sheet, 50.0, 1.0);
         assert_eq!(selection(&mut sheet), Some(columns(0, 9)), "pinned half");
-        sheet.update(|table, cx| table.select(None, cx));
+        sheet.update(|table, cx| table.set_selection(None, cx));
         click(&mut sheet, 500.0, 1.0);
         assert_eq!(selection(&mut sheet), Some(columns(0, 9)), "scrolled half");
     }
@@ -1353,7 +1353,7 @@ mod clicks {
         };
         let mut sheet = Sheet::open(cx, 1440., grouped(30, 10, 0));
         let context = |sheet: &mut Sheet, from: TallTableSelection, x: f32| {
-            sheet.update(|table, cx| table.select(Some(from), cx));
+            sheet.update(|table, cx| table.set_selection(Some(from), cx));
             let at = sheet.header_at(x, 1.0);
             sheet.press_with(at, MouseButton::Right, Modifiers::default(), 1);
             sheet.read(|table| table.selection_state.current)
@@ -1475,7 +1475,7 @@ mod moves {
             anchor: (0, 1),
             head: (0, 4),
         };
-        sheet.update(|table, cx| table.select(Some(range), cx));
+        sheet.update(|table, cx| table.set_selection(Some(range), cx));
         drag(&mut sheet, (2.0 * 120.0 + 60.0, 0.0), 1300.0);
         assert_eq!(order(&mut sheet), (0..12).collect::<Vec<_>>());
         assert_eq!(
@@ -1490,7 +1490,7 @@ mod moves {
             anchor: (0, 0),
             head: (0, 3),
         };
-        sheet.update(|table, cx| table.select(Some(whole), cx));
+        sheet.update(|table, cx| table.set_selection(Some(whole), cx));
         drag(&mut sheet, (60.0, 0.0), 800.0);
         assert_eq!(order(&mut sheet), moved(12, 0..4, 4));
     }

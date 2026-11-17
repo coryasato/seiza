@@ -792,7 +792,7 @@ impl Host {
         }
         find::let_go();
         if let Some(table) = &self.table {
-            table.update(cx, |table, cx| table.select(None, cx));
+            table.update(cx, |table, cx| table.set_selection(None, cx));
         }
     }
 
@@ -823,9 +823,11 @@ impl Host {
         if sort.is_some_and(|sort| table::sortable(sort.column).is_none()) {
             return false;
         }
-        self.table
-            .clone()
-            .is_some_and(|table| table.update(cx, |table, cx| table.set_sort(sort, cx).is_ok()))
+        self.table.clone().is_some_and(|table| {
+            table.update(cx, |table, cx| {
+                table.set_sort(Vec::from_iter(sort), cx).is_ok()
+            })
+        })
     }
 
     /// For the checks: the table's rows, and its sort (the column, and
@@ -835,6 +837,7 @@ impl Host {
             let sort = table
                 .read(cx)
                 .sort()
+                .first()
                 .map(|sort| (sort.column, sort.direction == SortDirection::Descending));
             (self.view.borrow().rows(self.rows) as u64, sort)
         })
@@ -1104,9 +1107,9 @@ impl Host {
         // clear.
         find::let_go();
         table.update(cx, |table, cx| {
-            table.select(None, cx);
+            table.set_selection(None, cx);
             table.set_rows(rows, cx);
-            let sort = table.sort();
+            let sort = table.sort().to_vec();
             // (Its own sort again: never refused.)
             let _ = table.set_sort(sort, cx);
         });

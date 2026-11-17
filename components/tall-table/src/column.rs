@@ -67,6 +67,8 @@ pub(crate) const MIN_WIDTH: f32 = 40.0;
 pub(crate) const MAX_WIDTH: f32 = 1200.0;
 
 impl TallTableColumn {
+    /// A column named `name` holding `kind`, at its kind's width, with
+    /// every feature's setting at its default.
     pub fn new(name: impl Into<SharedString>, kind: ColumnKind) -> Self {
         Self {
             name: name.into(),
@@ -144,8 +146,8 @@ impl TallTableColumn {
 
     /// Its width, in place of its kind's (`resize`: a width the host kept
     /// from [`TallTableEvent::ColumnWidthsChanged`](crate::TallTableEvent)),
-    /// clamped to its [`min_width`](Self::min_width) and
-    /// [`max_width`](Self::max_width). The header's width is no longer a
+    /// clamped to its `min_width` and
+    /// `max_width`. The header's width is no longer a
     /// minimum: a name wider than it is cut. With `density` and without
     /// `resize`, clamped to 40 px (scaled with the text) and 1200 px, and
     /// never scaled itself.
@@ -252,10 +254,12 @@ impl TallTableColumn {
         self.format.as_ref()
     }
 
+    /// Its name: the header's text.
     pub fn name(&self) -> &SharedString {
         &self.name
     }
 
+    /// The kind of value it holds.
     pub fn kind(&self) -> ColumnKind {
         self.kind
     }
@@ -276,7 +280,10 @@ pub enum ColumnKind {
     /// The column fits that value at the font's widest digit; anything wider
     /// (a 128-bit integer past 20) is cut in the middle, keeping both ends:
     /// its magnitude and its last digits.
-    Integer { max_chars: u8 },
+    Integer {
+        /// The widest value's characters, its sign included.
+        max_chars: u8,
+    },
     /// A float, right-aligned and rounded to the digits that fit.
     Float,
     /// A decimal, right-aligned, exact, and cut in the middle like an

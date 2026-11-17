@@ -171,7 +171,7 @@ impl Publish {
             #[cfg(all(feature = "sort", target_family = "wasm"))]
             TallTableEvent::Sorted(sort) => {
                 if let Some(name) = self.sort {
-                    js::set_global(name, &js::sort(sort.as_ref()));
+                    js::set_global(name, &js::sort(sort));
                 }
                 if let Some(mark) = self.sorted_mark {
                     let _ = seiza::marks::mark(mark);
@@ -280,7 +280,7 @@ pub mod js {
         #[cfg(feature = "select")]
         set(&object, "selection", selection(probe.selection.as_ref()));
         #[cfg(feature = "sort")]
-        set(&object, "sort", sort(probe.sort.as_ref()));
+        set(&object, "sort", sort(&probe.sort));
         object.into()
     }
 
@@ -423,6 +423,8 @@ pub mod js {
             ClickKind::Press => "press",
             ClickKind::Double => "double",
             ClickKind::Context => "context",
+            // A kind this bridge was built before.
+            _ => "unknown",
         };
         let (target, row, column) = match click.target {
             ClickTarget::Cell { row, column } => ("cell", Some(row), Some(column)),
@@ -482,11 +484,13 @@ pub mod js {
         list.into()
     }
 
-    /// `{column, direction}` or `null`: `direction` is `ascending` or
-    /// `descending`, `column` the column's index.
+    /// The first key as `{column, direction}`, or `null` with none:
+    /// `direction` is `ascending` or `descending`, `column` the column's
+    /// index. The table sorts by one key at most; a script reads it as it
+    /// did before the keys were a list.
     #[cfg(feature = "sort")]
-    pub fn sort(sort: Option<&Sort>) -> JsValue {
-        let Some(sort) = sort else {
+    pub fn sort(keys: &[Sort]) -> JsValue {
+        let Some(sort) = keys.first() else {
             return JsValue::NULL;
         };
         let direction = match sort.direction {

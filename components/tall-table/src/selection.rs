@@ -17,11 +17,26 @@ pub type Cell = (u64, usize);
 #[non_exhaustive]
 pub enum TallTableSelection {
     /// The rows between, every column.
-    Rows { anchor: Cell, head: Cell },
+    Rows {
+        /// The active cell: where the range began.
+        anchor: Cell,
+        /// The range's other end: where Shift moves.
+        head: Cell,
+    },
     /// The columns between, every row, rows that arrive later included.
-    Columns { anchor: Cell, head: Cell },
+    Columns {
+        /// The active cell: where the range began.
+        anchor: Cell,
+        /// The range's other end: where Shift moves.
+        head: Cell,
+    },
     /// The block between.
-    Cells { anchor: Cell, head: Cell },
+    Cells {
+        /// The active cell: where the range began.
+        anchor: Cell,
+        /// The range's other end: where Shift moves.
+        head: Cell,
+    },
 }
 
 /// A selection's kind, without its cells.
@@ -116,6 +131,7 @@ impl TallTableSelection {
         (start <= end).then_some(start..=end)
     }
 
+    /// Whether the cell at `row` and place `column` is in it.
     pub fn contains(&self, row: u64, column: usize) -> bool {
         match self {
             Self::Rows { anchor, head } => between(anchor.0, head.0).contains(&row),
@@ -127,6 +143,7 @@ impl TallTableSelection {
         }
     }
 
+    /// The active cell: where the range began.
     pub fn anchor(&self) -> Cell {
         match *self {
             Self::Rows { anchor, .. }
@@ -135,6 +152,7 @@ impl TallTableSelection {
         }
     }
 
+    /// The range's other end: where Shift moves.
     pub fn head(&self) -> Cell {
         match *self {
             Self::Rows { head, .. } | Self::Columns { head, .. } | Self::Cells { head, .. } => head,
@@ -146,8 +164,11 @@ impl TallTableSelection {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct Selectable {
+    /// Whole rows, by a press on a row's number.
     pub rows: bool,
+    /// Whole columns, by a press on a header.
     pub columns: bool,
+    /// A block of cells, by a press on a cell.
     pub cells: bool,
 }
 
@@ -158,6 +179,7 @@ impl Default for Selectable {
 }
 
 impl Selectable {
+    /// Every kind on.
     pub fn all() -> Self {
         Self {
             rows: true,
@@ -166,6 +188,7 @@ impl Selectable {
         }
     }
 
+    /// Every kind off: nothing can be selected.
     pub fn none() -> Self {
         Self {
             rows: false,
@@ -174,10 +197,12 @@ impl Selectable {
         }
     }
 
+    /// Sets [`rows`](field@Self::rows).
     pub fn rows(self, on: bool) -> Self {
         Self { rows: on, ..self }
     }
 
+    /// Sets [`columns`](field@Self::columns).
     pub fn columns(self, on: bool) -> Self {
         Self {
             columns: on,
@@ -185,6 +210,7 @@ impl Selectable {
         }
     }
 
+    /// Sets [`cells`](field@Self::cells).
     pub fn cells(self, on: bool) -> Self {
         Self { cells: on, ..self }
     }

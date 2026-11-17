@@ -251,7 +251,7 @@ impl TallTableDelegate for Memory {
     fn cancel(&mut self, _: u64, _: &mut App) {}
 
     #[cfg(feature = "sort")]
-    fn sort(&mut self, _: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+    fn sort(&mut self, _: &[crate::Sort], _: &mut App) -> Result<(), crate::SortRefused> {
         Ok(())
     }
 }
@@ -782,7 +782,7 @@ mod select {
         let mut sheet = Sheet::open(cx, 1440., 30, 2);
         sheet.scroll_x_by(500.0);
         let at_one = TallTableSelection::new(Kind::Cells, (0, 1), (0, 1));
-        sheet.update(|table, cx| table.select(Some(at_one), cx));
+        sheet.update(|table, cx| table.set_selection(Some(at_one), cx));
         let table = sheet.table.clone();
         sheet.cx.update(|window, cx| {
             table.update(cx, |table, cx| table.select_right(&SelectRight, window, cx));

@@ -676,3 +676,26 @@ No results note: nothing measured. The build's check was a byte comparison again
 - With every exclusion gone the random test passed at its first run: the seven scenario tests and the cases agreed on each fix. The finding the test couldn't reach (a band's press by its drawn place) was also the one whose fix changed a function's meaning, from a place to an index, so its test is the same call with the same number, failing before and passing after.
 - A promise read closely was narrower than the test first written for it. "A context press does nothing" during a drag is about what the table reports and selects; the press still reaches a host's `ContextMenuExt` hung round the table, which opens its menu over a resize (a native host's only: a browser sends no second press during a drag). Left as it is and listed in `PLAN.md`'s open questions.
 - `Sheet::open` helpers assert their own geometry (a viewport of 20 rows), so a feature that changes it (group rows) can't be given at open: the grouped columns go in through `set_columns` once the window is sized.
+
+## API review: the public API, with `sort`'s keys (part A, 2026-11-17)
+
+Results: [`perf/results/2026-11-17-api-review-a.md`](../perf/results/2026-11-17-api-review-a.md).
+
+**Surprises:**
+- The source didn't say what was public. 65 items were `pub` inside private modules (`PageCache`'s whole API), so listing the surface by `grep pub` gave twice the real one; `unreachable_pub` is what makes the list readable, and it isn't in clippy's default set.
+- The types the review was asked about (`Sort`, the probes) already followed the guides. The gaps were in the ones nobody named: `TallTableEvent` isn't `#[non_exhaustive]`, though every feature adds a variant to it and Cargo unifies features across a build, the case `ClickTarget`'s own doc argues.
+- The docs' links are checked per build too: a doc that links another feature's item is a broken link with that feature off, and no recipe built rustdoc. Fixed by hand from the no-feature and all-features builds, six were left in single-feature builds, two of them in sets the apps build; the code review found them, and `pairs` builds rustdoc at every set now.
+- The break's costs were listed from a grep of each name's callers, and the code review found three it missed: a private method already named `set_selection`, the bridge's match on `ClickKind`, and a fourth `set_sort` caller. A cost table is checked by compiling the change, which part B does.
+- `sort`'s break is cheaper than the note under "Candidates" assumed: two sources implement `TallTableDelegate::sort`, and the DuckDB engine isn't one of them.
+
+## API review: the public API, with `sort`'s keys (part B, 2026-11-17)
+
+Results: [`perf/results/2026-11-17-api-review-b.md`](../perf/results/2026-11-17-api-review-b.md).
+
+**Surprises:**
+- A list in a signature is a promise every implementer has to keep at once. The two real sources took the first key and dropped the rest, which compiled, passed every test (the table sends one key), and would have sorted by one column under a `Sorted` naming two the day the table sent two. The code review found it; a source refuses what it can't sort by whole.
+- The table's own refusal of two keys had a debug assertion, copied from the refusals beside it. Those are a host's mistakes (a column that isn't there); two keys is the API's own shape, and a host that tries it and falls back would have panicked in a debug build.
+- The behavior fix feared to reach the base didn't: the context press lives only in `clicks`, so stopping it during a drag is `clicks`' code alone (+0.1 KiB there). The four window tests that already said "a context press during a drag does nothing" were each one assertion short of saying it reaches no host.
+- Brotli isn't a measure of a change this small: builds whose wasm-opt size didn't move a byte moved by up to 2 KiB either way in brotli, and `sort`'s, which grew 0.7 KiB after wasm-opt, shrank 1.2 KiB. The size after wasm-opt is the reading.
+- A lint that fails at its first stale file hides the steps after it. The observatory's stopped at a theme header left by the gpui-kit bump, so its clippy and tsc had to be run by hand to know this change passed them.
+

@@ -14,42 +14,45 @@ struct Frame {
 
 /// The frames drawn in the last `window_ms`.
 #[derive(Debug, Clone)]
-pub struct Activity {
+pub(crate) struct Activity {
     window_ms: f64,
     frames: VecDeque<Frame>,
 }
 
-/// [`Activity`] summarized at one moment.
+/// The table's scrolling over [`ActivityOptions::window_ms`](crate::ActivityOptions),
+/// as of one moment ([`TallTableStats::activity`](crate::TallTableStats)).
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct ActivityStats {
     /// Rows scrolled per second: the distance the top row moved (either way)
     /// over the window, divided by the window.
     pub rows_per_s: f64,
-    /// Frames drawn in the window, and how many had every visible row loaded
-    /// (a cache hit, as the reader sees it).
+    /// Frames drawn in the window.
     pub frames: usize,
+    /// Of `frames`, those with every visible row loaded (a cache hit, as
+    /// the reader sees it).
     pub filled_frames: usize,
 }
 
 impl Activity {
-    pub fn new(window_ms: f64) -> Self {
+    pub(crate) fn new(window_ms: f64) -> Self {
         Self {
             window_ms,
             frames: VecDeque::new(),
         }
     }
 
-    pub fn record(&mut self, at: f64, top: f64, filled: bool) {
+    pub(crate) fn record(&mut self, at: f64, top: f64, filled: bool) {
         self.frames.push_back(Frame { at, top, filled });
         self.trim(at);
     }
 
-    pub fn clear(&mut self) {
+    pub(crate) fn clear(&mut self) {
         self.frames.clear();
     }
 
     /// The window ending at `now`.
-    pub fn stats(&mut self, now: f64) -> ActivityStats {
+    pub(crate) fn stats(&mut self, now: f64) -> ActivityStats {
         self.trim(now);
         let moved: f64 = self
             .frames

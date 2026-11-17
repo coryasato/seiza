@@ -232,7 +232,7 @@ impl TallTableDelegate for Memory {
     fn cancel(&mut self, _: u64, _: &mut App) {}
 
     #[cfg(feature = "sort")]
-    fn sort(&mut self, _: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+    fn sort(&mut self, _: &[crate::Sort], _: &mut App) -> Result<(), crate::SortRefused> {
         Ok(())
     }
 }
@@ -697,7 +697,7 @@ fn the_tint_at_a_short_row(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, 1000, 16.);
     sheet.set(12., px(8.));
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(crate::TallTableSelection::Cells {
                 anchor: (2, 1),
                 head: (3, 1),

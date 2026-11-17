@@ -194,6 +194,7 @@ enum Step {
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
+    /// What's selected, if anything.
     pub fn selection(&self) -> Option<TallTableSelection> {
         self.selection_state.current
     }
@@ -204,7 +205,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// shrank, a selection kept across a reload); with no rows or no
     /// columns, it clears. A kind that's off is the host's mistake: the
     /// call does nothing (a debug assertion).
-    pub fn select(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
+    pub fn set_selection(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
         if let Some(selection) = selection
             && !self.selection_state.selectable.allows(selection.kind())
         {
@@ -228,6 +229,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         Some(selection.with(clamp(selection.anchor()), clamp(selection.head())))
     }
 
+    /// Which kinds a reader can select.
     pub fn selectable(&self) -> Selectable {
         self.selection_state.selectable
     }
@@ -260,14 +262,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ) {
         if self.selection_state.current != selection {
             self.selection_state.selecting = None;
-            self.set_selection(selection, cx);
+            self.put_selection(selection, cx);
         }
     }
 
     /// Emits [`TallTableEvent::Selected`] and redraws if `selection` is
     /// new. Only a drag's moves call it directly; everything else goes
     /// through [`Self::replace_selection`].
-    fn set_selection(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
+    fn put_selection(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
         if self.selection_state.current != selection {
             self.selection_state.current = selection;
             cx.emit(TallTableEvent::Selected(selection));
@@ -328,7 +330,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // A `Columns` range's drag goes on: its columns are what it
         // selects, and they didn't change.
         if selection.kind() == Kind::Columns {
-            self.set_selection(cut, cx);
+            self.put_selection(cut, cx);
         } else {
             self.replace_selection(cut, cx);
         }
@@ -515,7 +517,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             if selecting.rows { cell.0 } else { head.0 },
             if selecting.columns { cell.1 } else { head.1 },
         );
-        self.set_selection(Some(selection.with(selection.anchor(), head)), cx);
+        self.put_selection(Some(selection.with(selection.anchor(), head)), cx);
     }
 
     /// The pointer moved during a drag: the head follows the cell under it,

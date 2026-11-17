@@ -204,11 +204,13 @@ test:
 # Every feature alone and every pair (13 and 78), one build a set: clippy
 # (wasm32, -D warnings) for the table, the bridge, and the host, then the
 # native tests on the pairs with code gated on both, which the script
-# finds in the sources (`--list` prints them and runs nothing; `--only
-# clippy|test` one half; `--from <n>` from the nth build). `test` runs
+# finds in the sources, then the table's rustdoc at every set, its links
+# checked (`--list` prints them and runs nothing; `--only
+# clippy|test|doc` one part; `--from <n>` from the nth build). `test` runs
 # each feature alone and all on, and `lint` clippies none and all: a pair
-# that needs a third to compile reaches neither. Not in `lint`: ~15 min
-# (perf/pairs.ts's header).
+# that needs a third to compile reaches neither. Not in `lint`: ~24 min
+# whole, ~2 min for `--only clippy` or `--only doc` (perf/pairs.ts's
+# header).
 pairs *args:
     node {{component_dir}}/perf/pairs.ts {{args}}
 
@@ -246,11 +248,15 @@ format-fixture *args:
 # No milestone references outside the history files (check-terms), fmt,
 # clippy for the table, the bridge, and the host (wasm32 with no features
 # and with every one, native with every one, with -D warnings), and
-# TypeScript (the host's page and perf/).
+# the table's rustdoc with no feature and with every one (a broken link
+# fails; `pairs` builds what's between), and TypeScript (the host's page
+# and perf/).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cargo fmt --all --check
     cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --target wasm32-unknown-unknown --all-features -- -D warnings
     cargo clippy -p tall-table-host -p tall-table-bridge -p seiza-tall-table --all-features --all-targets -- -D warnings
+    RUSTDOCFLAGS='-D warnings' cargo doc -p seiza-tall-table --no-deps
+    RUSTDOCFLAGS='-D warnings' cargo doc -p seiza-tall-table --no-deps --all-features
     npm run typecheck --workspace @seiza/tall-table-host

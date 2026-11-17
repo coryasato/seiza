@@ -151,7 +151,10 @@ fn on_event(table: &Entity<Table>, event: &TallTableEvent, cx: &mut Context<Host
             });
             if let Some(id) = cancel {
                 table.update(cx, |table, cx| {
-                    if table.copying().is_some_and(|copying| copying.id == id) {
+                    if table
+                        .copy_progress()
+                        .is_some_and(|copying| copying.id == id)
+                    {
                         table.cancel_copy(cx);
                     }
                 });

@@ -15,7 +15,7 @@ use std::ops::Range;
 
 /// Which way the viewport last moved. Prefetch reaches further that way.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum Direction {
+pub(crate) enum Direction {
     #[default]
     Still,
     Down,
@@ -272,7 +272,7 @@ struct Rereads {
 
 /// What a row looks like to the renderer.
 #[derive(Debug, PartialEq)]
-pub enum RowState<'a, T> {
+pub(crate) enum RowState<'a, T> {
     /// Loaded: the page and the row's index in it.
     Loaded(&'a T, usize),
     /// Not loaded yet (in flight, queued, or never asked for): a placeholder.
@@ -282,24 +282,24 @@ pub enum RowState<'a, T> {
 
 /// What the view should do after [`PageCache::plan`].
 #[derive(Debug, PartialEq)]
-pub struct Plan<R> {
+pub(crate) struct Plan<R> {
     /// Pages to query now, most urgent first. Report each with
     /// [`PageCache::started`].
-    pub fetch: Vec<u64>,
+    pub(crate) fetch: Vec<u64>,
     /// In-flight requests nobody needs any more. Report each one's answer
     /// with [`PageCache::finished`] (or `loaded`/`failed` if it wins the race).
-    pub cancel: Vec<R>,
+    pub(crate) cancel: Vec<R>,
     /// How many of the copy's reads may start now (`copy`), of the
     /// [`PageCache::set_copy_wants`] it asked for: sent before `fetch[copy_at..]`
     /// (after the visible pages' re-reads, before prefetch); 0 with none.
     #[cfg(feature = "copy")]
-    pub copy: usize,
+    pub(crate) copy: usize,
     #[cfg(feature = "copy")]
-    pub copy_at: usize,
+    pub(crate) copy_at: usize,
 }
 
 #[derive(Debug)]
-pub struct PageCache<T, R> {
+pub(crate) struct PageCache<T, R> {
     page_rows: u64,
     rows: u64,
     /// Loaded pages beyond this many bytes are evicted, least recently used
@@ -353,7 +353,12 @@ pub(crate) enum Sent {
 }
 
 impl<T, R: Copy + PartialEq> PageCache<T, R> {
-    pub fn new(rows: u64, page_rows: u64, budget_bytes: usize, max_in_flight: usize) -> Self {
+    pub(crate) fn new(
+        rows: u64,
+        page_rows: u64,
+        budget_bytes: usize,
+        max_in_flight: usize,
+    ) -> Self {
         Self {
             page_rows: page_rows.max(1),
             rows,
@@ -380,12 +385,12 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         }
     }
 
-    pub fn pages(&self) -> u64 {
+    pub(crate) fn pages(&self) -> u64 {
         self.rows.div_ceil(self.page_rows)
     }
 
     /// The rows page `page` holds.
-    pub fn rows_of(&self, page: u64) -> Range<u64> {
+    pub(crate) fn rows_of(&self, page: u64) -> Range<u64> {
         let start = page * self.page_rows;
         start.min(self.rows)..(start + self.page_rows).min(self.rows)
     }
@@ -401,7 +406,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// draws the rows it holds, placeholders past them, and [`PageCache::plan`]
     /// reads it again; a read of it in flight isn't cancelled, and the page
     /// is read once more after it lands. Shrinking still forgets it.
-    pub fn set_rows(&mut self, rows: u64) -> Vec<R> {
+    pub(crate) fn set_rows(&mut self, rows: u64) -> Vec<R> {
         let old = std::mem::replace(&mut self.rows, rows);
         let mut cancel = Vec::new();
         if rows < old && !self.control().keep_past_shrink() {
@@ -487,7 +492,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// every read out for one moved to `draining` and returned to cancel,
     /// in page order. An answer to one is dropped, whatever it holds.
     #[cfg(feature = "sort")]
-    pub fn forget_all(&mut self) -> Vec<R> {
+    pub(crate) fn forget_all(&mut self) -> Vec<R> {
         #[cfg(test)]
         let keep_reads = match self.control {
             Control::SortKeepsPages => return Vec::new(),
@@ -510,16 +515,16 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
     /// Whether `page` is loaded: a read of it now is a re-read (`live`).
     #[cfg(feature = "live")]
-    pub fn is_loaded(&self, page: u64) -> bool {
+    pub(crate) fn is_loaded(&self, page: u64) -> bool {
         matches!(self.slots.get(&page), Some(Slot::Loaded { .. }))
     }
 
     /// Bytes held by loaded pages.
-    pub fn used_bytes(&self) -> usize {
+    pub(crate) fn used_bytes(&self) -> usize {
         self.used_bytes
     }
 
-    pub fn loaded_pages(&self) -> usize {
+    pub(crate) fn loaded_pages(&self) -> usize {
         self.slots
             .values()
             .filter(|slot| matches!(slot, Slot::Loaded { .. }))
@@ -527,7 +532,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     }
 
     /// Requests for pages still wanted (with `live`, re-reads too).
-    pub fn in_flight(&self) -> usize {
+    pub(crate) fn in_flight(&self) -> usize {
         self.slots
             .values()
             .filter(|slot| match slot {
@@ -540,7 +545,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     }
 
     /// Every request still wanted, to cancel when the table goes away.
-    pub fn requests(&self) -> impl Iterator<Item = R> + '_ {
+    pub(crate) fn requests(&self) -> impl Iterator<Item = R> + '_ {
         self.slots.values().filter_map(|slot| match slot {
             Slot::Loading { request, .. } => Some(*request),
             #[cfg(feature = "live")]
@@ -550,11 +555,11 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     }
 
     /// Cancelled requests DuckDB hasn't answered yet.
-    pub fn draining(&self) -> usize {
+    pub(crate) fn draining(&self) -> usize {
         self.draining.len()
     }
 
-    pub fn row(&self, row: u64) -> RowState<'_, T> {
+    pub(crate) fn row(&self, row: u64) -> RowState<'_, T> {
         let page = row / self.page_rows;
         match self.slots.get(&page) {
             // Past what a grown page was read with (`live`): not loaded yet.
@@ -573,7 +578,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// at most the rows' end. A page grown past its read ends the run at
     /// the rows it was read with.
     #[cfg(feature = "follow")]
-    pub fn loaded_through(&self, row: u64) -> u64 {
+    pub(crate) fn loaded_through(&self, row: u64) -> u64 {
         let mut end = row.min(self.rows);
         while end < self.rows {
             let page = end / self.page_rows;
@@ -593,7 +598,12 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// visible pages (from the edge the viewport is moving toward), then
     /// `prefetch` pages behind and `prefetch` ahead, doubled ahead while
     /// moving, nearest first.
-    pub fn wanted(&self, visible: Range<u64>, direction: Direction, prefetch: u64) -> Vec<u64> {
+    pub(crate) fn wanted(
+        &self,
+        visible: Range<u64>,
+        direction: Direction,
+        prefetch: u64,
+    ) -> Vec<u64> {
         let pages = self.pages();
         if pages == 0 {
             return Vec::new();
@@ -629,7 +639,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
     /// How many pages the `visible` rows touch: the head of
     /// [`PageCache::wanted`]'s list, for [`PageCache::plan`].
-    pub fn visible_pages(&self, visible: Range<u64>) -> usize {
+    pub(crate) fn visible_pages(&self, visible: Range<u64>) -> usize {
         if self.pages() == 0 {
             return 0;
         }
@@ -663,7 +673,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// the visible pages with nothing to show, the rest as prefetch, in
     /// `wanted`'s order, never more than `max_in_flight − 1` re-reads at
     /// once (so re-reads alone never fill every place).
-    pub fn plan(&mut self, wanted: &[u64], visible: usize) -> Plan<R> {
+    pub(crate) fn plan(&mut self, wanted: &[u64], visible: usize) -> Plan<R> {
         let mut cancel = Vec::new();
         #[cfg(feature = "live")]
         let control = self.control();
@@ -856,13 +866,13 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// `max_in_flight`, so a visible page always finds a place, and at
     /// least one, so they go on at a `max_in_flight` of 1.
     #[cfg(any(feature = "live", feature = "copy"))]
-    pub fn background_limit(&self) -> usize {
+    pub(crate) fn background_limit(&self) -> usize {
         (self.max_in_flight - 1).max(1)
     }
 
     /// Drops `page` as the budget's eviction would (tests).
     #[cfg(all(test, feature = "copy"))]
-    pub fn evict_page(&mut self, page: u64) {
+    pub(crate) fn evict_page(&mut self, page: u64) {
         if let Some(Slot::Loaded { bytes, .. }) = self.slots.remove(&page) {
             self.used_bytes -= bytes;
         }
@@ -870,21 +880,21 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
     /// Rows a page holds (`copy`).
     #[cfg(feature = "copy")]
-    pub fn page_rows(&self) -> u64 {
+    pub(crate) fn page_rows(&self) -> u64 {
         self.page_rows
     }
 
     /// The copy would read `pages` now, in order (`copy`): the next
     /// [`PageCache::plan`] grants the first it can ([`Plan::copy`]).
     #[cfg(feature = "copy")]
-    pub fn set_copy_wants(&mut self, pages: Vec<u64>) {
+    pub(crate) fn set_copy_wants(&mut self, pages: Vec<u64>) {
         self.copy_wants = pages;
     }
 
     /// The pages the last plan granted the copy ([`Plan::copy`] of them),
     /// to read now.
     #[cfg(feature = "copy")]
-    pub fn take_copy_grant(&mut self, granted: usize) -> Vec<u64> {
+    pub(crate) fn take_copy_grant(&mut self, granted: usize) -> Vec<u64> {
         let mut pages = std::mem::take(&mut self.copy_wants);
         pages.truncate(granted);
         pages
@@ -900,7 +910,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
     /// The copy's read of `page` was sent as `request` (`copy`).
     #[cfg(feature = "copy")]
-    pub fn copy_started(&mut self, page: u64, request: R) {
+    pub(crate) fn copy_started(&mut self, page: u64, request: R) {
         self.copy_reads.push((page, request));
         #[cfg(test)]
         self.sent.push((request, Sent::Copy));
@@ -909,7 +919,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// A copy's read was cancelled (`copy`): it drains as the cache's do,
     /// counted in flight until it answers ([`PageCache::copy_answered`]).
     #[cfg(feature = "copy")]
-    pub fn copy_cancelled(&mut self, request: R) {
+    pub(crate) fn copy_cancelled(&mut self, request: R) {
         if let Some(index) = self
             .copy_reads
             .iter()
@@ -923,7 +933,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// A copy's read answered (`copy`), whether the copy still wants it or
     /// not: its place frees.
     #[cfg(feature = "copy")]
-    pub fn copy_answered(&mut self, request: R) {
+    pub(crate) fn copy_answered(&mut self, request: R) {
         if let Some(index) = self
             .copy_reads
             .iter()
@@ -938,7 +948,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// The copy's reads in flight, cancelled ones still answering not
     /// included (`copy`).
     #[cfg(feature = "copy")]
-    pub fn copy_reads(&self) -> usize {
+    pub(crate) fn copy_reads(&self) -> usize {
         self.copy_reads.len()
     }
 
@@ -948,7 +958,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// rows the copy wants: once it lands, the copy reads the rest itself
     /// (or takes the cache's next re-read).
     #[cfg(feature = "copy")]
-    pub fn loading(&self, page: u64) -> bool {
+    pub(crate) fn loading(&self, page: u64) -> bool {
         match self.slots.get(&page) {
             Some(Slot::Loading { .. }) => true,
             #[cfg(feature = "live")]
@@ -961,7 +971,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// `live`, as drawn, a stale page's drawn rows; a last page grown since
     /// it was read doesn't hold the rows past its read.
     #[cfg(feature = "copy")]
-    pub fn holding(&self, page: u64, end: u64) -> Option<&T> {
+    pub(crate) fn holding(&self, page: u64, end: u64) -> Option<&T> {
         #[cfg(not(feature = "live"))]
         let _ = end;
         #[cfg(all(test, feature = "live"))]
@@ -1004,7 +1014,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
     /// `page`'s query was sent as `request`. With `live`, a loaded page's
     /// is a re-read: it keeps drawing until the read lands.
-    pub fn started(&mut self, page: u64, request: R) {
+    pub(crate) fn started(&mut self, page: u64, request: R) {
         #[cfg(test)]
         self.sent.push((request, Sent::Cache));
         #[cfg(feature = "live")]
@@ -1039,7 +1049,14 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// swapped for the old page's), and waits for
     /// [`PageCache::take_refreshed`]; a page invalidated during its read is
     /// kept, and read again.
-    pub fn loaded(&mut self, page: u64, request: R, data: T, bytes: usize, wanted: &[u64]) -> bool {
+    pub(crate) fn loaded(
+        &mut self,
+        page: u64,
+        request: R,
+        data: T,
+        bytes: usize,
+        wanted: &[u64],
+    ) -> bool {
         self.finished(request);
         #[cfg(feature = "live")]
         if let Some(Slot::Loaded {
@@ -1121,7 +1138,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// With `live`, a failed re-read keeps the old page drawn, still stale,
     /// and isn't read again until its rows are invalidated again or
     /// [`PageCache::forget_failed`].
-    pub fn failed(&mut self, page: u64, request: R, message: String) {
+    pub(crate) fn failed(&mut self, page: u64, request: R, message: String) {
         self.finished(request);
         #[cfg(feature = "live")]
         if let Some(Slot::Loaded { live, .. }) = self.slots.get_mut(&page) {
@@ -1141,7 +1158,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     }
 
     /// Whether any page's read failed (and the failure isn't forgotten).
-    pub fn has_failed(&self) -> bool {
+    pub(crate) fn has_failed(&self) -> bool {
         self.slots.values().any(|slot| match slot {
             Slot::Failed(_) => true,
             #[cfg(feature = "live")]
@@ -1152,7 +1169,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
     /// Forgets every failure, so the next [`PageCache::plan`] fetches those
     /// pages again if they're wanted. Returns whether there were any.
-    pub fn forget_failed(&mut self) -> bool {
+    pub(crate) fn forget_failed(&mut self) -> bool {
         let before = self.slots.len();
         #[cfg(feature = "live")]
         let mut rereads = false;
@@ -1175,7 +1192,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// or loading go stale, and [`PageCache::plan`] reads the wanted ones
     /// again. Returns this invalidation's generation, which grows with each.
     #[cfg(feature = "live")]
-    pub fn invalidate(&mut self, rows: Range<u64>) -> u64 {
+    pub(crate) fn invalidate(&mut self, rows: Range<u64>) -> u64 {
         self.generation += 1;
         if rows.start < rows.end {
             let pages = rows.start / self.page_rows..=(rows.end - 1) / self.page_rows;
@@ -1216,7 +1233,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// Keep each page's changed rows from now on: a column flashes (`live`
     /// with `custom-cells`). Off, pages keep none and nothing is compared.
     #[cfg(all(feature = "live", feature = "custom-cells"))]
-    pub fn track_changes(&mut self, track: bool) {
+    pub(crate) fn track_changes(&mut self, track: bool) {
         self.track_changes = track;
         if !track {
             for slot in self.slots.values_mut() {
@@ -1237,7 +1254,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// read included, to compare (`live` with `custom-cells`). `None` for
     /// any other answer, or nothing to compare.
     #[cfg(all(feature = "live", feature = "custom-cells"))]
-    pub fn changes(&self, page: u64, request: R) -> Option<(&T, RowSet)> {
+    pub(crate) fn changes(&self, page: u64, request: R) -> Option<(&T, RowSet)> {
         let Some(Slot::Loaded {
             page: drawn, live, ..
         }) = self.slots.get(&page)
@@ -1259,7 +1276,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// in page order. The others are dropped: a page
     /// re-read off screen reports nothing, then or later.
     #[cfg(feature = "live")]
-    pub fn take_refreshed(&mut self, visible: Range<u64>) -> Vec<(Range<u64>, u64)> {
+    pub(crate) fn take_refreshed(&mut self, visible: Range<u64>) -> Vec<(Range<u64>, u64)> {
         if !std::mem::take(&mut self.landed) {
             return Vec::new();
         }
@@ -1303,7 +1320,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
     /// frees its place and leaves the page drawn, read again at its rows'
     /// next invalidation (not at once: a source that keeps refusing would be
     /// asked every turn).
-    pub fn cancelled(&mut self, page: u64, request: R) {
+    pub(crate) fn cancelled(&mut self, page: u64, request: R) {
         self.finished(request);
         #[cfg(feature = "live")]
         if let Some(Slot::Loaded { live, .. }) = self.slots.get_mut(&page)
@@ -1319,7 +1336,7 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
 
     /// `request` answered (a cancelled request, or any other): it no longer
     /// holds a place in flight. `loaded` and `failed` call this themselves.
-    pub fn finished(&mut self, request: R) {
+    pub(crate) fn finished(&mut self, request: R) {
         self.draining.retain(|draining| *draining != request);
     }
 

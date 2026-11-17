@@ -195,7 +195,8 @@ impl TallTableDelegate for Script {
 
     /// Every sort accepted, and logged.
     #[cfg(feature = "sort")]
-    fn sort(&mut self, sort: Option<crate::Sort>, _: &mut App) -> Result<(), crate::SortRefused> {
+    fn sort(&mut self, keys: &[crate::Sort], _: &mut App) -> Result<(), crate::SortRefused> {
+        let sort = keys.first().copied();
         let logged = match sort {
             Some(sort) => format!("sort {} {}", sort.column, direction_name(sort.direction)),
             None => "sort none".to_string(),
@@ -465,7 +466,9 @@ fn run_scenario(
                     crate::Sort::new(column, direction_of(&argument["direction"]))
                 });
                 on_table(cx, &table, |table, cx| {
-                    table.set_sort(sort, cx).expect("the scenario's sort");
+                    table
+                        .set_sort(Vec::from_iter(sort), cx)
+                        .expect("the scenario's sort");
                 });
             }
             // The source now holds that many rows.

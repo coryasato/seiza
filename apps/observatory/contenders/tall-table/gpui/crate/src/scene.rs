@@ -272,10 +272,7 @@ pub fn set_level(
     {
         table.set_pinned(scene.wide.pinned, cx);
         table.set_density(
-            seiza_tall_table::Density {
-                row_height: px(scene.wide.row_height),
-                text_size: px(scene.wide.text_size).into(),
-            },
+            seiza_tall_table::Density::new(px(scene.wide.row_height), px(scene.wide.text_size)),
             cx,
         );
     }

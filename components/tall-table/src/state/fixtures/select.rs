@@ -651,13 +651,13 @@ fn select_sets_it_without_scrolling(cx: &mut TestAppContext) {
         anchor: (500, 9),
         head: (600, 11),
     };
-    sheet.update(|table, cx| table.select(Some(far), cx));
+    sheet.update(|table, cx| table.set_selection(Some(far), cx));
     assert_eq!(sheet.selection(), Some(far));
     assert_eq!(
         sheet.read(|table| (table.scroll.top(), table.scroll_x)),
         (0.0, 0.0)
     );
-    sheet.update(|table, cx| table.select(Some(far), cx));
+    sheet.update(|table, cx| table.set_selection(Some(far), cx));
     assert_eq!(sheet.selected.borrow().len(), 1, "unchanged: no event");
 }
 
@@ -715,7 +715,7 @@ fn the_tint_is_the_ranges_visible_part(cx: &mut TestAppContext) {
     let mut sheet = open(cx, 1000, Selectable::all());
     let row_h = f32::from(row_height());
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Cells {
                 anchor: (2, 1),
                 head: (4, 2),
@@ -743,7 +743,7 @@ fn the_tint_is_the_ranges_visible_part(cx: &mut TestAppContext) {
 
     // A range going on past the view: its edges past the view's.
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Columns {
                 anchor: (0, 3),
                 head: (0, 11),
@@ -767,7 +767,7 @@ fn the_tint_is_the_ranges_visible_part(cx: &mut TestAppContext) {
 
     // Off screen altogether: nothing.
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Rows {
                 anchor: (500, 0),
                 head: (600, 0),
@@ -1075,7 +1075,7 @@ fn turning_jumps_selection_off_draws_its_mark(cx: &mut TestAppContext) {
 fn select_clamps_past_the_end(cx: &mut TestAppContext) {
     let mut sheet = open(cx, 1000, Selectable::all());
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Cells {
                 anchor: (900, 3),
                 head: (2_000_000, 40),
@@ -1091,7 +1091,7 @@ fn select_clamps_past_the_end(cx: &mut TestAppContext) {
     assert_eq!(*sheet.selected.borrow(), vec![clamped], "with the event");
     sheet.update(|table, cx| table.set_rows(0, cx));
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Columns {
                 anchor: (0, 0),
                 head: (0, 2),
@@ -1107,7 +1107,7 @@ fn select_clamps_past_the_end(cx: &mut TestAppContext) {
 fn select_of_a_kind_thats_off_asserts(cx: &mut TestAppContext) {
     let mut sheet = open(cx, 1000, Selectable::all().columns(false));
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(TallTableSelection::Columns {
                 anchor: (0, 0),
                 head: (0, 2),

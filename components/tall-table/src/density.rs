@@ -9,12 +9,25 @@ use gpui_kit::{AbsoluteLength, Pixels, px, rems};
 use crate::state::{TEXT_REMS, row_height};
 
 /// A table's row height and text size (`TallTableState::set_density`).
+/// Built with [`Density::new`], or from [`Density::default`] with a field
+/// set, so a field added later breaks no host.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct Density {
     /// The body's rows and the header: 30 px by default.
     pub row_height: Pixels,
     /// The cells' and the header's text: `rems(0.875)` by default.
     pub text_size: AbsoluteLength,
+}
+
+impl Density {
+    /// Rows `row_height` tall and text at `text_size` (`px` or `rems`).
+    pub fn new(row_height: Pixels, text_size: impl Into<AbsoluteLength>) -> Self {
+        Self {
+            row_height,
+            text_size: text_size.into(),
+        }
+    }
 }
 
 /// 30 px rows and `rems(0.875)` text: the base's.

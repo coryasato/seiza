@@ -870,7 +870,12 @@ impl TallTableDelegate for MemoryRows {
     /// reads the order's first positions, rows it may not hold yet. Reads
     /// out keep the order they were sent in; the table drops them.
     #[cfg(feature = "sort")]
-    fn sort(&mut self, sort: Option<Sort>, _: &mut App) -> Result<(), SortRefused> {
+    fn sort(&mut self, keys: &[Sort], _: &mut App) -> Result<(), SortRefused> {
+        // One column's order: a second key would be dropped, not sorted by.
+        if keys.len() > 1 {
+            return Err(SortRefused::new("These rows sort by one column"));
+        }
+        let sort = keys.first().copied();
         let order = match sort {
             None => None,
             Some(sort) => {
@@ -1377,7 +1382,7 @@ mod tests {
         let mut rows = MemoryRows::new(Shape::Narrow, None);
         let (_, before) = cx.update(|cx| rows.load_page(0..1024, cx));
         let sort = Sort::new(5, SortDirection::Ascending);
-        cx.update(|cx| rows.sort(Some(sort), cx)).expect("sorted");
+        cx.update(|cx| rows.sort(&[sort], cx)).expect("sorted");
         let (_, sorted) = cx.update(|cx| rows.load_page(0..1024, cx));
         let (before, sorted) = (
             futures::executor::block_on(before).expect("a page"),
@@ -1394,13 +1399,16 @@ mod tests {
         }
         assert_eq!(before.value(0, 0), Some(CellValue::Text("20000001".into())));
         // Back to the rows' own order.
-        cx.update(|cx| rows.sort(None, cx)).expect("unsorted");
+        cx.update(|cx| rows.sort(&[], cx)).expect("unsorted");
         let (_, own) = cx.update(|cx| rows.load_page(0..1024, cx));
         let own = futures::executor::block_on(own).expect("a page");
         assert_eq!(own.value(0, 0), before.value(0, 0));
         // A column past the end is refused.
         let past = Sort::new(11, SortDirection::Ascending);
-        assert!(cx.update(|cx| rows.sort(Some(past), cx)).is_err());
+        assert!(cx.update(|cx| rows.sort(&[past], cx)).is_err());
+        // Two keys are refused, never sorted by the first alone.
+        let two = [sort, Sort::new(4, SortDirection::Ascending)];
+        assert!(cx.update(|cx| rows.sort(&two, cx)).is_err());
     }
 
     /// Under a sort, a bump names a position in the order: the row read
@@ -1416,13 +1424,13 @@ mod tests {
             futures::executor::block_on(load).expect("a page")
         };
         let sort = Sort::new(5, SortDirection::Descending);
-        cx.update(|cx| rows.sort(Some(sort), cx)).expect("sorted");
+        cx.update(|cx| rows.sort(&[sort], cx)).expect("sorted");
         let before = read(&mut rows, cx);
         rows.bump(0);
         let after = read(&mut rows, cx);
         assert_ne!(before.value(0, 5), after.value(0, 5), "position 0's float");
         // Row 0 of the rows' own order is elsewhere in the order: unchanged.
-        cx.update(|cx| rows.sort(None, cx)).expect("unsorted");
+        cx.update(|cx| rows.sort(&[], cx)).expect("unsorted");
         let own = read(&mut rows, cx);
         assert_eq!(own.value(0, 5), fresh_page(Shape::Narrow, 0..1).value(0, 5));
     }

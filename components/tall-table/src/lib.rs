@@ -13,6 +13,11 @@
 //! no app: what it shows to a host (first rows, failed reads, probes for
 //! scripts) goes out as [`TallTableEvent`]s.
 
+// Every public item says what it is, and `pub` means public: an item or a
+// field only the crate uses is `pub(crate)` (`unreachable_pub` checks the
+// items; a private struct's fields are by hand).
+#![warn(missing_docs, unreachable_pub)]
+
 mod activity;
 mod cells_text;
 #[cfg(feature = "clicks")]

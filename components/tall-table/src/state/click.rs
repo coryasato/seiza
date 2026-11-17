@@ -68,7 +68,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if event.button == MouseButton::Right
             || (left && event.modifiers.control && self.clicks_state.ctrl_press_is_context)
         {
-            self.context_press(event.position, event.modifiers, window, cx);
+            // During a drag it's nothing, and stopped: a host's menu round
+            // the table doesn't open over the drag.
+            if !self.context_press(event.position, event.modifiers, window, cx)
+                && event.button == MouseButton::Right
+            {
+                cx.stop_propagation();
+            }
             return;
         }
         if !left {
@@ -108,15 +114,24 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// A touch's long press over the table, at its start: a context press.
-    /// Its tap, if nothing claims it, is dropped.
-    fn long_press(&mut self, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+    /// Its tap, if nothing claims it, is dropped. `false` during a drag,
+    /// where it's nothing.
+    fn long_press(
+        &mut self,
+        position: Point<Pixels>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
         self.clicks_state.count.other();
-        if self.context_press(position, Modifiers::default(), window, cx) {
+        let reported = self.context_press(position, Modifiers::default(), window, cx);
+        if reported {
             self.clicks_state.long_press = true;
         }
+        reported
     }
 
-    /// A context press: nothing during a drag (`false`); else it hides the
+    /// A context press: nothing during a drag (`false`, and its caller stops
+    /// it, so it reaches no host's menu); else it hides the
     /// tooltip and focuses the table, as a left press does, and with
     /// `select` follows Sheets' rule; then the event.
     fn context_press(
@@ -252,9 +267,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         // Claimed: no tap follows.
                         entity.update(cx, |this, _| this.clicks_state.long_press = false);
                     } else if !window.default_prevented() && hitbox.is_hovered(window) {
-                        entity.update(cx, |this, cx| {
+                        let reported = entity.update(cx, |this, cx| {
                             this.long_press(event.start_position, window, cx)
                         });
+                        // During a drag: stopped, as the scrollbars, bands,
+                        // and arrows stop theirs (`stops_context`).
+                        if !reported {
+                            window.prevent_default();
+                            cx.stop_propagation();
+                        }
                     }
                 });
             },

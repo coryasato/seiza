@@ -22,6 +22,7 @@ pub struct TallTable<D: TallTableDelegate> {
 }
 
 impl<D: TallTableDelegate> TallTable<D> {
+    /// The element for `state`, built each render: it keeps nothing.
     pub fn new(state: &Entity<TallTableState<D>>) -> Self {
         Self {
             state: state.clone(),

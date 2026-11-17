@@ -301,7 +301,12 @@ impl TallTableDelegate for Source {
 
     /// The order is made here, in the task that asked: a few frames'
     /// worth for every row (`docs/DECISIONS.md`, "Table").
-    fn sort(&mut self, sort: Option<Sort>, _: &mut App) -> Result<(), SortRefused> {
+    fn sort(&mut self, keys: &[Sort], _: &mut App) -> Result<(), SortRefused> {
+        // One column's order: a second key would be dropped, not sorted by.
+        if keys.len() > 1 {
+            return Err(SortRefused::new("This table sorts by one column"));
+        }
+        let sort = keys.first().copied();
         let sort = match sort {
             None => None,
             Some(sort) => match sortable(sort.column) {

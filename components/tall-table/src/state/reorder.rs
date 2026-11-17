@@ -95,12 +95,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ///
     /// With `select`, a `Columns` or `Cells` range follows its columns while
     /// they're still side by side (else it's cleared), with
-    /// [`TallTableEvent::Selected`] when its places change; a `Rows` range
+    /// `TallTableEvent::Selected` when its places change; a `Rows` range
     /// stays. With `pin`, a block moved into the run pins and one moved out
     /// unpins, the count changed by the columns that crossed (`Pinned` if
     /// the run in effect changes); at the run's end, the place both sides
     /// share, the block keeps its first column's side
-    /// ([`TallTableState::move_columns_pinned`] picks it).
+    /// (`TallTableState::move_columns_pinned` picks it).
     ///
     /// Then [`TallTableEvent::ColumnsMoved`]. Nothing for an empty block, a
     /// block past the columns, a `to` past the columns less the block's
@@ -129,7 +129,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// nothing changes). Nothing if it's the order in effect.
     ///
     /// With `select`, a `Columns` or `Cells` selection is cleared
-    /// ([`TallTableEvent::Selected`]`(None)`); a `Rows` one stays. With
+    /// (`TallTableEvent::Selected``(None)`); a `Rows` one stays. With
     /// `pin`, the count is kept as a count of places, so the first *n* drawn
     /// pin, whichever they are now: a host restoring an order with its pins
     /// calls `set_pinned` after, with the count `ColumnsMoved` gave it.

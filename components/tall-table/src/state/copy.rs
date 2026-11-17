@@ -183,6 +183,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.copy_state.options = options;
     }
 
+    /// The limits and the header line copies are made with.
     pub fn copy_options(&self) -> CopyOptions {
         self.copy_state.options
     }
@@ -289,7 +290,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The copy running, if any: its id, rows done, and rows.
-    pub fn copying(&self) -> Option<CopyProgress> {
+    pub fn copy_progress(&self) -> Option<CopyProgress> {
         self.copy_state
             .running
             .as_ref()

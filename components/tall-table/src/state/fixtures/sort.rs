@@ -103,7 +103,8 @@ impl TallTableDelegate for Source {
             .push(format!("cancel {}", page.expect("an open read")));
     }
 
-    fn sort(&mut self, sort: Option<Sort>, _: &mut App) -> Result<(), SortRefused> {
+    fn sort(&mut self, keys: &[Sort], _: &mut App) -> Result<(), SortRefused> {
+        let sort = keys.first().copied();
         let mut books = self.books.borrow_mut();
         books.log.push(match sort {
             Some(sort) => format!("sort {} {}", sort.column, direction_name(sort.direction)),
@@ -312,7 +313,7 @@ impl<'a, D: TallTableDelegate> Sheet<'a, D> {
     }
 
     fn sort(&mut self) -> Option<Sort> {
-        self.read(|table| table.sort())
+        self.read(|table| table.sort().first().copied())
     }
 
     /// The header's text color, full and at half.
@@ -675,7 +676,7 @@ fn a_source_without_sort_refuses(cx: &mut TestAppContext) {
     assert_eq!(
         sheet.take_events(),
         [TallTableEvent::SortRefused(
-            refused,
+            vec![refused],
             SortRefused::new("This source can't sort")
         )]
     );
@@ -688,11 +689,14 @@ fn a_source_without_sort_refuses(cx: &mut TestAppContext) {
         sheet.arrow(0).map(|arrow| arrow.arrow),
         Some(Arrow::Glyph('↕'))
     );
-    let result = sheet.update(|table, cx| table.set_sort(Some(refused), cx));
+    let result = sheet.update(|table, cx| table.set_sort(vec![refused], cx));
     assert_eq!(result, Err(SortRefused::new("This source can't sort")));
     assert!(sheet.take_events().is_empty(), "set_sort emits nothing");
     // Going back to none is accepted.
-    assert_eq!(sheet.update(|table, cx| table.set_sort(None, cx)), Ok(()));
+    assert_eq!(
+        sheet.update(|table, cx| table.set_sort(Vec::new(), cx)),
+        Ok(())
+    );
 }
 
 #[gpui_kit::test]
@@ -712,9 +716,22 @@ fn the_tables_own_refusals(cx: &mut TestAppContext) {
             "There's no column 2",
         ),
     ] {
-        let result = sheet.update(|table, cx| table.set_sort(Some(sort), cx));
+        let result = sheet.update(|table, cx| table.set_sort(vec![sort], cx));
         assert_eq!(result, Err(SortRefused::new(message)));
     }
+    // More than one key: the list is the API's shape, and sorting by
+    // several columns isn't built.
+    let two = vec![
+        Sort::new(0, SortDirection::Ascending),
+        Sort::new(0, SortDirection::Descending),
+    ];
+    assert_eq!(
+        sheet.update(|table, cx| table.set_sort(two, cx)),
+        Err(SortRefused::new(
+            "Sorting by more than one column isn't built"
+        ))
+    );
+    assert_eq!(sheet.sort(), None);
     assert!(sheet.take_events().is_empty());
     assert!(sheet.take_log().is_empty(), "the source wasn't told");
     // The source's refusal: the click's event, the order as it was.
@@ -736,7 +753,7 @@ fn sorted(events: &[TallTableEvent]) -> Vec<Option<Sort>> {
     events
         .iter()
         .filter_map(|event| match event {
-            TallTableEvent::Sorted(sort) => Some(*sort),
+            TallTableEvent::Sorted(keys) => Some(keys.first().copied()),
             _ => None,
         })
         .collect()
@@ -757,7 +774,7 @@ fn a_sort_forgets_every_page_and_reads_from_the_top(cx: &mut TestAppContext) {
     // The plan waits for the update to end: nothing read inside it.
     let sent = sheet.books.borrow().next;
     let in_update = sheet.table.update(sheet.cx, |table, cx| {
-        let result = table.set_sort(sort, cx);
+        let result = table.set_sort(Vec::from_iter(sort), cx);
         (result, table.books_reads())
     });
     assert_eq!(in_update, (Ok(()), sent));
@@ -820,7 +837,7 @@ fn a_sort_forgets_every_page_and_reads_from_the_top(cx: &mut TestAppContext) {
     // The same sort again re-reads every row.
     sheet.take_log();
     sheet
-        .update(|table, cx| table.set_sort(sort, cx))
+        .update(|table, cx| table.set_sort(Vec::from_iter(sort), cx))
         .expect("sorted");
     assert_eq!(sheet.take_log()[0], "sort 1 descending");
     assert_eq!(sheet.read(|table| table.cache.loaded_pages()), 0);
@@ -849,10 +866,10 @@ fn a_sort_clears_rows_and_cells_and_keeps_columns(cx: &mut TestAppContext) {
         ),
     ] {
         let selection = TallTableSelection::new(kind, (40, 1), (60, 2));
-        sheet.update(|table, cx| table.select(Some(selection), cx));
+        sheet.update(|table, cx| table.set_selection(Some(selection), cx));
         sheet.take_events();
         sheet
-            .update(|table, cx| table.set_sort(sort(SortDirection::Descending), cx))
+            .update(|table, cx| table.set_sort(Vec::from_iter(sort(SortDirection::Descending)), cx))
             .expect("sorted");
         assert_eq!(sheet.read(|table| table.selection()), kept, "{kind:?}");
         let events = sheet.take_events();
@@ -864,7 +881,7 @@ fn a_sort_clears_rows_and_cells_and_keeps_columns(cx: &mut TestAppContext) {
     // A jump that selected: its highlight goes with it.
     sheet.update(|table, cx| table.jump_to(500, cx));
     sheet
-        .update(|table, cx| table.set_sort(sort(SortDirection::Ascending), cx))
+        .update(|table, cx| table.set_sort(Vec::from_iter(sort(SortDirection::Ascending)), cx))
         .expect("sorted");
     assert_eq!(
         sheet.read(|table| (table.marked, table.drawn_mark())),
@@ -879,14 +896,14 @@ fn a_sort_cancels_a_copy(cx: &mut TestAppContext) {
     use crate::selection::{Kind, TallTableSelection};
     let mut sheet = Sheet::open(cx, floats(3), true);
     let selection = TallTableSelection::new(Kind::Rows, (0, 0), (5000, 0));
-    sheet.update(|table, cx| table.select(Some(selection), cx));
+    sheet.update(|table, cx| table.set_selection(Some(selection), cx));
     let id = sheet.update(|table, cx| table.copy(cx)).expect("a copy");
-    assert!(sheet.read(|table| table.copying().is_some()));
+    assert!(sheet.read(|table| table.copy_progress().is_some()));
     sheet.take_events();
     sheet
-        .update(|table, cx| table.set_sort(Some(Sort::new(0, SortDirection::Ascending)), cx))
+        .update(|table, cx| table.set_sort(vec![Sort::new(0, SortDirection::Ascending)], cx))
         .expect("sorted");
-    assert_eq!(sheet.read(|table| table.copying()), None);
+    assert_eq!(sheet.read(|table| table.copy_progress()), None);
     let events = sheet.take_events();
     assert!(
         events.contains(&TallTableEvent::Copy(TallTableCopy::Failed {
@@ -905,7 +922,7 @@ fn a_sort_lets_following_go(cx: &mut TestAppContext) {
     assert!(sheet.read(|table| table.is_following()));
     sheet.take_events();
     sheet
-        .update(|table, cx| table.set_sort(Some(Sort::new(0, SortDirection::Ascending)), cx))
+        .update(|table, cx| table.set_sort(vec![Sort::new(0, SortDirection::Ascending)], cx))
         .expect("sorted");
     assert!(!sheet.read(|table| table.is_following()));
     assert!(
@@ -926,7 +943,7 @@ fn a_sort_clears_the_flashes(cx: &mut TestAppContext) {
             .start(3, 0, 1.0, now, std::time::Duration::from_secs(1));
     });
     sheet
-        .update(|table, cx| table.set_sort(Some(Sort::new(0, SortDirection::Ascending)), cx))
+        .update(|table, cx| table.set_sort(vec![Sort::new(0, SortDirection::Ascending)], cx))
         .expect("sorted");
     assert!(sheet.read(|table| table.flashes.is_empty()));
 }
@@ -936,7 +953,7 @@ fn set_columns_keeps_the_sort_by_name(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, floats(3), false);
     let sort = Some(Sort::new(1, SortDirection::Ascending));
     sheet
-        .update(|table, cx| table.set_sort(sort, cx))
+        .update(|table, cx| table.set_sort(Vec::from_iter(sort), cx))
         .expect("sorted");
     sheet.take_log();
     sheet.take_events();
@@ -958,7 +975,7 @@ fn set_columns_keeps_the_sort_by_name(cx: &mut TestAppContext) {
     assert_eq!(sorted(&sheet.take_events()), [None]);
     // Sorted again, then the column no longer sortable: cleared.
     sheet
-        .update(|table, cx| table.set_sort(sort, cx))
+        .update(|table, cx| table.set_sort(Vec::from_iter(sort), cx))
         .expect("sorted");
     let mut plain = floats(3);
     plain[1] = TallTableColumn::new("f1", ColumnKind::Float);
@@ -991,12 +1008,12 @@ fn a_closed_table_tells_its_source_nothing(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, floats(2), false);
     let sort = Some(Sort::new(0, SortDirection::Ascending));
     sheet
-        .update(|table, cx| table.set_sort(sort, cx))
+        .update(|table, cx| table.set_sort(Vec::from_iter(sort), cx))
         .expect("sorted");
     sheet.update(|table, cx| table.close(cx));
     sheet.take_log();
     sheet.take_events();
-    let result = sheet.update(|table, cx| table.set_sort(None, cx));
+    let result = sheet.update(|table, cx| table.set_sort(Vec::new(), cx));
     assert_eq!(result, Err(SortRefused::new("The table is closed")));
     // `set_columns` without the sorted column clears it, untold.
     let mut renamed = floats(2);
@@ -1040,7 +1057,7 @@ fn a_sort_clears_the_hover_and_the_tooltip(cx: &mut TestAppContext) {
         "the control: hovered, its tooltip up"
     );
     sheet
-        .update(|table, cx| table.set_sort(Some(Sort::new(1, SortDirection::Descending)), cx))
+        .update(|table, cx| table.set_sort(vec![Sort::new(1, SortDirection::Descending)], cx))
         .expect("sorted");
     assert_eq!(sheet.read(hovered), None, "the hover and its tooltip gone");
     sheet.draw();

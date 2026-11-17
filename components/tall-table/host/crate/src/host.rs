@@ -465,7 +465,7 @@ impl Host {
             // Every column sortable and the column in range: the table
             // refuses nothing, and the source's refusal leaves its order,
             // which the scripts read.
-            table.update(cx, |table, cx| drop(table.set_sort(Some(sort), cx)));
+            table.update(cx, |table, cx| drop(table.set_sort(vec![sort], cx)));
         }
         // The first columns pinned (`pin`, `?pin=<n>`, by default the
         // shape's): set before the first frame, which pins them. `?pin=0`
@@ -549,7 +549,10 @@ impl Host {
         }
         if let Some(id) = self.clipboard.event(copy) {
             table.update(cx, |table, cx| {
-                if table.copying().is_some_and(|copying| copying.id == id) {
+                if table
+                    .copy_progress()
+                    .is_some_and(|copying| copying.id == id)
+                {
                     table.cancel_copy(cx);
                 }
             });
@@ -656,10 +659,7 @@ impl Density {
 
     /// The table's.
     fn density(self) -> seiza_tall_table::Density {
-        seiza_tall_table::Density {
-            row_height: px(self.row),
-            text_size: px(self.text).into(),
-        }
+        seiza_tall_table::Density::new(px(self.row), px(self.text))
     }
 
     /// `columns` with the width set on every float column.
@@ -803,8 +803,9 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                     // Every column sortable: only the source can refuse,
                     // and its refusal leaves the order, which the scripts
                     // read.
-                    host.table
-                        .update(cx, |table, cx| drop(table.set_sort(sort, cx)));
+                    host.table.update(cx, |table, cx| {
+                        drop(table.set_sort(Vec::from_iter(sort), cx))
+                    });
                 }));
                 true
             })
@@ -970,7 +971,7 @@ fn copy_hooks(
                     let focus = host.table.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
                     host.table
-                        .update(cx, |table, cx| table.select(selection, cx));
+                        .update(cx, |table, cx| table.set_selection(selection, cx));
                 }));
             },
         )

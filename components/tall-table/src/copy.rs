@@ -47,6 +47,7 @@ impl Default for CopyOptions {
 }
 
 impl CopyOptions {
+    /// Sets [`max_bytes`](field@Self::max_bytes).
     pub fn max_bytes(self, bytes: usize) -> Self {
         Self {
             max_bytes: bytes,
@@ -54,6 +55,7 @@ impl CopyOptions {
         }
     }
 
+    /// Sets [`key_max_cells`](field@Self::key_max_cells).
     pub fn key_max_cells(self, cells: u64) -> Self {
         Self {
             key_max_cells: cells,
@@ -61,6 +63,7 @@ impl CopyOptions {
         }
     }
 
+    /// Sets [`headers`](field@Self::headers).
     pub fn headers(self, on: bool) -> Self {
         Self {
             headers: on,
@@ -77,28 +80,51 @@ pub enum TallTableCopy {
     /// Cmd+C on a selection past `key_max_cells`: nothing copied, nothing
     /// read. A host may ask the reader, and call `copy` if they confirm
     /// (the confirming click is a gesture of its own).
-    Declined { rows: u64, columns: usize },
+    Declined {
+        /// The selection's rows.
+        rows: u64,
+        /// The selection's columns.
+        columns: usize,
+    },
     /// In the task that asked for it (the key, or `copy`): a host writing
     /// to the web's clipboard opens its write here. `columns` are places,
     /// where they're drawn (with `reorder`, the text holds the columns
     /// `order()` drew there when it started, in that order, whatever moves
     /// after).
     Started {
+        /// Names this copy in every event after.
         id: CopyId,
+        /// The rows it copies.
         rows: RangeInclusive<u64>,
+        /// The places it copies.
         columns: RangeInclusive<usize>,
     },
     /// The text's next piece, to append; `rows_done` rows are in so far.
     Text {
+        /// The copy it belongs to.
         id: CopyId,
+        /// The piece: whole rows of TSV.
         text: String,
+        /// The rows sent so far, this piece's included.
         rows_done: u64,
     },
     /// Every piece sent.
-    Copied { id: CopyId, rows: u64, bytes: usize },
+    Copied {
+        /// The copy that ended.
+        id: CopyId,
+        /// The rows copied.
+        rows: u64,
+        /// The text's bytes, every piece together.
+        bytes: usize,
+    },
     /// Ended without its text: a host drops the pieces it has and leaves
     /// the clipboard as it was.
-    Failed { id: CopyId, reason: CopyFailure },
+    Failed {
+        /// The copy that ended.
+        id: CopyId,
+        /// Why.
+        reason: CopyFailure,
+    },
 }
 
 /// Why a copy ended without its text.
@@ -108,7 +134,14 @@ pub enum CopyFailure {
     /// Its text passed `max_bytes`, or its first page's worth of rows said
     /// it would
     /// (`bytes`: the text so far, or the size the first page projected).
-    TooLarge { bytes: usize, max_bytes: usize },
+    TooLarge {
+        /// The text so far, the size the first page projected, or (refused
+        /// before any read) the least the selection could take, every
+        /// value empty.
+        bytes: usize,
+        /// The limit it passed ([`CopyOptions::max_bytes`]).
+        max_bytes: usize,
+    },
     /// A page read for it failed (with `read_failure`, the table's
     /// `ReadFailed` too, for the host to repair the source).
     Read(String),
@@ -119,9 +152,13 @@ pub enum CopyFailure {
 
 /// A running copy's progress.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct CopyProgress {
+    /// The copy running.
     pub id: CopyId,
+    /// The rows sent so far.
     pub rows_done: u64,
+    /// The rows it copies.
     pub rows: u64,
 }
 

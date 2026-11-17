@@ -16,6 +16,7 @@ pub type PageLoad<P> = Pin<Box<dyn Future<Output = Result<P, PageError>>>>;
 /// visible pages first, then prefetch, at most `Paging::max_in_flight` at
 /// once); the delegate reads them.
 pub trait TallTableDelegate: 'static {
+    /// What a read answers with: the rows it read.
     type Page: TallTablePage;
     /// Names a read in flight, so the table can cancel it. Never reused
     /// for the table's life (a counter, say): two open reads under one id
@@ -42,23 +43,28 @@ pub trait TallTableDelegate: 'static {
     /// source may not be able to stop a read it has started.
     fn cancel(&mut self, request: Self::Request, cx: &mut App);
 
-    /// Reads in `sort`'s order from now on (`None`: the source's own), or
-    /// refuses. Ascending or descending by the column's values, ties in the
-    /// source's own order and NULLs last, both ways: a total order, so
-    /// pages read apart join up. A source that needs to prepare (an index,
+    /// Reads in `keys`' order from now on (none: the source's own), or
+    /// refuses. A list, the first key the most significant, so that
+    /// sorting by several columns needs no new call; the table sends at
+    /// most one key today. Ascending or descending by a key's column's
+    /// values, ties by the next key, then in the source's own order, and
+    /// NULLs last, both ways: a total order, so pages read apart join up. A source that needs to prepare (an index,
     /// a sorted copy) starts here and holds its reads until it's ready.
     /// Reads out when this is called are cancelled after it returns `Ok`;
     /// their answers are dropped, whichever order they hold. Called inside
     /// the table's update, as `load_page` is: nothing it starts may touch
     /// the table (or an entity being updated around it) before its first
     /// await. By default every sort is refused and going back to none
-    /// accepted; a source must always accept `None`.
+    /// accepted; a source must always accept no keys, and refuses a list it
+    /// can't sort by whole (a source that sorts by one column refuses two:
+    /// it never drops a key).
     #[cfg(feature = "sort")]
-    fn sort(&mut self, sort: Option<crate::Sort>, cx: &mut App) -> Result<(), crate::SortRefused> {
+    fn sort(&mut self, keys: &[crate::Sort], cx: &mut App) -> Result<(), crate::SortRefused> {
         let _ = cx;
-        match sort {
-            Some(_) => Err(crate::SortRefused::new("This source can't sort")),
-            None => Ok(()),
+        if keys.is_empty() {
+            Ok(())
+        } else {
+            Err(crate::SortRefused::new("This source can't sort"))
         }
     }
 }
@@ -95,13 +101,17 @@ pub trait TallTablePage: 'static {
     fn heap_bytes(&self) -> usize;
 }
 
-/// A value as the table shows it.
+/// A value as the table shows it. Non-exhaustive: a kind of value the
+/// table writes itself may join it.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum CellValue<'a> {
     /// Shown as a muted `NULL`.
     Null,
     /// A float: rounded to the digits its column fits, exact in its tooltip.
     Float(f64),
+    /// A single-precision float: as `Float`, its exact text f32's own
+    /// shortest (not its value widened to f64).
     Float32(f32),
     /// Anything else, as the source writes it: one line (line breaks show as
     /// `¶`), cut to its column, exact in its tooltip.
@@ -124,6 +134,7 @@ impl fmt::Display for CellValue<'_> {
 
 /// Why a page didn't load.
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PageError {
     /// The table cancelled it ([`TallTableDelegate::cancel`]).
     Cancelled,
@@ -132,5 +143,10 @@ pub enum PageError {
     /// [`TallTableEvent::ReadFailed`](crate::TallTableEvent::ReadFailed) so the host
     /// can repair it and call
     /// [`TallTableState::retry_failed`](crate::TallTableState::retry_failed).
-    Failed { message: String, read_failure: bool },
+    Failed {
+        /// What went wrong, shown in the page's rows.
+        message: String,
+        /// Whether the source itself is broken, not only this read.
+        read_failure: bool,
+    },
 }

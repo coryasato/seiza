@@ -15,6 +15,7 @@ use crate::column::{Sizes, TallTableColumn};
 /// Each field 0..=1 (clamped). `None`, NaN, or a field whose column has no
 /// ramp or bar draws nothing (the last a debug assertion: a host's mistake).
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct CellPaint {
     /// Through the column's fill ramp ([`TallTableColumn::fill`]): the whole cell.
     pub fill: Option<f32>,
@@ -48,6 +49,7 @@ impl Ramp {
         }
     }
 
+    /// Its stops, in order from 0 to 1.
     pub fn stops(&self) -> &[Stop] {
         &self.stops
     }
@@ -73,6 +75,7 @@ pub struct Bar {
     /// Where the bar starts, 0..=1 of the inner width (0, the left edge, by
     /// default).
     pub zero: f32,
+    /// The bar's color (right of its zero only, when `below` is set).
     pub color: Stop,
     /// The color of a bar that ends left of its zero; `None` draws both
     /// sides in `color`.
@@ -102,6 +105,7 @@ impl Bar {
         }
     }
 
+    /// Where the bar starts, 0..=1 of the inner width.
     pub fn zero(self, zero: f32) -> Self {
         Self { zero, ..self }
     }
@@ -123,9 +127,13 @@ impl Bar {
 /// `lo <= mid <= hi` (a debug assertion): set `mid` only inside the range,
 /// say 0 for a column whose values cross it.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[non_exhaustive]
 pub struct Domain {
+    /// The value that maps to 0.
     pub lo: f64,
+    /// The value that maps to 0.5.
     pub mid: f64,
+    /// The value that maps to 1.
     pub hi: f64,
 }
 

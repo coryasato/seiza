@@ -244,7 +244,7 @@ fn run_case(
     let handle = table.read_with(cx, |table, _| table.focus_handle.clone());
     cx.update(|window, cx| window.focus(&handle, cx));
     let selection = selection_of(&case["selection"]);
-    table.update(cx, |table, cx| table.select(Some(selection), cx));
+    table.update(cx, |table, cx| table.set_selection(Some(selection), cx));
     draw(cx);
     assert_eq!(
         requests.borrow().len(),
@@ -261,7 +261,7 @@ fn run_case(
     }
     draw(cx);
     assert!(
-        table.read_with(cx, |table, _| table.copying().is_none()),
+        table.read_with(cx, |table, _| table.copy_progress().is_none()),
         "the copy ended"
     );
 

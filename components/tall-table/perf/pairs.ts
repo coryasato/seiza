@@ -3,12 +3,16 @@
 // build a set, as a host builds it (the host's feature turns on the
 // table's and the bridge's, so the three share one set). Then the native
 // tests on the pairs with code gated on both, which this script finds in
-// the sources. `just tall-table test` runs a feature alone and all on, and
+// the sources, then the table's rustdoc at every set (-D warnings: a doc
+// that links an item its build doesn't have is a broken link there). `just tall-table test` runs a feature alone and all on, and
 // `lint` clippies none and all; a pair that doesn't compile without a
 // third (an import gated on one feature, used under two) reaches neither.
 //
-// About a second a clippy build and 19 s a pair's tests: ~15 minutes in
-// all (perf/results/2026-11-16-hardening-2-b.md), so it's a recipe of its
+// About a second a clippy build, 19 s a pair's tests, and a second and a
+// half a set's rustdoc: ~24 minutes in all, ~2 each for `--only clippy`
+// and `--only doc` (perf/results/2026-11-17-api-review-b.md). Over 20
+// minutes, so the whole run is one to ask about before a code review
+// (root CLAUDE.md, "Working agreements"); a part isn't. A recipe of its
 // own, not part of `lint`.
 //
 // A pair where one feature turns on the other (`follow` and `live`, `copy`
@@ -21,10 +25,10 @@
 // `not(…)` is nothing. Code that needs exactly those two: what needs a
 // third runs in no pair's build (a feature another turns on doesn't count).
 //
-// Usage: node components/tall-table/perf/pairs.ts [--list] [--only clippy|test] [--from <n>]
+// Usage: node components/tall-table/perf/pairs.ts [--list] [--only clippy|test|doc] [--from <n>]
 //   --list   print the sets and the pairs with code gated on both, run nothing
-//   --only   one half
-//   --from   start at the nth build of the half --only names (after a failure fixed)
+//   --only   one part
+//   --from   start at the nth build of the part --only names (after a failure fixed)
 
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
@@ -258,9 +262,14 @@ function gatedPairs(order: string[], turnsOn: Map<string, string[]>): Map<string
     return pairs;
 }
 
-function run(what: string, args: string[]): boolean {
+function run(what: string, args: string[], env: Record<string, string> = {}): boolean {
     const started = Date.now();
-    const result = spawnSync('cargo', args, { cwd: rootDir, encoding: 'utf8', maxBuffer: 1 << 28 });
+    const result = spawnSync('cargo', args, {
+        cwd: rootDir,
+        encoding: 'utf8',
+        maxBuffer: 1 << 28,
+        env: { ...process.env, ...env },
+    });
     const seconds = ((Date.now() - started) / 1000).toFixed(1);
     if (result.status === 0) {
         console.log(`  ok    ${what} (${seconds} s)`);
@@ -283,16 +292,16 @@ for (const [index, arg] of args.entries()) {
     }
 }
 const only = args.includes('--only') ? args[args.indexOf('--only') + 1] : undefined;
-if (args.includes('--only') && only !== 'clippy' && only !== 'test') {
-    fail(`--only takes clippy or test, not ${only}`);
+if (args.includes('--only') && only !== 'clippy' && only !== 'test' && only !== 'doc') {
+    fail(`--only takes clippy, test, or doc, not ${only}`);
 }
 const from = args.includes('--from') ? Number(args[args.indexOf('--from') + 1]) : 1;
 if (!Number.isInteger(from) || from < 1) {
     fail('--from takes the number of a build, from 1');
 }
-// A build's number is its half's: one half must be named.
+// A build's number is its part's: one part must be named.
 if (from > 1 && only === undefined) {
-    fail('--from needs --only clippy or --only test');
+    fail('--from needs --only clippy, test, or doc');
 }
 
 const turnsOn = features();
@@ -328,7 +337,7 @@ if (args.includes('--list')) {
 const hostFeatures = (set: string[]) => set.map((feature) => `tall-table-host/${feature}`).join(',');
 const started = Date.now();
 let failed = 0;
-if (only !== 'test') {
+if (only === undefined || only === 'clippy') {
     console.log(`clippy, wasm32, the table, the bridge, and the host: ${sets.length} builds`);
     for (const [index, set] of sets.entries()) {
         if (index + 1 < from) {
@@ -341,7 +350,7 @@ if (only !== 'test') {
         }
     }
 }
-if (only !== 'clippy') {
+if (only === undefined || only === 'test') {
     console.log(`the native tests, the pairs with code gated on both: ${tested.length} builds`);
     for (const [index, pair] of tested.entries()) {
         if (index + 1 < from) {
@@ -349,6 +358,18 @@ if (only !== 'clippy') {
         }
         const packages = ['-p', 'seiza-tall-table', '-p', 'tall-table-host'];
         if (!run(`${index + 1}/${tested.length} ${pair.join(' + ')}`, ['test', ...packages, '--features', hostFeatures(pair)])) {
+            failed++;
+        }
+    }
+}
+if (only === undefined || only === 'doc') {
+    console.log(`rustdoc, the table, links checked: ${sets.length} builds`);
+    for (const [index, set] of sets.entries()) {
+        if (index + 1 < from) {
+            continue;
+        }
+        const doc = ['doc', '-p', 'seiza-tall-table', '--no-deps', '--features', set.join(',')];
+        if (!run(`${index + 1}/${sets.length} ${set.join(' + ')}`, doc, { RUSTDOCFLAGS: '-D warnings' })) {
             failed++;
         }
     }

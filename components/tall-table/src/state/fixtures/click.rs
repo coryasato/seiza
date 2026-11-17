@@ -716,7 +716,7 @@ fn an_unclaimed_long_press_drops_its_tap(cx: &mut TestAppContext) {
 
 #[gpui_kit::test]
 fn a_context_press_during_a_scrollbar_drag_reports_nothing(cx: &mut TestAppContext) {
-    let mut sheet = Sheet::open(cx, floats(3), 1000, 10.0, 600.0, false);
+    let mut sheet = Sheet::open(cx, floats(3), 1000, 10.0, 600.0, true);
     let bar = sheet.vertical_bar(5.0);
     sheet.press_with(bar, MouseButton::Left, Modifiers::default(), 1);
     assert!(
@@ -729,6 +729,11 @@ fn a_context_press_during_a_scrollbar_drag_reports_nothing(cx: &mut TestAppConte
     sheet.press_with(at, MouseButton::Right, Modifiers::default(), 1);
     sheet.long_press(at, TouchPhase::Started);
     assert_eq!(sheet.clicks(), [], "nothing reported");
+    assert_eq!(
+        (sheet.right_presses(), sheet.menus()),
+        (0, 0),
+        "nothing reached the host"
+    );
     assert!(sheet.read(|table| table.drag.is_some()), "the drag goes on");
     sheet.release_with(MouseButton::Left);
 }
@@ -766,7 +771,7 @@ mod select {
         }
 
         fn select(&mut self, selection: Option<TallTableSelection>) {
-            self.update(|table, cx| table.select(selection, cx));
+            self.update(|table, cx| table.set_selection(selection, cx));
             self.heard();
         }
 
@@ -892,6 +897,11 @@ mod select {
         sheet.press_with(other, MouseButton::Right, Modifiers::default(), 1);
         sheet.long_press(other, TouchPhase::Started);
         assert_eq!(sheet.heard(), [], "nothing reported");
+        assert_eq!(
+            (sheet.right_presses(), sheet.menus()),
+            (0, 0),
+            "nothing reached the host"
+        );
         assert_eq!(sheet.selection(), dragged, "nothing changed");
         // The drag goes on, past the right button's release too.
         sheet.release_with(MouseButton::Right);
@@ -971,6 +981,11 @@ fn a_context_press_during_a_resize_does_nothing(cx: &mut TestAppContext) {
     sheet.press_with(other, MouseButton::Right, Modifiers::default(), 1);
     sheet.long_press(other, TouchPhase::Started);
     assert_eq!(sheet.heard(), [], "nothing reported");
+    assert_eq!(
+        (sheet.right_presses(), sheet.menus()),
+        (0, 0),
+        "nothing reached the host"
+    );
     // The right button's release leaves the drag on, and it goes on.
     sheet.release_with(MouseButton::Right);
     assert!(sheet.read(|table| table.resizing.is_some()));
@@ -1024,7 +1039,7 @@ fn a_press_that_starts_a_move_reports_once(cx: &mut TestAppContext) {
     // With `select`, a move starts inside a selected `Columns` range.
     #[cfg(feature = "select")]
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(crate::selection::TallTableSelection::Columns {
                 anchor: (0, 0),
                 head: (0, 0),
@@ -1063,7 +1078,7 @@ fn a_context_press_during_a_move_does_nothing(cx: &mut TestAppContext) {
     // With `select`, a move starts inside a selected `Columns` range.
     #[cfg(feature = "select")]
     sheet.update(|table, cx| {
-        table.select(
+        table.set_selection(
             Some(crate::selection::TallTableSelection::Columns {
                 anchor: (0, 0),
                 head: (0, 0),
@@ -1084,6 +1099,11 @@ fn a_context_press_during_a_move_does_nothing(cx: &mut TestAppContext) {
     sheet.press_with(other, MouseButton::Right, Modifiers::default(), 1);
     sheet.long_press(other, TouchPhase::Started);
     assert_eq!(sheet.heard(), [], "nothing reported");
+    assert_eq!(
+        (sheet.right_presses(), sheet.menus()),
+        (0, 0),
+        "nothing reached the host"
+    );
     sheet.release_with(MouseButton::Right);
     assert!(sheet.read(|table| table.is_moving()), "the drag goes on");
     sheet.drag_to(to);
@@ -1104,7 +1124,7 @@ fn a_press_inside_the_selected_columns_selects_at_its_release(cx: &mut TestAppCo
         anchor: (0, 0),
         head: (0, 1),
     };
-    sheet.update(|table, cx| table.select(Some(range), cx));
+    sheet.update(|table, cx| table.set_selection(Some(range), cx));
     sheet.heard();
     let at = sheet.header(1);
     sheet.press_with(at, MouseButton::Left, Modifiers::default(), 1);

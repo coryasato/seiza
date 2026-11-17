@@ -17,23 +17,23 @@ const ELLIPSIS: &str = "…";
 pub(crate) struct CellText {
     /// The cell's left edge in its region, and its top: unsnapped, as the
     /// `div`'s `left` and `top` were.
-    pub left: f32,
-    pub top: f32,
-    pub width: f32,
+    pub(crate) left: f32,
+    pub(crate) top: f32,
+    pub(crate) width: f32,
     /// Right-aligned (the numeric kinds).
-    pub right: bool,
+    pub(crate) right: bool,
     /// Cut in the middle (integers and decimals), else at the end.
-    pub middle: bool,
-    pub text: SharedString,
-    pub color: Hsla,
+    pub(crate) middle: bool,
+    pub(crate) text: SharedString,
+    pub(crate) color: Hsla,
     /// Drawn uncut (`format`: a formatted text that fits by its advances).
     #[cfg(feature = "format")]
-    pub whole: bool,
+    pub(crate) whole: bool,
     #[cfg(test)]
-    pub row: u64,
+    pub(crate) row: u64,
     /// Its column's index (with `reorder`, not its place).
     #[cfg(test)]
-    pub column: usize,
+    pub(crate) column: usize,
 }
 
 /// What the element drew for a cell (tests only): its text after the cut,
@@ -41,17 +41,17 @@ pub(crate) struct CellText {
 #[cfg(test)]
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct DrawnText {
-    pub row: u64,
+    pub(crate) row: u64,
     /// Its column's index (with `reorder`, not its place).
-    pub column: usize,
-    pub text: String,
-    pub x: f32,
-    pub baseline: f32,
-    pub color: Hsla,
-    pub cell: Bounds<Pixels>,
+    pub(crate) column: usize,
+    pub(crate) text: String,
+    pub(crate) x: f32,
+    pub(crate) baseline: f32,
+    pub(crate) color: Hsla,
+    pub(crate) cell: Bounds<Pixels>,
     /// The part of `cell` its region shows: the cell cut by the clip it
     /// was painted under (with `pin`, the run's edge).
-    pub visible: Bounds<Pixels>,
+    pub(crate) visible: Bounds<Pixels>,
 }
 
 #[cfg(test)]

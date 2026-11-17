@@ -245,6 +245,7 @@ impl Host {
                                 seiza_tall_table::PageError::Cancelled => {
                                     "its rows' read was canceled".into()
                                 }
+                                _ => "its rows' read failed".into(),
                             })
                             .and_then(|page| {
                                 scene::wall::WallStore::seed(
@@ -497,10 +498,10 @@ impl Desks {
                     .probe_frames(true)
                     .probe_cells(crate::contract::probing_cells());
                     table.set_density(
-                        seiza_tall_table::Density {
-                            row_height: px(wall.grid.row_height),
-                            text_size: px(wall.grid.text_size).into(),
-                        },
+                        seiza_tall_table::Density::new(
+                            px(wall.grid.row_height),
+                            px(wall.grid.text_size),
+                        ),
                         cx,
                     );
                     table
