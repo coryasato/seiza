@@ -1,6 +1,6 @@
 # The tall table's recipes. Run from the repo root: `just tall-table <recipe>`.
 # Its bare host (host/) is where each feature's own cost is measured
-# (PLAN.md, "Measuring a feature"); it's never deployed.
+# (perf/CLAUDE.md, "Measuring a feature"); it's never deployed.
 
 component_dir := source_directory()
 root := source_directory() / "../.."

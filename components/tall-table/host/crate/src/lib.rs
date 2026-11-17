@@ -1,7 +1,7 @@
 //! The tall table's bare host: `seiza-tall-table` over rows answered from
 //! memory ([`rows`]), with nothing on screen but the table, where each
-//! feature's own cost is measured against the base (the table's `PLAN.md`,
-//! "Measuring a feature"). Never deployed.
+//! feature's own cost is measured against the base (the table's
+//! `perf/CLAUDE.md`, "Measuring a feature"). Never deployed.
 //!
 //! The page's URL picks the rows: `?shape=narrow` (the default, the
 //! observatory's 11 columns) or `?shape=wide` (500 float columns), and

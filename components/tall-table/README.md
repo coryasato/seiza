@@ -431,7 +431,7 @@ What's planned, each off by default: [`PLAN.md`](PLAN.md).
 
 ## How it differs from `DataTable`
 
-The features are gpui-kit's [`DataTable`](https://docs.rs/gpui-component/0.9.1/gpui_component/table/)'s (gpui-component 0.9.1), but several work differently here. Each row links to the decision behind it, by its date.
+The features are gpui-kit's [`DataTable`](https://docs.rs/gpui-component/0.9.1/gpui_component/table/)'s (gpui-component 0.9.1), but several work differently here, and a few aren't built. Each row links to the decision behind it, by its date. A gpui-kit bump reads `DataTable` for what's new and adds its rows here; one worth building becomes a candidate in [`PLAN.md`](PLAN.md#candidates).
 
 | Area | `DataTable` | The tall table | Decision |
 |---|---|---|---|
@@ -447,8 +447,34 @@ The features are gpui-kit's [`DataTable`](https://docs.rs/gpui-component/0.9.1/g
 | Moving columns | The delegate moves its own columns; the selection stays at its index; one column | `reorder`: the table keeps the order (no page read again), a selected block moves whole, a move across `pin`'s edge pins or unpins, and the selection follows its columns | [Features, 2026-11-13](docs/DECISIONS.md#features) |
 | Presses and menus | Right and double click events, on the release; the delegate builds a menu the table draws; a right-clicked row drawn apart | `clicks`: a press, double press, and context press on the press, with any target; the host draws the menu; a context press selects what it's on (Google Sheets' rule) | [Features, 2026-11-16](docs/DECISIONS.md#features) |
 | Header groups | `group_headers`: `ColumnGroup` spans by place, which a moved column leaves behind; labels centered; group cells take no presses | `group-headers`: a label path on each column, any depth, so a group follows its columns; labels kept in view; a group's cell selects and drags the group, and the table's drags keep a group whole | [Features, 2026-11-16](docs/DECISIONS.md#features) |
+| Resizing | `col_resizable`, `Column::resizable`, `min_width`/`max_width`, `ColumnWidthsChanged`; `fit_col` | `resize`: the same, a double-click fitting the column to its name and the rows drawn, since the rest aren't held | [Features, 2026-10-26](docs/DECISIONS.md#features) |
+| Right-pinned columns | `ColumnFixed::Right`, `fixed_right` (since gpui-kit 0.9.1) | Not built: a candidate ([`PLAN.md`](PLAN.md#notes)) | — |
+| Loading more | `load_more`, `has_more`, `loading`, `render_loading` | Not carried over: the paging and its placeholders do this | [Table and paging](docs/DECISIONS.md#table-and-paging) |
+| An empty table | `render_empty` | Not carried over: a host draws its own | — |
+| Scrolling to a row or column | `scroll_to_row`, `scroll_to_col` | `jump_to` for a row; none for a column | — |
+| What's in view | `visible_rows_changed`, `visible_columns_changed` | The `Probe` and `Layout` events | — |
 
-Not carried over at all (`load_more`, `render_empty`, `scroll_to_col`, and others): [`PLAN.md`, "Features"](PLAN.md#features).
+## TanStack Table's features
+
+[TanStack Table](https://tanstack.com/table/v8) (v8) is headless: it holds the rows and leaves the drawing to the app. Where each of its features stands here, by one rule: the source (DuckDB, or whatever a host uses) decides which rows exist and in what order, the table how they're shown ([`docs/DECISIONS.md`](docs/DECISIONS.md#features), 2026-11-16). A candidate's research and its parts are in [`PLAN.md`](PLAN.md#candidates).
+
+| TanStack feature | The tall table |
+|---|---|
+| Column sizing | `resize` |
+| Column pinning (left and right) | `pin`: left only, a count; the right a candidate |
+| Column ordering | `reorder`: the drag is the table's, not the app's |
+| Header groups | `group-headers` |
+| Row selection (a map of row ids) | `select`: one range of rows, columns, or cells, never a set of rows |
+| Sorting (`manualSorting`) | `sort`: one column, the source reading pages in the order |
+| Multi-column sorting | A candidate: whether `sort`'s API takes a list of keys is assessed first |
+| Cell renderers (`cell`) | `custom-cells`: a declarative paint, not an element per cell |
+| Column visibility | A candidate, planned |
+| Column filtering, global filtering, fuzzy filtering | The source's query and the host's UI; the table's part, a call for "every row means another row now", is a candidate, planned |
+| Faceting | Not the table's: the source's aggregate queries and the host's UI |
+| Grouping, aggregation, and expanding | A candidate, as tree rows at the fixed row height; detail rows of their own heights ruled out |
+| Row pinning | A candidate: the table has no row identity, only indices |
+| Column footers (`footer`) | A candidate: a footer row, its values the source's |
+| Pagination | Not carried over: the table scrolls |
 
 ## Limits
 
@@ -511,5 +537,5 @@ Not carried over at all (`load_more`, `render_empty`, `scroll_to_col`, and other
 | [`CLAUDE.md`](CLAUDE.md) | Rules, architecture, gotchas. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why it's built the way it is, by area. |
 | [`fixtures/README.md`](fixtures/README.md) | What another implementation must match: page requests, cell text, page SQL, and a cell's paint. |
-| [`PLAN.md`](PLAN.md) | The features to come, in order, and the active milestone. |
+| [`PLAN.md`](PLAN.md) | The candidates for features to come, how each is assessed, and the active milestone. |
 | [`perf/results/`](perf/results/) | What the table measures of itself in its bare host (`host/`): the base's bytes and frame work, then each feature's added cost. Budgets are the apps' that build it. |

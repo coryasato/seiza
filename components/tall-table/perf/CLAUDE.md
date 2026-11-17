@@ -2,6 +2,22 @@
 
 The checks and measurements run against the bare host's release build, and the scripts that write the fixtures read from it. Claude Code loads this file when a file under `perf/` is read. The table's rules and the map of its folders are in `components/tall-table/CLAUDE.md`, the repo's in the root `CLAUDE.md`; both apply here. So does `.claude/rules/perf-harness.md` (the shared helpers and headless Chromium's DPR traps), which this file doesn't repeat. Paths are relative to `components/tall-table/`.
 
+## Measuring a feature
+
+**The component measures only itself:** each feature's own cost, the wasm it adds (brotli 11, and after wasm-opt) and the work per frame it adds while scrolling and in its own interaction, each against the base, in the bare host. Recorded in `results/` (dated JSON and a note, as an app's are) and in the README's Features table ("Cost", "Measured in"). There's no `budgets.json` and nothing gates on these: the numbers tell a host what turning a feature on costs.
+
+**What protects the apps is the component's tests,** not a measurement in each app. Every feature is off by default, so an app's build doesn't change until it turns one on: each feature's milestone checks that the base build is unchanged with the feature off (`size`), and that the native tests and the fixtures pass with it off and on. An app measures a feature against its own budgets when it adopts it, in its own milestone; a cost it can't carry is an optimization milestone in the table's `PLAN.md`.
+
+**The bare host** (`host/`, its file `host/CLAUDE.md`) renders the table and nothing else, built as the apps are (`cargo build -p` on its own, `wasm-bindgen --target web`, `wasm-opt -Oz --enable-threads` with the apps' flags, brotli 11), and is never deployed. Why: `docs/DECISIONS.md`, "Features", "The bare host's shape".
+- **Its own crate, not an app:** a cost read in an app mixes in the app's code, and the observatory's GPUI contender can't carry code for a feature its DOM side lacks (`.claude/rules/comparison-protocol.md`, "The same scope").
+- **It uses each feature, not only compiles it:** one Cargo feature per table feature, each turning on the table's code and the host's run-time switch (a resizable column, a selection mode, a sorted read). A feature compiled but never switched on can be stripped by the optimizer and read as free.
+- **Its data is synthetic,** pages answered from memory, no DuckDB, so the bytes and frame work are the table's alone. A feature that reaches the delegate (`sort`, `copy`) gets the calls it needs, answered in memory; its data cost (SQL, bytes read) is the source's (the DuckDB engine's `tall-table` source).
+- **The measurement:** bytes are the base build against each feature's build. Frame work is a scripted scroll and the feature's own interaction (a resize drag, a selection drag), recorded with `shared-web/perf/`'s harness (`workRecorder`, `wheel`), under the root's measurement protocol (reference and throttled).
+
+**Two shapes,** since every feature's numbers are read against them, at the protocol's 1440×900, DPR 2:
+- **Narrow:** the observatory's 11 columns' kinds, 1.57 M rows.
+- **Wide:** 500 `ColumnKind::Float` columns (120 px each, the kind's width), 1.57 M rows, so the paging differs from the narrow shape only by the columns.
+
 ## How the scripts run
 
 They serve the host's release build themselves (`vite preview` of `host/web/dist` on port 4350, through `serveApp`) and read what it was built with from `dist/build.json`. Each segment is traced on its own (a trace of every segment at once runs to hundreds of MB). Late frames come from `frameRecorder`'s rAFs: Chromium's compositor frame reporter doesn't see GPUI's canvas frames. The table-specific helpers (the host's globals and marks, each feature's waits and hooks, a real paste, `restedWhere`) are in `harness.ts`; look there before writing one. A few scripts read a global directly (`copy.ts` the heap hook, `perf.ts`, `follow.ts`, and `sort.ts` `__seizaFrameSample`), so grep `perf/` for a global before renaming it.

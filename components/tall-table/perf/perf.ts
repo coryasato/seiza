@@ -1,5 +1,5 @@
 // The base's frame work in the bare host, the baseline every feature's
-// added work is read against (PLAN.md, "Measuring a feature"). Per shape
+// added work is read against (perf/CLAUDE.md, "Measuring a feature"). Per shape
 // (narrow, wide), on the host's release build, cold, under the root's
 // measurement protocol (reference and throttled, median of `--runs`):
 //
