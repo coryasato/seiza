@@ -29,14 +29,16 @@ const SORT: &str = include_str!("../../../fixtures/sort.json");
 
 // --- the source ---
 
-/// A page whose every value is the read that answered it.
+/// A page whose every value is the read that answered it; column 2's a
+/// third past it, which a float column rounds (so it has a tooltip).
 struct Answer {
     request: u64,
 }
 
 impl TallTablePage for Answer {
-    fn value(&self, _: usize, _: usize) -> Option<CellValue<'_>> {
-        Some(CellValue::Float(self.request as f64))
+    fn value(&self, _: usize, column: usize) -> Option<CellValue<'_>> {
+        let third = if column == 2 { 1.0 / 3.0 } else { 0.0 };
+        Some(CellValue::Float(self.request as f64 + third))
     }
 
     fn heap_bytes(&self) -> usize {
@@ -1003,6 +1005,46 @@ fn a_closed_table_tells_its_source_nothing(cx: &mut TestAppContext) {
     assert_eq!(sheet.sort(), None);
     assert!(sheet.take_log().is_empty(), "the source wasn't told");
     assert!(sorted(&sheet.take_events()).is_empty());
+}
+
+/// The README's promise ("Sorting"): a sort clears the hover and the
+/// tooltip with the jump's highlight, since the row under the pointer is
+/// another row now.
+#[gpui_kit::test]
+fn a_sort_clears_the_hover_and_the_tooltip(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(3), false);
+    // Row 2 of column 2, a rounded value, the pointer rested on it.
+    let at = sheet.read(|table| {
+        let column = &table.columns[2];
+        table.body.origin
+            + point(
+                px(table.gutter_width() + column.x + column.width / 2.0),
+                table.sizes().row() * 2.5,
+            )
+    });
+    sheet.hover(at);
+    sheet
+        .cx
+        .executor()
+        .advance_clock(std::time::Duration::from_millis(600));
+    sheet.draw();
+    let hovered = |table: &TallTableState<Source>| {
+        table
+            .hover
+            .as_ref()
+            .map(|hover| ((hover.row, hover.column), hover.tooltip.is_some()))
+    };
+    assert_eq!(
+        sheet.read(hovered),
+        Some(((2, 2), true)),
+        "the control: hovered, its tooltip up"
+    );
+    sheet
+        .update(|table, cx| table.set_sort(Some(Sort::new(1, SortDirection::Descending)), cx))
+        .expect("sorted");
+    assert_eq!(sheet.read(hovered), None, "the hover and its tooltip gone");
+    sheet.draw();
+    assert_eq!(sheet.read(hovered), None, "and not back at the next frame");
 }
 
 /// A hovered arrow scrolled out of view never hears the pointer leave: it

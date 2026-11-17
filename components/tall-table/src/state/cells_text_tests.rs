@@ -412,6 +412,71 @@ fn a_loading_row_draws_no_text(cx: &mut TestAppContext) {
     check_all_drawn(&mut sheet, &drawn, &columns_in_view);
 }
 
+/// The tooltip says what its cell draws: it goes while its row has no page
+/// (a short last page that grew is read anew), comes back when the page
+/// lands, the pointer still resting, and the hover goes with a row that's
+/// cut.
+#[gpui_kit::test]
+fn the_tooltip_follows_its_rows_page(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx);
+    // Row 1's long text, cut in its column.
+    let at = sheet.table.read_with(sheet.cx, |table, _| {
+        let column = &table.columns[0];
+        table.body.origin
+            + gpui_kit::point(
+                px(table.gutter_width() + column.x + column.width / 2.0),
+                table.sizes().row() * 1.5,
+            )
+    });
+    sheet
+        .cx
+        .simulate_mouse_move(at, None, gpui_kit::Modifiers::default());
+    sheet.draw();
+    sheet
+        .cx
+        .executor()
+        .advance_clock(std::time::Duration::from_millis(600));
+    sheet.draw();
+    let tooltip = |sheet: &mut Sheet| {
+        sheet.table.read_with(sheet.cx, |table, _| {
+            let hover = table.hover.as_ref()?;
+            Some(hover.tooltip.as_ref().map(|(text, _)| text.to_string()))
+        })
+    };
+    let exact = value(1, 0).to_string();
+    assert_eq!(
+        tooltip(&mut sheet),
+        Some(Some(exact.clone())),
+        "the control"
+    );
+    // Cut to five rows: row 1 keeps its page and its tooltip.
+    sheet.update(|table, cx| table.set_rows(5, cx));
+    assert_eq!(tooltip(&mut sheet), Some(Some(exact.clone())));
+    // Grown: the short page is read anew (with `live`, drawn meanwhile).
+    // Drawn before the read resolves.
+    sheet
+        .table
+        .update(sheet.cx, |table, cx| table.set_rows(10_000, cx));
+    sheet.cx.update(|window, cx| window.draw(cx).clear(cx));
+    let loaded = sheet.table.read_with(sheet.cx, |table, _| {
+        matches!(table.cache.row(1), crate::pages::RowState::Loaded(..))
+    });
+    assert_eq!(loaded, cfg!(feature = "live"));
+    assert_eq!(
+        tooltip(&mut sheet),
+        Some(loaded.then(|| exact.clone())),
+        "none over a row with no page"
+    );
+    sheet.draw();
+    assert_eq!(
+        tooltip(&mut sheet),
+        Some(Some(exact)),
+        "back when its page lands"
+    );
+    sheet.update(|table, cx| table.set_rows(1, cx));
+    assert_eq!(tooltip(&mut sheet), None, "the hover goes with its row");
+}
+
 /// With `pin`: the pinned column's text held under a sideways scroll, in
 /// the pinned region; the scrolled ones moved with it.
 #[cfg(feature = "pin")]

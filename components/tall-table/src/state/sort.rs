@@ -314,9 +314,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .filter_map(|(at, column)| {
                 let (box_x, _) = self.arrow_box(at, column)?;
                 let left = place.layer_left(at, column.x, self.scroll_x);
-                // A scrolled column's arrow partly under the run (`pin`)
-                // isn't drawn: it couldn't be pressed there.
-                #[cfg(feature = "pin")]
+                // A scrolled column's arrow cut at the scrolled columns'
+                // left edge (the cells', or with `pin` the run's) isn't
+                // drawn: it couldn't be pressed there.
                 if !place.holds(at) && left + box_x - TARGET_PAD < 0.0 {
                     return None;
                 }

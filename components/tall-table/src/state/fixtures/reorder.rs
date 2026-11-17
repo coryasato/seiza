@@ -4,8 +4,9 @@
 //! the order drawn and driven in a window of GPUI's test app over rows
 //! answered from memory: each drawn cell its column's own, at its place;
 //! the tooltip, `set_columns`, `set_order`, and the event; with `resize`,
-//! `select`, `pin`, `sort`, `copy`, and `live` with `custom-cells`, what a
-//! move does to each.
+//! `select`, `pin`, `sort`, `copy`, `custom-cells`, and `live` with
+//! `custom-cells`, what a move does to each; a band pressed before the
+//! frame after a move, and a held press across a shrink.
 
 use std::cell::{Cell, RefCell};
 use std::ops::Range;
@@ -313,11 +314,17 @@ struct Memory {
     reads: Rc<Cell<usize>>,
     #[cfg(feature = "sort")]
     sorts: Rc<Cell<usize>>,
+    /// Its pages answer a fill for column 0 and a bar for column 3
+    /// (`custom-cells`): on once the columns have them ([`painted`]).
+    #[cfg(feature = "custom-cells")]
+    painted: Rc<Cell<bool>>,
 }
 
 struct Rows {
     rows: Range<u64>,
     version: u32,
+    #[cfg(feature = "custom-cells")]
+    painted: Rc<Cell<bool>>,
 }
 
 impl TallTablePage for Rows {
@@ -326,6 +333,21 @@ impl TallTablePage for Rows {
         Some(CellValue::Text(
             value_text(row, column, self.version).into(),
         ))
+    }
+
+    #[cfg(feature = "custom-cells")]
+    fn paint(&self, _: usize, column: usize) -> crate::CellPaint {
+        match column {
+            0 if self.painted.get() => crate::CellPaint {
+                fill: Some(0.25),
+                ..Default::default()
+            },
+            3 if self.painted.get() => crate::CellPaint {
+                bar: Some(0.5),
+                ..Default::default()
+            },
+            _ => crate::CellPaint::default(),
+        }
     }
 
     fn heap_bytes(&self) -> usize {
@@ -342,7 +364,12 @@ impl TallTableDelegate for Memory {
         let version = self.version.get();
         (
             rows.start,
-            Box::pin(std::future::ready(Ok(Rows { rows, version }))),
+            Box::pin(std::future::ready(Ok(Rows {
+                rows,
+                version,
+                #[cfg(feature = "custom-cells")]
+                painted: self.painted.clone(),
+            }))),
         )
     }
 
@@ -1086,6 +1113,183 @@ fn a_flash_stays_on_its_cell(cx: &mut TestAppContext) {
     sheet.move_columns(2..3, 0);
     assert_eq!(flashed(&mut sheet), [0], "column 2, now at place 0");
     sheet.check_cells(&[2, 0, 1, 3]);
+}
+
+/// The README's promise that a page's `paint` is read by index ("Moving
+/// columns", with `custom-cells`): a fill and a bar stay on their columns
+/// through a move, as drawn before it.
+#[cfg(feature = "custom-cells")]
+#[gpui_kit::test]
+fn a_fill_and_a_bar_stay_on_their_columns(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    // Column 0 filled, column 3 barred, and the pages answering both.
+    sheet.source.painted.set(true);
+    sheet.update(|table, cx| {
+        let mut columns = columns();
+        columns[0] = columns[0].clone().fill(crate::Ramp::new(&[
+            |theme| theme.background,
+            |theme| theme.chart_1,
+        ]));
+        columns[3] = columns[3]
+            .clone()
+            .bar(crate::Bar::new(|theme| theme.chart_2));
+        table.set_columns(columns, cx);
+    });
+    sheet.draw();
+    // Row 3's fill and bar, each with the place it's drawn at.
+    let painted = |sheet: &mut Sheet| {
+        let cells = sheet.cells.borrow();
+        let row = cells.iter().filter(|cell| cell.row == 3);
+        let fills: Vec<_> = row
+            .clone()
+            .filter_map(|cell| Some((cell.column, cell.paint.fill?)))
+            .collect();
+        let bars: Vec<_> = row
+            .filter_map(|cell| Some((cell.column, cell.paint.bar?)))
+            .collect();
+        (fills, bars)
+    };
+    let (fills, bars) = painted(&mut sheet);
+    assert_eq!(
+        (fills.len(), bars.len(), fills[0].0, bars[0].0),
+        (1, 1, 0, 3),
+        "the control: column 0 filled, column 3 barred"
+    );
+    sheet.move_columns(0..1, 3);
+    sheet.check_cells(&[1, 2, 3, 0]);
+    let (moved_fills, moved_bars) = painted(&mut sheet);
+    assert_eq!(
+        moved_fills,
+        [(3, fills[0].1)],
+        "column 0's fill, at place 3"
+    );
+    assert_eq!(moved_bars, [(2, bars[0].1)], "column 3's bar, at place 2");
+    sheet.set_order(&[3, 2, 1, 0]);
+    let (moved_fills, moved_bars) = painted(&mut sheet);
+    assert_eq!(moved_fills, [(3, fills[0].1)]);
+    assert_eq!(moved_bars, [(0, bars[0].1)]);
+}
+
+/// The README's promise that `set_order` keeps `pin`'s count as a count
+/// of places ("Moving columns", with `pin`): the first two drawn pin,
+/// whichever they are now.
+#[cfg(feature = "pin")]
+#[gpui_kit::test]
+fn set_order_keeps_the_count_of_places(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.update(|table, cx| table.set_pinned(2, cx));
+    sheet.heard();
+    sheet.set_order(&[3, 2, 1, 0]);
+    assert_eq!(
+        sheet.read(|table| (table.pinned(), table.pinned_in_effect())),
+        (2, 2)
+    );
+    let held = sheet.read(|table| {
+        let place = table.place();
+        (0..4).map(|at| place.holds(at)).collect::<Vec<_>>()
+    });
+    assert_eq!(held, [true, true, false, false], "places 0 and 1");
+    sheet.check_cells(&[3, 2, 1, 0]);
+    let events = sheet.heard();
+    assert!(
+        events.iter().any(|event| matches!(
+            event,
+            TallTableEvent::ColumnsMoved { order, pinned: 2 } if order == &[3, 2, 1, 0]
+        )),
+        "ColumnsMoved says the count: {events:?}"
+    );
+    assert!(
+        !events
+            .iter()
+            .any(|event| matches!(event, TallTableEvent::Pinned(_))),
+        "the run's length didn't change: {events:?}"
+    );
+}
+
+/// A band's press finds its column by
+/// index in the order in effect, not at the place the frame that took
+/// the press drew it. The press is called inside the update that moved
+/// the columns: the test app draws before it dispatches one.
+#[cfg(feature = "resize")]
+#[gpui_kit::test]
+fn a_band_pressed_before_the_next_frame_holds_its_column(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, 1000);
+    let x = sheet.over(119.5).x;
+    let (dragged, gone) = sheet.cx.update(|window, cx| {
+        sheet.table.update(cx, |table, cx| {
+            // Column 0's band, drawn at place 0; a host moves column 0
+            // to the end, and the press lands before the next frame.
+            table.move_columns(0..1, 3, cx);
+            table.press_band(0, x, 1, window, cx);
+            let dragged = table.resizing.map(|resizing| resizing.column);
+            table.end_resize(cx);
+            // A column that's gone takes no press.
+            table.press_band(9, x, 1, window, cx);
+            let gone = table.resizing.is_none();
+            // The fit, the same way: column 1's, its long text.
+            table.press_band(1, x, 2, window, cx);
+            (dragged, gone)
+        })
+    });
+    sheet.draw();
+    assert_eq!(sheet.order(), [1, 2, 3, 0]);
+    assert_eq!(dragged, Some(0), "column 0's drag, not place 0's column");
+    assert!(gone);
+    let widths = sheet
+        .heard()
+        .into_iter()
+        .find_map(|event| match event {
+            TallTableEvent::ColumnWidthsChanged(widths) => Some(widths),
+            _ => None,
+        })
+        .expect("the fit changed a width");
+    assert!(
+        widths[1].is_some() && [0, 2, 3].iter().all(|&index| widths[index].is_none()),
+        "column 1 fitted: {widths:?}"
+    );
+}
+
+/// A press inside a selected range keeps the cell it selects at a release that
+/// never dragged, and the rows may shrink between; the release selects a
+/// row that exists.
+#[cfg(feature = "select")]
+#[gpui_kit::test]
+fn a_held_press_selects_a_row_that_exists(cx: &mut TestAppContext) {
+    use crate::TallTableSelection;
+
+    let mut sheet = Sheet::open(cx, 1000);
+    sheet.update(|table, cx| {
+        table.move_top_to(500.0, cx);
+        table.select(
+            Some(TallTableSelection::Columns {
+                anchor: (500, 1),
+                head: (500, 2),
+            }),
+            cx,
+        );
+    });
+    let at = sheet.header(1);
+    sheet.press(at);
+    assert!(
+        sheet.read(|table| table.moving.is_some()),
+        "the press is held"
+    );
+    sheet.update(|table, cx| table.set_rows(100, cx));
+    assert_eq!(
+        sheet.read(|table| table.selection()),
+        Some(TallTableSelection::Columns {
+            anchor: (99, 1),
+            head: (99, 2),
+        }),
+        "the range's rows moved to the last row"
+    );
+    sheet.release();
+    let selection = sheet.read(|table| table.selection()).expect("its column");
+    assert_eq!((selection.anchor().1, selection.head().1), (1, 1));
+    assert!(
+        selection.anchor().0 < 100 && selection.head().0 < 100,
+        "a row that exists: {selection:?}"
+    );
 }
 
 // --- the drag ---

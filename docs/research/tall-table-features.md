@@ -1115,7 +1115,7 @@ The case's columns get paths from a stream of their own (depth 0â€“3, runs of 1â
 
 ## Hardening 2: the features since the first, together
 
-Not a feature: the research that opens the second hardening (the table's `PLAN.md`, "Active milestone"). The first hardening's random test checks the paging; ten pieces of work went in after it (`sort`, `pin`, `density`, the cells' text element, `format`, `follow`'s `let_go`, `reorder`, `clicks`, `group-headers`, and the gpui-kit bumps between), each reviewed alone. This section audits what they keep and how they read a press, lists what the audit found, matches the README's promises to their tests, and specs what the random test gains. Its decisions are in the table's `docs/DECISIONS.md`, "Fixtures" and "Features".
+Not a feature: the research that opens the second hardening (the table's `docs/milestones.md`, "Hardening 2"). The first hardening's random test checks the paging; ten pieces of work went in after it (`sort`, `pin`, `density`, the cells' text element, `format`, `follow`'s `let_go`, `reorder`, `clicks`, `group-headers`, and the gpui-kit bumps between), each reviewed alone. This section audits what they keep and how they read a press, lists what the audit found, matches the README's promises to their tests, and specs what the random test gains. Its decisions are in the table's `docs/DECISIONS.md`, "Fixtures" and "Features".
 
 ### What asks for it
 

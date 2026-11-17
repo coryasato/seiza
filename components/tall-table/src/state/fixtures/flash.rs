@@ -3,6 +3,8 @@
 //! on GPUI's test clock, read from the cell probe; and `paint.json`'s
 //! `flash` section, whose colors and opacities a DOM contender must match.
 //! Over a source whose values each test sets, read when a page is asked for.
+//! And what `set_rows` and a re-read do to what's kept by row there: a
+//! flash past a shrink, and the hovered cell's tooltip.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -12,7 +14,7 @@ use std::time::Duration;
 
 use futures::channel::oneshot;
 use gpui_kit::component::{Theme, ThemeMode};
-use gpui_kit::{App, Entity, TestAppContext, VisualTestContext, size};
+use gpui_kit::{App, Entity, Modifiers, TestAppContext, VisualTestContext, point, px, size};
 use serde_json::Value;
 
 use super::super::{Paging, TallTableEvent, TallTableState};
@@ -281,6 +283,35 @@ impl<'a> Table<'a> {
         self.cx.update(|window, cx| window.simulate_next_frame(cx)) > 0
     }
 
+    /// The pointer rested on row `row` of the column at `column`.
+    fn rest_on(&mut self, row: u64, column: usize) {
+        let at = self.table.update(self.cx, |table, _| {
+            let column = &table.columns[column];
+            table.body.origin
+                + point(
+                    px(table.gutter_width() + column.x + column.width / 2.0),
+                    table.sizes().row() * (row as f32 + 0.5),
+                )
+        });
+        self.cx.simulate_mouse_move(at, None, Modifiers::default());
+        self.draw();
+        self.advance(Duration::from_millis(600));
+    }
+
+    /// The tooltip showing, its text.
+    fn tooltip(&mut self) -> Option<String> {
+        self.table.update(self.cx, |table, _| {
+            let (text, _) = table.hover.as_ref()?.tooltip.as_ref()?;
+            Some(text.to_string())
+        })
+    }
+
+    fn set_rows(&mut self, rows: u64) {
+        self.table
+            .update(self.cx, |table, cx| table.set_rows(rows, cx));
+        self.draw();
+    }
+
     fn set_control(&mut self, control: Control) {
         self.table
             .update(self.cx, |table, _| table.flashes.control = control);
@@ -406,6 +437,76 @@ fn a_change_the_landing_read_already_holds_flashes_then(cx: &mut TestAppContext)
     t.answer();
     assert_eq!(t.flash(1, 0), Some(ramp_color(&ramp, 0.0, 128, t.cx)));
     assert!(t.held.borrow().is_empty());
+}
+
+/// A flash goes with its row: cut by `set_rows`, it isn't drawn on the row
+/// that takes its index when the rows grow back within its duration.
+#[gpui_kit::test]
+fn a_shrink_drops_the_flashes_past_the_end(cx: &mut TestAppContext) {
+    let ramp = flash_ramp(&fixture());
+    let float = |value: f64| Owned::Float(value);
+    let mut t = Table::open(
+        cx,
+        100,
+        ramp.clone(),
+        HashMap::from([((2, 0), float(1.0)), ((20, 0), float(1.0))]),
+    );
+    t.change(&[((2, 0), float(2.0)), ((20, 0), float(2.0))]);
+    let full = Some(ramp_color(&ramp, 1.0, 255, t.cx));
+    assert_eq!((t.flash(2, 0), t.flash(20, 0)), (full, full), "the control");
+    t.set_rows(10);
+    assert_eq!(t.live_flashes(), 1, "row 20's goes with its row");
+    assert_eq!(t.flash(2, 0), full, "a row kept keeps its flash");
+    t.set_rows(100);
+    assert_eq!(t.flash(20, 0), None, "the row that came back draws none");
+    assert_eq!(t.flash(2, 0), full);
+}
+
+/// The README's promise that a cut value's exact text is in a tooltip,
+/// through a re-read ("Columns", with
+/// "Live rows"): the tooltip is decided again when a page lands on its
+/// row, so it says what its cell draws, and goes when the new value fits.
+#[gpui_kit::test]
+fn the_tooltip_says_the_value_a_reread_drew(cx: &mut TestAppContext) {
+    // Wider than the column, so it's cut.
+    let long = |n: u8| format!("value {n} {}", "and more ".repeat(40));
+    let text = |text: String| Owned::Text(text);
+    let mut t = Table::open(
+        cx,
+        100,
+        flash_ramp(&fixture()),
+        HashMap::from([((1, 1), text(long(0)))]),
+    );
+    t.rest_on(1, 1);
+    assert_eq!(t.tooltip(), Some(long(0)), "the control: the cut text's");
+    t.change(&[((1, 1), text(long(1)))]);
+    assert_eq!(
+        t.tooltip(),
+        Some(long(1)),
+        "still up, its text the new value"
+    );
+    // While a re-read is out the cell draws the old value, and so it says.
+    t.hold.set(true);
+    t.change(&[((1, 1), text("short".into()))]);
+    assert_eq!(t.tooltip(), Some(long(1)), "the page drawn is the old one");
+    t.answer();
+    assert_eq!(t.tooltip(), None, "a value that fits has none");
+    t.hold.set(false);
+    t.change(&[((1, 1), text(long(2)))]);
+    assert_eq!(
+        t.tooltip(),
+        Some(long(2)),
+        "back, the pointer still resting"
+    );
+    // Another row's re-read leaves it as it is.
+    t.change(&[((2, 1), text(long(3)))]);
+    assert_eq!(t.tooltip(), Some(long(2)));
+    // Its row cut: the hover goes with it, and doesn't come back on the
+    // row that takes its index.
+    t.set_rows(1);
+    assert_eq!(t.tooltip(), None);
+    t.set_rows(100);
+    assert_eq!(t.tooltip(), None, "nothing hovered until the pointer moves");
 }
 
 #[gpui_kit::test]

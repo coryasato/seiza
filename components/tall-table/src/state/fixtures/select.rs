@@ -1028,6 +1028,39 @@ fn a_change_mid_drag_ends_the_drag(cx: &mut TestAppContext) {
     sheet.release();
 }
 
+/// A shrink during a header drag moves a `Columns` range's rows to the
+/// last row and leaves the drag on: its columns, what it selects, didn't
+/// change. A `Rows` drag it cuts ends.
+#[gpui_kit::test]
+fn a_shrink_mid_drag_keeps_a_columns_drag(cx: &mut TestAppContext) {
+    let mut sheet = open(cx, 1000, Selectable::all());
+    sheet.update(|table, cx| table.move_top_to(500.0, cx));
+    let header = |sheet: &mut Sheet, place: usize| sheet.at(&serde_json::json!({"header": place}));
+    let at = header(&mut sheet, 0);
+    sheet.press(at, Modifiers::default(), 1);
+    let to = header(&mut sheet, 1);
+    sheet.drag_to(to);
+    let rows = |sheet: &mut Sheet| {
+        let selection = sheet.selection().expect("a range");
+        (selection.anchor(), selection.head())
+    };
+    assert_eq!(rows(&mut sheet), ((500, 0), (500, 1)), "the control");
+    sheet.update(|table, cx| table.set_rows(100, cx));
+    assert_eq!(rows(&mut sheet), ((99, 0), (99, 1)), "at the last row");
+    assert!(sheet.read(|table| table.is_selecting()), "the drag goes on");
+    let to = header(&mut sheet, 2);
+    sheet.drag_to(to);
+    assert_eq!(rows(&mut sheet), ((99, 0), (99, 2)));
+    sheet.release();
+    // A drag over rows the shrink cuts ends.
+    let at = sheet.at(&serde_json::json!({"gutter": 95}));
+    sheet.press(at, Modifiers::default(), 1);
+    assert!(sheet.read(|table| table.is_selecting()));
+    sheet.update(|table, cx| table.set_rows(90, cx));
+    assert!(!sheet.read(|table| table.is_selecting()));
+    sheet.release();
+}
+
 #[gpui_kit::test]
 fn turning_jumps_selection_off_draws_its_mark(cx: &mut TestAppContext) {
     let mut sheet = open(cx, 1000, Selectable::all());

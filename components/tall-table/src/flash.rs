@@ -134,6 +134,15 @@ impl Flashes {
         );
     }
 
+    /// The rows shrank to `rows`: the flashes at or past the end go, so a
+    /// row that comes back there doesn't draw one.
+    pub(crate) fn cut(&mut self, rows: u64) {
+        self.live.retain(|(row, _), _| *row < rows);
+        if self.live.is_empty() {
+            self.timer = None;
+        }
+    }
+
     /// A row at or past `rows` with a flash, if any (the random test's).
     #[cfg(test)]
     pub(crate) fn past(&self, rows: u64) -> Option<u64> {

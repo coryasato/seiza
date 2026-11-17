@@ -87,18 +87,32 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .collect()
     }
 
-    /// A press on the band of the column at place `at` at `x` (window
+    /// A press on the band of the column of index `column` at `x` (window
     /// pixels): a single press starts a drag; a double-click's second press
     /// fits the column and starts none, so it can't move the fitted edge
-    /// back.
+    /// back. The column is found where the order in effect draws it, not
+    /// where the frame that took the press did: a host's move may have
+    /// come between. A resize still on (its release unseen) ends first, as
+    /// its release would end it, so its widths are reported.
     pub(super) fn press_band(
         &mut self,
-        at: usize,
+        column: usize,
         x: Pixels,
         clicks: usize,
         window: &Window,
         cx: &mut Context<Self>,
     ) {
+        self.end_resize(cx);
+        #[cfg(feature = "reorder")]
+        let at = self
+            .columns
+            .iter()
+            .position(|laid_out| laid_out.index == column);
+        #[cfg(not(feature = "reorder"))]
+        let at = Some(column);
+        let Some(at) = at else {
+            return;
+        };
         if clicks >= 2 {
             self.resizing = None;
             self.fit_column(at, window, cx);
@@ -354,7 +368,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             let clicks = this.count_left(event.click_count);
                             #[cfg(not(feature = "clicks"))]
                             let clicks = event.click_count;
-                            this.press_band(at, event.position.x, clicks, window, cx);
+                            this.press_band(index, event.position.x, clicks, window, cx);
                         }),
                     )
                     .map(super::click_stops)

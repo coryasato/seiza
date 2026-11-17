@@ -647,7 +647,7 @@ No results note: nothing measured. The build's check was a byte comparison again
 
 ## Hardening 2: the features since the first, together (part A, 2026-11-16)
 
-**Results:** none: an audit and a spec, nothing measured. The findings are in [`PLAN.md`](../PLAN.md), "Active milestone" (in [`milestones.md`](milestones.md), "Hardening 2", once it closes).
+**Results:** none: an audit and a spec, nothing measured. The findings are in [`milestones.md`](milestones.md), "Hardening 2".
 
 **Surprises:**
 - The two kinds of bug the audit was sent after (an index where a place was meant, a press reading the last frame) turned up once between them: a band's press. The other findings were a third kind nobody had named, state kept by row. A sort clears all of it, since a sort is where "every row index changed meaning" was thought through; `set_rows` cutting rows is the same event for the rows it cuts, and clears only some (the selection's rows and cells, the copy), not the mark, a flash, a `Columns` range's rows, or the tooltip.
@@ -667,3 +667,12 @@ No results note: nothing measured. The build's check was a byte comparison again
 - A layout clamps a set width as it reads it, so an unclamped drag never shows in a laid-out width. The control for "the widths are within their least and most" passed until the check moved to where the width is written.
 - A pair's clippy run takes a second: 89 builds in under two minutes. The pairs had gone unchecked since `follow` for the cost of a run nobody had timed.
 
+## Hardening 2: the features since the first, together (part C, 2026-11-17)
+
+**Results:** [`perf/results/2026-11-17-hardening-2-c.md`](../perf/results/2026-11-17-hardening-2-c.md)
+
+**Surprises:**
+- Half of a decided fix looked like it had nothing to do, and was left out, wrongly. `set_rows` was to undo the tooltip's decision; with the hover cleared when its row is cut, a hovered row that's left seemed to keep its page. Without `live` it doesn't: a short last page that grows is forgotten and read anew, and the tooltip stood over a placeholder. The code review found it; the all-on run and the flash fixture, both `live` builds, couldn't. A fix in base code needs its test in the base build.
+- With every exclusion gone the random test passed at its first run: the seven scenario tests and the cases agreed on each fix. The finding the test couldn't reach (a band's press by its drawn place) was also the one whose fix changed a function's meaning, from a place to an index, so its test is the same call with the same number, failing before and passing after.
+- A promise read closely was narrower than the test first written for it. "A context press does nothing" during a drag is about what the table reports and selects; the press still reaches a host's `ContextMenuExt` hung round the table, which opens its menu over a resize (a native host's only: a browser sends no second press during a drag). Left as it is and listed in `PLAN.md`'s open questions.
+- `Sheet::open` helpers assert their own geometry (a viewport of 20 rows), so a feature that changes it (group rows) can't be given at open: the grouped columns go in through `set_columns` once the window is sized.

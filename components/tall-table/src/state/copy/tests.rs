@@ -546,6 +546,69 @@ fn values_exact_quoted_and_null_empty(cx: &mut TestAppContext) {
     );
 }
 
+/// The README's promise ("Format"): a formatted column's copy is still
+/// the exact value, not the text the format drew.
+#[cfg(feature = "format")]
+#[gpui_kit::test]
+fn a_formatted_columns_copy_is_the_exact_value(cx: &mut TestAppContext) {
+    let mut columns = columns(5, ColumnKind::Text);
+    columns[2] = TallTableColumn::new("price", ColumnKind::Float).format(
+        crate::NumberFormat::new()
+            .decimals(2)
+            .grouping(true)
+            .suffix(" USD"),
+    );
+    let mut sheet = Sheet::open(cx, columns, 1000, paging(), awkward);
+    // The control: row 0 is drawn as the format writes it.
+    let drawn = sheet.read(|table| {
+        table
+            .drawn_text
+            .borrow()
+            .iter()
+            .find(|text| text.row == 0 && text.column == 2)
+            .map(|text| text.text.clone())
+    });
+    assert_eq!(drawn.as_deref(), Some("0.30 USD"));
+    sheet.select(cells((0, 2), (1, 2)));
+    sheet.copy();
+    assert_eq!(
+        Sheet::text_of(&sheet.take_copies()),
+        "0.30000000000000004\n1.3",
+        "no rounding, no grouping, no suffix"
+    );
+}
+
+/// The README's promise ("Header groups", with `copy`): the header line is
+/// the column names alone, one line, no group rows.
+#[cfg(feature = "group-headers")]
+#[gpui_kit::test]
+fn a_grouped_headers_line_is_the_names_alone(cx: &mut TestAppContext) {
+    let mut sheet = open(cx);
+    // Grouped once the window is sized (the sheet opens at 20 rows).
+    let grouped: Vec<_> = columns(4, ColumnKind::Float)
+        .into_iter()
+        .enumerate()
+        .map(|(index, column)| match index {
+            0 => column,
+            1 => column.group(["outer"]),
+            _ => column.group(["outer", "inner"]),
+        })
+        .collect();
+    sheet.update(|table, cx| table.set_columns(grouped, cx));
+    assert_eq!(
+        sheet.read(|table| table.group_rows()),
+        2,
+        "the control: two group rows over the names"
+    );
+    sheet.update(|table, _| table.set_copy_options(CopyOptions::default().headers(true)));
+    sheet.select(cells((1, 0), (2, 3)));
+    sheet.copy();
+    assert_eq!(
+        Sheet::text_of(&sheet.take_copies()),
+        format!("c0\tc1\tc2\tc3\n{}", tsv(1..=2, 0..=3, grid))
+    );
+}
+
 // --- the keys ---
 
 #[gpui_kit::test]

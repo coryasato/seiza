@@ -427,6 +427,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if !moving.started {
             #[cfg(feature = "select")]
             if let Some(Some(cell)) = moving.select {
+                // Its row as the rows are now: they may have shrunk since
+                // the press.
+                let cell = (cell.0.min(self.scroll.rows().saturating_sub(1)), cell.1);
                 self.replace_selection(
                     Some(TallTableSelection::new(Kind::Columns, cell, cell)),
                     cx,

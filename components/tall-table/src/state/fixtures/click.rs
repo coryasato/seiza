@@ -893,7 +893,9 @@ mod select {
         sheet.long_press(other, TouchPhase::Started);
         assert_eq!(sheet.heard(), [], "nothing reported");
         assert_eq!(sheet.selection(), dragged, "nothing changed");
-        // The drag goes on.
+        // The drag goes on, past the right button's release too.
+        sheet.release_with(MouseButton::Right);
+        sheet.pointer = other;
         sheet.drag_to(other);
         assert_eq!(sheet.selection(), Some(cells((0, 0), (2, 2))));
         sheet.release_with(MouseButton::Left);
@@ -943,6 +945,39 @@ fn a_band_keeps_its_presses(cx: &mut TestAppContext) {
         dragged,
         "no fit"
     );
+}
+
+/// The README's promise ("Presses"): a context press during a column's
+/// resize does nothing, and the drag goes on.
+#[cfg(feature = "resize")]
+#[gpui_kit::test]
+fn a_context_press_during_a_resize_does_nothing(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(3), 3, 10.0, 600.0, true);
+    let (edge, width) = sheet.read(|table| {
+        (
+            table.columns[0].x + table.columns[0].width - 0.5,
+            table.columns[0].width,
+        )
+    });
+    let at = sheet.at(edge, -0.5);
+    sheet.press_with(at, MouseButton::Left, Modifiers::default(), 1);
+    sheet.drag_to(at + point(px(20.), px(0.)));
+    assert!(
+        sheet.read(|table| table.resizing.is_some()),
+        "the control: resizing"
+    );
+    sheet.heard();
+    let other = sheet.cell(1, 1);
+    sheet.press_with(other, MouseButton::Right, Modifiers::default(), 1);
+    sheet.long_press(other, TouchPhase::Started);
+    assert_eq!(sheet.heard(), [], "nothing reported");
+    // The right button's release leaves the drag on, and it goes on.
+    sheet.release_with(MouseButton::Right);
+    assert!(sheet.read(|table| table.resizing.is_some()));
+    sheet.drag_to(at + point(px(40.), px(0.)));
+    sheet.release_with(MouseButton::Left);
+    assert!(sheet.read(|table| table.resizing.is_none()));
+    assert_eq!(sheet.read(|table| table.columns[0].width), width + 40.0);
 }
 
 #[cfg(feature = "sort")]
@@ -1016,6 +1051,47 @@ fn a_press_that_starts_a_move_reports_once(cx: &mut TestAppContext) {
             from,
             Modifiers::default()
         )]
+    );
+}
+
+/// The README's promise ("Presses"): a context press while columns are
+/// carried does nothing, and the drag goes on.
+#[cfg(feature = "reorder")]
+#[gpui_kit::test]
+fn a_context_press_during_a_move_does_nothing(cx: &mut TestAppContext) {
+    let mut sheet = short(cx);
+    // With `select`, a move starts inside a selected `Columns` range.
+    #[cfg(feature = "select")]
+    sheet.update(|table, cx| {
+        table.select(
+            Some(crate::selection::TallTableSelection::Columns {
+                anchor: (0, 0),
+                head: (0, 0),
+            }),
+            cx,
+        )
+    });
+    let from = sheet.header(0);
+    sheet.press_with(from, MouseButton::Left, Modifiers::default(), 1);
+    let to = sheet.header(2);
+    sheet.drag_to(to);
+    assert!(
+        sheet.read(|table| table.is_moving()),
+        "the control: carried"
+    );
+    sheet.heard();
+    let other = sheet.cell(1, 1);
+    sheet.press_with(other, MouseButton::Right, Modifiers::default(), 1);
+    sheet.long_press(other, TouchPhase::Started);
+    assert_eq!(sheet.heard(), [], "nothing reported");
+    sheet.release_with(MouseButton::Right);
+    assert!(sheet.read(|table| table.is_moving()), "the drag goes on");
+    sheet.drag_to(to);
+    sheet.release_with(MouseButton::Left);
+    assert_ne!(
+        sheet.read(|table| table.order().to_vec()),
+        [0, 1, 2],
+        "and its release moves the column"
     );
 }
 

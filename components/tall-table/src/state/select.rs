@@ -309,7 +309,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// The rows shrank to `rows`: a `Rows` or `Cells` range loses the rows
     /// past the end (a corner past it moves to the last row), and one
-    /// wholly past it is cleared. A `Columns` range covers every row.
+    /// wholly past it is cleared. A `Columns` range covers every row, the
+    /// ones that arrive later too: it's never cleared, its anchor's and
+    /// head's rows moved to the last row (0 with none).
     pub(super) fn cut_selection(&mut self, rows: u64, cx: &mut Context<Self>) {
         #[cfg(test)]
         if self.selection_state.control == Control::KeepPastRows {
@@ -318,17 +320,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let Some(selection) = self.selection_state.current else {
             return;
         };
-        if selection.kind() == Kind::Columns {
-            return;
-        }
         let (anchor, head) = (selection.anchor(), selection.head());
-        let cut = match rows.checked_sub(1) {
-            Some(last) if anchor.0.min(head.0) <= last => {
-                Some(selection.with((anchor.0.min(last), anchor.1), (head.0.min(last), head.1)))
-            }
-            _ => None,
-        };
-        self.replace_selection(cut, cx);
+        let last = rows.saturating_sub(1);
+        let kept = selection.kind() == Kind::Columns || (rows > 0 && anchor.0.min(head.0) <= last);
+        let cut = kept
+            .then(|| selection.with((anchor.0.min(last), anchor.1), (head.0.min(last), head.1)));
+        // A `Columns` range's drag goes on: its columns are what it
+        // selects, and they didn't change.
+        if selection.kind() == Kind::Columns {
+            self.set_selection(cut, cx);
+        } else {
+            self.replace_selection(cut, cx);
+        }
     }
 
     /// A sort moved every row (`sort`): a `Rows` or `Cells` selection goes

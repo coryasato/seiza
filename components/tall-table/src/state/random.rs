@@ -13,8 +13,9 @@
 //! `SEED` picks the cases (0 unset), so a rerun recurs it, and
 //! `PROPTEST_CASES` how many. A bug it finds becomes a scenario test of its
 //! own (`#[ignore]`d until it's fixed), and an exclusion keeps the test
-//! from it meanwhile (a step generated, a step run, or a check left out:
-//! [`Exclusion`]; `docs/DECISIONS.md`, "Fixtures"). Each negative control
+//! from it meanwhile (a step not generated, a step not run, or a check
+//! left out, each behind a variant of an `Exclusion` enum its fix
+//! removes; `docs/DECISIONS.md`, "Fixtures"). Each negative control
 //! (a fault in the table, all test-only) must fail the all-on run's cases
 //! at its invariant.
 //!
@@ -717,60 +718,6 @@ const INVARIANTS: [&str; 18] = [
     "the last event is the state",
 ];
 
-/// A bug the test found, kept out of its checks until it's fixed (the
-/// table's `PLAN.md`, the active milestone): each has an `#[ignore]`d
-/// scenario test below.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Exclusion {
-    /// Finding 4: the jump's mark survives a shrink past its row
-    /// (`a_shrink_past_the_mark_clears_it`). 17's check of the mark is
-    /// left out.
-    MarkPastRows,
-    /// Finding 3: any button's release ends a scrollbar drag, a drag
-    /// selecting, and a resize (`a_right_release_leaves_a_drag_on`). 11's
-    /// check at the right button's release is left out.
-    RightReleaseEndsDrags,
-    /// Finding 5: `set_rows` leaves a `Columns` range's rows past the end,
-    /// and a held header press its cell's
-    /// (`a_shrink_moves_a_columns_range_to_the_last_row`). 15's check of a
-    /// `Columns` range's rows is left out.
-    ColumnsRowsPastEnd,
-    /// Finding 8: a press on a band while a resize is on (the first's
-    /// release unseen) starts a drag from the dragged width, so no
-    /// `ColumnWidthsChanged` reports it
-    /// (`a_second_band_press_reports_the_first_drags_width`). After a
-    /// press that replaced or ended a resize, 12 takes the widths the
-    /// resize leaves as heard; any other press during one leaves 12 on.
-    SecondBandPress,
-    /// Finding 9: a move with no button ends one drag, not every one on
-    /// (`a_move_with_no_button_ends_every_drag`). 11's check there is left
-    /// out when more than one was on.
-    OneDragEndedAMove,
-    /// Finding 1: the hover and its tooltip outlive the value under them:
-    /// `set_rows` cutting the hovered row with the top unmoved leaves the
-    /// hover (`a_shrink_past_the_hovered_row_clears_the_hover`), and a
-    /// re-read leaves the tooltip's old text (a window test's, with its fix:
-    /// the test's short values draw no tooltip). 17's checks of the hover
-    /// and the tooltip are left out.
-    HoverOutlivesValue,
-    /// Finding 10: without `pin`, a sortable column scrolled partly past
-    /// the cells' left edge draws its arrow cut at the edge, where a `pin`
-    /// build draws none (`an_arrow_cut_at_the_left_edge_is_not_drawn`).
-    /// 16's check of an arrow's left is left out in a build without `pin`.
-    ArrowCutAtLeft,
-}
-
-/// The exclusions in effect.
-const EXCLUDED: &[Exclusion] = &[
-    Exclusion::MarkPastRows,
-    Exclusion::RightReleaseEndsDrags,
-    Exclusion::ColumnsRowsPastEnd,
-    Exclusion::SecondBandPress,
-    Exclusion::OneDragEndedAMove,
-    Exclusion::HoverOutlivesValue,
-    Exclusion::ArrowCutAtLeft,
-];
-
 /// A zone a press lands in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Zone {
@@ -897,9 +844,7 @@ enum Control {
     Pin(crate::pin::Control),
     #[cfg(feature = "select")]
     Select(super::select::Control),
-    /// The jump's mark kept by a shrink past its row: the table's rule
-    /// until finding 4's fix, so the control is its check run (the
-    /// exclusion, if there is one, lifted).
+    /// The jump's mark kept by a shrink past its row.
     MarkKept,
 }
 
@@ -911,8 +856,6 @@ struct Run {
     books: Rc<RefCell<Books>>,
     paging: Paging,
     control: Option<Control>,
-    /// No exclusion in effect: a finding's own scenario test.
-    lifted: bool,
     /// How many columns the table has.
     columns: usize,
     /// The columns' label paths' stream (`group-headers`; 0 without).
@@ -941,10 +884,6 @@ struct Run {
     /// (`resize`): a drag back to its press's x restores it.
     #[cfg(feature = "resize")]
     pressed_widths: Vec<Option<f32>>,
-    /// A press took over a resize that was on: a band's
-    /// ([`Exclusion::SecondBandPress`]).
-    #[cfg(feature = "resize")]
-    pressed_resizing: bool,
     subscription: Option<gpui_kit::Subscription>,
 }
 
@@ -1007,7 +946,6 @@ impl Run {
             books,
             paging,
             control,
-            lifted: false,
             columns,
             paths,
             #[cfg(feature = "sort")]
@@ -1026,8 +964,6 @@ impl Run {
             left_down: false,
             #[cfg(feature = "resize")]
             pressed_widths: Vec::new(),
-            #[cfg(feature = "resize")]
-            pressed_resizing: false,
             subscription: None,
         };
         run.adopt(table);
@@ -1056,7 +992,8 @@ impl Run {
                 Some(Control::Pin(control)) => table.pin_state.control = Some(control),
                 #[cfg(feature = "select")]
                 Some(Control::Select(control)) => table.selection_state.control = control,
-                Some(Control::MarkKept) | None => {}
+                Some(Control::MarkKept) => table.keep_mark = true,
+                None => {}
             }
             #[cfg(feature = "copy")]
             table.set_copy_options(options);
@@ -1155,11 +1092,6 @@ impl Run {
     fn draw(&mut self) {
         self.park();
         self.cx.update(|window, cx| window.draw(cx).clear(cx));
-    }
-
-    /// Whether `exclusion` is in effect.
-    fn excluded(&self, exclusion: Exclusion) -> bool {
-        !self.lifted && EXCLUDED.contains(&exclusion)
     }
 
     fn update<T>(
@@ -1423,18 +1355,6 @@ impl Run {
         })
     }
 
-    /// [`Exclusion::SecondBandPress`]: once the resize a press landed in is
-    /// over, the widths it left are taken as heard.
-    #[cfg(feature = "resize")]
-    fn second_press_excluded(&mut self) {
-        if self.pressed_resizing && self.read(|table| table.resizing.is_none()) {
-            self.pressed_resizing = false;
-            if self.excluded(Exclusion::SecondBandPress) {
-                self.heard.borrow_mut().widths = self.read(set_widths);
-            }
-        }
-    }
-
     /// `Step::Down`: a press at a point of the zone, and a frame. On a
     /// band, 16: a first left press there holds the band's column.
     fn pointer_down(
@@ -1469,7 +1389,7 @@ impl Run {
             if resizing.is_none() {
                 self.pressed_widths.clone_from(&widths);
             }
-            (resizing, widths)
+            widths
         };
         // A tooltip beside the pointer's cell may lie over the header.
         let covered = self.read(|table| {
@@ -1492,12 +1412,6 @@ impl Run {
         self.frame();
         #[cfg(feature = "resize")]
         {
-            // Only a band's press replaces or ends a resize.
-            let (resizing, before) = before;
-            if resizing.is_some() && self.read(|table| table.resizing) != resizing {
-                self.pressed_resizing = true;
-            }
-            self.second_press_excluded();
             self.widths_written(&before)?;
             if let Some(column) = band
                 && button == MouseButton::Left
@@ -1532,7 +1446,6 @@ impl Run {
         );
         #[cfg(feature = "resize")]
         let before = self.read(stored_widths);
-        let held = self.drags();
         self.pointer = to;
         self.cx.simulate_event(MouseMoveEvent {
             position: to,
@@ -1541,16 +1454,8 @@ impl Run {
         });
         self.frame();
         #[cfg(feature = "resize")]
-        {
-            self.second_press_excluded();
-            self.widths_written(&before)?;
-        }
-        let several = [held.scrollbar, held.resize, held.select, held.moving]
-            .iter()
-            .filter(|on| **on)
-            .count()
-            > 1;
-        if !self.left_down && !(several && self.excluded(Exclusion::OneDragEndedAMove)) {
+        self.widths_written(&before)?;
+        if !self.left_down {
             self.drags_ended("a move with no button down")?;
         }
         Ok(())
@@ -1606,9 +1511,7 @@ impl Run {
         if right {
             let now = self.drags();
             self.frame();
-            #[cfg(feature = "resize")]
-            self.second_press_excluded();
-            if now != held && !self.excluded(Exclusion::RightReleaseEndsDrags) {
+            if now != held {
                 return Err(Violation::new(
                     11,
                     format!("the right button's release changed the drags: {held:?} to {now:?}"),
@@ -1619,10 +1522,7 @@ impl Run {
         self.left_down = false;
         self.frame();
         #[cfg(feature = "resize")]
-        {
-            self.second_press_excluded();
-            self.widths_written(&before)?;
-        }
+        self.widths_written(&before)?;
         self.drags_ended("the left button's release")?;
         #[cfg(all(feature = "reorder", feature = "pin"))]
         if let Some(block) = block {
@@ -1684,12 +1584,7 @@ impl Run {
     /// heard of it, whenever it's read.
     fn kept(&self) -> Checked {
         let heard = self.heard.borrow();
-        // The control's check is the exclusion's, lifted.
-        let check_mark = matches!(self.control, Some(Control::MarkKept))
-            || !self.excluded(Exclusion::MarkPastRows);
-        let check_columns_rows = !self.excluded(Exclusion::ColumnsRowsPastEnd);
-        let check_hover = !self.excluded(Exclusion::HoverOutlivesValue);
-        let _ = (&heard, check_columns_rows);
+        let _ = &heard;
         self.read(|table| {
             let rows = table.rows();
             #[cfg(feature = "reorder")]
@@ -1748,7 +1643,7 @@ impl Run {
                     // A `Columns` range covers every row, the rows to come
                     // too: with none, its cells stand at row 0.
                     let rows_exist = if kind == Kind::Columns {
-                        !check_columns_rows || anchor.0.max(head.0) < rows.max(1)
+                        anchor.0.max(head.0) < rows.max(1)
                     } else {
                         anchor.0.max(head.0) < rows
                     };
@@ -1777,17 +1672,13 @@ impl Run {
                     ));
                 }
             }
-            if let Some(hover) = table
-                .hover
-                .as_ref()
-                .filter(|hover| check_hover && hover.row >= rows)
-            {
+            if let Some(hover) = table.hover.as_ref().filter(|hover| hover.row >= rows) {
                 return Err(Violation::new(
                     17,
                     format!("row {} hovered with {rows} rows", hover.row),
                 ));
             }
-            if let Some(marked) = table.marked.filter(|marked| check_mark && *marked >= rows) {
+            if let Some(marked) = table.marked.filter(|marked| *marked >= rows) {
                 return Err(Violation::new(
                     17,
                     format!("row {marked} marked with {rows} rows"),
@@ -1841,10 +1732,6 @@ impl Run {
     /// (12), the hit tests against what it drew (16), and the tooltip it
     /// shows (17).
     fn framed(&self) -> Checked {
-        let check_hover = !self.excluded(Exclusion::HoverOutlivesValue);
-        // With `pin`, an arrow partly under the run or the edge isn't drawn.
-        let check_arrow_left = cfg!(feature = "pin") || !self.excluded(Exclusion::ArrowCutAtLeft);
-        let _ = check_arrow_left;
         self.read(|table| {
             #[cfg(feature = "resize")]
             {
@@ -1944,11 +1831,9 @@ impl Run {
                     .find(|arrow| arrow.column == cell.column)
                 {
                     let target = arrow.target;
-                    let floor = if check_arrow_left {
-                        left.max(shown.origin.x)
-                    } else {
-                        left
-                    };
+                    // An arrow cut at the scrolled columns' left edge
+                    // isn't drawn.
+                    let floor = left.max(shown.origin.x);
                     if target.origin.x < floor - px(1.)
                         || target.origin.x + target.size.width > right + px(1.)
                     {
@@ -2010,7 +1895,6 @@ impl Run {
             // The tooltip is the exact text of the value its cell draws.
             if let Some(hover) = &table.hover
                 && let Some((text, _)) = &hover.tooltip
-                && check_hover
             {
                 let exact = match table.cache.row(hover.row) {
                     RowState::Loaded(page, index) => table
@@ -2857,14 +2741,8 @@ fn with_gestures(seed: u64, steps: &mut Vec<Step>) {
     }
 }
 
-/// One case on scheduler `seed`: `Err` names the invariant and the step.
-fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), String> {
-    run_one(seed, case, control, false)
-}
-
 /// A finding's scenario: `steps` on a table of `rows` rows in pages of
-/// ten, two columns, reads held, with no exclusion in effect, so it fails
-/// until its finding is fixed.
+/// ten, two columns, reads held.
 fn found(rows: u64, steps: Vec<Step>) {
     found_in(rows, 2, steps);
 }
@@ -2889,13 +2767,13 @@ fn found_in(rows: u64, columns: usize, steps: Vec<Step>) {
         paths: 0,
         steps,
     };
-    if let Err(failure) = run_one(0, &case, None, true) {
+    if let Err(failure) = run_case(0, &case, None) {
         panic!("{failure}");
     }
 }
 
-/// [`run_case`]; `lifted`: with no exclusion in effect.
-fn run_one(seed: u64, case: &Case, control: Option<Control>, lifted: bool) -> Result<(), String> {
+/// One case on scheduler `seed`: `Err` names the invariant and the step.
+fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), String> {
     let case = case.clone();
     gpui_kit::run_test_once(
         seed,
@@ -2903,7 +2781,6 @@ fn run_one(seed: u64, case: &Case, control: Option<Control>, lifted: bool) -> Re
             let mut cx = TestAppContext::build(dispatcher.clone(), Some("random_paging"));
             let result = {
                 let mut run = Run::open(&mut cx, &case, control);
-                run.lifted = lifted;
                 let before = run.before();
                 let mut result = run.check(&before).map_err(|v| (v, "open".to_string()));
                 for (index, step) in case.steps.iter().enumerate() {
@@ -3353,12 +3230,11 @@ fn a_copy_beside_a_short_read_of_a_grown_page() {
     }
 }
 
-/// Finding 4 (`PLAN.md`), which the random test had to find: the jump's
-/// mark survives a shrink past its row, and is drawn on whichever row has
-/// its index when the rows grow back. 30 rows, a jump to row 25, the rows
-/// shrunk to 5: row 25 marked with 5 rows (invariant 17).
+/// Found by the random test: the jump's mark survived a shrink past its
+/// row, and was drawn on whichever row had its index when the rows grew
+/// back. 30 rows, a jump to row 25, the rows shrunk to 5: no row marked
+/// (invariant 17).
 #[test]
-#[ignore = "finding 4 in PLAN.md, not fixed yet"]
 fn a_shrink_past_the_mark_clears_it() {
     found(
         30,
@@ -3370,12 +3246,11 @@ fn a_shrink_past_the_mark_clears_it() {
     );
 }
 
-/// Finding 3 (`PLAN.md`), which the random test had to find: any
-/// button's release ends a scrollbar drag (a drag selecting and a resize
-/// too), the left still down. A press on the vertical track, then the right
-/// button's release: the drag is off (invariant 11).
+/// Found by the random test: any button's release ended a scrollbar drag
+/// (a drag selecting and a resize too), the left still down. A press on
+/// the vertical track, then the right button's release: the drag is on
+/// (invariant 11).
 #[test]
-#[ignore = "finding 3 in PLAN.md, not fixed yet"]
 fn a_right_release_leaves_a_drag_on() {
     found(
         100,
@@ -3394,12 +3269,11 @@ fn a_right_release_leaves_a_drag_on() {
     );
 }
 
-/// Finding 5 (`PLAN.md`), which the random test had to find: `set_rows`
-/// leaves a `Columns` range's rows past the end. Column 0 selected with
-/// its cells at row 25 of 30, the rows shrunk to 5 (invariant 15).
+/// Found by the random test: `set_rows` left a `Columns` range's rows
+/// past the end. Column 0 selected with its cells at row 25 of 30, the
+/// rows shrunk to 5: its rows at the last row (invariant 15).
 #[cfg(feature = "select")]
 #[test]
-#[ignore = "finding 5 in PLAN.md, not fixed yet"]
 fn a_shrink_moves_a_columns_range_to_the_last_row() {
     found(
         30,
@@ -3418,12 +3292,11 @@ fn a_shrink_moves_a_columns_range_to_the_last_row() {
     );
 }
 
-/// Finding 1's `set_rows` half (`PLAN.md`), reached by the random test:
-/// the hover is cleared only when the top row moves, so rows cut under a
-/// still pointer leave it on a row that's gone. The pointer over a row of
-/// 30, the rows shrunk to 5, the top still 0 (invariant 17).
+/// Found by the random test: the hover was cleared only when the top row
+/// moved, so rows cut under a still pointer left it on a row that was
+/// gone. The pointer over a row of 30, the rows shrunk to 5, the top
+/// still 0: nothing hovered (invariant 17).
 #[test]
-#[ignore = "finding 1 in PLAN.md, not fixed yet"]
 fn a_shrink_past_the_hovered_row_clears_the_hover() {
     found(
         30,
@@ -3439,15 +3312,13 @@ fn a_shrink_past_the_hovered_row_clears_the_hover() {
     );
 }
 
-/// Finding 10 (`PLAN.md`), found by the random test in `pairs`' run of
-/// `live` with `sort`: without `pin`, a sortable column scrolled partly
-/// past the cells' left edge still draws its arrow, cut at the edge (a
-/// sliver of it pressable), where a `pin` build, pinned or not, draws
-/// none. Five sortable columns, the first scrolled to its last 8 px
-/// (invariant 16).
+/// Found by the random test in `pairs`' run of `live` with `sort`:
+/// without `pin`, a sortable column scrolled partly past the cells' left
+/// edge drew its arrow cut at the edge (a sliver of it pressable), where a
+/// `pin` build, pinned or not, drew none. Five sortable columns, the
+/// first scrolled to its last 8 px: no arrow drawn cut (invariant 16).
 #[cfg(all(feature = "sort", not(feature = "pin")))]
 #[test]
-#[ignore = "finding 10 in PLAN.md, not fixed yet"]
 fn an_arrow_cut_at_the_left_edge_is_not_drawn() {
     found_in(
         30,
@@ -3460,14 +3331,14 @@ fn an_arrow_cut_at_the_left_edge_is_not_drawn() {
     );
 }
 
-/// Finding 8 (`PLAN.md`), found by the random test: a press on a band
-/// while a resize is on (the first's release unseen) starts a new drag
-/// from the dragged width, so its release finds nothing changed and no
-/// `ColumnWidthsChanged` reports the first drag's width. A band pressed,
-/// dragged 30 px left, pressed again, released (invariant 12).
+/// Found by the random test: a press on a band while a resize was on (the
+/// first's release unseen) started a new drag from the dragged width, so
+/// its release found nothing changed and no `ColumnWidthsChanged`
+/// reported the first drag's width. A band pressed, dragged 30 px left,
+/// pressed again, released: the widths heard are the widths set
+/// (invariant 12).
 #[cfg(feature = "resize")]
 #[test]
-#[ignore = "finding 8 in PLAN.md, not fixed yet"]
 fn a_second_band_press_reports_the_first_drags_width() {
     let band = Step::Down {
         zone: Zone::Band,
@@ -3493,13 +3364,13 @@ fn a_second_band_press_reports_the_first_drags_width() {
     );
 }
 
-/// Finding 9 (`PLAN.md`), found by the random test: a move with no
-/// button (a release unseen) ends one drag and returns, so with two on (a
-/// press on the scrollbar's track, then one on a cell, no release between)
-/// the scrollbar's stays on until the next move (invariant 11).
+/// Found by the random test: a move with no button (a release unseen)
+/// ended one drag and returned, so with two on (a press on the
+/// scrollbar's track, then one on a cell, no release between) the
+/// scrollbar's stayed on until the next move. Every drag ends at it
+/// (invariant 11).
 #[cfg(feature = "select")]
 #[test]
-#[ignore = "finding 9 in PLAN.md, not fixed yet"]
 fn a_move_with_no_button_ends_every_drag() {
     let press = |zone, x| Step::Down {
         zone,

@@ -739,6 +739,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The random test's `resize` negative controls.
     #[cfg(all(test, feature = "resize"))]
     pub(crate) resize_control: resize::Control,
+    /// The random test's negative control: a shrink keeps the jump's mark.
+    #[cfg(test)]
+    pub(crate) keep_mark: bool,
     /// The bands the last frame drew (`resize`, tests only).
     #[cfg(all(test, feature = "resize"))]
     pub(crate) bands_drawn: std::cell::RefCell<Vec<resize::DrawnBand>>,
@@ -842,6 +845,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             reorder_control: crate::reorder::Control::None,
             #[cfg(all(test, feature = "resize"))]
             resize_control: resize::Control::None,
+            #[cfg(test)]
+            keep_mark: false,
             #[cfg(all(test, feature = "resize"))]
             bands_drawn: Default::default(),
         };
@@ -924,6 +929,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// are read anew. On a closed table ([`TallTableState::close`]) only the
     /// scrollbar follows: nothing is read or cancelled.
     ///
+    /// What's kept by row at or past the new end goes with its row: the
+    /// jump's highlight, the hover and its tooltip, and with `live` and
+    /// `custom-cells` the flashes. With `select`, a `Rows` or `Cells` range
+    /// is cut and a `Columns` range's rows move to the last row
+    /// ([`TallTableEvent::Selected`]).
+    ///
     /// With `live`, a short last page that grows stays drawn, placeholders
     /// past the rows it was read with, and is read again as an invalidated
     /// page is (never cancelled for growing); the reads start once the
@@ -934,10 +945,29 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// rows' reads land ([`TallTableState::follow`]).
     pub fn set_rows(&mut self, rows: u64, cx: &mut Context<Self>) {
         let top = self.scroll.top();
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        let shrunk = rows < self.scroll.rows();
         self.scroll.set_rows(rows);
-        if self.scroll.top() != top {
+        // What's kept by row goes when its row does: the hover and the
+        // jump's mark at or past the new end.
+        if self.scroll.top() != top || self.hover.as_ref().is_some_and(|hover| hover.row >= rows) {
             self.hover = None;
         }
+        #[cfg(test)]
+        let keep_mark = self.keep_mark;
+        #[cfg(not(test))]
+        let keep_mark = false;
+        if !keep_mark && self.marked.is_some_and(|row| row >= rows) {
+            self.marked = None;
+        }
+        #[cfg(all(feature = "live", feature = "custom-cells"))]
+        if shrunk {
+            self.flashes.cut(rows);
+        }
+        // The hovered row's page may be forgotten (a short last page that
+        // grows is read anew): its tooltip is decided again, and goes
+        // while the row has no page.
+        self.undecide_tooltip(0..rows);
         #[cfg(feature = "select")]
         self.cut_selection(rows, cx);
         #[cfg(feature = "copy")]
@@ -1474,6 +1504,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 self.note_flashes(page, request, &rows, cx);
                 let bytes = rows.heap_bytes();
                 self.cache.loaded(page, request, rows, bytes, wanted);
+                self.undecide_tooltip(self.cache.rows_of(page));
             }
             cx.notify();
             // Following: the pin moves on to the rows landed, and the new
@@ -1539,6 +1570,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 self.note_flashes(page, request, &rows, cx);
                 let bytes = rows.heap_bytes();
                 self.cache.loaded(page, request, rows, bytes, &wanted);
+                self.undecide_tooltip(self.cache.rows_of(page));
             }
             Err(PageError::Cancelled) => self.cache.cancelled(page, request),
             Err(PageError::Failed {
@@ -1806,19 +1838,44 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
+    /// A page landed over `rows`, or the rows changed: the hovered cell
+    /// there may draw another value or none, so its tooltip is decided
+    /// again at the next frame, from what that frame draws.
+    fn undecide_tooltip(&mut self, rows: std::ops::Range<u64>) {
+        if let Some(hover) = self
+            .hover
+            .as_mut()
+            .filter(|hover| rows.contains(&hover.row))
+        {
+            hover.decided = false;
+        }
+    }
+
     /// Decides the hovered cell's tooltip, once the pointer has rested and
     /// its page is loaded (a page landing redraws, so it's decided then).
+    /// Decided again (`undecide_tooltip`), it keeps its view while its text
+    /// is the same, and goes while its row has no page to draw.
     fn decide_tooltip(&mut self, window: &mut Window, cx: &mut App) {
+        let Some(hover) = self.hover.as_mut() else {
+            return;
+        };
+        if !hover.rested || hover.decided {
+            return;
+        }
+        if !matches!(self.cache.row(hover.row), RowState::Loaded(..)) {
+            hover.tooltip = None;
+            return;
+        }
         let Some(hover) = self.hover.as_ref() else {
             return;
         };
-        if !hover.rested
-            || hover.decided
-            || !matches!(self.cache.row(hover.row), RowState::Loaded(..))
-        {
-            return;
-        }
-        let tooltip = self.tooltip_for(hover.row, hover.column, window, cx);
+        let text = self.tooltip_text(hover.row, hover.column, window);
+        let shown = hover.tooltip.as_ref().map(|(text, _)| text);
+        let tooltip = match text {
+            Some(text) if shown == Some(&text) => hover.tooltip.clone(),
+            Some(text) => Some((text.clone(), self.tooltip_view(text, window, cx))),
+            None => None,
+        };
         if let Some(hover) = self.hover.as_mut() {
             hover.decided = true;
             hover.tooltip = tooltip;
@@ -1826,15 +1883,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The exact value of a cell that's rounded, shown on one line, or cut,
-    /// as a tooltip. A cut is found by shaping this one cell's text, as GPUI
-    /// does to decide it.
-    fn tooltip_for(
-        &self,
-        row: u64,
-        column: usize,
-        window: &mut Window,
-        cx: &mut App,
-    ) -> Option<(SharedString, AnyView)> {
+    /// as a tooltip's text. A cut is found by shaping this one cell's text,
+    /// as GPUI does to decide it.
+    fn tooltip_text(&self, row: u64, column: usize, window: &Window) -> Option<SharedString> {
         let RowState::Loaded(page, index) = self.cache.row(row) else {
             return None;
         };
@@ -1871,15 +1922,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if shown == exact && !cut {
             return None;
         }
-        let text: SharedString = match exact.char_indices().nth(TOOLTIP_CHARS) {
+        Some(match exact.char_indices().nth(TOOLTIP_CHARS) {
             Some((end, _)) => format!("{}…", &exact[..end]).into(),
             None => exact.into(),
-        };
+        })
+    }
+
+    /// `text` as a tooltip.
+    fn tooltip_view(&self, content: SharedString, window: &mut Window, cx: &mut App) -> AnyView {
         // Wrapped in a width-capped block: gpui-kit's tooltip lays its text
         // out in a flex row, so a `max_w` on the tooltip itself didn't wrap
         // it, and a long value drew as one more row across the table.
-        let content = text.clone();
-        let view = Tooltip::element(move |_, _| {
+        Tooltip::element(move |_, _| {
             div()
                 .max_w(px(TOOLTIP_MAX_WIDTH))
                 .whitespace_normal()
@@ -1889,8 +1943,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // Above gpui-kit's `shadow_md`: over dense rows, especially in the
         // dark theme, the popover surface alone blended into the cells.
         .shadow_lg()
-        .build(window, cx);
-        Some((text, view))
+        .build(window, cx)
     }
 
     /// `text`'s width in the cells' font, shaped as GPUI draws it. One
@@ -2687,56 +2740,56 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         window.on_mouse_event(move |event: &MouseMoveEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 moving.update(cx, |this, cx| {
-                                    #[cfg(feature = "reorder")]
-                                    if this.moving.is_some() {
-                                        if event.pressed_button == Some(MouseButton::Left) {
-                                            this.move_drag_to(event.position, cx);
-                                        } else {
+                                    // The release never came (a cancelled
+                                    // pointer, say): the button isn't down,
+                                    // and every drag that's on ends, not
+                                    // only the first found.
+                                    if event.pressed_button != Some(MouseButton::Left) {
+                                        #[cfg(feature = "reorder")]
+                                        if this.moving.is_some() {
                                             this.release_unseen(cx);
                                         }
+                                        #[cfg(feature = "select")]
+                                        this.end_select();
+                                        #[cfg(feature = "resize")]
+                                        this.end_resize(cx);
+                                        if this.drag.is_some() {
+                                            this.end_drag(cx);
+                                        }
+                                        return;
+                                    }
+                                    #[cfg(feature = "reorder")]
+                                    if this.moving.is_some() {
+                                        this.move_drag_to(event.position, cx);
                                         return;
                                     }
                                     #[cfg(feature = "select")]
                                     if this.is_selecting() {
-                                        if event.pressed_button == Some(MouseButton::Left) {
-                                            this.select_drag_to(event.position, cx);
-                                        } else {
-                                            this.end_select();
-                                        }
+                                        this.select_drag_to(event.position, cx);
                                         return;
                                     }
                                     #[cfg(feature = "resize")]
                                     if this.resizing.is_some() {
-                                        if event.pressed_button == Some(MouseButton::Left) {
-                                            this.resize_to(event.position.x, cx);
-                                        } else {
-                                            this.end_resize(cx);
-                                        }
+                                        this.resize_to(event.position.x, cx);
                                         return;
                                     }
-                                    if this.drag.is_none() {
-                                        return;
-                                    }
-                                    // The release never came (a cancelled
-                                    // pointer, say): the button isn't down.
-                                    if event.pressed_button == Some(MouseButton::Left) {
+                                    if this.drag.is_some() {
                                         this.drag_to(event.position, cx);
-                                    } else {
-                                        this.end_drag(cx);
                                     }
                                 });
                             }
                         });
                         let releasing = entity.clone();
-                        window.on_mouse_event(move |_event: &MouseUpEvent, phase, _, cx| {
+                        window.on_mouse_event(move |event: &MouseUpEvent, phase, _, cx| {
                             if phase == DispatchPhase::Capture {
                                 releasing.update(cx, |this, cx| {
                                     // The left button's release only: another
-                                    // button's leaves the drag on.
-                                    #[cfg(feature = "reorder")]
-                                    if _event.button == MouseButton::Left {
-                                        this.end_move(cx);
+                                    // button's leaves every drag on.
+                                    if event.button != MouseButton::Left {
+                                        return;
                                     }
+                                    #[cfg(feature = "reorder")]
+                                    this.end_move(cx);
                                     #[cfg(feature = "select")]
                                     this.end_select();
                                     #[cfg(feature = "resize")]
