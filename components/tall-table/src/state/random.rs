@@ -13,9 +13,18 @@
 //! `SEED` picks the cases (0 unset), so a rerun recurs it, and
 //! `PROPTEST_CASES` how many. A bug it finds becomes a scenario test of its
 //! own (`#[ignore]`d until it's fixed), and an exclusion keeps the test
-//! from it meanwhile (a step generated, a step run, or a pair checked, left
-//! out; none today: `docs/DECISIONS.md`, "Fixtures"). Each negative control (a fault in the table, all
-//! test-only) must fail the all-on run's cases at its invariant.
+//! from it meanwhile (a step generated, a step run, or a check left out:
+//! [`Exclusion`]; `docs/DECISIONS.md`, "Fixtures"). Each negative control
+//! (a fault in the table, all test-only) must fail the all-on run's cases
+//! at its invariant.
+//!
+//! Beside the paging: the pointer's gestures through the window (a press
+//! in a zone, moves and wheels, a release, placed among a case's steps so
+//! its setters and answers fall between a press and its release), and what
+//! the features keep (invariants 11 to 18: the drags, the widths, the
+//! order, `pin`'s count, the selection, the hit tests, what's kept by row,
+//! and the last of each event against the state; the root's
+//! `docs/research/tall-table-features.md`, "Hardening 2").
 
 use std::cell::RefCell;
 use std::fmt;
@@ -32,17 +41,17 @@ use gpui_kit::proptest::prelude::{Just, Strategy, any, prop_oneof};
 use gpui_kit::proptest::strategy::{BoxedStrategy, Union};
 use gpui_kit::proptest::test_runner::{Config, TestCaseError, TestError, TestRunner};
 use gpui_kit::{
-    App, AppContext as _, Context, Entity, IntoElement, ParentElement as _, Render, Styled as _,
-    TestAppContext, VisualTestContext, Window, div, px, size,
+    App, AppContext as _, Context, Entity, IntoElement, Modifiers, MouseButton, MouseDownEvent,
+    MouseMoveEvent, MouseUpEvent, ParentElement as _, Pixels, Point, Render, ScrollDelta,
+    ScrollEvent, ScrollSource, Styled as _, TestAppContext, TouchPhase, VisualTestContext, Window,
+    div, point, px, size,
 };
 
-use super::{Drag, Paging, TallTableState, row_height};
+use super::{Drag, Paging, TallTableEvent, TallTableState, row_height};
 use crate::column::{ColumnKind, TallTableColumn};
 use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 use crate::pages::{RowState, Sent};
 
-#[cfg(feature = "copy")]
-use super::TallTableEvent;
 #[cfg(feature = "copy")]
 use crate::copy::{CopyId, CopyOptions, TURN_CELLS, TallTableCopy};
 #[cfg(feature = "select")]
@@ -57,7 +66,9 @@ const ALL_ON: bool = cfg!(all(
     feature = "sort",
     feature = "pin",
     feature = "density",
-    feature = "reorder"
+    feature = "reorder",
+    feature = "clicks",
+    feature = "group-headers"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -388,14 +399,34 @@ enum Step {
     /// `set_order`: the columns shuffled, seeded by the number.
     #[cfg(feature = "reorder")]
     SetOrder(u64),
-    /// A header row's press (`row` from the top, modulo the rows) at `x`
-    /// (modulo the cells' width), moved by `dx` and released: a column's,
-    /// a group's, or a blank's drag ([`with_drags`]).
-    #[cfg(all(feature = "group-headers", feature = "reorder"))]
-    DragColumns {
-        row: u8,
+    /// A press through the window, placed, never drawn
+    /// ([`with_gestures`]): in a zone (one of [`zones`]), at a point of
+    /// it, the left button's or (one in eight) the right's, a first press
+    /// or (one in four) a second or third, plain or with Shift or Ctrl
+    /// (one in eight each).
+    Down {
+        zone: Zone,
         x: u16,
+        y: u16,
+        button: u8,
+        count: u8,
+        modifiers: u8,
+    },
+    /// The pointer moved by this much, the left button held if a press
+    /// holds it; `up`: with no button, a release that went unseen.
+    Drag {
         dx: i16,
+        dy: i16,
+        up: bool,
+    },
+    /// A wheel at the pointer: rows down, pixels sideways.
+    PointerWheel {
+        rows: i8,
+        sideways: i16,
+    },
+    /// The left button's release at the pointer, or the right's.
+    Up {
+        right: bool,
     },
     Close,
     /// An open read (`k % open`) answered: with its page, failed, or
@@ -665,7 +696,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 10] = [
+const INVARIANTS: [&str; 18] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -676,7 +707,169 @@ const INVARIANTS: [&str; 10] = [
     "nothing stalls",
     "the group cells drawn are the drawn order's runs",
     "a drag never splits a run",
+    "every drag ends, at the left button's release",
+    "the widths",
+    "the order",
+    "pin's count moves by the columns that crossed",
+    "the selection is valid",
+    "a point in a drawn column hits it",
+    "nothing kept by row outlives its row",
+    "the last event is the state",
 ];
+
+/// A bug the test found, kept out of its checks until it's fixed (the
+/// table's `PLAN.md`, the active milestone): each has an `#[ignore]`d
+/// scenario test below.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Exclusion {
+    /// Finding 4: the jump's mark survives a shrink past its row
+    /// (`a_shrink_past_the_mark_clears_it`). 17's check of the mark is
+    /// left out.
+    MarkPastRows,
+    /// Finding 3: any button's release ends a scrollbar drag, a drag
+    /// selecting, and a resize (`a_right_release_leaves_a_drag_on`). 11's
+    /// check at the right button's release is left out.
+    RightReleaseEndsDrags,
+    /// Finding 5: `set_rows` leaves a `Columns` range's rows past the end,
+    /// and a held header press its cell's
+    /// (`a_shrink_moves_a_columns_range_to_the_last_row`). 15's check of a
+    /// `Columns` range's rows is left out.
+    ColumnsRowsPastEnd,
+    /// Finding 8: a press on a band while a resize is on (the first's
+    /// release unseen) starts a drag from the dragged width, so no
+    /// `ColumnWidthsChanged` reports it
+    /// (`a_second_band_press_reports_the_first_drags_width`). After a
+    /// press that replaced or ended a resize, 12 takes the widths the
+    /// resize leaves as heard; any other press during one leaves 12 on.
+    SecondBandPress,
+    /// Finding 9: a move with no button ends one drag, not every one on
+    /// (`a_move_with_no_button_ends_every_drag`). 11's check there is left
+    /// out when more than one was on.
+    OneDragEndedAMove,
+    /// Finding 1: the hover and its tooltip outlive the value under them:
+    /// `set_rows` cutting the hovered row with the top unmoved leaves the
+    /// hover (`a_shrink_past_the_hovered_row_clears_the_hover`), and a
+    /// re-read leaves the tooltip's old text (a window test's, with its fix:
+    /// the test's short values draw no tooltip). 17's checks of the hover
+    /// and the tooltip are left out.
+    HoverOutlivesValue,
+    /// Finding 10: without `pin`, a sortable column scrolled partly past
+    /// the cells' left edge draws its arrow cut at the edge, where a `pin`
+    /// build draws none (`an_arrow_cut_at_the_left_edge_is_not_drawn`).
+    /// 16's check of an arrow's left is left out in a build without `pin`.
+    ArrowCutAtLeft,
+}
+
+/// The exclusions in effect.
+const EXCLUDED: &[Exclusion] = &[
+    Exclusion::MarkPastRows,
+    Exclusion::RightReleaseEndsDrags,
+    Exclusion::ColumnsRowsPastEnd,
+    Exclusion::SecondBandPress,
+    Exclusion::OneDragEndedAMove,
+    Exclusion::HoverOutlivesValue,
+    Exclusion::ArrowCutAtLeft,
+];
+
+/// A zone a press lands in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Zone {
+    /// A header row: the names', or with `group-headers` a group's.
+    Header,
+    /// A drawn band (`resize`).
+    Band,
+    /// A drawn arrow (`sort`).
+    Arrow,
+    Cell,
+    /// A row's number.
+    Gutter,
+    Corner,
+    /// A scrollbar's track: the vertical one's, or the horizontal one's.
+    Track,
+}
+
+/// The zones this build has: the base's cells and scrollbars; the header,
+/// the row numbers, and the corner where a feature hears a press there;
+/// the bands with `resize`, the arrows with `sort`. A header row three
+/// times and a band twice: their drags are the long ones.
+fn zones() -> Vec<Zone> {
+    let mut zones = vec![Zone::Cell, Zone::Cell, Zone::Track];
+    if cfg!(any(
+        feature = "select",
+        feature = "reorder",
+        feature = "clicks"
+    )) {
+        zones.extend([
+            Zone::Header,
+            Zone::Header,
+            Zone::Header,
+            Zone::Gutter,
+            Zone::Corner,
+        ]);
+    }
+    if cfg!(feature = "resize") {
+        zones.extend([Zone::Band, Zone::Band]);
+    }
+    if cfg!(feature = "sort") {
+        zones.push(Zone::Arrow);
+    }
+    zones
+}
+
+/// The drags on: a scrollbar's, a column's resize, a selection's, and a
+/// header's held press or move.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+struct Drags {
+    scrollbar: bool,
+    resize: bool,
+    select: bool,
+    moving: bool,
+}
+
+impl Drags {
+    fn any(self) -> bool {
+        self != Self::default()
+    }
+}
+
+/// The last of each event that says what the table holds, as a host keeps
+/// them: its copy must never go stale (12, 13, 15, 18).
+#[derive(Debug, Default)]
+struct Heard {
+    #[cfg(feature = "resize")]
+    widths: Vec<Option<Pixels>>,
+    #[cfg(feature = "reorder")]
+    order: Vec<usize>,
+    #[cfg(feature = "select")]
+    selected: Option<TallTableSelection>,
+    #[cfg(feature = "pin")]
+    pinned: usize,
+    #[cfg(feature = "sort")]
+    sorted: Option<crate::Sort>,
+    #[cfg(feature = "follow")]
+    following: bool,
+}
+
+/// Each column's set width, as `ColumnWidthsChanged` reports them.
+#[cfg(feature = "resize")]
+fn set_widths(table: &TallTableState<Source>) -> Vec<Option<Pixels>> {
+    let sizes = table.sizes();
+    table
+        .column_info
+        .iter()
+        .map(|column| column.set_width(sizes))
+        .collect()
+}
+
+/// Each column's set width as stored, by index.
+#[cfg(feature = "resize")]
+fn stored_widths(table: &TallTableState<Source>) -> Vec<Option<f32>> {
+    table
+        .column_info
+        .iter()
+        .map(|column| column.width)
+        .collect()
+}
 
 /// The copy running, from its events.
 #[cfg(feature = "copy")]
@@ -698,6 +891,16 @@ enum Control {
     Reorder(crate::reorder::Control),
     #[cfg(feature = "group-headers")]
     Groups(crate::groups::Control),
+    #[cfg(feature = "resize")]
+    Resize(super::resize::Control),
+    #[cfg(feature = "pin")]
+    Pin(crate::pin::Control),
+    #[cfg(feature = "select")]
+    Select(super::select::Control),
+    /// The jump's mark kept by a shrink past its row: the table's rule
+    /// until finding 4's fix, so the control is its check run (the
+    /// exclusion, if there is one, lifted).
+    MarkKept,
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -708,6 +911,8 @@ struct Run {
     books: Rc<RefCell<Books>>,
     paging: Paging,
     control: Option<Control>,
+    /// No exclusion in effect: a finding's own scenario test.
+    lifted: bool,
     /// How many columns the table has.
     columns: usize,
     /// The columns' label paths' stream (`group-headers`; 0 without).
@@ -727,6 +932,19 @@ struct Run {
     events: Rc<RefCell<Vec<TallTableCopy>>>,
     #[cfg(feature = "copy")]
     copying: Option<Copying>,
+    /// The last of each event (12, 13, 15, 18).
+    heard: Rc<RefCell<Heard>>,
+    /// Where the pointer is, and whether a press holds the left button.
+    pointer: Point<Pixels>,
+    left_down: bool,
+    /// Each column's stored width at the last press with no resize on
+    /// (`resize`): a drag back to its press's x restores it.
+    #[cfg(feature = "resize")]
+    pressed_widths: Vec<Option<f32>>,
+    /// A press took over a resize that was on: a band's
+    /// ([`Exclusion::SecondBandPress`]).
+    #[cfg(feature = "resize")]
+    pressed_resizing: bool,
     subscription: Option<gpui_kit::Subscription>,
 }
 
@@ -789,6 +1007,7 @@ impl Run {
             books,
             paging,
             control,
+            lifted: false,
             columns,
             paths,
             #[cfg(feature = "sort")]
@@ -802,6 +1021,13 @@ impl Run {
             events: Rc::default(),
             #[cfg(feature = "copy")]
             copying: None,
+            heard: Rc::default(),
+            pointer: point(px(300.), px(300.)),
+            left_down: false,
+            #[cfg(feature = "resize")]
+            pressed_widths: Vec::new(),
+            #[cfg(feature = "resize")]
+            pressed_resizing: false,
             subscription: None,
         };
         run.adopt(table);
@@ -824,21 +1050,66 @@ impl Run {
                 Some(Control::Reorder(control)) => table.reorder_control = control,
                 #[cfg(feature = "group-headers")]
                 Some(Control::Groups(control)) => table.group_state.control = control,
-                None => {}
+                #[cfg(feature = "resize")]
+                Some(Control::Resize(control)) => table.resize_control = control,
+                #[cfg(feature = "pin")]
+                Some(Control::Pin(control)) => table.pin_state.control = Some(control),
+                #[cfg(feature = "select")]
+                Some(Control::Select(control)) => table.selection_state.control = control,
+                Some(Control::MarkKept) | None => {}
             }
             #[cfg(feature = "copy")]
             table.set_copy_options(options);
         });
         #[cfg(feature = "copy")]
         let events = self.events.clone();
+        // What a host knows of a table it just made, then what it hears.
+        *self.heard.borrow_mut() = table.read_with(&self.cx, |table, _| {
+            let _ = &table;
+            Heard {
+                #[cfg(feature = "resize")]
+                widths: set_widths(table),
+                #[cfg(feature = "reorder")]
+                order: table.order().to_vec(),
+                #[cfg(feature = "select")]
+                selected: table.selection(),
+                #[cfg(feature = "pin")]
+                pinned: table.pinned_in_effect(),
+                #[cfg(feature = "sort")]
+                sorted: table.sort(),
+                #[cfg(feature = "follow")]
+                following: table.is_following(),
+            }
+        });
+        let heard = self.heard.clone();
         self.subscription = Some(self.cx.update(|_, cx| {
-            cx.subscribe(&table, move |_, event, _| {
-                #[cfg(feature = "copy")]
-                if let TallTableEvent::Copy(copy) = event {
-                    events.borrow_mut().push(copy.clone());
+            cx.subscribe(&table, move |_, event: &TallTableEvent, _| {
+                let _ = &heard;
+                match event {
+                    #[cfg(feature = "copy")]
+                    TallTableEvent::Copy(copy) => events.borrow_mut().push(copy.clone()),
+                    #[cfg(feature = "resize")]
+                    TallTableEvent::ColumnWidthsChanged(widths) => {
+                        heard.borrow_mut().widths = widths.clone();
+                    }
+                    #[cfg(feature = "reorder")]
+                    TallTableEvent::ColumnsMoved { order, .. } => {
+                        heard.borrow_mut().order = order.clone();
+                    }
+                    #[cfg(feature = "select")]
+                    TallTableEvent::Selected(selection) => {
+                        heard.borrow_mut().selected = *selection;
+                    }
+                    #[cfg(feature = "pin")]
+                    TallTableEvent::Pinned(pinned) => heard.borrow_mut().pinned = *pinned,
+                    #[cfg(feature = "sort")]
+                    TallTableEvent::Sorted(sort) => heard.borrow_mut().sorted = *sort,
+                    #[cfg(feature = "follow")]
+                    TallTableEvent::Following(following) => {
+                        heard.borrow_mut().following = *following;
+                    }
+                    _ => {}
                 }
-                #[cfg(not(feature = "copy"))]
-                let _ = event;
             })
         }));
         self.table = table;
@@ -876,9 +1147,19 @@ impl Run {
     }
 
     fn frame(&mut self) {
+        self.draw();
+        self.park();
+    }
+
+    /// A frame drawn, nothing run after it: what it drew is the state.
+    fn draw(&mut self) {
         self.park();
         self.cx.update(|window, cx| window.draw(cx).clear(cx));
-        self.park();
+    }
+
+    /// Whether `exclusion` is in effect.
+    fn excluded(&self, exclusion: Exclusion) -> bool {
+        !self.lifted && EXCLUDED.contains(&exclusion)
     }
 
     fn update<T>(
@@ -994,47 +1275,10 @@ impl Run {
         Ok(())
     }
 
-    /// A drag in a header row (`Step::DragColumns`), then 10: every run
-    /// before it is still side by side, and 9 on its last frame.
+    /// 10: every run in `before` is still side by side, after a release
+    /// that moved columns.
     #[cfg(all(feature = "group-headers", feature = "reorder"))]
-    fn drag_columns(&mut self, row: u8, x: u16, dx: i16) -> Checked {
-        use gpui_kit::{Modifiers, MouseButton, MouseDownEvent, point};
-
-        self.frame();
-        let before = self.runs_drawn();
-        let (origin, gutter, row_h, depth, width) = self.read(|table| {
-            (
-                table.body.origin,
-                table.gutter_width(),
-                f32::from(table.sizes().row()),
-                table.group_rows(),
-                table.cells_width(),
-            )
-        });
-        if width >= 1.0 {
-            let rows = depth + 1;
-            let from_top = usize::from(row) % rows;
-            let y = origin.y - px(row_h * (rows - from_top) as f32 - row_h / 2.0);
-            let from = point(origin.x + px(gutter + f32::from(x) % width), y);
-            let dx = f32::from(dx);
-            self.cx.simulate_event(MouseDownEvent {
-                position: from,
-                modifiers: Modifiers::default(),
-                button: MouseButton::Left,
-                click_count: 1,
-                first_mouse: false,
-            });
-            self.frame();
-            let to = from + point(px(dx), px(0.));
-            for at in [from + point(px(dx / 2.0), px(0.)), to] {
-                self.cx
-                    .simulate_mouse_move(at, MouseButton::Left, Modifiers::default());
-                self.frame();
-            }
-            self.cx
-                .simulate_mouse_up(to, MouseButton::Left, Modifiers::default());
-            self.frame();
-        }
+    fn runs_whole(&self, before: Vec<(crate::groups::Run, Vec<usize>)>) -> Checked {
         let order = self.read(|table| table.order().to_vec());
         for (run, indices) in before {
             let places: Vec<usize> = indices
@@ -1056,6 +1300,738 @@ impl Run {
             }
         }
         self.groups_drawn()
+    }
+
+    // --- the pointer ---
+
+    /// The drags on.
+    fn drags(&self) -> Drags {
+        // With every feature on, each field is named.
+        #[allow(clippy::needless_update)]
+        self.read(|table| Drags {
+            scrollbar: table.drag.is_some(),
+            #[cfg(feature = "resize")]
+            resize: table.resizing.is_some(),
+            #[cfg(feature = "select")]
+            select: table.is_selecting(),
+            #[cfg(feature = "reorder")]
+            moving: table.moving.is_some(),
+            ..Drags::default()
+        })
+    }
+
+    /// 11: after `what` (the left button's release, or a move with no
+    /// button) and a frame, no drag is on.
+    fn drags_ended(&self, what: &str) -> Checked {
+        let drags = self.drags();
+        if drags.any() {
+            return Err(Violation::new(11, format!("after {what}: {drags:?}")));
+        }
+        Ok(())
+    }
+
+    /// A point of `zone` from `x` and `y`, in window pixels, and for a
+    /// band its column's index; `None` where the zone has nothing now.
+    fn point_in(&self, zone: Zone, x: u16, y: u16) -> Option<(Point<Pixels>, Option<usize>)> {
+        self.read(|table| {
+            let origin = table.body.origin;
+            let (gutter, row_h) = (table.gutter_width(), f32::from(table.sizes().row()));
+            let (width, height) = (table.cells_width(), f32::from(table.viewport().height));
+            let bar = f32::from(Scrollbar::width());
+            #[cfg(feature = "group-headers")]
+            let header_rows = table.group_rows() + 1;
+            #[cfg(not(feature = "group-headers"))]
+            let header_rows = 1;
+            let names = origin.y - px(row_h / 2.0);
+            let across = (width >= 1.0).then(|| origin.x + px(gutter + f32::from(x) % width));
+            let down = (height >= 1.0).then(|| origin.y + px(f32::from(y) % height));
+            let at = match zone {
+                Zone::Header => {
+                    let from_top = usize::from(y) % header_rows;
+                    let up = row_h * (header_rows - from_top) as f32 - row_h / 2.0;
+                    point(across?, origin.y - px(up))
+                }
+                Zone::Cell => point(across?, down?),
+                Zone::Gutter => point(origin.x + px(gutter / 2.0), down?),
+                Zone::Corner => point(origin.x + px(gutter / 2.0), names),
+                Zone::Track if x.is_multiple_of(2) => {
+                    point(origin.x + table.body.size.width - px(bar / 2.0), down?)
+                }
+                Zone::Track => point(across?, origin.y + table.body.size.height - px(bar / 2.0)),
+                #[cfg(feature = "resize")]
+                Zone::Band => {
+                    // One no other band lies over: the last pinned
+                    // column's reaches over the run's edge, onto a
+                    // scrolled column's there, and takes its press.
+                    let bands = table.bands_drawn.borrow();
+                    let apart = |band: &&super::resize::DrawnBand| {
+                        bands
+                            .iter()
+                            .filter(|other| other.shown && other.column != band.column)
+                            .all(|other| (other.x - band.x).abs() >= 10.0)
+                    };
+                    let shown: Vec<_> = bands
+                        .iter()
+                        .filter(|band| band.shown)
+                        .filter(apart)
+                        .collect();
+                    let band = shown.get(usize::from(x) % shown.len().max(1))?;
+                    return Some((point(px(band.x), names), Some(band.column)));
+                }
+                #[cfg(feature = "sort")]
+                Zone::Arrow => {
+                    let arrows = &table.sort_state.drawn;
+                    let target = arrows.get(usize::from(x) % arrows.len().max(1))?.target;
+                    target.origin + point(target.size.width / 2.0, target.size.height / 2.0)
+                }
+                // Not among this build's zones.
+                #[cfg(not(feature = "resize"))]
+                Zone::Band => return None,
+                #[cfg(not(feature = "sort"))]
+                Zone::Arrow => return None,
+            };
+            Some((at, None))
+        })
+    }
+
+    /// 12: a width a pointer step wrote is within its column's least and
+    /// most (or what it was at the press: a drag back restores it).
+    #[cfg(feature = "resize")]
+    fn widths_written(&self, before: &[Option<f32>]) -> Checked {
+        let pressed = &self.pressed_widths;
+        self.read(|table| {
+            let sizes = table.sizes();
+            for (index, column) in table.column_info.iter().enumerate() {
+                let Some(width) = column.width else {
+                    continue;
+                };
+                if before.get(index) == Some(&Some(width))
+                    || pressed.get(index) == Some(&Some(width))
+                    || width == column.clamp_width(width, sizes)
+                {
+                    continue;
+                }
+                return Err(Violation::new(
+                    12,
+                    format!(
+                        "column {index} set {width} px wide, outside its least and most ({} px)",
+                        column.clamp_width(width, sizes)
+                    ),
+                ));
+            }
+            Ok(())
+        })
+    }
+
+    /// [`Exclusion::SecondBandPress`]: once the resize a press landed in is
+    /// over, the widths it left are taken as heard.
+    #[cfg(feature = "resize")]
+    fn second_press_excluded(&mut self) {
+        if self.pressed_resizing && self.read(|table| table.resizing.is_none()) {
+            self.pressed_resizing = false;
+            if self.excluded(Exclusion::SecondBandPress) {
+                self.heard.borrow_mut().widths = self.read(set_widths);
+            }
+        }
+    }
+
+    /// `Step::Down`: a press at a point of the zone, and a frame. On a
+    /// band, 16: a first left press there holds the band's column.
+    fn pointer_down(
+        &mut self,
+        (zone, x, y): (Zone, u16, u16),
+        button: u8,
+        count: u8,
+        modifiers: u8,
+    ) -> Checked {
+        self.frame();
+        let Some((at, band)) = self.point_in(zone, x, y) else {
+            return Ok(());
+        };
+        let button = if button.is_multiple_of(8) {
+            MouseButton::Right
+        } else {
+            MouseButton::Left
+        };
+        let click_count = match count % 8 {
+            0 => 3,
+            1 => 2,
+            _ => 1,
+        };
+        let modifiers = match modifiers % 8 {
+            0 => Modifiers::shift(),
+            1 => Modifiers::control(),
+            _ => Modifiers::default(),
+        };
+        #[cfg(feature = "resize")]
+        let before = {
+            let (resizing, widths) = self.read(|table| (table.resizing, stored_widths(table)));
+            if resizing.is_none() {
+                self.pressed_widths.clone_from(&widths);
+            }
+            (resizing, widths)
+        };
+        // A tooltip beside the pointer's cell may lie over the header.
+        let covered = self.read(|table| {
+            table
+                .hover
+                .as_ref()
+                .is_some_and(|hover| hover.tooltip.is_some())
+        });
+        self.pointer = at;
+        self.cx.simulate_event(MouseDownEvent {
+            position: at,
+            modifiers,
+            button,
+            click_count,
+            first_mouse: false,
+        });
+        if button == MouseButton::Left {
+            self.left_down = true;
+        }
+        self.frame();
+        #[cfg(feature = "resize")]
+        {
+            // Only a band's press replaces or ends a resize.
+            let (resizing, before) = before;
+            if resizing.is_some() && self.read(|table| table.resizing) != resizing {
+                self.pressed_resizing = true;
+            }
+            self.second_press_excluded();
+            self.widths_written(&before)?;
+            if let Some(column) = band
+                && button == MouseButton::Left
+                && click_count == 1
+                && !covered
+            {
+                let held = self.read(|table| table.resizing.map(|resizing| resizing.column));
+                if held != Some(column) {
+                    return Err(Violation::new(
+                        16,
+                        format!("a press on column {column}'s band holds {held:?}"),
+                    ));
+                }
+            }
+        }
+        #[cfg(not(feature = "resize"))]
+        let _ = (band, covered);
+        Ok(())
+    }
+
+    /// `Step::Drag`: the pointer moved, the left button held or not, and a
+    /// frame. With no button, 11: every drag ended.
+    fn pointer_move(&mut self, dx: i16, dy: i16, up: bool) -> Checked {
+        self.frame();
+        if up {
+            self.left_down = false;
+        }
+        let view = self.cx.update(|window, _| window.viewport_size());
+        let to = point(
+            (self.pointer.x + px(f32::from(dx))).clamp(px(0.), view.width - px(1.)),
+            (self.pointer.y + px(f32::from(dy))).clamp(px(0.), view.height - px(1.)),
+        );
+        #[cfg(feature = "resize")]
+        let before = self.read(stored_widths);
+        let held = self.drags();
+        self.pointer = to;
+        self.cx.simulate_event(MouseMoveEvent {
+            position: to,
+            pressed_button: self.left_down.then_some(MouseButton::Left),
+            modifiers: Modifiers::default(),
+        });
+        self.frame();
+        #[cfg(feature = "resize")]
+        {
+            self.second_press_excluded();
+            self.widths_written(&before)?;
+        }
+        let several = [held.scrollbar, held.resize, held.select, held.moving]
+            .iter()
+            .filter(|on| **on)
+            .count()
+            > 1;
+        if !self.left_down && !(several && self.excluded(Exclusion::OneDragEndedAMove)) {
+            self.drags_ended("a move with no button down")?;
+        }
+        Ok(())
+    }
+
+    /// `Step::PointerWheel`: a wheel at the pointer, and a frame.
+    fn pointer_wheel(&mut self, rows: i8, sideways: i16) {
+        self.frame();
+        let row_h = self.read(|table| f32::from(table.sizes().row()));
+        self.cx.simulate_event(ScrollEvent {
+            position: self.pointer,
+            delta: ScrollDelta::Pixels(point(
+                px(-f32::from(sideways)),
+                px(-f32::from(rows) * row_h),
+            )),
+            modifiers: Modifiers::default(),
+            touch_phase: TouchPhase::Moved,
+            source: ScrollSource::Pointer,
+        });
+        self.frame();
+    }
+
+    /// `Step::Up`: a button's release at the pointer, and a frame. The
+    /// left's: every drag ended (11), no run split by its move (10), and
+    /// `pin`'s count moved by the columns that crossed (14). The right's:
+    /// every drag as it was (11).
+    fn pointer_up(&mut self, right: bool) -> Checked {
+        self.frame();
+        let held = self.drags();
+        #[cfg(all(feature = "group-headers", feature = "reorder"))]
+        let runs = self.runs_drawn();
+        #[cfg(all(feature = "reorder", feature = "pin"))]
+        let (pinned, block) = self.read(|table| {
+            let block = table
+                .moving
+                .as_ref()
+                .filter(|moving| moving.started)
+                .map(|moving| moving.block.clone());
+            ((table.order().to_vec(), table.pinned()), block)
+        });
+        #[cfg(feature = "resize")]
+        let before = self.read(stored_widths);
+        self.cx.simulate_event(MouseUpEvent {
+            button: if right {
+                MouseButton::Right
+            } else {
+                MouseButton::Left
+            },
+            position: self.pointer,
+            modifiers: Modifiers::default(),
+            click_count: 1,
+        });
+        if right {
+            let now = self.drags();
+            self.frame();
+            #[cfg(feature = "resize")]
+            self.second_press_excluded();
+            if now != held && !self.excluded(Exclusion::RightReleaseEndsDrags) {
+                return Err(Violation::new(
+                    11,
+                    format!("the right button's release changed the drags: {held:?} to {now:?}"),
+                ));
+            }
+            return Ok(());
+        }
+        self.left_down = false;
+        self.frame();
+        #[cfg(feature = "resize")]
+        {
+            self.second_press_excluded();
+            self.widths_written(&before)?;
+        }
+        self.drags_ended("the left button's release")?;
+        #[cfg(all(feature = "reorder", feature = "pin"))]
+        if let Some(block) = block {
+            self.kept()?;
+            self.count_moved(pinned, block)?;
+        }
+        #[cfg(all(feature = "group-headers", feature = "reorder"))]
+        self.runs_whole(runs)?;
+        Ok(())
+    }
+
+    /// 14: across a move of `block` (places before it), `pin`'s count, as
+    /// it was with the `order` before: unchanged while the run holds the
+    /// columns it held; otherwise the run's length, the columns that
+    /// joined or left it the block's.
+    #[cfg(all(feature = "reorder", feature = "pin"))]
+    fn count_moved(&self, (order, count): (Vec<usize>, usize), block: Range<usize>) -> Checked {
+        let (after, count_after) = self.read(|table| (table.order().to_vec(), table.pinned()));
+        if (&after, count_after) == (&order, count) || after.len() != order.len() {
+            return Ok(());
+        }
+        let run = |order: &[usize], count: usize| {
+            let mut run = order[..count.min(order.len())].to_vec();
+            run.sort_unstable();
+            run
+        };
+        let (was, is) = (run(&order, count), run(&after, count_after));
+        if was == is {
+            if count_after != count {
+                return Err(Violation::new(
+                    14,
+                    format!("the count {count} became {count_after}, no column crossing the edge"),
+                ));
+            }
+            return Ok(());
+        }
+        let block = order.get(block).unwrap_or_default();
+        let crossed: Vec<usize> = was
+            .iter()
+            .filter(|column| !is.contains(column))
+            .chain(is.iter().filter(|column| !was.contains(column)))
+            .copied()
+            .collect();
+        if count_after != is.len() || crossed.iter().any(|column| !block.contains(column)) {
+            return Err(Violation::new(
+                14,
+                format!(
+                    "a move of columns {block:?}: the count {count} became {count_after}, \
+                     the run {was:?} became {is:?}"
+                ),
+            ));
+        }
+        Ok(())
+    }
+
+    // --- what the features keep ---
+
+    /// 12, 13, 15, 17, 18: what the table keeps and what a host last
+    /// heard of it, whenever it's read.
+    fn kept(&self) -> Checked {
+        let heard = self.heard.borrow();
+        // The control's check is the exclusion's, lifted.
+        let check_mark = matches!(self.control, Some(Control::MarkKept))
+            || !self.excluded(Exclusion::MarkPastRows);
+        let check_columns_rows = !self.excluded(Exclusion::ColumnsRowsPastEnd);
+        let check_hover = !self.excluded(Exclusion::HoverOutlivesValue);
+        let _ = (&heard, check_columns_rows);
+        self.read(|table| {
+            let rows = table.rows();
+            #[cfg(feature = "reorder")]
+            {
+                let order = table.order();
+                let mut sorted = order.to_vec();
+                sorted.sort_unstable();
+                if !sorted.iter().copied().eq(0..table.column_info.len()) {
+                    return Err(Violation::new(
+                        13,
+                        format!(
+                            "{order:?} isn't an order of {} columns",
+                            table.column_info.len()
+                        ),
+                    ));
+                }
+                let laid_out: Vec<usize> =
+                    table.columns.iter().map(|column| column.index).collect();
+                if laid_out != order {
+                    return Err(Violation::new(
+                        13,
+                        format!("the columns are laid out as {laid_out:?}, the order is {order:?}"),
+                    ));
+                }
+                if heard.order != order {
+                    return Err(Violation::new(
+                        13,
+                        format!(
+                            "the last ColumnsMoved said {:?}, the order is {order:?}",
+                            heard.order
+                        ),
+                    ));
+                }
+            }
+            // A drag reports its widths at its release.
+            #[cfg(feature = "resize")]
+            if table.resizing.is_none() {
+                let widths = set_widths(table);
+                if heard.widths != widths {
+                    return Err(Violation::new(
+                        12,
+                        format!(
+                            "the last ColumnWidthsChanged said {:?}, the set widths are {widths:?}",
+                            heard.widths
+                        ),
+                    ));
+                }
+            }
+            #[cfg(feature = "select")]
+            {
+                let selection = table.selection();
+                if let Some(selection) = selection {
+                    let (anchor, head) = (selection.anchor(), selection.head());
+                    let columns = table.columns.len();
+                    let kind = selection.kind();
+                    // A `Columns` range covers every row, the rows to come
+                    // too: with none, its cells stand at row 0.
+                    let rows_exist = if kind == Kind::Columns {
+                        !check_columns_rows || anchor.0.max(head.0) < rows.max(1)
+                    } else {
+                        anchor.0.max(head.0) < rows
+                    };
+                    if anchor.1.max(head.1) >= columns || !rows_exist {
+                        return Err(Violation::new(
+                            15,
+                            format!("{selection:?} with {rows} rows and {columns} columns"),
+                        ));
+                    }
+                    if !table.selectable().allows(kind) {
+                        return Err(Violation::new(
+                            15,
+                            format!("{selection:?} with its kind off"),
+                        ));
+                    }
+                } else if table.is_selecting() {
+                    return Err(Violation::new(15, "a drag selecting with no selection"));
+                }
+                if heard.selected != selection {
+                    return Err(Violation::new(
+                        15,
+                        format!(
+                            "the last Selected said {:?}, the selection is {selection:?}",
+                            heard.selected
+                        ),
+                    ));
+                }
+            }
+            if let Some(hover) = table
+                .hover
+                .as_ref()
+                .filter(|hover| check_hover && hover.row >= rows)
+            {
+                return Err(Violation::new(
+                    17,
+                    format!("row {} hovered with {rows} rows", hover.row),
+                ));
+            }
+            if let Some(marked) = table.marked.filter(|marked| check_mark && *marked >= rows) {
+                return Err(Violation::new(
+                    17,
+                    format!("row {marked} marked with {rows} rows"),
+                ));
+            }
+            #[cfg(all(feature = "live", feature = "custom-cells"))]
+            if let Some(row) = table.flashes.past(rows) {
+                return Err(Violation::new(
+                    17,
+                    format!("row {row} flashing with {rows} rows"),
+                ));
+            }
+            #[cfg(feature = "pin")]
+            if heard.pinned != table.pinned_in_effect() {
+                return Err(Violation::new(
+                    18,
+                    format!(
+                        "the last Pinned said {}, {} are pinned in effect",
+                        heard.pinned,
+                        table.pinned_in_effect()
+                    ),
+                ));
+            }
+            #[cfg(feature = "sort")]
+            if heard.sorted != table.sort() {
+                return Err(Violation::new(
+                    18,
+                    format!(
+                        "the last Sorted said {:?}, the sort is {:?}",
+                        heard.sorted,
+                        table.sort()
+                    ),
+                ));
+            }
+            #[cfg(feature = "follow")]
+            if heard.following != table.is_following() {
+                return Err(Violation::new(
+                    18,
+                    format!(
+                        "the last Following said {}, following is {}",
+                        heard.following,
+                        table.is_following()
+                    ),
+                ));
+            }
+            Ok(())
+        })
+    }
+
+    /// At a frame, before anything runs after it: the laid-out widths
+    /// (12), the hit tests against what it drew (16), and the tooltip it
+    /// shows (17).
+    fn framed(&self) -> Checked {
+        let check_hover = !self.excluded(Exclusion::HoverOutlivesValue);
+        // With `pin`, an arrow partly under the run or the edge isn't drawn.
+        let check_arrow_left = cfg!(feature = "pin") || !self.excluded(Exclusion::ArrowCutAtLeft);
+        let _ = check_arrow_left;
+        self.read(|table| {
+            #[cfg(feature = "resize")]
+            {
+                let sizes = table.sizes();
+                let mut sum = 0.0;
+                for (place, column) in table.columns.iter().enumerate() {
+                    sum += column.width;
+                    let info = &table.column_info[column.index(place)];
+                    if info.width.is_some() && column.width != info.clamp_width(column.width, sizes)
+                    {
+                        return Err(Violation::new(
+                            12,
+                            format!(
+                                "column {}, its width set, is laid out {} px wide: outside its least and most",
+                                column.index(place),
+                                column.width
+                            ),
+                        ));
+                    }
+                }
+                if (sum - table.content_width).abs() > 0.01 {
+                    return Err(Violation::new(
+                        12,
+                        format!(
+                            "the content is {} px wide, its columns {sum}",
+                            table.content_width
+                        ),
+                    ));
+                }
+            }
+            #[cfg(any(feature = "select", feature = "reorder", feature = "clicks"))]
+            let row_h = table.sizes().row();
+            let texts = table.drawn_text.borrow();
+            for cell in texts.iter() {
+                // The middle of the part its region shows.
+                let shown = cell.visible;
+                if shown.size.width < px(3.) || shown.size.height < px(3.) {
+                    continue;
+                }
+                let at = shown.origin + point(shown.size.width / 2.0, shown.size.height / 2.0);
+                let place = table
+                    .columns
+                    .iter()
+                    .enumerate()
+                    .position(|(place, column)| column.index(place) == cell.column);
+                let hit = table.cell_at(at);
+                if place.is_none() || hit != place.map(|place| (cell.row, place)) {
+                    return Err(Violation::new(
+                        16,
+                        format!(
+                            "row {}, column {} (place {place:?}) drawn at {at:?}, where the cell is {hit:?}",
+                            cell.row, cell.column
+                        ),
+                    ));
+                }
+                // Its header, over it in the names' row.
+                #[cfg(any(feature = "select", feature = "reorder", feature = "clicks"))]
+                let over = point(at.x, table.body.origin.y - row_h / 2.0);
+                #[cfg(any(feature = "reorder", feature = "clicks"))]
+                if table.header_place_at(over) != place {
+                    return Err(Violation::new(
+                        16,
+                        format!(
+                            "column {} (place {place:?}) drawn under {over:?}, where the header is {:?}'s",
+                            cell.column,
+                            table.header_place_at(over)
+                        ),
+                    ));
+                }
+                #[cfg(any(feature = "select", feature = "clicks"))]
+                {
+                    let target = table.target_at(over);
+                    let header = match target {
+                        Some(super::hit::Target::Header((_, place))) => Some(place),
+                        _ => None,
+                    };
+                    if header != place {
+                        return Err(Violation::new(
+                            16,
+                            format!(
+                                "column {} (place {place:?}) drawn under {over:?}, where a press is on {target:?}",
+                                cell.column
+                            ),
+                        ));
+                    }
+                }
+                // Its arrow and its band lie in it.
+                #[cfg(feature = "sort")]
+                let left = cell.cell.origin.x;
+                #[cfg(any(feature = "sort", feature = "resize"))]
+                let right = cell.cell.origin.x + cell.cell.size.width;
+                #[cfg(feature = "sort")]
+                if let Some(arrow) = table
+                    .sort_state
+                    .drawn
+                    .iter()
+                    .find(|arrow| arrow.column == cell.column)
+                {
+                    let target = arrow.target;
+                    let floor = if check_arrow_left {
+                        left.max(shown.origin.x)
+                    } else {
+                        left
+                    };
+                    if target.origin.x < floor - px(1.)
+                        || target.origin.x + target.size.width > right + px(1.)
+                    {
+                        return Err(Violation::new(
+                            16,
+                            format!(
+                                "column {}'s arrow at {target:?}, its column at {:?}, shown at {shown:?}",
+                                cell.column, cell.cell
+                            ),
+                        ));
+                    }
+                }
+                #[cfg(feature = "resize")]
+                if let Some(band) = table
+                    .bands_drawn
+                    .borrow()
+                    .iter()
+                    .find(|band| band.column == cell.column)
+                    && (px(band.x) - right).abs() > px(1.5)
+                {
+                    return Err(Violation::new(
+                        16,
+                        format!(
+                            "column {}'s band at x {}, its column's right edge at {right:?}",
+                            cell.column, band.x
+                        ),
+                    ));
+                }
+            }
+            // Each group cell drawn is its run at its middle.
+            #[cfg(all(
+                feature = "group-headers",
+                any(feature = "select", feature = "reorder", feature = "clicks")
+            ))]
+            {
+                let depth = table.group_rows();
+                let left = table.body.origin.x + px(table.gutter_width());
+                for cell in &table.group_state.drawn {
+                    if cell.width < 3.0 {
+                        continue;
+                    }
+                    let at = point(
+                        left + px(cell.left + cell.width / 2.0),
+                        table.body.origin.y - row_h * (depth + 1 - cell.level) as f32
+                            + row_h / 2.0,
+                    );
+                    let hit = table.group_row_at(at);
+                    if hit != Some(Some((cell.level, cell.start, cell.end))) {
+                        return Err(Violation::new(
+                            16,
+                            format!(
+                                "{} (level {}, places {}..{}) drawn at {at:?}, where the group is {hit:?}",
+                                cell.label, cell.level, cell.start, cell.end
+                            ),
+                        ));
+                    }
+                }
+            }
+            // The tooltip is the exact text of the value its cell draws.
+            if let Some(hover) = &table.hover
+                && let Some((text, _)) = &hover.tooltip
+                && check_hover
+            {
+                let exact = match table.cache.row(hover.row) {
+                    RowState::Loaded(page, index) => table
+                        .columns
+                        .get(hover.column)
+                        .and_then(|column| page.value(index, column.index(hover.column)))
+                        .map(|value| value.to_string()),
+                    _ => None,
+                };
+                if exact.as_deref() != Some(text.as_ref()) {
+                    return Err(Violation::new(
+                        17,
+                        format!(
+                            "the tooltip over row {}, place {} says {text:?}, its cell draws {exact:?}",
+                            hover.row, hover.column
+                        ),
+                    ));
+                }
+            }
+            Ok(())
+        })
     }
 
     /// Runs `step`, then checks the invariants.
@@ -1102,7 +2078,9 @@ impl Run {
                 self.park();
             }
             Step::Frame => {
-                self.frame();
+                self.draw();
+                self.framed()?;
+                self.park();
                 #[cfg(feature = "group-headers")]
                 self.groups_drawn()?;
             }
@@ -1127,7 +2105,21 @@ impl Run {
             Step::Columns(pick) => {
                 self.columns = column_count(pick, page_rows);
                 let columns = columns_of(self.columns, self.sortable(), self.paths);
+                // A host that kept the list's own order has it still, over
+                // the new list: no `ColumnsMoved` says so.
+                #[cfg(feature = "reorder")]
+                {
+                    let mut heard = self.heard.borrow_mut();
+                    if heard.order.iter().copied().eq(0..heard.order.len()) {
+                        heard.order = (0..self.columns).collect();
+                    }
+                }
                 self.update(|table, cx| table.set_columns(columns, cx));
+                // The widths are the new columns', as the host set them.
+                #[cfg(feature = "resize")]
+                {
+                    self.heard.borrow_mut().widths = self.read(set_widths);
+                }
             }
             #[cfg(feature = "live")]
             Step::Invalidate { .. } if rows == 0 => {}
@@ -1222,23 +2214,49 @@ impl Run {
                     text_size: text,
                 };
                 self.update(|table, cx| table.set_density(density, cx));
+                // A set width is reported as drawn, clamped at the least
+                // in effect, which the host just moved.
+                #[cfg(feature = "resize")]
+                {
+                    self.heard.borrow_mut().widths = self.read(set_widths);
+                }
             }
             #[cfg(feature = "reorder")]
             Step::MoveColumns(pick) => {
                 let (places, to, side) = expand_move(pick, self.columns);
+                #[cfg(feature = "pin")]
+                let (before, block) = (
+                    self.read(|table| (table.order().to_vec(), table.pinned())),
+                    places.clone(),
+                );
                 self.update(|table, cx| match side {
                     #[cfg(feature = "pin")]
                     Some(pinned) => table.move_columns_pinned(places, to, pinned, cx),
                     _ => table.move_columns(places, to, cx),
                 });
+                // The order first: the count's check reads it.
+                #[cfg(feature = "pin")]
+                {
+                    self.kept()?;
+                    self.count_moved(before, block)?;
+                }
             }
             #[cfg(feature = "reorder")]
             Step::SetOrder(pick) => {
                 let order = shuffled(pick, self.columns);
                 self.update(|table, cx| table.set_order(order, cx));
             }
-            #[cfg(all(feature = "group-headers", feature = "reorder"))]
-            Step::DragColumns { row, x, dx } => self.drag_columns(row, x, dx)?,
+            Step::Down {
+                zone,
+                x,
+                y,
+                button,
+                count,
+                modifiers,
+            } => self.pointer_down((zone, x, y), button, count, modifiers)?,
+            Step::Drag { dx, dy, up } => self.pointer_move(dx, dy, up)?,
+            Step::PointerWheel { rows, sideways } => self.pointer_wheel(rows, sideways),
+            Step::Up { right } => self.pointer_up(right)?,
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -1332,6 +2350,7 @@ impl Run {
     /// The invariants every step keeps, against the table `before` it.
     fn check(&mut self, before: &Before) -> Checked {
         let sent = before.sent;
+        self.kept()?;
         let books = self.books.borrow();
         if let Some(fault) = books.faults.first() {
             return Err(Violation::new(1, fault.clone()));
@@ -1699,7 +2718,6 @@ fn columns_of(count: usize, sortable: u8, paths: u64) -> Vec<TallTableColumn> {
 }
 
 /// A SplitMix64 stream from `seed`.
-#[cfg(feature = "group-headers")]
 fn split_mix(seed: u64) -> impl FnMut() -> u64 {
     let mut state = seed;
     move || {
@@ -1748,22 +2766,136 @@ fn with_paths(seed: u64, case: &mut Case) {
     case.paths = split_mix(seed ^ 0x3c6e_f372_fe94_f82b)().max(1);
 }
 
-/// Header drags, up to eight, placed as `pin`'s are ([`with_pins`]), from
-/// the scheduler seed by a stream of their own (`group-headers` with
-/// `reorder`): a press in a header row, a move, and a release.
+/// A header's drags, up to eight, from the scheduler seed by a stream of
+/// their own (`group-headers` with `reorder`): each the left button's
+/// plain press in a header row, two moves, and its release, as steps of
+/// their own, each up to two steps after the one before. The gestures
+/// alone finish too few: of ~150 in the all-on run's cases, 12 held a
+/// block and one moved it, and `group-headers`' gap control passed every
+/// case; spread or back to back, these catch it at the same `SEED`s
+/// (`docs/DECISIONS.md`, "Fixtures").
 #[cfg(all(feature = "group-headers", feature = "reorder"))]
-fn with_drags(seed: u64, steps: &mut Vec<Step>) {
-    place_steps(seed ^ 0xa54f_f53a_5f1d_36f1, steps, |pick| {
-        Step::DragColumns {
-            row: pick as u8,
+fn with_header_drags(seed: u64, steps: &mut Vec<Step>) {
+    let mut next = split_mix(seed ^ 0xa54f_f53a_5f1d_36f1);
+    for _ in 0..next() % 9 {
+        let pick = next();
+        let dx = (pick >> 40) as i16 % 800;
+        let moves = [dx / 2, dx - dx / 2].map(|dx| Step::Drag {
+            dx,
+            dy: 0,
+            up: false,
+        });
+        let down = Step::Down {
+            zone: Zone::Header,
             x: (pick >> 8) as u16,
-            dx: (pick >> 24) as i16 % 800,
+            y: (pick >> 24) as u16,
+            // The left button, a first press, no modifier.
+            button: 1,
+            count: 2,
+            modifiers: 2,
+        };
+        let mut at = next() as usize % (steps.len() + 1);
+        for step in [down]
+            .into_iter()
+            .chain(moves)
+            .chain([Step::Up { right: false }])
+        {
+            steps.insert(at, step);
+            at = (at + 1 + next() as usize % 3).min(steps.len());
         }
-    });
+    }
+}
+
+/// The gestures, up to six, from the scheduler seed by a stream of their
+/// own, never drawn ([`with_pins`]): each a `Down`, up to three `Drag`s
+/// (one in eight with no button) or `PointerWheel`s (one step in four),
+/// and an `Up` (one in eight the right button's), in order, each up to
+/// eight steps after the one before, so the case's other steps (a setter,
+/// a sort, an answer, a `set_rows`, another gesture's) fall between a
+/// press and its release.
+fn with_gestures(seed: u64, steps: &mut Vec<Step>) {
+    let mut next = split_mix(seed ^ 0x6a09_e667_f3bc_c908);
+    let zones = zones();
+    for _ in 0..next() % 7 {
+        let pick = next();
+        let mut at = next() as usize % (steps.len() + 1);
+        let (button, count, modifiers) =
+            ((pick >> 40) as u8, (pick >> 48) as u8, (pick >> 56) as u8);
+        steps.insert(
+            at,
+            Step::Down {
+                zone: zones[(pick & 0xff) as usize % zones.len()],
+                x: (pick >> 8) as u16,
+                y: (pick >> 24) as u16,
+                button,
+                count,
+                modifiers,
+            },
+        );
+        let mut after = |steps: &mut Vec<Step>, step: Step, pick: u64| {
+            at = (at + 1 + pick as usize % 8).min(steps.len());
+            steps.insert(at, step);
+        };
+        for _ in 0..next() % 4 {
+            let pick = next();
+            let step = if pick.is_multiple_of(4) {
+                Step::PointerWheel {
+                    rows: ((pick >> 8) as i16 % 12) as i8,
+                    sideways: (pick >> 24) as i16 % 300,
+                }
+            } else {
+                Step::Drag {
+                    dx: (pick >> 8) as i16 % 400,
+                    dy: (pick >> 24) as i16 % 200,
+                    up: (pick >> 40).is_multiple_of(8),
+                }
+            };
+            after(steps, step, next());
+        }
+        let right = next().is_multiple_of(8);
+        after(steps, Step::Up { right }, next());
+    }
 }
 
 /// One case on scheduler `seed`: `Err` names the invariant and the step.
 fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), String> {
+    run_one(seed, case, control, false)
+}
+
+/// A finding's scenario: `steps` on a table of `rows` rows in pages of
+/// ten, two columns, reads held, with no exclusion in effect, so it fails
+/// until its finding is fixed.
+fn found(rows: u64, steps: Vec<Step>) {
+    found_in(rows, 2, steps);
+}
+
+/// [`found`], on a table of `columns` columns, each sortable (`sort`).
+fn found_in(rows: u64, columns: usize, steps: Vec<Step>) {
+    let case = Case {
+        page_rows: 10,
+        prefetch: 0,
+        max_in_flight: 3,
+        budget_pages: 12,
+        rows,
+        columns,
+        at_once: false,
+        #[cfg(feature = "copy")]
+        copy: CopyOptions::default(),
+        #[cfg(feature = "sort")]
+        sortable: if columns > 2 { u8::MAX } else { 0 },
+        #[cfg(feature = "sort")]
+        refused: 0,
+        #[cfg(feature = "group-headers")]
+        paths: 0,
+        steps,
+    };
+    if let Err(failure) = run_one(0, &case, None, true) {
+        panic!("{failure}");
+    }
+}
+
+/// [`run_case`]; `lifted`: with no exclusion in effect.
+fn run_one(seed: u64, case: &Case, control: Option<Control>, lifted: bool) -> Result<(), String> {
     let case = case.clone();
     gpui_kit::run_test_once(
         seed,
@@ -1771,6 +2903,7 @@ fn run_case(seed: u64, case: &Case, control: Option<Control>) -> Result<(), Stri
             let mut cx = TestAppContext::build(dispatcher.clone(), Some("random_paging"));
             let result = {
                 let mut run = Run::open(&mut cx, &case, control);
+                run.lifted = lifted;
                 let before = run.before();
                 let mut result = run.check(&before).map_err(|v| (v, "open".to_string()));
                 for (index, step) in case.steps.iter().enumerate() {
@@ -1923,30 +3056,58 @@ fn cases() -> u32 {
         .unwrap_or(if ALL_ON { 48 } else { 16 })
 }
 
+/// The invariant a failure names: its text up to the step.
+fn invariant_of(failure: &str) -> &str {
+    failure.split(" at ").next().unwrap_or(failure)
+}
+
+/// `case` (as run, its placed steps among them), failing as `failure` on
+/// scheduler `seed`, with its steps cut to the few that matter: runs of
+/// steps, then single ones, left out while the same invariant still fails,
+/// until none can go. Proptest's own shrink works on the draw, and the
+/// placed steps move with every step it drops.
+fn shrunk(seed: u64, mut case: Case, mut failure: String) -> (Case, String) {
+    let invariant = invariant_of(&failure).to_string();
+    let mut length = case.steps.len().div_ceil(2).max(1);
+    loop {
+        let mut cut = false;
+        let mut at = 0;
+        while at < case.steps.len() {
+            let mut shorter = case.clone();
+            shorter.steps.drain(at..(at + length).min(case.steps.len()));
+            match run_case(seed, &shorter, None) {
+                Err(still) if invariant_of(&still) == invariant => {
+                    (case, failure, cut) = (shorter, still, true);
+                }
+                _ => at += length,
+            }
+        }
+        if length == 1 && !cut {
+            return (case, failure);
+        }
+        if !cut {
+            length = length.div_ceil(2);
+        }
+    }
+}
+
 /// The cases (by `SEED`, 0 unset) under `control`: `Err` with the first
 /// failure, shrunk to its minimal steps when there's no control.
 fn run(control: Option<Control>) -> Result<(), String> {
-    let shrink = control.is_none();
     let config = gpui_kit::apply_seed_to_proptest_config(Config {
         cases: cases(),
         failure_persistence: None,
-        max_shrink_iters: if shrink { 1_000_000 } else { 0 },
-        max_shrink_time: 20 * 60 * 1000,
+        max_shrink_iters: 0,
         ..Config::default()
     });
     let mut runner = TestRunner::new(config);
+    // The failing case as run: what's shrunk and printed.
+    let failed = RefCell::new(None);
     runner
         .run(&(any::<u64>(), case()), |(seed, case)| {
-            // A failure names its step in the case as run, `pin`'s,
-            // `density`'s, and `let_go`'s steps among them, so it's printed
-            // with them.
-            #[cfg(any(
-                feature = "pin",
-                feature = "density",
-                feature = "follow",
-                feature = "reorder",
-                feature = "group-headers"
-            ))]
+            // `pin`'s, `density`'s, `let_go`'s, and `reorder`'s steps, each
+            // from a stream of its own, so the places of the ones before
+            // stay what they were; the gestures last.
             let case = {
                 let mut case = case;
                 #[cfg(feature = "pin")]
@@ -1960,27 +3121,29 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 #[cfg(feature = "group-headers")]
                 with_paths(seed, &mut case);
                 #[cfg(all(feature = "group-headers", feature = "reorder"))]
-                with_drags(seed, &mut case.steps);
+                with_header_drags(seed, &mut case.steps);
+                with_gestures(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
-                #[cfg(any(
-                    feature = "pin",
-                    feature = "density",
-                    feature = "follow",
-                    feature = "reorder",
-                    feature = "group-headers"
-                ))]
-                let failure = format!("{failure}\nthe case as run, with the placed steps:\n{case}");
+                *failed.borrow_mut() = Some((seed, case, failure.clone()));
                 TestCaseError::fail(failure)
             })
         })
-        .map_err(|error| match error {
-            TestError::Fail(reason, (seed, case)) => format!(
-                "{reason}\nscheduler seed {seed} (SEED={}), the case:\n{case}",
-                std::env::var("SEED").unwrap_or_else(|_| "0".into())
-            ),
-            TestError::Abort(reason) => format!("aborted: {reason}"),
+        .map_err(|error| match (error, failed.take()) {
+            (TestError::Fail(..), Some((seed, case, failure))) => {
+                let (case, failure) = if control.is_none() {
+                    shrunk(seed, case, failure)
+                } else {
+                    (case, failure)
+                };
+                format!(
+                    "{failure}\nscheduler seed {seed} (SEED={}), the case as run, its placed steps among them:\n{case}",
+                    std::env::var("SEED").unwrap_or_else(|_| "0".into())
+                )
+            }
+            (TestError::Fail(reason, _), None) => format!("failed: {reason}"),
+            (TestError::Abort(reason), _) => format!("aborted: {reason}"),
         })
 }
 
@@ -2190,6 +3353,177 @@ fn a_copy_beside_a_short_read_of_a_grown_page() {
     }
 }
 
+/// Finding 4 (`PLAN.md`), which the random test had to find: the jump's
+/// mark survives a shrink past its row, and is drawn on whichever row has
+/// its index when the rows grow back. 30 rows, a jump to row 25, the rows
+/// shrunk to 5: row 25 marked with 5 rows (invariant 17).
+#[test]
+#[ignore = "finding 4 in PLAN.md, not fixed yet"]
+fn a_shrink_past_the_mark_clears_it() {
+    found(
+        30,
+        vec![
+            Step::Drain { newest: false },
+            Step::Jump(25),
+            Step::ShrinkPast(15),
+        ],
+    );
+}
+
+/// Finding 3 (`PLAN.md`), which the random test had to find: any
+/// button's release ends a scrollbar drag (a drag selecting and a resize
+/// too), the left still down. A press on the vertical track, then the right
+/// button's release: the drag is off (invariant 11).
+#[test]
+#[ignore = "finding 3 in PLAN.md, not fixed yet"]
+fn a_right_release_leaves_a_drag_on() {
+    found(
+        100,
+        vec![
+            Step::Drain { newest: false },
+            Step::Down {
+                zone: Zone::Track,
+                x: 0,
+                y: 300,
+                button: 1,
+                count: 2,
+                modifiers: 2,
+            },
+            Step::Up { right: true },
+        ],
+    );
+}
+
+/// Finding 5 (`PLAN.md`), which the random test had to find: `set_rows`
+/// leaves a `Columns` range's rows past the end. Column 0 selected with
+/// its cells at row 25 of 30, the rows shrunk to 5 (invariant 15).
+#[cfg(feature = "select")]
+#[test]
+#[ignore = "finding 5 in PLAN.md, not fixed yet"]
+fn a_shrink_moves_a_columns_range_to_the_last_row() {
+    found(
+        30,
+        vec![
+            Step::Drain { newest: false },
+            Step::Select {
+                kind: 1,
+                row: 25,
+                rows: 0,
+                column: 0,
+                columns: 0,
+                near: false,
+            },
+            Step::ShrinkPast(15),
+        ],
+    );
+}
+
+/// Finding 1's `set_rows` half (`PLAN.md`), reached by the random test:
+/// the hover is cleared only when the top row moves, so rows cut under a
+/// still pointer leave it on a row that's gone. The pointer over a row of
+/// 30, the rows shrunk to 5, the top still 0 (invariant 17).
+#[test]
+#[ignore = "finding 1 in PLAN.md, not fixed yet"]
+fn a_shrink_past_the_hovered_row_clears_the_hover() {
+    found(
+        30,
+        vec![
+            Step::Drain { newest: false },
+            Step::Drag {
+                dx: 1,
+                dy: 1,
+                up: true,
+            },
+            Step::ShrinkPast(15),
+        ],
+    );
+}
+
+/// Finding 10 (`PLAN.md`), found by the random test in `pairs`' run of
+/// `live` with `sort`: without `pin`, a sortable column scrolled partly
+/// past the cells' left edge still draws its arrow, cut at the edge (a
+/// sliver of it pressable), where a `pin` build, pinned or not, draws
+/// none. Five sortable columns, the first scrolled to its last 8 px
+/// (invariant 16).
+#[cfg(all(feature = "sort", not(feature = "pin")))]
+#[test]
+#[ignore = "finding 10 in PLAN.md, not fixed yet"]
+fn an_arrow_cut_at_the_left_edge_is_not_drawn() {
+    found_in(
+        30,
+        5,
+        vec![
+            Step::Drain { newest: false },
+            Step::Sideways(192),
+            Step::Frame,
+        ],
+    );
+}
+
+/// Finding 8 (`PLAN.md`), found by the random test: a press on a band
+/// while a resize is on (the first's release unseen) starts a new drag
+/// from the dragged width, so its release finds nothing changed and no
+/// `ColumnWidthsChanged` reports the first drag's width. A band pressed,
+/// dragged 30 px left, pressed again, released (invariant 12).
+#[cfg(feature = "resize")]
+#[test]
+#[ignore = "finding 8 in PLAN.md, not fixed yet"]
+fn a_second_band_press_reports_the_first_drags_width() {
+    let band = Step::Down {
+        zone: Zone::Band,
+        x: 0,
+        y: 0,
+        button: 1,
+        count: 2,
+        modifiers: 2,
+    };
+    found(
+        100,
+        vec![
+            Step::Drain { newest: false },
+            band.clone(),
+            Step::Drag {
+                dx: -30,
+                dy: 0,
+                up: false,
+            },
+            band,
+            Step::Up { right: false },
+        ],
+    );
+}
+
+/// Finding 9 (`PLAN.md`), found by the random test: a move with no
+/// button (a release unseen) ends one drag and returns, so with two on (a
+/// press on the scrollbar's track, then one on a cell, no release between)
+/// the scrollbar's stays on until the next move (invariant 11).
+#[cfg(feature = "select")]
+#[test]
+#[ignore = "finding 9 in PLAN.md, not fixed yet"]
+fn a_move_with_no_button_ends_every_drag() {
+    let press = |zone, x| Step::Down {
+        zone,
+        x,
+        y: 100,
+        button: 1,
+        count: 2,
+        modifiers: 2,
+    };
+    found(
+        100,
+        vec![
+            Step::Drain { newest: false },
+            press(Zone::Track, 0),
+            press(Zone::Cell, 50),
+            Step::Drag {
+                dx: 10,
+                dy: 10,
+                up: true,
+            },
+        ],
+    );
+}
+
 /// Each control fails the cases (no shrinking) at the invariant it breaks.
 /// Built with each control's feature, run in the all-on run only: its
 /// cases are the ones the controls are counted over.
@@ -2311,6 +3645,92 @@ mod controls {
             Control::Groups(crate::groups::Control::GapOutsideParent),
             &[10],
         );
+    }
+
+    /// 11: the button's release leaves a column's drag on.
+    #[cfg(feature = "resize")]
+    #[test]
+    fn a_release_leaves_the_resize_on() {
+        fails(
+            Control::Resize(crate::state::resize::Control::KeepOnRelease),
+            &[11],
+        );
+    }
+
+    /// 12: a drag sets the pointer's width, past the column's least.
+    #[cfg(feature = "resize")]
+    #[test]
+    fn a_drag_unclamped() {
+        fails(
+            Control::Resize(crate::state::resize::Control::Unclamped),
+            &[12],
+        );
+    }
+
+    /// 13: a move writes its block over the neighbor past it.
+    #[cfg(feature = "reorder")]
+    #[test]
+    fn a_block_over_its_neighbor() {
+        fails(
+            Control::Reorder(crate::reorder::Control::BlockOverNeighbor),
+            &[13],
+        );
+    }
+
+    /// 13: `set_columns` resets the order and says nothing (a bug
+    /// `reorder`'s review found).
+    #[cfg(feature = "reorder")]
+    #[test]
+    fn the_order_reset_unsaid() {
+        fails(
+            Control::Reorder(crate::reorder::Control::SilentReset),
+            &[13],
+        );
+    }
+
+    /// 14: a move across `pin`'s edge leaves the count.
+    #[cfg(all(feature = "reorder", feature = "pin"))]
+    #[test]
+    fn the_count_kept_across_the_edge() {
+        fails(Control::Reorder(crate::reorder::Control::CountKept), &[14]);
+    }
+
+    /// 14: the count recounted when nothing crossed: one past the columns
+    /// lost.
+    #[cfg(all(feature = "reorder", feature = "pin"))]
+    #[test]
+    fn the_count_recounted() {
+        fails(Control::Reorder(crate::reorder::Control::Recount), &[14]);
+    }
+
+    /// 15: `set_rows` leaves a range past the new end.
+    #[cfg(feature = "select")]
+    #[test]
+    fn a_shrink_keeps_the_selection() {
+        fails(
+            Control::Select(crate::state::select::Control::KeepPastRows),
+            &[15],
+        );
+    }
+
+    /// 16: a hit test that ignores `pin`'s run.
+    #[cfg(feature = "pin")]
+    #[test]
+    fn a_hit_test_ignores_the_run() {
+        fails(Control::Pin(crate::pin::Control::HitIgnoresRun), &[16]);
+    }
+
+    /// 17: a shrink keeps the jump's mark past the new end.
+    #[test]
+    fn a_shrink_keeps_the_mark() {
+        fails(Control::MarkKept, &[17]);
+    }
+
+    /// 18: the run in effect changes with no `Pinned`.
+    #[cfg(feature = "pin")]
+    #[test]
+    fn the_run_changes_unsaid() {
+        fails(Control::Pin(crate::pin::Control::SilentRepin), &[18]);
     }
 
     #[cfg(feature = "reorder")]

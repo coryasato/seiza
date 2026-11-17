@@ -193,6 +193,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
             self.pin_state.count = count;
         }
         self.lay_out(cx);
+        // Once laid out: a layout takes an order that is one.
+        #[cfg(test)]
+        if self.reorder_control == crate::reorder::Control::BlockOverNeighbor && columns > 1 {
+            let neighbor = (mv.to + mv.places.len()) % columns;
+            self.order[neighbor] = self.order[mv.to];
+        }
         self.emit_moved(cx);
         cx.notify();
     }

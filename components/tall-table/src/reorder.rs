@@ -39,6 +39,12 @@ pub(crate) enum Control {
     /// The fixture's `no-edge-gap`: the run's end beside the block refused
     /// too, so a column can't be pinned or unpinned where it is.
     NoEdgeGap,
+    /// The random test's: a move writes its block's first column over the
+    /// neighbor past the block, so the order is no longer one.
+    BlockOverNeighbor,
+    /// The random test's: `set_columns` resets another order to the list's
+    /// own with no `ColumnsMoved`.
+    SilentReset,
     /// `group-headers.json`'s `gap-by-column-centers`: the gap after the
     /// unit of the last column whose center, not its unit's, is left of
     /// the pointer.

@@ -87,6 +87,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // reports the run.
         self.hover = None;
         self.layout_generation += 1;
+        #[cfg(test)]
+        if self.pin_state.control == Some(pin::Control::SilentRepin) {
+            return;
+        }
         cx.emit(TallTableEvent::Pinned(in_effect));
     }
 

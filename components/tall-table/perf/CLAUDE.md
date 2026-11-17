@@ -43,12 +43,12 @@ They serve the host's release build themselves (`vite preview` of `host/web/dist
 ## Files
 
 ```
-  perf/             # harness.ts (the host's names, waits, and hooks), size.ts, perf.ts, build-info.ts (dist/build.json), live.ts, follow.ts, copy.ts, sort.ts, smoke.ts, paint-fixture.ts, density-fixture.ts, format-fixture.ts; results/: each feature's own cost, dated (no budgets)
+  perf/             # harness.ts (the host's names, waits, and hooks), size.ts, perf.ts, build-info.ts (dist/build.json), live.ts, follow.ts, copy.ts, sort.ts, smoke.ts, paint-fixture.ts, density-fixture.ts, format-fixture.ts, pairs.ts (every feature alone and in pairs, compiled and tested: no build of the host's, no browser); results/: each feature's own cost, dated (no budgets)
 ```
 
 ## Commands
 
-What each covers and its flags are in its script's header and the justfile's comment above its recipe. Each needs `just tall-table build [features]` first, with the feature it measures.
+What each covers and its flags are in its script's header and the justfile's comment above its recipe. Each needs `just tall-table build [features]` first, with the feature it measures (`pairs`, the component's `CLAUDE.md`'s, builds its own and needs none).
 
 ```
 just tall-table size [flags]   # the wasm of the base and each feature's build; fails on an engine or the panel linked, a feature's symbols in the base, or a home-directory path

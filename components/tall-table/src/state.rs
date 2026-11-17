@@ -736,6 +736,12 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// `reorder.json`'s negative controls, and the random test's.
     #[cfg(all(test, feature = "reorder"))]
     pub(crate) reorder_control: crate::reorder::Control,
+    /// The random test's `resize` negative controls.
+    #[cfg(all(test, feature = "resize"))]
+    pub(crate) resize_control: resize::Control,
+    /// The bands the last frame drew (`resize`, tests only).
+    #[cfg(all(test, feature = "resize"))]
+    pub(crate) bands_drawn: std::cell::RefCell<Vec<resize::DrawnBand>>,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -834,6 +840,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
             follow_control: follow::Control::None,
             #[cfg(all(test, feature = "reorder"))]
             reorder_control: crate::reorder::Control::None,
+            #[cfg(all(test, feature = "resize"))]
+            resize_control: resize::Control::None,
+            #[cfg(all(test, feature = "resize"))]
+            bands_drawn: Default::default(),
         };
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         table.track_flashes();
@@ -1054,7 +1064,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // move's.
         #[cfg(feature = "reorder")]
         if reordered {
-            self.emit_moved(cx);
+            #[cfg(test)]
+            let reordered = self.reorder_control != crate::reorder::Control::SilentReset;
+            if reordered {
+                self.emit_moved(cx);
+            }
         }
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         {

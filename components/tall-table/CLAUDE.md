@@ -16,7 +16,7 @@ These add to the repo-wide rules.
 4. **Events that mark a frame are emitted in render.** `Filled` (and `live`'s `Refreshed`, `follow`'s `TailDrawn`) is emitted while the frame renders, which GPUI delivers in the task that presents it (`App::update` flushes effects after the draw and present), so a host's `mark_after_current_task` lands right after the frame. Don't move it to a deferred or spawned emit. Tycho's `just tycho table --browsers` checks the marks land in the presenting task (`shared-web/perf/`'s `presentedMark`).
 5. **A change to the paging is soaked before its code review.** A change to `pages.rs`, the state's paging (`load_wanted`, `page_done`, `set_rows`, `close`, the scroll and drag settles, `follow`'s tail pin (`pin_to_tail`; not `pin`, the columns' feature)), or `copy`'s reads runs `just tall-table soak` (minutes, not a run to ask about) before `/code-review`, and again if the review's fixes touch the paging. A failure is handled as the random test's are (`src/state/CLAUDE.md`). Why: `docs/DECISIONS.md`, "Fixtures".
 
-**Features** (`Cargo.toml`, each off by default): code behind one is `#[cfg(feature = "…")]`, and the base build must not change with it off (`just tall-table size` checks its symbols are absent; how a site is written once for both builds: `src/CLAUDE.md`). The bridge and the host forward each one (`tall-table-host/custom-cells` turns on the table's and the bridge's). A theme color a feature draws comes in as a `Stop` (`fn(&Theme) -> Hsla`), resolved each frame, never stored in a page.
+**Features** (`Cargo.toml`, each off by default): code behind one is `#[cfg(feature = "…")]`, and the base build must not change with it off (`just tall-table size` checks its symbols are absent; how a site is written once for both builds: `src/CLAUDE.md`). A change that adds or moves a `cfg` naming two features runs `just tall-table pairs` before its code review: `test` and `lint` build a feature alone, none, and all, never a pair. The bridge and the host forward each one (`tall-table-host/custom-cells` turns on the table's and the bridge's). A theme color a feature draws comes in as a `Stop` (`fn(&Theme) -> Hsla`), resolved each frame, never stored in a page.
 
 ## Where the detail is
 
@@ -67,9 +67,10 @@ just tall-table size | perf | live | copy | follow | sort [flags]   # each featu
 just tall-table smoke [flags] | smoke --screens save|<commit>       # the release build in three browsers; the reference screens (perf)
 just tall-table paint-fixture | density-fixture | format-fixture [--check]   # the fixtures read from Chromium (perf)
 just tall-table soak [seeds] [cases]               # the random test soaked (src/state)
+just tall-table pairs [--list] [--only clippy|test] [--from <n>]   # every feature alone and every pair: clippy for the table, the bridge, and the host, and the tests on the pairs with code gated on both (perf/pairs.ts)
 cargo test -p seiza-tall-table   # the native tests at the features given (the fixtures and the random test among them)
 just tall-table test         # those with every feature off, each on, then all on, and the host's rows and feed (the bridge's JS is wasm-only; Tycho's checks and the cell fixture read its fields)
-just tall-table lint         # check-terms, fmt, clippy (the table, the bridge, the host; wasm32 and native), tsc (the host's page, perf/)
+just tall-table lint         # check-terms, fmt, clippy (the table, the bridge, the host; wasm32 and native, with no feature and with every one: `pairs` builds what's between), tsc (the host's page, perf/)
 ```
 
 The view also runs in Tycho's checks (`just tycho table`, `jump`, `cells`, `errors`, and the suite's table and jump parts).

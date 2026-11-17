@@ -52,6 +52,11 @@ pub(crate) enum Control {
     UnderRun,
     /// A column is brought into view at the gutter's edge, not *P*.
     IntoViewAtGutter,
+    /// The random test's: a hit test that ignores the run, so a point on a
+    /// pinned column reads the scrolled content under it.
+    HitIgnoresRun,
+    /// The random test's: the run in effect changes with no `Pinned`.
+    SilentRepin,
     /// `custom-cells`' fills drawn in one canvas over both regions,
     /// unclipped at *P* (the window test's).
     #[cfg(feature = "custom-cells")]
@@ -119,6 +124,10 @@ impl Pin {
     /// own; right of it, the scrolled content's.
     #[inline(always)]
     pub(crate) fn content_x(self, x: f32, scroll_x: f32) -> f32 {
+        #[cfg(test)]
+        if self.control == Control::HitIgnoresRun {
+            return x + scroll_x;
+        }
         if x < self.edge { x } else { x + scroll_x }
     }
 

@@ -21,6 +21,30 @@ const BAND_PADDING: f32 = 4.0;
 /// The bands' hover group: each hairline lights up with its own band.
 const BAND_GROUP: &str = "tall-table-band";
 
+/// The random test's negative controls: ways to get a drag wrong that it
+/// must catch.
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum Control {
+    #[default]
+    None,
+    /// The button's release leaves the drag on.
+    KeepOnRelease,
+    /// A drag sets the pointer's width, whatever the column's least and
+    /// most.
+    Unclamped,
+}
+
+/// A band the last frame drew (tests only): its column's index, its
+/// hairline's x in window pixels, and whether its region shows it there.
+#[cfg(test)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct DrawnBand {
+    pub(crate) column: usize,
+    pub(crate) x: f32,
+    pub(crate) shown: bool,
+}
+
 /// A column drag in progress.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct Resizing {
@@ -133,6 +157,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
             resizing.was
         } else {
             let width = info.clamp_width(raw, sizes);
+            #[cfg(test)]
+            let width = if self.resize_control == Control::Unclamped {
+                raw
+            } else {
+                width
+            };
             // Never narrower than at the press for it, so a column pinned
             // past the half (the view narrowed) only holds.
             #[cfg(feature = "pin")]
@@ -158,6 +188,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// clamped to the new content, the layout probe reported once, and the
     /// widths emitted; otherwise nothing moved, and nothing is redone.
     pub(super) fn end_resize(&mut self, cx: &mut Context<Self>) {
+        #[cfg(test)]
+        if self.resize_control == Control::KeepOnRelease {
+            return;
+        }
         let Some(resizing) = self.resizing.take() else {
             return;
         };
@@ -274,6 +308,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let (line, lit) = (theme.table_row_border, theme.border);
         let dragged = self.resizing.map(|resizing| resizing.column);
         let place = self.place();
+        #[cfg(test)]
+        let (window_left, cells_width) = (
+            f32::from(self.body.origin.x) + self.gutter_width(),
+            self.cells_width(),
+        );
+        #[cfg(test)]
+        self.bands_drawn.borrow_mut().clear();
         let bands = self
             .visible_columns()
             .filter(|(at, column)| self.column_info[column.index(*at)].resizable)
@@ -281,6 +322,17 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 // By its index, which a drag holds (`reorder`).
                 let index = column.index(at);
                 let edge = place.layer_left(at, column.x, self.scroll_x) + column.width;
+                // The hairline's middle, from the cells' left edge.
+                #[cfg(test)]
+                {
+                    let from = if place.holds(at) { 0.0 } else { place.edge() };
+                    let x = from + edge - 0.5;
+                    self.bands_drawn.borrow_mut().push(DrawnBand {
+                        column: index,
+                        x: window_left + x,
+                        shown: (from..cells_width).contains(&x),
+                    });
+                }
                 let band = div()
                     .id(("tall-table-band", index))
                     .group(BAND_GROUP)

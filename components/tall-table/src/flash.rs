@@ -134,6 +134,15 @@ impl Flashes {
         );
     }
 
+    /// A row at or past `rows` with a flash, if any (the random test's).
+    #[cfg(test)]
+    pub(crate) fn past(&self, rows: u64) -> Option<u64> {
+        self.live
+            .keys()
+            .map(|(row, _)| *row)
+            .find(|row| *row >= rows)
+    }
+
     /// Drops the flashes that ended by `now`, on screen or not.
     pub(crate) fn expire(&mut self, now: Duration) {
         self.live

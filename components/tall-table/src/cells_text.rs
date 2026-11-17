@@ -49,6 +49,9 @@ pub(crate) struct DrawnText {
     pub baseline: f32,
     pub color: Hsla,
     pub cell: Bounds<Pixels>,
+    /// The part of `cell` its region shows: the cell cut by the clip it
+    /// was painted under (with `pin`, the run's edge).
+    pub visible: Bounds<Pixels>,
 }
 
 #[cfg(test)]
@@ -202,6 +205,7 @@ fn paint(
                 baseline: f32::from(origin.y + baseline_offset.y),
                 color: cell.color,
                 cell: clip,
+                visible: clip.intersect(&window.content_mask().bounds),
             });
             window.with_content_mask(Some(ContentMask { bounds: clip }), |window| {
                 let mask = window.content_mask().bounds;

@@ -177,8 +177,8 @@ smoke *args:
 # `clicks` with `select`, `reorder`, `resize`, and `sort`, and
 # `group-headers` with `pin`, `select`, `resize`, `sort`, `density`,
 # `reorder`, and `copy`); in
-# each, the random test of the paging
-# with that run's features (16 cases; 48 all on, with its controls). The bridge has none: its
+# each, the random test of the paging and of what the features keep,
+# with that run's features, its gestures in the zones they have (16 cases; 48 all on, with its controls). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
 # the observatory's cell fixture, and `smoke` read every field it writes.
 test:
@@ -201,9 +201,20 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/group-headers
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density,tall-table-host/format,tall-table-host/reorder,tall-table-host/clicks,tall-table-host/group-headers
 
+# Every feature alone and every pair (13 and 78), one build a set: clippy
+# (wasm32, -D warnings) for the table, the bridge, and the host, then the
+# native tests on the pairs with code gated on both, which the script
+# finds in the sources (`--list` prints them and runs nothing; `--only
+# clippy|test` one half; `--from <n>` from the nth build). `test` runs
+# each feature alone and all on, and `lint` clippies none and all: a pair
+# that needs a third to compile reaches neither. Not in `lint`: ~15 min
+# (perf/pairs.ts's header).
+pairs *args:
+    node {{component_dir}}/perf/pairs.ts {{args}}
+
 # The random test of the paging soaked: `cases` cases for each of `seeds`
-# (`SEED`: a different set of cases each), every feature with steps in
-# the random test on (not `format`, which has none), in a release build
+# (`SEED`: a different set of cases each), every feature with steps or
+# controls in the random test on (not `format`, which has none), in a release build
 # with debug assertions and overflow checks (its time:
 # docs/DECISIONS.md, "Fixtures"). A failure prints its minimal steps and
 # scheduler seed; `SEED=<n>` recurs it in `test`.
@@ -211,7 +222,7 @@ soak seeds="1 2 3 4" cases="500":
     for seed in {{seeds}}; do \
         SEED=$seed PROPTEST_CASES={{cases}} \
         CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
-        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin,density,reorder,group-headers state::random::random_paging || exit 1; \
+        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin,density,reorder,clicks,group-headers state::random::random_paging || exit 1; \
     done
 
 # Writes fixtures/paint.json's expected colors from Chromium's

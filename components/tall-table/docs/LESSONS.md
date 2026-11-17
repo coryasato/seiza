@@ -654,3 +654,16 @@ No results note: nothing measured. The build's check was a byte comparison again
 - A tooltip is state too. Decided once and kept until the pointer moves, it showed the old value over a cell `live` had redrawn. It predates `live` and no feature since looked at it, because nothing about it is in a feature's module.
 - GPUI's test app can't dispatch a press against a stale frame: in test mode it draws every dirty window when an update's effects flush. A spike that moved the columns and pressed a band with no draw between passed for that reason, not because the press was right. This kind of bug is found by reading and tested by calling the press inside the update, and the random test can't reach it however it grows.
 - Features are gated in pairs far more than `all(feature = …)` shows: 10 pairs by that, 30 once a feature's `cfg` inside another feature's module counts. `just tall-table test` runs three pairs.
+
+## Hardening 2: the features since the first, together (part B, 2026-11-16)
+
+**Results:** [`perf/results/2026-11-16-hardening-2-b.md`](../perf/results/2026-11-16-hardening-2-b.md)
+
+**Surprises:**
+- It found the three it had to in its first two runs, and then three the audit hadn't: a second press on a band during a resize loses the first drag's widths event, a move with no button ends one drag of two, and the hover outlives a row `set_rows` cut. The first two need a release that went unseen, which no window test ever sent: every test that presses also releases. The third is finding 1's `set_rows` half, which the research said the test couldn't reach: it needs no tooltip, only a pointer left over a row.
+- Placing steps instead of drawing them, the rule that keeps every old case's draw, broke proptest's shrink. A placed step's place comes from the draw's length, so every step proptest dropped moved every gesture, and a shrink ran 20 minutes to leave 216 steps. Shrinking the case as run (steps left out while the same invariant fails) gave three to six steps in seconds. The rule had been paid for since `pin`; nobody saw it until a case needed its placed steps to fail.
+- Six gestures a case replace nothing that needed volume. `DragColumns` gave ~190 whole header drags a run; the gestures gave one that moved a column, and `group-headers`' gap control passed every case. A free draw is for reaching timings nobody thought of, not for the drags a control counts on.
+- The invariant as specced couldn't see the finding it was written for: "every drag ends" holds when a drag ends too soon. It needed its other half (and at no other button's release).
+- A layout clamps a set width as it reads it, so an unclamped drag never shows in a laid-out width. The control for "the widths are within their least and most" passed until the check moved to where the width is written.
+- A pair's clippy run takes a second: 89 builds in under two minutes. The pairs had gone unchecked since `follow` for the cost of a run nobody had timed.
+
