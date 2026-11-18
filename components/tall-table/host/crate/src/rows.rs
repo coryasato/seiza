@@ -19,7 +19,6 @@
 //! row of the order ([`MemoryRows::source_row`]).
 
 use std::borrow::Cow;
-#[cfg(any(feature = "follow", feature = "copy", feature = "sort"))]
 use std::cell::Cell;
 use std::cell::RefCell;
 #[cfg(any(feature = "live", feature = "sort"))]
@@ -388,6 +387,32 @@ impl MemoryPage {
         page
     }
 
+    /// `shape`'s every `stride`-th row (`stride` > 1), from row `rows.start
+    /// × stride` (positions of the order, with `sort`): a page of a
+    /// replaced source (`replace_rows`, the scripts' `__tallTableReplace`).
+    pub fn strided(
+        shape: Shape,
+        rows: Range<u64>,
+        stride: u64,
+        #[cfg(feature = "live")] versions: &Versions,
+        #[cfg(feature = "sort")] order: Option<&[u32]>,
+    ) -> Self {
+        let rows = rows.map(move |row| row * stride);
+        #[cfg(feature = "sort")]
+        let rows = rows.map(move |position| at_position(order, position));
+        #[cfg(not(feature = "live"))]
+        let key = |row: u64| row;
+        #[cfg(feature = "live")]
+        let key = |row: u64| versioned(row, versions);
+        #[cfg_attr(not(feature = "format"), expect(unused_mut))]
+        let mut page = Self::of(shape, rows.clone(), key);
+        #[cfg(feature = "format")]
+        {
+            page.threes = rows.map(|row| row.is_multiple_of(4)).collect();
+        }
+        page
+    }
+
     /// `shape`'s rows `rows` (positions of the order, with `sort`).
     #[inline(always)]
     fn read(
@@ -666,6 +691,10 @@ pub struct MemoryRows {
     /// keeps the order it was sent in.
     #[cfg(feature = "sort")]
     sorted: Rc<RefCell<Option<Rc<[u32]>>>>,
+    /// Reads answer every `stride`-th row of the rows (of the order, with
+    /// `sort`): 1, all of them, until a script replaces the rows
+    /// ([`MemoryRows::set_stride`]).
+    stride: Rc<Cell<u64>>,
 }
 
 /// What a [`MemoryRows`] was asked (`follow`, `copy`, `sort`): with
@@ -725,7 +754,21 @@ impl MemoryRows {
             orders: HashMap::new(),
             #[cfg(feature = "sort")]
             sorted: Rc::default(),
+            stride: Rc::new(Cell::new(1)),
         }
+    }
+
+    /// Answers every `stride`-th row (at least 1) from now on: a new source
+    /// of `rows.div_ceil(stride)` rows of `rows`, which the host swaps in
+    /// with `replace_rows` in the same update. Reads out keep the stride
+    /// they were sent with; the table drops them.
+    pub fn set_stride(&mut self, stride: u64) {
+        self.stride.set(stride.max(1));
+    }
+
+    /// The stride in effect ([`MemoryRows::set_stride`]).
+    pub fn stride(&self) -> u64 {
+        self.stride.get()
     }
 
     /// Its read counts (`follow`, `copy`, `sort`).
@@ -744,7 +787,9 @@ impl MemoryRows {
         let versions = self.versions.clone();
         #[cfg(feature = "sort")]
         let sorted = self.sorted.clone();
+        let stride = self.stride.clone();
         move |row, column| {
+            let row = row * stride.get();
             // The row at that position of the order now (`sort`).
             #[cfg(feature = "sort")]
             let row = at_position(sorted.borrow().as_deref(), row);
@@ -779,8 +824,8 @@ impl MemoryRows {
     /// what a script reads a sort's ties by.
     #[cfg(feature = "sort")]
     pub fn source_row(&self) -> impl Fn(u64) -> u64 + 'static {
-        let sorted = self.sorted.clone();
-        move |row| at_position(sorted.borrow().as_deref(), row)
+        let (sorted, stride) = (self.sorted.clone(), self.stride.clone());
+        move |row| at_position(sorted.borrow().as_deref(), row * stride.get())
     }
 
     /// The table's row `row` changed (`live`): a page read from now on
@@ -788,6 +833,7 @@ impl MemoryRows {
     /// read now, so the row bumped is the one there.
     #[cfg(feature = "live")]
     pub fn bump(&mut self, row: u64) {
+        let row = row * self.stride.get();
         #[cfg(feature = "sort")]
         let row = at_position(self.sorted.borrow().as_deref(), row);
         *self.versions.borrow_mut().entry(row).or_default() += 1;
@@ -821,6 +867,7 @@ impl TallTableDelegate for MemoryRows {
         let versions = self.versions.clone();
         #[cfg(feature = "sort")]
         let order = self.sorted.borrow().clone();
+        let stride = self.stride.get();
         let load = async move {
             if let Some(timer) = timer {
                 timer.await;
@@ -829,14 +876,28 @@ impl TallTableDelegate for MemoryRows {
                 return Err(PageError::Cancelled);
             }
             #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
-            let mut page = MemoryPage::new(
-                shape,
-                rows,
-                #[cfg(feature = "live")]
-                &versions.borrow(),
-                #[cfg(feature = "sort")]
-                order.as_deref(),
-            );
+            // Unstrided, the page every perf run measures, built as it
+            // always was: `strided` only once a script replaced the rows.
+            let mut page = if stride == 1 {
+                MemoryPage::new(
+                    shape,
+                    rows,
+                    #[cfg(feature = "live")]
+                    &versions.borrow(),
+                    #[cfg(feature = "sort")]
+                    order.as_deref(),
+                )
+            } else {
+                MemoryPage::strided(
+                    shape,
+                    rows,
+                    stride,
+                    #[cfg(feature = "live")]
+                    &versions.borrow(),
+                    #[cfg(feature = "sort")]
+                    order.as_deref(),
+                )
+            };
             #[cfg(feature = "custom-cells")]
             if cells != Cells::Text {
                 page.paint = Some((cells, shape));

@@ -6,8 +6,10 @@
 //! The page's URL picks the rows: `?shape=narrow` (the default, the
 //! observatory's 11 columns) or `?shape=wide` (500 float columns), and
 //! `?delay=<ms>` holds each page read that long. `?perf` turns on the probes
-//! the scripts read (`__tallTable`, `__tallTableLayout`) and each feature's
-//! script hooks (`host::script_hooks`); `?perf&probe-cells` publishes the
+//! the scripts read (`__tallTable`, `__tallTableLayout`), the base's
+//! `__tallTableReplace(stride, at)` (the source cut to every `stride`-th row
+//! and `replace_rows` called in one update: `host::replace_hook`), and each
+//! feature's script hooks (`host::script_hooks`); `?perf&probe-cells` publishes the
 //! drawn cells too (`__tallTableCells`, for the smoke check: never in a perf
 //! run, whose frames it would slow). Each global and hook is a named
 //! constant in `host.rs` (`*_GLOBAL`, `*_HOOK`) and `rows.rs` (the reads'

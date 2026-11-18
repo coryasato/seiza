@@ -327,9 +327,24 @@ describe('paging.json', () => {
     for (const name of skipped) assert.ok(live.find((scenario) => scenario.name === name).steps.some((step: object) => 'rows' in step), `${name} is skipped without a rows step`);
   });
 
-  test('the tail level runs every scenario but sort’s and those skipped under live', () => {
+  // `replace_rows`' scenarios: no level filters yet, so none runs them
+  // (nor the `replace` control); a level that filters adds `replace` to its steps.
+  const replaces = (scenario: any): boolean => (scenario.steps as any[]).some((step) => 'replace' in step);
+
+  test('no level runs a replace scenario, and they are named', () => {
+    const skipped = (paging.scenarios as any[]).filter(replaces).map((scenario) => scenario.name);
+    assert.deepEqual(skipped, [
+      'a replace reads the new rows from the top',
+      'a replace lands at a row, clamped past the new end, and at the end',
+      'a replace at the end keeps following, at the top lets go',
+      'a replace tells the source its sort again',
+    ]);
+    for (const level of ['base', 'market', 'tail'] satisfies Level[]) assert.ok(!scenariosAt(level).some(replaces), `${level} runs no replace scenario`);
+  });
+
+  test('the tail level runs every scenario but sort’s, replace’s, and those skipped under live', () => {
     const all = paging.scenarios as any[];
-    const expected = all.filter((scenario) => !scenario.features?.includes('sort') && !scenario.without?.includes('live'));
+    const expected = all.filter((scenario) => !scenario.features?.includes('sort') && !scenario.without?.includes('live') && !replaces(scenario));
     assert.deepEqual(
       scenariosAt('tail').map((scenario) => scenario.name),
       expected.map((scenario) => scenario.name),

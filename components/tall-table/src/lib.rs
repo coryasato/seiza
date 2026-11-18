@@ -71,5 +71,7 @@ pub use probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
 pub use selection::{Cell, Selectable, TallTableSelection};
 #[cfg(feature = "sort")]
 pub use sort::{Sort, SortDirection, SortIcons, SortRefused};
-pub use state::{ActivityOptions, Paging, TallTableEvent, TallTableState, TallTableStats, init};
+pub use state::{
+    ActivityOptions, Paging, TallTableEvent, TallTableState, TallTableStats, ViewAt, init,
+};
 pub use tall_table::TallTable;

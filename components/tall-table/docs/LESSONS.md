@@ -720,3 +720,14 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - A rare filter turns it round: its first page is the slow one (the whole file scanned for fewer than a page of matches), and a page read as a range of row numbers spans the whole file. How a filtered Parquet file pages is the engine's own research, not settled by the table's call.
 - The race `sort` rejected leaving to a host is smaller than it looked: the cache already drops every answer to a read sent before a reset, so a late swap can't store a stale page. What's left is a mixed frame between the swap and the call, which one update rules out.
 - Keeping the sort through a reset needs the table to tell the new source, and telling it when the update ends rather than at the call is what makes `set_columns` and `replace_rows` agree in either order. The review of the decisions (Claude Web's) caught the arrow over unsorted rows that leaving it to the host allowed; the code review then found "either order" broken by `set_columns`' own reset when the sort's column is gone, and a refusal that would have reset the view a second time. A spec's promise across two calls is read through each call's existing paths, not only the new one.
+
+## M18: `replace_rows` (part B, 2026-11-18)
+
+**Results:** [`perf/results/2026-11-18-m18-b.md`](../perf/results/2026-11-18-m18-b.md) (the base's size split by build, the random test's controls over seven seeds).
+
+**Surprises:**
+- Deferring `set_columns`' whole reset to the update's end, part A's way to make both orders with `replace_rows` agree, undid whatever a host did after it in the same update (a jump, a selection, a copy). Only following needed the wait; the rest of the reset runs at once. A rule for an order of two calls is also a rule for every call after them.
+- Moving the reset's plan into the reset quietly broke a rule its old caller kept: `sort` planned the reads after emitting `Sorted`, and the shared reset planned them before. GPUI runs effects in order, so where `cx.defer` sits beside `cx.emit` is the order a host's subscriber sees, and the code review read it there.
+- The replaces, placed after every other stream so no case's draw changed, still cost four control catches across seven seeds, and three SHA-512 words cost the default seed one: a step that forgets every page forgets the copy or the stale page a control waits on. The precedent held (another word for the stream); the counts across seeds say what a constant can't.
+- The base build "unchanged without a caller" held to 0.1 KiB, but the bare host's base grew 11.7 KiB: 2 for the call, the rest the host's hook glue and its source's strided path. Reading the call's cost took three builds of the base, not `size`'s one number.
+- A mutation that passes isn't always a missing test: one test checked a grown tail, which a reset that forgets nothing also reports; the other mutation didn't build. Each pass gets read before it's counted.

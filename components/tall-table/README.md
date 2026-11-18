@@ -41,8 +41,9 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 
 **`TallTableState`:**
 
-- `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it; with `select`, selects it instead (below). The highlight stays until the next jump, a sort, or a shrink past its row.
-- `set_rows(rows, cx)`: the source grew (rows still loading) or shrank; the scrollbar follows and short pages reload. A shrink forgets every page wholly past the new end (a read of one cancelled), so rows that come back are read anew, and what's kept by row at or past the new end goes with it: the jump's highlight, the hover and its tooltip, and with `live` and `custom-cells` the flashes (a `Columns` selection's rows: "Selecting", below). With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
+- `jump_to(row, cx)`: scrolls `row` to the top (or as near as the end allows) and highlights it; with `select`, selects it instead (below). The highlight stays until the next jump, a sort, a `replace_rows`, or a shrink past its row.
+- `set_rows(rows, cx)`: the same rows grew (rows still loading) or shrank (other rows are `replace_rows`', below); the scrollbar follows and short pages reload. A shrink forgets every page wholly past the new end (a read of one cancelled), so rows that come back are read anew, and what's kept by row at or past the new end goes with it: the jump's highlight, the hover and its tooltip, and with `live` and `custom-cells` the flashes (a `Columns` selection's rows: "Selecting", below). With `live`, a short last page that grows stays drawn, placeholders past the rows it was read with, and is read again as an invalidated page is; its reads are planned at the end of the update, with its invalidations.
+- `replace_rows(rows, at, cx)`: every row index means another row now (a filter, a query run again, a grouped result): "Replacing the rows", below.
 - `set_columns(columns, cx)`: a column's kind changed (with `sort`, the sort kept while its column keeps its name; with `pin`, the count kept; with `reorder`, the order reset to the list's own: below).
 - `follow(cx)`, `is_following()` (`follow`): below.
 - `column_width(column)` (`resize`): the width a column is drawn at now.
@@ -73,6 +74,30 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `Pinned(columns)` (`pin`): below.
 - `ColumnsMoved { order, pinned }` (`reorder`; `pinned` with `pin`): below.
 - `Clicked(TallTableClick)` (`clicks`): below.
+
+**Replacing the rows** (in the base): a filter, a query run again, or a grouped result changes which row every index means. `replace_rows(rows, at, cx)` says so: every page is forgotten and its read cancelled (an answer to one is dropped, whatever it holds), the view lands at `at`, and the new rows' reads start once the update ends. No event of its own: the host made the call.
+
+```rust
+// The new source kept aside until its count is known, then swapped and
+// replaced in one update: no frame draws between the two.
+let filtered = source.filter(predicate);
+cx.spawn(async move |this, cx| {
+    let rows = filtered.count().await;
+    this.update(cx, |table, cx| {
+        *table.delegate_mut() = filtered;
+        table.replace_rows(rows, ViewAt::Top, cx);
+    })
+});
+```
+
+- **Swap the source in the same update.** Swapped an update earlier, a frame can draw the new source's rows beside pages of the old one. The old rows stay drawn until the call; saying a filter is pending is the host's.
+- **The target** (`ViewAt`): `Top`; `Row(r)`, the view's top at row `r` as `jump_to` puts it but with no highlight and no selection (a host keeping the reader's place); `End`, the last rows. `#[non_exhaustive]`.
+- **What goes:** the hover and its tooltip, the jump's highlight, with `live` the invalidations (a `Refreshed` awaited for one never comes, since the new rows' first reads emit none: mark the replace's next `Filled` instead) and with `custom-cells` the flashes; with `select` a `Rows` or `Cells` range (`Selected(None)`), while a `Columns` range keeps its columns, its rows at row 0, the named row (clamped to the rows), or the last row, as a shrink moves them; with `copy` a copy running (`Failed(Cancelled)`); with `follow` the drawn tail. `End` leaves following as it was, and the other targets let it go unless every row fits. **What stays:** the sideways scroll, everything held by column (widths, order, pinned count, groups), and the sort.
+- **The sort** (`sort`): the new source is told the sort in effect again, once the update ends and before any read. A refusal clears the sort (the source told none) with the view where it landed: `Sorted` with no keys, then `SortRefused`. A later `set_sort` in the same update tells it instead and puts the view at the top. A sort is kept by its column's name, so it may name a same-named column of another result: clear it for a clean slate.
+- **New columns:** `set_columns` in the same update, before or after; either order ends the same, a sort whose column is gone cleared once, the view at the target.
+- **The count is exact:** a host calls once the count is known. Correcting it with `set_rows` afterwards works, but the scrollbar jumps when it lands.
+- **Unlike `DataTable`'s `refresh`,** a selected row's index isn't kept: it would be another row.
+- **One plan per update,** for every `replace_rows`, `set_columns`, and `set_sort` in it (with `live`, `set_rows` too; without it, `set_rows` reads at its call, so a count corrected in the same update is read twice over); during a scrollbar drag, once its pointer rests. On a closed table the count and the view follow, and nothing is read, cancelled, or told.
 
 **Paint** (`custom-cells`, off by default): a heat map, data bars, or colored values. A page answers a `CellPaint` for a cell next to its value, three 0..1 values; the column says what turns each into pixels. A host maps each value through its whole column's range with a `Domain`:
 
@@ -121,7 +146,7 @@ TallTableEvent::Refreshed { rows, generation } => { /* … */ }
 - **Stale pages nobody wants are dropped:** scrolled back to, the page loads as any other does. A re-read of a page that leaves the wanted pages is cancelled.
 - **A failed re-read keeps the old rows drawn,** and is read again at the next invalidation of its rows or `retry_failed`; a `read_failure` still emits `ReadFailed`.
 - **`Refreshed`** is emitted in the render of the first frame that draws a re-read page, if its rows are visible then (none for a page re-read off screen, then or when scrolled to), with the generation its read started at: every invalidation up to it is drawn. Like `Filled`, a mark set right after the subscriber's task lands right after that frame. Rows whose page isn't loaded or loading change nothing: their first read reads them as they are, and emits no `Refreshed`.
-- **The row count is `set_rows`' job:** a query run again with a new count is `set_rows`, then `invalidate_rows(0..rows)`.
+- **The row count is `set_rows`' job, other rows `replace_rows`':** the same rows with new values and a new count are `set_rows`, then `invalidate_rows(0..rows)`, redrawn in place; a query whose rows are others (a filter) is `replace_rows`, which forgets every page.
 - **Patching pages in place isn't a feature:** a host whose pages share storage it changes can call `cx.notify()` on the table, which keeps no cell cache, and needs no feature for it. It gets no flash: the table never sees the old value.
 
 **A flash** (`live` with `custom-cells`): a column can flash the cells a re-read changed, as a market watch's prices do.

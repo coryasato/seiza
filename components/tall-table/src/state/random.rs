@@ -48,7 +48,7 @@ use gpui_kit::{
     div, point, px, size,
 };
 
-use super::{Drag, Paging, TallTableEvent, TallTableState, row_height};
+use super::{Drag, Paging, TallTableEvent, TallTableState, ViewAt, row_height};
 use crate::column::{ColumnKind, TallTableColumn};
 use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 use crate::pages::{RowState, Sent};
@@ -183,6 +183,10 @@ struct Books {
     /// The columns whose sort it refuses (`sort`), by bit (`column % 8`).
     #[cfg(feature = "sort")]
     refused: u8,
+    /// The sort it was last told and accepted (`sort`); a new source (a
+    /// replace) has been told none.
+    #[cfg(feature = "sort")]
+    told: Option<crate::Sort>,
     /// The table's calls that broke the delegate's contract.
     faults: Vec<String>,
 }
@@ -301,6 +305,7 @@ impl TallTableDelegate for Source {
         for stamp in &mut books.stamps {
             stamp.era += 1;
         }
+        books.told = sort;
         Ok(())
     }
 }
@@ -430,6 +435,10 @@ enum Step {
     Up {
         right: bool,
     },
+    /// `replace_rows`, placed, never drawn ([`with_replaces`]): the source
+    /// swapped for its rows permuted, every row's era new, and a count and
+    /// a target from the number ([`Run::replace`]).
+    Replace(u64),
     Close,
     /// An open read (`k % open`) answered: with its page, failed, or
     /// failed as broken (`how`); a cancelled one with its page or
@@ -698,7 +707,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 18] = [
+const INVARIANTS: [&str; 20] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -717,6 +726,8 @@ const INVARIANTS: [&str; 18] = [
     "a point in a drawn column hits it",
     "nothing kept by row outlives its row",
     "the last event is the state",
+    "a replace lands where it was asked",
+    "the source reads in the table's sort",
 ];
 
 /// A zone a press lands in.
@@ -847,6 +858,9 @@ enum Control {
     Select(super::select::Control),
     /// The jump's mark kept by a shrink past its row.
     MarkKept,
+    /// A replace that doesn't tell the new source the sort (`sort`).
+    #[cfg(feature = "sort")]
+    Untold,
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -994,6 +1008,8 @@ impl Run {
                 #[cfg(feature = "select")]
                 Some(Control::Select(control)) => table.selection_state.control = control,
                 Some(Control::MarkKept) => table.keep_mark = true,
+                #[cfg(feature = "sort")]
+                Some(Control::Untold) => table.sort_state.untold = true,
                 None => {}
             }
             #[cfg(feature = "copy")]
@@ -1165,6 +1181,144 @@ impl Run {
         }
         self.most_rows = self.most_rows.max(rows);
         self.update(|table, cx| table.set_rows(rows, cx));
+    }
+
+    /// `replace_rows` from `pick`: a count (none, one that fits, the same,
+    /// or up to 40 pages), a target (the top, the end, a row in the new
+    /// count, or one past it), and the source's rows permuted with every
+    /// era new, swapped in the call's update. Checked at the step: the view
+    /// at its target, the count, what's kept by row cleared, following
+    /// kept only at the end (19), and the new source told the table's sort
+    /// (20).
+    fn replace(&mut self, pick: u64) -> Checked {
+        let page_rows = self.paging.page_rows;
+        let rows = match pick % 8 {
+            0 => 0,
+            1 => (pick >> 3) % (VIEWPORT_ROWS as u64 + 1),
+            2 => self.rows(),
+            _ => (pick >> 3) % (40 * page_rows + 1),
+        }
+        .min(MAX_PAGES * page_rows);
+        let at = match (pick >> 32) % 4 {
+            0 => ViewAt::Top,
+            1 => ViewAt::End,
+            2 => ViewAt::Row((pick >> 34) % rows.max(1)),
+            _ => ViewAt::Row(rows + (pick >> 34) % 64),
+        };
+        {
+            let mut books = self.books.borrow_mut();
+            let len = books.stamps.len().max(rows as usize);
+            books.stamps.resize(len, Stamp::default());
+            let era = books
+                .stamps
+                .iter()
+                .map(|stamp| stamp.era)
+                .max()
+                .unwrap_or(0)
+                + 1;
+            let mut state = pick >> 40;
+            for at in (1..len).rev() {
+                state = state
+                    .wrapping_mul(6_364_136_223_846_793_005)
+                    .wrapping_add(1_442_695_040_888_963_407);
+                books
+                    .stamps
+                    .swap(at, ((state >> 33) % (at as u64 + 1)) as usize);
+            }
+            for stamp in &mut books.stamps {
+                stamp.era = era;
+            }
+            books.rows = rows;
+            #[cfg(feature = "sort")]
+            {
+                books.told = None;
+            }
+        }
+        self.most_rows = self.most_rows.max(rows);
+        let following_before = self.read(following);
+        #[cfg(feature = "select")]
+        let selected = self.read(|table| table.selection());
+        self.update(|table, cx| table.replace_rows(rows, at, cx));
+        #[cfg(feature = "sort")]
+        let closed = self.closed_at.is_some();
+        self.read(|table| {
+            if table.rows() != rows {
+                return Err(Violation::new(
+                    19,
+                    format!("{} rows after replacing with {rows}", table.rows()),
+                ));
+            }
+            let max_top = table.scroll.max_top();
+            let top = match at {
+                ViewAt::Top => 0.0,
+                ViewAt::Row(row) => (row as f64).min(max_top),
+                ViewAt::End => max_top,
+            };
+            if table.scroll.top() != top {
+                return Err(Violation::new(
+                    19,
+                    format!(
+                        "{at:?} of {rows} rows: the top at {}, not {top}",
+                        table.scroll.top()
+                    ),
+                ));
+            }
+            let kept = at == ViewAt::End || max_top <= 0.0;
+            if following(table) != (following_before && kept) {
+                return Err(Violation::new(
+                    19,
+                    format!(
+                        "{at:?}: following {} (it was {following_before})",
+                        following(table)
+                    ),
+                ));
+            }
+            if table.hover.is_some() || table.marked.is_some() {
+                return Err(Violation::new(19, "the hover or the jump's mark kept"));
+            }
+            #[cfg(all(feature = "live", feature = "custom-cells"))]
+            if let Some(row) = table.flashes.past(0) {
+                return Err(Violation::new(19, format!("row {row} still flashing")));
+            }
+            #[cfg(feature = "select")]
+            {
+                let landing = match at {
+                    ViewAt::Top => 0,
+                    ViewAt::Row(row) => row.min(rows.saturating_sub(1)),
+                    ViewAt::End => rows.saturating_sub(1),
+                };
+                let expected = selected
+                    .filter(|selection| selection.kind() == Kind::Columns)
+                    .map(|selection| {
+                        TallTableSelection::new(
+                            Kind::Columns,
+                            (landing, selection.anchor().1),
+                            (landing, selection.head().1),
+                        )
+                    });
+                if table.selection() != expected {
+                    return Err(Violation::new(
+                        19,
+                        format!(
+                            "{selected:?} became {:?}, not {expected:?}",
+                            table.selection()
+                        ),
+                    ));
+                }
+            }
+            #[cfg(feature = "sort")]
+            if !closed && self.books.borrow().told != table.sort().first().copied() {
+                return Err(Violation::new(
+                    20,
+                    format!(
+                        "the new source was told {:?}, the table's sort is {:?}",
+                        self.books.borrow().told,
+                        table.sort()
+                    ),
+                ));
+            }
+            Ok(())
+        })
     }
 
     /// The runs of the drawn order, each its columns' indices, worked out
@@ -2144,6 +2298,7 @@ impl Run {
             Step::Drag { dx, dy, up } => self.pointer_move(dx, dy, up)?,
             Step::PointerWheel { rows, sideways } => self.pointer_wheel(rows, sideways),
             Step::Up { right } => self.pointer_up(right)?,
+            Step::Replace(pick) => self.replace(pick)?,
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -2825,12 +2980,6 @@ fn with_pins(seed: u64, steps: &mut Vec<Step>) {
 
 /// Up to eight of `step`'s, each from a number at a place among `steps`,
 /// both from `seed`: never drawn ([`with_pins`]).
-#[cfg(any(
-    feature = "pin",
-    feature = "density",
-    feature = "follow",
-    feature = "reorder"
-))]
 fn place_steps(seed: u64, steps: &mut Vec<Step>, step: fn(u64) -> Step) {
     // SplitMix64.
     let mut state = seed;
@@ -2845,6 +2994,17 @@ fn place_steps(seed: u64, steps: &mut Vec<Step>, step: fn(u64) -> Step) {
         let (at, pick) = (next(), next());
         steps.insert(at as usize % (steps.len() + 1), step(pick));
     }
+}
+
+/// `replace_rows`' steps, up to eight, placed as `pin`'s are
+/// ([`with_pins`]), from the scheduler seed by a stream of their own, in
+/// every build; placed last, so every other step's place stays what it was.
+/// Its constant is SHA-512's seventh word: with the third, fourth, or
+/// sixth, the default seed's one case that catches the cache's
+/// `HoldingWithoutEnd` control lost the copy it needs to a placed replace,
+/// and with the fifth `pin`'s `HitIgnoresRun` passed every case.
+fn with_replaces(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed ^ 0x1f83_d9ab_fb41_bd6b, steps, Step::Replace);
 }
 
 /// `density`'s steps' row heights and text sizes: the default, the bare
@@ -2987,7 +3147,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
         .run(&(any::<u64>(), case()), |(seed, case)| {
             // `pin`'s, `density`'s, `let_go`'s, and `reorder`'s steps, each
             // from a stream of its own, so the places of the ones before
-            // stay what they were; the gestures last.
+            // stay what they were; then the gestures, and `replace_rows`'
+            // last.
             let case = {
                 let mut case = case;
                 #[cfg(feature = "pin")]
@@ -3003,6 +3164,7 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 #[cfg(all(feature = "group-headers", feature = "reorder"))]
                 with_header_drags(seed, &mut case.steps);
                 with_gestures(seed, &mut case.steps);
+                with_replaces(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
@@ -3479,19 +3641,26 @@ mod controls {
         fails(Control::Cache(Cache::ShrinkUnclamped), &[5]);
     }
 
-    /// A sort that keeps the cache's pages: the old order's rows drawn.
-    #[cfg(feature = "sort")]
+    /// A reset (a replace, a sort) that keeps the cache's pages: the old
+    /// rows drawn, or copied.
     #[test]
-    fn a_sort_keeps_the_pages() {
-        fails(Control::Cache(Cache::SortKeepsPages), &[5]);
+    fn a_reset_keeps_the_pages() {
+        fails(Control::Cache(Cache::ResetKeepsPages), &[5, 7]);
     }
 
-    /// A sort that forgets the loaded pages but leaves the reads out in
-    /// their slots: their answers, of the old order, drawn.
+    /// A reset that forgets the loaded pages but leaves the reads out in
+    /// their slots: their answers, of the old rows, drawn or copied.
+    #[test]
+    fn a_reset_keeps_the_reads() {
+        fails(Control::Cache(Cache::ResetKeepsReads), &[5, 7]);
+    }
+
+    /// A replace that doesn't tell the new source the sort: it reads in its
+    /// own order under the table's arrow.
     #[cfg(feature = "sort")]
     #[test]
-    fn a_sort_keeps_the_reads() {
-        fails(Control::Cache(Cache::SortKeepsReads), &[5]);
+    fn a_replace_leaves_the_sort_untold() {
+        fails(Control::Untold, &[20]);
     }
 
     /// The shrink's old rule: the pages past the new end kept.

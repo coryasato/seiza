@@ -23,6 +23,7 @@ use crate::probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
 use crate::scroll::{self, RowScroll};
 #[cfg(feature = "follow")]
 use follow::Reach;
+pub use replace::ViewAt;
 
 actions!(
     seiza_tall_table,
@@ -592,15 +593,18 @@ pub enum TallTableEvent {
     Copy(crate::copy::TallTableCopy),
     /// The rows are read in this order from now on (`sort`), its keys as
     /// [`TallTableState::sort`] returns them (none: the source's own): a
-    /// click or `set_sort` the source accepted, or `set_columns` clearing
-    /// a sort whose column is gone (whatever the source answers). Every
+    /// click or `set_sort` the source accepted, `set_columns` clearing a
+    /// sort whose column is gone (whatever the source answers), or the sort
+    /// told again after [`TallTableState::replace_rows`] refused. Every
     /// page is forgotten and read again. The same sort again emits it too
     /// (a host whose rows moved within the order), so it marks a re-read,
     /// not only a new order.
     #[cfg(feature = "sort")]
     Sorted(Vec<crate::sort::Sort>),
-    /// A click's sort the source refused (`sort`), the keys it asked for;
-    /// the order is as it was.
+    /// A sort the source refused (`sort`), the keys asked for: a click's,
+    /// the order as it was; or the sort told again after
+    /// [`TallTableState::replace_rows`], cleared (after `Sorted` with no
+    /// keys).
     #[cfg(feature = "sort")]
     SortRefused(Vec<crate::sort::Sort>, crate::sort::SortRefused),
     /// The columns pinned in effect changed (`pin`): by
@@ -716,6 +720,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// Resets `direction` to still once the rows stop moving
     /// ([`Paging::scroll_settle`]).
     scroll_settle: Option<Task<()>>,
+    /// A reset's reads (`replace_rows`, a sort) are waiting for the end of
+    /// the update that made it.
+    reset_deferred: bool,
     pub(crate) focus_handle: FocusHandle,
     /// Whether the last frame had every visible row loaded.
     filled: bool,
@@ -843,6 +850,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             #[cfg(feature = "live")]
             load_deferred: false,
             scroll_settle: None,
+            reset_deferred: false,
             focus_handle: cx.focus_handle(),
             filled: false,
             first_fill_pending: true,
@@ -918,9 +926,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The rows' source, to change it. The table isn't told: a change to
-    /// what its rows hold is followed by the call that says so
-    /// ([`TallTableState::set_rows`], and with `live`
-    /// `TallTableState::invalidate_rows`).
+    /// what its rows hold is followed, in the same update, by the call that
+    /// says so ([`TallTableState::set_rows`] for the same rows grown or
+    /// cut, [`TallTableState::replace_rows`] for other rows, and with
+    /// `live` `TallTableState::invalidate_rows` for new values).
     pub fn delegate_mut(&mut self) -> &mut D {
         &mut self.delegate
     }
@@ -962,9 +971,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx.notify();
     }
 
-    /// The delegate holds `rows` rows now (a source that grows while it
-    /// loads, or a query run again): the scrollbar follows, and pages that
-    /// were short or missing load. A shrink forgets every page wholly past
+    /// The delegate holds `rows` rows now, the same rows grown or cut (a
+    /// source that grows while it loads, a log's tail): the scrollbar
+    /// follows, and pages that were short or missing load. Rows that are
+    /// others now (a filter, a query run again) are
+    /// [`TallTableState::replace_rows`]': this keeps the pages loaded under
+    /// their indices. A shrink forgets every page wholly past
     /// the new end, cancelling the reads out for them (each through
     /// [`TallTableDelegate::cancel`], in page order), so rows that come back
     /// are read anew. On a closed table ([`TallTableState::close`]) only the
@@ -1092,7 +1104,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// With `sort`, the sort stays if the column at its index (in
     /// `columns`) has the name it had and is sortable; otherwise it's
     /// cleared as `set_sort` with no keys would (a host that moved the sorted
-    /// column in its list calls `set_sort` with its new index).
+    /// column in its list calls `set_sort` with its new index), but for
+    /// following (`follow`): let go once the update ends, unless a later
+    /// call in it decided following (`replace_rows` with `ViewAt::End`
+    /// keeps it), so `Following(false)` comes after `Sorted`.
     ///
     /// With `reorder`, the order is the list's own (each place its index):
     /// a host keeping an order calls `set_order` after.
@@ -1492,6 +1507,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     fn load_wanted(&mut self, wanted: &[u64], cx: &mut Context<Self>) {
         if self.closed {
+            return;
+        }
+        // The source is told its sort first, or the view resets, once the
+        // update ends (`sort`): that plans the reads.
+        #[cfg(feature = "sort")]
+        if self.sort_holds_reads() {
             return;
         }
         let visible = self.cache.visible_pages(self.scroll.visible());
@@ -3217,6 +3238,9 @@ mod cells_text_tests;
 /// module, so it reads the cache's books and drives the state's own paths.
 #[cfg(test)]
 mod random;
+
+/// `replace_rows`, and the reset it shares with `sort`.
+mod replace;
 
 /// `follow`: the flag, the pin, and the tail drawn.
 #[cfg(feature = "follow")]

@@ -47,6 +47,18 @@ enum Slot<T, R> {
     Failed(String),
 }
 
+impl<T, R> Slot<T, R> {
+    /// A read of it is out: its first, or with `live` a re-read.
+    fn holds_read(&self) -> bool {
+        match self {
+            Slot::Loading { .. } => true,
+            #[cfg(feature = "live")]
+            Slot::Loaded { live, .. } => live.reading.is_some(),
+            _ => false,
+        }
+    }
+}
+
 /// A loaded page's re-reads (`live`).
 #[cfg(feature = "live")]
 #[derive(Debug)]
@@ -204,14 +216,13 @@ pub(crate) enum Control {
     /// A shrink into a page that stays leaves its end as it was.
     #[cfg(feature = "live")]
     ShrinkUnclamped,
-    /// `sort`'s: a sort keeps every page (the paging fixture's and the
-    /// random test's).
-    #[cfg(feature = "sort")]
-    SortKeepsPages,
-    /// A sort forgets the loaded pages but leaves the reads out in their
-    /// slots (the random test's).
-    #[cfg(feature = "sort")]
-    SortKeepsReads,
+    /// The reset's (`replace_rows`, a sort): it keeps every page (the
+    /// paging fixture's `replace` and `sort` controls, and the random
+    /// test's).
+    ResetKeepsPages,
+    /// The reset forgets the loaded pages but leaves the reads out in
+    /// their slots (the random test's).
+    ResetKeepsReads,
 }
 
 /// Outside the tests, no control.
@@ -487,23 +498,22 @@ impl<T, R: Copy + PartialEq> PageCache<T, R> {
         }
     }
 
-    /// Forgets every page (`sort`: each index means another row now), as a
-    /// shrink forgets the pages past its end: a loaded one's bytes freed,
+    /// Forgets every page (the reset: each index means another row now), as
+    /// a shrink forgets the pages past its end: a loaded one's bytes freed,
     /// every read out for one moved to `draining` and returned to cancel,
-    /// in page order. An answer to one is dropped, whatever it holds.
-    #[cfg(feature = "sort")]
-    pub(crate) fn forget_all(&mut self) -> Vec<R> {
+    /// in page order. An answer to one is dropped, whatever it holds. With
+    /// `keep_reads` (a closed table, whose reads `close` cancelled and whose
+    /// places it never frees), a page with a read out is left as it is.
+    pub(crate) fn forget_all(&mut self, keep_reads: bool) -> Vec<R> {
         #[cfg(test)]
         let keep_reads = match self.control {
-            Control::SortKeepsPages => return Vec::new(),
-            control => control == Control::SortKeepsReads,
+            Control::ResetKeepsPages => return Vec::new(),
+            control => keep_reads || control == Control::ResetKeepsReads,
         };
-        #[cfg(not(test))]
-        let keep_reads = false;
         let mut pages: Vec<u64> = self
             .slots
             .iter()
-            .filter(|(_, slot)| !(keep_reads && matches!(slot, Slot::Loading { .. })))
+            .filter(|(_, slot)| !(keep_reads && slot.holds_read()))
             .map(|(page, _)| *page)
             .collect();
         pages.sort_unstable();

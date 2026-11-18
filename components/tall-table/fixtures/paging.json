@@ -28,7 +28,8 @@
     { "name": "pin the view to the rows, not the loaded tail", "follow": "pin-to-rows" },
     { "name": "plan the visible pages top first while following", "follow": "top-first" },
     { "name": "move the view to the end when the host lets go", "follow": "let-go-to-end" },
-    { "name": "keep the pages through a sort", "sort": "keep-pages" }
+    { "name": "keep the pages through a sort", "sort": "keep-pages" },
+    { "name": "keep the pages through a replace", "replace": "keep-pages" }
   ],
   "scenarios": [
     {
@@ -522,6 +523,74 @@
         { "sort": { "column": 0, "direction": "descending" }, "expect": ["sort 0 descending", "load 0"], "why": "The same sort again re-reads every row: the pages are forgotten, and the top page read once the step's update ends." },
         { "answer": "all", "expect": ["load 1", "load 2"] },
         { "sort": null, "expect": ["sort none", "load 0"], "why": "Back to the source's own order, the same way." },
+        { "answer": "all", "expect": ["load 1", "load 2"] }
+      ]
+    },
+    {
+      "name": "a replace reads the new rows from the top",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "scroll": 1000, "expect": ["load 3", "load 4", "load 5"], "why": "As in the first scenario: rows 1000..1028, leaning ahead." },
+        { "replace": { "rows": 500000, "at": "top" }, "expect": ["cancel 3", "cancel 4", "cancel 5"], "why": "Other rows now: every page is forgotten and every read out cancelled, one decision. The view goes to the top, but the cancelled reads hold every place until they answer." },
+        { "answer": [3], "expect": ["load 0"], "why": "A place is free: the new rows' top page. Page 3's answer is dropped (it answers as cancelled here; a page would be dropped too)." },
+        { "answer": [4], "expect": [], "why": "No prefetch while the visible page loads." },
+        { "answer": [0], "expect": ["load 1", "load 2"], "why": "A replace isn't a scroll, so prefetch doesn't lean: pages 1 and 2, the two places page 5's draining read leaves." },
+        { "answer": [5], "expect": [], "why": "The last cancelled read answers: nothing more is wanted." },
+        { "answer": "all", "expect": [] }
+      ]
+    },
+    {
+      "name": "a replace lands at a row, clamped past the new end, and at the end",
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "replace": { "rows": 100000, "at": 50000 }, "expect": ["load 48"], "bottom": 50028, "why": "No read is out: the loaded pages are forgotten, nothing cancelled. The view's top at row 50000: rows 50000..50028, page 48." },
+        { "answer": "all", "expect": ["load 49", "load 47", "load 50", "load 46"], "why": "Resting: prefetch 2 each side, nearest first; three places, the fourth once one answers." },
+        { "replace": { "rows": 3000, "at": 2990 }, "expect": ["load 2"], "bottom": 3000, "why": "Row 2990 can't reach the top of 3000 rows: the view lands at the end, rows 2972..3000, all page 2." },
+        { "answer": "all", "expect": ["load 1", "load 0"], "why": "Prefetch above the last page, nearest first." },
+        { "replace": { "rows": 10000, "at": "end" }, "expect": ["load 9"], "bottom": 10000, "why": "The last rows, 9972..10000: page 9 (rows 9216..10000)." },
+        { "answer": "all", "expect": ["load 8", "load 7"], "why": "Without following, the end is a landing like any other: prefetch above, nearest first." }
+      ]
+    },
+    {
+      "name": "a replace at the end keeps following, at the top lets go",
+      "features": ["follow"],
+      "rows": 2060,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "follow": true, "expect": ["load 2", "load 1"], "following": true, "bottom": 2060 },
+        { "answer": "all", "expect": [] },
+        { "replace": { "rows": 3100, "at": "end" }, "expect": ["load 3"], "following": true, "bottom": 3100, "why": "The end keeps following as it was: the last rows, 3072..3100, page 3." },
+        { "answer": "all", "expect": ["load 2", "load 1"], "following": true, "bottom": 3100, "why": "Prefetch above the last page; the view stays at the loaded tail." },
+        { "replace": { "rows": 3100, "at": "top" }, "expect": ["load 0"], "following": false, "bottom": 28, "why": "Any other target lets go (not every row fits)." },
+        { "answer": "all", "expect": ["load 1", "load 2"], "following": false, "bottom": 28 }
+      ]
+    },
+    {
+      "name": "a replace tells the source its sort again",
+      "features": ["sort"],
+      "rows": 1567523,
+      "viewport_rows": 27.5,
+      "page_bytes": 131072,
+      "steps": [
+        { "open": true, "expect": ["load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "sort": { "column": 0, "direction": "descending" }, "expect": ["sort 0 descending", "load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "replace": { "rows": 40000, "at": "top" }, "expect": ["sort 0 descending", "load 0"], "why": "The new source is told the sort in effect once the step's update ends, before any read." },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "sort": null, "expect": ["sort none", "load 0"] },
+        { "answer": "all", "expect": ["load 1", "load 2"] },
+        { "replace": { "rows": 50000, "at": "top" }, "expect": ["load 0"], "why": "No sort in effect: the source is told nothing." },
         { "answer": "all", "expect": ["load 1", "load 2"] }
       ]
     }

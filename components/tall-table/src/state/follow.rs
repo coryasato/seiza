@@ -80,6 +80,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// at the end emits `TailDrawn` again, grown or not: a host's "back to
     /// the tail" sees it land on a source that stopped growing.
     fn set_following(&mut self, following: bool, cx: &mut Context<Self>) {
+        // Decided now: `set_columns`' reset no longer lets it go (`sort`).
+        #[cfg(feature = "sort")]
+        {
+            self.sort_state.lets_go = false;
+        }
         if std::mem::replace(&mut self.following, following) != following {
             if following {
                 self.tail_drawn = 0;
@@ -116,14 +121,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.set_following(following, cx);
     }
 
-    /// A sort put the view at the top (`sort`): following lets go, unless
-    /// every row fits, and the tail drawn is forgotten (its rows are others
-    /// now).
-    #[cfg(feature = "sort")]
-    pub(super) fn sort_lets_go(&mut self, cx: &mut Context<Self>) {
+    /// The reset moved the view (`replace_rows`, a sort): following is
+    /// `kept` as it was (the view at the end) or lets go, unless every row
+    /// fits; the tail drawn is forgotten (its rows are others now).
+    pub(super) fn reset_following(&mut self, kept: bool, cx: &mut Context<Self>) {
         self.tail_drawn = 0;
         let fits = self.scroll.max_top() <= 0.0;
-        self.set_following(self.following && fits, cx);
+        self.set_following(self.following && (kept || fits), cx);
     }
 
     /// While following, moves the view down to the loaded tail: its bottom

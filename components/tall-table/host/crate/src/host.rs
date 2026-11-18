@@ -159,6 +159,14 @@ const MOVE_HOOK: &str = "__tallTableMove";
 const ORDER_HOOK: &str = "__tallTableOrder";
 #[cfg(all(feature = "clicks", target_family = "wasm"))]
 const CTRL_CONTEXT_HOOK: &str = "__tallTableCtrlContext";
+/// `__tallTableReplace(stride, at)`, in every build with `?perf`: the
+/// source swapped for every `stride`-th row of its rows (1: all of them;
+/// of the order, with `sort`) and the table's `replace_rows` called with
+/// the new count, in one update, the view at `at` (`"top"`, `"end"`, or a
+/// row). `false`, and nothing sent, for a stride that isn't a whole number
+/// from 1, or an `at` that isn't one of those. [`replace_hook`].
+#[cfg(target_family = "wasm")]
+const REPLACE_HOOK: &str = "__tallTableReplace";
 /// The setting [`CTRL_CONTEXT_HOOK`] last set, once the table has it.
 #[cfg(all(feature = "clicks", target_family = "wasm"))]
 const CTRL_CONTEXT_GLOBAL: &str = "__tallTableCtrlContextOn";
@@ -446,6 +454,10 @@ impl Host {
             };
             script_hooks(source, window, cx);
         }
+        #[cfg(target_family = "wasm")]
+        if probing {
+            replace_hook(window, cx);
+        }
         // A jump's highlight over painted cells, for its screenshot.
         #[cfg(all(feature = "custom-cells", target_family = "wasm"))]
         if let Some(row) = seiza::url::param("jump").and_then(|row| row.parse().ok()) {
@@ -678,6 +690,57 @@ impl Density {
             })
             .collect()
     }
+}
+
+/// Publishes [`REPLACE_HOOK`]: in the base, so its `size` measures
+/// `replace_rows`. The source's rows are the table's count at a call while
+/// it's unstrided (the tail feed's grown ones among them), kept through a
+/// strided source (rows the feed adds to one aren't counted). It enters
+/// GPUI through its foreground executor, so it's happened by the next
+/// turn.
+#[cfg(target_family = "wasm")]
+fn replace_hook(window: &mut Window, cx: &mut Context<Host>) {
+    use seiza_tall_table::ViewAt;
+    use wasm_bindgen::closure::Closure;
+
+    let (app, host, handle) = (cx.to_async(), cx.weak_entity(), window.window_handle());
+    // The source's own rows, taken while it's unstrided: a strided count
+    // times its stride would overshoot by up to the stride.
+    let unstrided = std::rc::Rc::new(std::cell::Cell::new(0u64));
+    let hook = Closure::<dyn Fn(f64, wasm_bindgen::JsValue) -> bool>::new(
+        move |stride: f64, at: wasm_bindgen::JsValue| {
+            let whole = |number: f64| number.fract() == 0.0 && (0.0..=9e15).contains(&number);
+            if !whole(stride) || stride < 1.0 {
+                return false;
+            }
+            let at = match (at.as_string().as_deref(), at.as_f64()) {
+                (Some("top"), _) => ViewAt::Top,
+                (Some("end"), _) => ViewAt::End,
+                (None, Some(row)) if whole(row) => ViewAt::Row(row as u64),
+                _ => return false,
+            };
+            let stride = stride as u64;
+            let (mut cx, host, unstrided) = (app.clone(), host.clone(), unstrided.clone());
+            app.foreground_executor()
+                .spawn(async move {
+                    let _ = cx.update_window(handle, |_, _, cx| {
+                        host.update(cx, |host, cx| {
+                            host.table.update(cx, |table, cx| {
+                                if table.delegate().stride() == 1 {
+                                    unstrided.set(table.rows());
+                                }
+                                let rows = unstrided.get();
+                                table.delegate_mut().set_stride(stride);
+                                table.replace_rows(rows.div_ceil(stride), at, cx);
+                            })
+                        })
+                    });
+                })
+                .detach();
+            true
+        },
+    );
+    tall_table_bridge::js::set_global(REPLACE_HOOK, &hook.into_js_value());
 }
 
 /// What the scripts' hooks read of the source (with `copy` or `sort`

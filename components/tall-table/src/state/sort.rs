@@ -14,7 +14,7 @@ use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use super::{Direction, TallTableEvent, TallTableState};
+use super::{TallTableEvent, TallTableState, ViewAt};
 use crate::column::{LaidOutColumn, Sizes};
 use crate::delegate::TallTableDelegate;
 use crate::sort::{self as order, Sort, SortDirection, SortIcons, SortRefused};
@@ -62,8 +62,20 @@ pub(crate) struct SortState {
     /// its column's index, as the sort is (with `reorder`, not its place).
     pub(super) pressed: Option<usize>,
     hovered: Option<usize>,
-    /// A sort's reads are waiting for the end of the update that made it.
-    load_deferred: bool,
+    /// The source is told the sort again once the update ends: a
+    /// `replace_rows` in it, and no call has told it since.
+    pub(super) tell: bool,
+    /// `set_columns` cleared a sort whose column is gone (`follow`): its
+    /// reset lets following go at the update's end, unless a later call
+    /// decided following first (a `replace_rows`, a jump, `follow`).
+    #[cfg(feature = "follow")]
+    pub(super) lets_go: bool,
+    /// A `replace_rows` came in the update.
+    replaced: bool,
+    /// The random test's control: a replace that doesn't tell the source
+    /// the sort.
+    #[cfg(test)]
+    pub(crate) untold: bool,
     /// What the last frame drew of the arrows, for the tests.
     #[cfg(test)]
     pub(crate) drawn: Vec<DrawnArrow>,
@@ -213,50 +225,67 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    /// The source accepted `sort`: every page forgotten and its read
-    /// cancelled, the view at the top (the sideways scroll kept), what's
-    /// kept by index cleared, `Sorted` emitted, and the new order's reads
-    /// planned once the update ends.
+    /// The source accepted `sort`: the reset (`reset_rows`, the view at the
+    /// top), `Sorted`, and the reads planned once the update ends, after
+    /// subscribers hear it. The source has heard the sort in effect: a
+    /// pending tell goes.
     fn apply_sort(&mut self, sort: Option<Sort>, cx: &mut Context<Self>) {
         self.sort_state.current = sort;
         self.sort_state.pressed = None;
-        #[cfg(feature = "copy")]
-        self.cancel_copy(cx);
-        // A closed table cancelled every read at `close`.
-        if !self.closed {
-            for request in self.cache.forget_all() {
-                self.delegate.cancel(request, cx);
-            }
-        }
-        #[cfg(all(feature = "live", feature = "custom-cells"))]
-        self.flashes.clear();
-        self.hover = None;
-        self.marked = None;
-        #[cfg(feature = "select")]
-        self.sort_selection(cx);
-        self.scroll.set_top(0.0);
-        self.direction = Direction::Still;
-        self.scroll_settle = None;
-        #[cfg(feature = "follow")]
-        self.sort_lets_go(cx);
+        self.sort_state.tell = false;
+        self.reset_rows(ViewAt::Top, cx);
         cx.emit(TallTableEvent::Sorted(Vec::from_iter(sort)));
-        self.sort_load(cx);
-        cx.notify();
+        self.reset_load(cx);
     }
 
-    /// Plans the new order's reads once the update ends, as `live`'s and
-    /// `copy`'s are: during a scrollbar drag, once its pointer rests.
-    fn sort_load(&mut self, cx: &mut Context<Self>) {
-        if std::mem::replace(&mut self.sort_state.load_deferred, true) {
-            return;
+    /// `replace_rows` in this update: with a sort in effect, the new
+    /// source is told it once the update ends; a later `set_columns`
+    /// clearing the sort resets nothing more.
+    pub(super) fn replaced(&mut self) {
+        self.sort_state.replaced = true;
+        #[cfg(test)]
+        let untold = self.sort_state.untold;
+        #[cfg(not(test))]
+        let untold = false;
+        if !self.closed && self.sort_state.current.is_some() && !untold {
+            self.sort_state.tell = true;
         }
-        let this = cx.weak_entity();
-        cx.defer(move |cx| {
-            let _ = this.update(cx, |this, cx| {
-                this.sort_state.load_deferred = false;
-                this.load_or_settle(cx);
-            });
-        });
+    }
+
+    /// Whether the reads wait for the update's end: the source is told the
+    /// sort first.
+    pub(super) fn sort_holds_reads(&self) -> bool {
+        self.sort_state.tell
+    }
+
+    /// The update ended (`reset_load`), before its reads are planned:
+    /// following let go for `set_columns`' reset if nothing decided it
+    /// since, then the sort told to the new source if a `replace_rows`
+    /// came. A refusal clears the sort with the view where the replace put
+    /// it, and returns `true`: its events are emitted, and the reads wait
+    /// for the subscribers to hear them.
+    pub(super) fn sort_after_update(&mut self, cx: &mut Context<Self>) -> bool {
+        self.sort_state.replaced = false;
+        #[cfg(feature = "follow")]
+        if self.sort_state.lets_go {
+            self.reset_following(false, cx);
+        }
+        if !std::mem::take(&mut self.sort_state.tell) || self.closed {
+            return false;
+        }
+        let Some(sort) = self.sort_state.current else {
+            return false;
+        };
+        let Err(refused) = self.delegate.sort(&[sort], cx) else {
+            return false;
+        };
+        let cleared = self.delegate.sort(&[], cx);
+        debug_assert!(cleared.is_ok(), "a source refused going back to none");
+        self.sort_state.current = None;
+        cx.emit(TallTableEvent::Sorted(Vec::new()));
+        cx.emit(TallTableEvent::SortRefused(vec![sort], refused));
+        cx.notify();
+        true
     }
 
     /// The sorted column's name, before `set_columns` replaces them.
@@ -270,10 +299,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// The columns were replaced: the arrow pressed and hovered forgotten
     /// (their indices are other columns now), and the sort stays if the
     /// column at its index has the name it had (`name`) and is sortable,
-    /// else it's cleared as `set_sort` with no keys would. It's cleared whatever
-    /// the source answers (a source must accept going back to none: one
-    /// that refuses is told, and debug-asserted), since its index no longer
-    /// names its column; a closed table's source isn't told.
+    /// else it's cleared at once: the source told none (whatever it
+    /// answers: a source must accept going back to none; one that refuses
+    /// is debug-asserted), since its index no longer names its column, and
+    /// `Sorted` with no keys. Its reset runs at once (the view at the top,
+    /// so a later call in the update stands), but for following, let go at
+    /// the update's end unless a later call decided it: so a
+    /// `replace_rows(End)` after it keeps following as it was. After a
+    /// `replace_rows` in the update, there's no reset: the replace's covers
+    /// it. Either order of the two ends the same. A closed table's source
+    /// isn't told.
     pub(super) fn keep_sort(&mut self, name: Option<SharedString>, cx: &mut Context<Self>) {
         self.sort_state.pressed = None;
         self.sort_state.hovered = None;
@@ -293,7 +328,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         let cleared = self.delegate.sort(&[], cx);
         debug_assert!(cleared.is_ok(), "a source refused going back to none");
-        self.apply_sort(None, cx);
+        self.sort_state.current = None;
+        // The source has heard the sort in effect.
+        self.sort_state.tell = false;
+        if !self.sort_state.replaced {
+            self.reset_kept_by_row(ViewAt::Top, cx);
+            #[cfg(feature = "follow")]
+            {
+                self.tail_drawn = 0;
+                self.sort_state.lets_go = true;
+            }
+        }
+        cx.emit(TallTableEvent::Sorted(Vec::new()));
+        self.reset_load(cx);
     }
 
     /// The room the column at place `at` (laid out as `column`) leaves its

@@ -18,7 +18,7 @@ A file a feature, each built with its feature (`flash.rs` with `live` and `custo
 ## Files
 
 ```
-src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs, groups.rs, click.rs (no fixture: the window's checks only)
+src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs, groups.rs, click.rs and replace.rs (no fixture of their own: the window's checks only; `replace.rs` in every build, its reads pinned by `paging.json`)
 ```
 
 ## Commands

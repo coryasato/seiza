@@ -15,7 +15,7 @@ use gpui_kit::component::scroll::Scrollbar;
 use gpui_kit::{App, AppContext as _, Bounds, Context, Entity, TestAppContext, point, px, size};
 use serde_json::Value;
 
-use super::{Drag, Paging, TallTableState, row_height, shown_text};
+use super::{Drag, Paging, TallTableState, ViewAt, row_height, shown_text};
 use crate::column::{CellKind, ColumnKind, LaidOutColumn, TallTableColumn};
 use crate::delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 
@@ -82,6 +82,10 @@ mod groups;
 /// beside each other feature, in a window.
 #[cfg(feature = "clicks")]
 mod click;
+
+/// `replace_rows`, in every build: what it clears and keeps, the targets,
+/// the swap, and its meeting with each feature built.
+mod replace;
 
 const PAGING: &str = include_str!("../../fixtures/paging.json");
 const CELLS: &str = include_str!("../../fixtures/cells.json");
@@ -323,22 +327,23 @@ fn follow_control(name: &str) -> super::follow::Control {
     }
 }
 
-/// A `sort` control's way of getting a sort wrong, by its fixture name.
-#[cfg(feature = "sort")]
-fn sort_control(name: &str) -> crate::pages::Control {
+/// A `replace` or `sort` control's way of getting the reset they share
+/// wrong, by its fixture name.
+fn reset_control(name: &str) -> crate::pages::Control {
     use crate::pages::Control;
     match name {
-        "keep-pages" => Control::SortKeepsPages,
-        other => panic!("unknown sort control {other:?}"),
+        "keep-pages" => Control::ResetKeepsPages,
+        other => panic!("unknown reset control {other:?}"),
     }
 }
 
 /// A control that isn't a paging field: a way of keeping pages (`cache`),
-/// of re-reading (`live`), of following (`follow`), or of sorting (`sort`),
-/// by its fixture name.
+/// of replacing the rows (`replace`), of re-reading (`live`), of following
+/// (`follow`), or of sorting (`sort`), by its fixture name.
 #[derive(Debug, Clone, Copy)]
 enum Wrong<'a> {
     Cache(&'a str),
+    Replace(&'a str),
     #[cfg_attr(not(feature = "live"), expect(dead_code))]
     Live(&'a str),
     #[cfg_attr(not(feature = "follow"), expect(dead_code))]
@@ -413,12 +418,13 @@ fn run_scenario(
                     );
                     match control {
                         Some(Wrong::Cache(name)) => table.cache.control = cache_control(name),
+                        Some(Wrong::Replace(name)) => table.cache.control = reset_control(name),
                         #[cfg(feature = "live")]
                         Some(Wrong::Live(name)) => table.cache.control = live_control(name),
                         #[cfg(feature = "follow")]
                         Some(Wrong::Follow(name)) => table.follow_control = follow_control(name),
                         #[cfg(feature = "sort")]
-                        Some(Wrong::Sort(name)) => table.cache.control = sort_control(name),
+                        Some(Wrong::Sort(name)) => table.cache.control = reset_control(name),
                         _ => {}
                     }
                 });
@@ -470,6 +476,18 @@ fn run_scenario(
                         .set_sort(Vec::from_iter(sort), cx)
                         .expect("the scenario's sort");
                 });
+            }
+            // Every row index means another row: the source swapped for one
+            // of `rows` rows, and `replace_rows` called, in one update.
+            "replace" => {
+                let rows = argument["rows"].as_u64().expect("replace: rows");
+                let at = match &argument["at"] {
+                    Value::String(at) if at == "top" => ViewAt::Top,
+                    Value::String(at) if at == "end" => ViewAt::End,
+                    at => ViewAt::Row(at.as_u64().expect("replace: at a row, top, or end")),
+                };
+                reads.borrow_mut().rows = rows;
+                on_table(cx, &table, |table, cx| table.replace_rows(rows, at, cx));
             }
             // The source now holds that many rows.
             "rows" => {
@@ -669,13 +687,17 @@ fn paging_controls_fail(cx: &mut TestAppContext) {
         .collect();
     for control in fixture["controls"].as_array().expect("controls") {
         // A paging field changed, or a way of keeping pages (`cache`), of
-        // re-reading (`live`), of following (`follow`), or of sorting (`sort`).
+        // replacing the rows (`replace`), of re-reading (`live`), of
+        // following (`follow`), or of sorting (`sort`).
         let wrong = match (
             control["cache"].as_str(),
             control["live"].as_str(),
             control["follow"].as_str(),
             control["sort"].as_str(),
         ) {
+            _ if control["replace"].is_string() => Some(Wrong::Replace(
+                control["replace"].as_str().unwrap_or_default(),
+            )),
             (Some(name), _, _, _) => Some(Wrong::Cache(name)),
             (_, Some(_), _, _) if !cfg!(feature = "live") => continue,
             (_, _, Some(_), _) if !cfg!(feature = "follow") => continue,
