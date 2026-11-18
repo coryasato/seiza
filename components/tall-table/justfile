@@ -128,7 +128,9 @@ late *args:
 
 # The bare host on its release build in Chromium, Firefox, and WebKit: it
 # loads, fills, and scrolls in both shapes (a smoke check, not a manual
-# one), and with each feature built runs its own checks (with `resize`, a
+# one), replaces the rows at each target in both (`__tallTableReplace`,
+# the drawn rows against the source's, with `sort` the order kept), and
+# with each feature built runs its own checks (with `resize`, a
 # drag, a fit, and a narrowing at the right end, in both shapes; with
 # `select`, presses, a drag, and keys selecting, and the tint, in both;
 # with `copy`, copies pasted back and compared with the source in both,

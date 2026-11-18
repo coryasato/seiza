@@ -1,6 +1,15 @@
 // The bare host on its release build, in each browser: in both shapes, it
 // draws its first frame, fills, scrolls down by wheel (and sideways in the
-// wide shape), fills again there, and reports no page errors. Built with
+// wide shape), fills again there, and reports no page errors. In every
+// build, in both shapes, it replaces the rows (`__tallTableReplace`: the
+// source cut to every other row and `replace_rows` called in one update)
+// at the top, a row, a row past the new last top, and the end: the view
+// filled at its target, and the last row's first cell the one the whole
+// source draws at twice its row (the whole source replaced back there),
+// with `custom-cells`, `sort`, `format`, or `reorder` (which publish the
+// drawn cells) every cell of the rows both views draw, the strided top
+// differing from the whole one's; built with `sort`, a
+// column sorted first, the sort kept and the strided top in its order. Built with
 // `custom-cells`, it does so again at each painted style (`?cells=heat`,
 // `bars`, `color`), and checks the drawn cells carry their paint and, with
 // heat, that a fill is on screen in the color the table says it drew. Built
@@ -144,7 +153,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -930,6 +939,105 @@ async function checkSort(page: Page, label: string, layout: Layout, shape: strin
     await page.keyboard.press('Home');
   }
   return `, sorted ${notes.join('; ')}`;
+}
+
+/** `__tallTableReplace`'s stride: a source of every other row. */
+const REPLACE_STRIDE = 2;
+/** The named row the replace runs land at, inside the strided rows. */
+const REPLACE_ROW = 400_000;
+/** Past the strided rows' last top by this many: clamped to the end. */
+const REPLACE_PAST = 1_000;
+
+/** The builds that publish the drawn cells (`?probe-cells`): elsewhere a
+ *  view's last visible row's first cell (the probe's `lastCell`) is what a
+ *  check reads of the cells. */
+const cellsProbed = ['custom-cells', 'sort', 'format', 'reorder'].some((feature) => builtFeatures().includes(feature));
+
+/** The drawn cells, `row,column` → exact text, once a frame draws from
+ *  `view`'s first row and covers every wholly drawn row of it; none in a
+ *  build that doesn't publish them. */
+async function cellsOf(page: Page, view: Shown): Promise<Map<string, string>> {
+  if (!cellsProbed) return new Map();
+  for (let waited = 0; ; waited += 50) {
+    const cells = await drawnCells(page);
+    const rows = new Set(cells.map((cell) => cell.row));
+    const covered = Array.from({ length: view.end - view.first }, (_, index) => view.first + index).every((row) => rows.has(row));
+    if ((covered && Math.min(...rows) === view.first) || waited >= 5_000) return new Map(cells.map((cell) => [`${cell.row},${cell.column}`, cell.exact]));
+    await page.waitForTimeout(50);
+  }
+}
+
+/** In every build: the rows replaced (`__tallTableReplace`) by every
+ *  `REPLACE_STRIDE`-th row of the source, at each target (the top, a row,
+ *  a row past the new last top, the end), the view checked at the target
+ *  and what it draws against the source's rows. The whole source replaced
+ *  back at the row whose view ends at the strided last row × the stride:
+ *  its last visible row's first cell must be the strided view's, and,
+ *  where the build publishes the drawn cells, each strided row `r`'s
+ *  cells those the whole source draws at row `r × stride`. At the top the
+ *  strided view must draw otherwise than the whole one (the swap drew).
+ *  With `sort`, a column sorted first: kept through each replace, and the
+ *  strided top in its order. */
+async function checkReplace(page: Page, label: string, layout: Layout, start: Shown, shape: Shape): Promise<string> {
+  const notes: string[] = [];
+  const whole = start.rows;
+  const strided = Math.ceil(whole / REPLACE_STRIDE);
+  const want: Sort | null = sort ? { column: SORTED_COLUMN[shape], direction: 'descending' } : null;
+  if (want) await sortThrough(page, want);
+  // The whole source at the top: what the strided top must differ from.
+  const top = await filledWhere(page, 's.top === 0');
+  const topCells = await cellsOf(page, top);
+  const targets: [string, number | 'top' | 'end', 'row' | 'end'][] = [
+    ['top', 'top', 'row'],
+    [`row ${REPLACE_ROW}`, REPLACE_ROW, 'row'],
+    [`row ${strided + REPLACE_PAST}`, strided + REPLACE_PAST, 'end'],
+    ['end', 'end', 'end'],
+  ];
+  for (const [what, at, landsAt] of targets) {
+    const view = await replaceThrough(page, REPLACE_STRIDE, at, strided, landsAt).catch(() => null);
+    if (!view) {
+      failed(`${label}: replaced at ${what}: the view didn't fill at its target with ${strided} rows (${JSON.stringify((await shown(page)).shown)})`);
+      continue;
+    }
+    const cells = await cellsOf(page, view);
+    if (at === 'top') {
+      if (view.lastCell === top.lastCell) failed(`${label}: replaced at the top: the last row's first cell ${JSON.stringify(view.lastCell)} as before the replace`);
+      if (cellsProbed && [...cells].every(([key, text]) => topCells.get(key) === text)) failed(`${label}: replaced at the top: the cells drawn as before the replace`);
+    }
+    if (want) {
+      if (JSON.stringify(view.sort ?? null) !== JSON.stringify(want)) failed(`${label}: replaced at ${what}: the sort ${JSON.stringify(view.sort ?? null)}, not kept as ${JSON.stringify(want)}`);
+      if (at === 'top') notes.push(`${what} ${await checkOrder(page, label, 'in order', layout, want.column, want)}`);
+    }
+    // The whole source, its last visible row the strided last row's source
+    // row: the view as tall, so its first row is that less the rows above.
+    const last = view.end - 1;
+    const backAt = last * REPLACE_STRIDE - (last - view.first);
+    const back = await replaceThrough(page, 1, backAt, whole).catch(() => null);
+    if (!back) {
+      failed(`${label}: replaced back at row ${backAt}: the view didn't fill there with ${whole} rows`);
+      continue;
+    }
+    if (back.end - 1 !== last * REPLACE_STRIDE) failed(`${label}: replaced back at row ${backAt}: the last row ${back.end - 1}, not ${last * REPLACE_STRIDE}`);
+    else if (back.lastCell !== view.lastCell) failed(`${label}: replaced at ${what}: row ${last} drew ${JSON.stringify(view.lastCell)} first, the source's row ${last * REPLACE_STRIDE} ${JSON.stringify(back.lastCell)}`);
+    // Each strided cell whose source row the whole view draws.
+    const pairs = [...cells]
+      .map(([key, text]) => {
+        const [row, column] = key.split(',').map(Number) as [number, number];
+        return { key, text, source: `${row * REPLACE_STRIDE},${column}`, row: row * REPLACE_STRIDE };
+      })
+      .filter(({ row }) => row >= back.first && row < back.end);
+    let wholeCells = await cellsOf(page, back);
+    for (let waited = 0; waited < 5_000 && pairs.some(({ text, source }) => wholeCells.get(source) !== text); waited += 50) {
+      await page.waitForTimeout(50);
+      wholeCells = await cellsOf(page, back);
+    }
+    const wrong = pairs.find(({ text, source }) => wholeCells.get(source) !== text);
+    if (cellsProbed && pairs.length < 2) failed(`${label}: replaced at ${what}: ${pairs.length} cells to compare with the source`);
+    else if (wrong) failed(`${label}: replaced at ${what}: cell ${wrong.key} drew ${JSON.stringify(wrong.text)}, the source's ${wrong.source} ${JSON.stringify(wholeCells.get(wrong.source))}`);
+    notes.push(`${what} rows ${view.first}–${view.end} of ${strided}${cellsProbed ? ` (${pairs.length} cells the source's)` : ''}`);
+    if (want && JSON.stringify(back.sort ?? null) !== JSON.stringify(want)) failed(`${label}: replaced back: the sort ${JSON.stringify(back.sort ?? null)}, not kept`);
+  }
+  return `, replaced ${want ? `sorted ${want.column} ${want.direction}: ` : ''}${notes.join('; ')}`;
 }
 
 /** With `pin`: the pinned and scrolled regions' screen under a sideways
@@ -2146,7 +2254,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -2170,8 +2278,10 @@ try {
     if (reorder) runs.push(...SHAPES.flatMap((shape) => (['drag', 'reverse'] as ReorderRun[]).map((reordering) => ({ ...quiet, shape, reordering }))));
     if (clicks) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, clicking: true })));
     if (groupHeaders) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, grouping: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}`;
+    // In every build: the base's `replace_rows`.
+    runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, replacing: true })));
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -2179,6 +2289,7 @@ try {
       if (formatting) Object.assign(params, { 'probe-cells': '', ...(density ? { density: '30,14' } : {}), ...(formatting === 'off' ? { format: 'off' } : {}) });
       if (sorting) params['probe-cells'] = '';
       if (reordering || grouping) params['probe-cells'] = '';
+      if (replacing && cellsProbed) params['probe-cells'] = '';
       if (reordering === 'reverse') params.order = 'reverse';
       // A drag is held to its group (`group-headers`): the reorder runs'
       // moves are the ungrouped table's; the group runs drag groups.
@@ -2212,6 +2323,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The replace runs check their own, from the first screen.
+        if (replacing) {
+          const replaced = await checkReplace(page, label, layout, start, shape);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${replaced}`);
+          continue;
         }
         // The group runs check their own, from the first screen.
         if (grouping) {

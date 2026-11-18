@@ -1,0 +1,533 @@
+{
+  "date": "2026-11-18",
+  "label": "m18-c-sort",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.10.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "protocol": {
+    "browser": "chromium headless=new",
+    "viewport": "1440x900",
+    "dpr": 2,
+    "runs": 10,
+    "cold": true,
+    "cycles": 3,
+    "delayMs": 200,
+    "columns": {
+      "narrow": 5,
+      "wide": 0
+    },
+    "heldRows": [
+      200000,
+      600000,
+      1000000
+    ],
+    "wheelGapMs": 30,
+    "settleMs": 300,
+    "build": "sort"
+  },
+  "results": {
+    "narrow": {
+      "reference": {
+        "unheld": {
+          "runs": [
+            {
+              "clicks": 9,
+              "markMs": 0.81,
+              "arrowMs": 16.19,
+              "filledMs": 33.85,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.86,
+              "arrowMs": 17.39,
+              "filledMs": 36.36,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.77,
+              "arrowMs": 14.9,
+              "filledMs": 36.24,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.83,
+              "arrowMs": 17.63,
+              "filledMs": 35.18,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.71,
+              "arrowMs": 16.37,
+              "filledMs": 33.88,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.85,
+              "arrowMs": 19.4,
+              "filledMs": 37.91,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.94,
+              "arrowMs": 15.78,
+              "filledMs": 34.94,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.73,
+              "arrowMs": 19.01,
+              "filledMs": 37.07,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.77,
+              "arrowMs": 19.49,
+              "filledMs": 37.01,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.91,
+              "arrowMs": 15.95,
+              "filledMs": 35.16,
+              "drained": 0
+            }
+          ],
+          "summary": {
+            "markMs": 0.82,
+            "arrowMs": 16.88,
+            "filledMs": 35.71,
+            "drained": 0,
+            "arrowSpread": 0.27
+          }
+        },
+        "quiet": {
+          "runs": [
+            {
+              "clicks": 9,
+              "markMs": 1,
+              "arrowMs": 22.21,
+              "filledMs": 214.84,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 1.16,
+              "arrowMs": 23.7,
+              "filledMs": 221.26,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.88,
+              "arrowMs": 16.26,
+              "filledMs": 222.97,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 1,
+              "arrowMs": 20.99,
+              "filledMs": 223.79,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.85,
+              "arrowMs": 16.14,
+              "filledMs": 219.61,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.93,
+              "arrowMs": 18.15,
+              "filledMs": 221.26,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.9,
+              "arrowMs": 21.02,
+              "filledMs": 221.2,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.87,
+              "arrowMs": 18.26,
+              "filledMs": 222.73,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.82,
+              "arrowMs": 20.07,
+              "filledMs": 222.99,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.77,
+              "arrowMs": 20.85,
+              "filledMs": 225.15,
+              "drained": 0
+            }
+          ],
+          "summary": {
+            "markMs": 0.89,
+            "arrowMs": 20.46,
+            "filledMs": 222,
+            "drained": 0,
+            "arrowSpread": 0.37
+          }
+        },
+        "held": {
+          "runs": [
+            {
+              "clicks": 9,
+              "markMs": 0.74,
+              "arrowMs": 18.27,
+              "filledMs": 271.19,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.69,
+              "arrowMs": 18.41,
+              "filledMs": 270.66,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.72,
+              "arrowMs": 18.03,
+              "filledMs": 267.04,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.76,
+              "arrowMs": 17.03,
+              "filledMs": 261.52,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.73,
+              "arrowMs": 18.68,
+              "filledMs": 273.14,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.71,
+              "arrowMs": 16.13,
+              "filledMs": 266.77,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.65,
+              "arrowMs": 17.13,
+              "filledMs": 266.29,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.74,
+              "arrowMs": 18.34,
+              "filledMs": 270.55,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.62,
+              "arrowMs": 18.8,
+              "filledMs": 268.35,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.65,
+              "arrowMs": 18.05,
+              "filledMs": 271.39,
+              "drained": 3
+            }
+          ],
+          "summary": {
+            "markMs": 0.71,
+            "arrowMs": 18.16,
+            "filledMs": 269.45,
+            "drained": 3,
+            "arrowSpread": 0.15
+          }
+        }
+      }
+    },
+    "wide": {
+      "reference": {
+        "unheld": {
+          "runs": [
+            {
+              "clicks": 9,
+              "markMs": 0.77,
+              "arrowMs": 20.41,
+              "filledMs": 41.63,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.67,
+              "arrowMs": 18.85,
+              "filledMs": 37.69,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.76,
+              "arrowMs": 22.91,
+              "filledMs": 41.95,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.73,
+              "arrowMs": 23.02,
+              "filledMs": 39.91,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.69,
+              "arrowMs": 19.19,
+              "filledMs": 38.96,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.94,
+              "arrowMs": 15.74,
+              "filledMs": 35.13,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.77,
+              "arrowMs": 23.03,
+              "filledMs": 38.1,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.91,
+              "arrowMs": 24.51,
+              "filledMs": 42.52,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.68,
+              "arrowMs": 19.02,
+              "filledMs": 39.18,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.74,
+              "arrowMs": 18.43,
+              "filledMs": 39.21,
+              "drained": 0
+            }
+          ],
+          "summary": {
+            "markMs": 0.75,
+            "arrowMs": 19.8,
+            "filledMs": 39.2,
+            "drained": 0,
+            "arrowSpread": 0.44
+          }
+        },
+        "quiet": {
+          "runs": [
+            {
+              "clicks": 9,
+              "markMs": 0.81,
+              "arrowMs": 21.61,
+              "filledMs": 226.52,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.72,
+              "arrowMs": 24.13,
+              "filledMs": 230.99,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.81,
+              "arrowMs": 17.54,
+              "filledMs": 231.48,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.8,
+              "arrowMs": 17.94,
+              "filledMs": 229.46,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.77,
+              "arrowMs": 22.32,
+              "filledMs": 231.8,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.73,
+              "arrowMs": 20.86,
+              "filledMs": 226.13,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 1.34,
+              "arrowMs": 23.52,
+              "filledMs": 227.44,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.75,
+              "arrowMs": 21.18,
+              "filledMs": 230.22,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.79,
+              "arrowMs": 21.34,
+              "filledMs": 232.38,
+              "drained": 0
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.61,
+              "arrowMs": 12.69,
+              "filledMs": 227.62,
+              "drained": 0
+            }
+          ],
+          "summary": {
+            "markMs": 0.78,
+            "arrowMs": 21.26,
+            "filledMs": 229.84,
+            "drained": 0,
+            "arrowSpread": 0.54
+          }
+        },
+        "held": {
+          "runs": [
+            {
+              "clicks": 9,
+              "markMs": 0.41,
+              "arrowMs": 17.5,
+              "filledMs": 266.35,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.45,
+              "arrowMs": 17.64,
+              "filledMs": 269.46,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.39,
+              "arrowMs": 17.12,
+              "filledMs": 268.22,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.45,
+              "arrowMs": 20.71,
+              "filledMs": 275.33,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.4,
+              "arrowMs": 20.61,
+              "filledMs": 278.94,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.44,
+              "arrowMs": 18.5,
+              "filledMs": 271.36,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.44,
+              "arrowMs": 19.21,
+              "filledMs": 276.39,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.43,
+              "arrowMs": 19.38,
+              "filledMs": 275.97,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.44,
+              "arrowMs": 19.54,
+              "filledMs": 280.57,
+              "drained": 3
+            },
+            {
+              "clicks": 9,
+              "markMs": 0.45,
+              "arrowMs": 20.29,
+              "filledMs": 275.45,
+              "drained": 3
+            }
+          ],
+          "summary": {
+            "markMs": 0.44,
+            "arrowMs": 19.3,
+            "filledMs": 275.39,
+            "drained": 3,
+            "arrowSpread": 0.19
+          }
+        }
+      }
+    }
+  },
+  "failures": []
+}

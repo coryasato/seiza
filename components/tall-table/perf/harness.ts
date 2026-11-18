@@ -377,6 +377,10 @@ type Global = {
   __tallTableDrained?: () => number;
   __tallTableSelect?: (kind: string, anchorRow: number, anchorColumn: number, headRow: number, headColumn: number) => void;
   __tallTableClose?: () => void;
+  /** In every build with `?perf`: the source cut to every `stride`-th row
+   *  and `replace_rows` called in one update, the view at `at` (`"top"`,
+   *  `"end"`, or a row); `false`, and nothing sent, for a value it refuses. */
+  __tallTableReplace?: (stride: number, at: number | 'top' | 'end') => boolean;
   /** With `pin` and `?perf`. */
   __tallTablePin?: (columns: number) => boolean;
   /** With `density` and `?perf`. */
@@ -761,6 +765,16 @@ export async function sortedAs(page: Page, want: Sort | null, timeout = 30_000):
     { timeout, polling: 10 },
   );
   return (await handle.jsonValue()) as Shown;
+}
+
+/** The host's `__tallTableReplace(stride, at)`, then the view filled at
+ *  `rows` rows at its target: the top, the end, or `at`'s row at the top
+ *  (a row past the last top lands at the end: pass `end` to wait there). */
+export async function replaceThrough(page: Page, stride: number, at: number | 'top' | 'end', rows: number, landsAt: 'row' | 'end' = 'row', timeout = 30_000): Promise<Shown> {
+  const sent = await page.evaluate(([stride, at]) => (globalThis as Global).__tallTableReplace!(stride, at), [stride, at] as const);
+  if (!sent) throw new Error(`the host's replace hook refused (${stride}, ${JSON.stringify(at)})`);
+  const where = at === 'top' ? 's.top === 0' : at === 'end' || landsAt === 'end' ? 's.end === s.rows' : `s.first === ${at}`;
+  return filledWhere(page, `s.rows === ${rows} && ${where}`, timeout);
 }
 
 /** With `sort` and `?perf`: the table's `set_sort`, through the host's

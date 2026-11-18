@@ -731,3 +731,12 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The replaces, placed after every other stream so no case's draw changed, still cost four control catches across seven seeds, and three SHA-512 words cost the default seed one: a step that forgets every page forgets the copy or the stale page a control waits on. The precedent held (another word for the stream); the counts across seeds say what a constant can't.
 - The base build "unchanged without a caller" held to 0.1 KiB, but the bare host's base grew 11.7 KiB: 2 for the call, the rest the host's hook glue and its source's strided path. Reading the call's cost took three builds of the base, not `size`'s one number.
 - A mutation that passes isn't always a missing test: one test checked a grown tail, which a reset that forgets nothing also reports; the other mutation didn't build. Each pass gets read before it's counted.
+
+## M18: `replace_rows` (part C, 2026-11-18)
+
+**Results:** [`perf/results/2026-11-18-m18-c.md`](../perf/results/2026-11-18-m18-c.md) (each build's bytes against the parent, each app's, `sort`'s click against the parent's build, the smoke check's replace run).
+
+**Surprises:**
+- The first build of the apps at M18's `src/` came out byte-identical to the parent's, Kirkwood's `sort` included. `rsync -a` had copied the files with their older modification times, so Cargo took the worktree's fresh build as current and never compiled them. Touched, the table compiled three times and Kirkwood came out 452 bytes larger. An A/B that copies files into a built worktree checks that the crate it changed recompiled before it reads "no change".
+- The base build publishes no drawn cells: the cells probe is built only with `custom-cells`, `sort`, `format`, or `reorder`. The smoke check's replace run reads the frame probe's last row's first cell in every build, comparing the strided view with the whole source's view of the same source row, and compares every overlapping cell only where the cells are published. Turning the probe on in the base would have grown the base's bytes after they were measured.
+- The control (the hook calling `replace_rows` without swapping its source) failed at the first target, as it should, but every target after it failed too: the host takes the whole count while the source is unstrided, so an unswapped source halved the count at each call. A control's first failure is the one to read.

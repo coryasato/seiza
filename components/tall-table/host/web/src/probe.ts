@@ -9,6 +9,8 @@ export interface Shown {
   loaded: number;
   pending: number;
   failed: number;
+  /** The last visible row's first cell, if loaded. */
+  lastCell?: string | null;
   scrollX: number;
   /** With `select`: what's selected. */
   selection?: Selection | null;

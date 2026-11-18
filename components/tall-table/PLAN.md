@@ -10,12 +10,11 @@ What's next for the tall table: the candidates for its next features, the active
 
 ## Status
 
-M1–M17, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-17: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, and the features tested together ([`docs/milestones.md`](docs/milestones.md)).
+M1–M18, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-18: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, and `replace_rows`, the table's part of Tycho's filters ([`docs/milestones.md`](docs/milestones.md)).
 
 | Milestone | Title | Status |
 |---|---|---|
-| M18 | `replace_rows`: every row index changed meaning, one call | Active: parts A and B done, part C next (["Active milestone"](#active-milestone)) |
-| M19 | Column visibility: hide and show columns | Planned (its row under ["Candidates"](#drafted)) |
+| M19 | Column visibility: hide and show columns | Next (its row under ["Candidates"](#drafted)) |
 | M20 | Find: step through matches, every row kept | Planned (its row under ["Candidates"](#drafted)) |
 
 A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
@@ -50,8 +49,8 @@ Not planned; each waits for a host to ask, and is researched as any candidate is
 
 | Candidate | What it adds | Table's part | Engine's or host's part | Notes |
 |---|---|---|---|---|
-| Column filtering | A predicate per column; the row count follows | `replace_rows` (M18). If a host asks: a filter control drawn in a header, its press reported through `clicks` (a new `ClickTarget`) | The `WHERE`, the new `count(*)`, pages over the filtered rows; the filter's UI and its state | Like `sort`, a source paging by row-group range can't page a filtered result; how it does is the source's (the DuckDB engine's research, as `sort`'s was). Tycho's ask is met once M18 closes; the header control is built only if it asks for one. Advice for that research: the icon needs a "filtered" state the host sets, as the sort arrow has; and a host's popover anchored under a header cell has only `Clicked`'s position today, since the layout event is a probe (`probe_frames`). That may be enough (gpui-kit's menus open at the pointer); if not, weigh a public reader of a header cell's bounds, which a column menu would use too |
-| Global filtering | One predicate across every column: fewer rows | `replace_rows` (M18) | The query across every text column; the search box | The filtering half of TanStack's global filter. Fuzzy filtering is a kind of it. Tycho's ask is met once M18 closes |
+| Column filtering | A predicate per column; the row count follows | `replace_rows` (M18). If a host asks: a filter control drawn in a header, its press reported through `clicks` (a new `ClickTarget`) | The `WHERE`, the new `count(*)`, pages over the filtered rows; the filter's UI and its state | Like `sort`, a source paging by row-group range can't page a filtered result; how it does is the source's (the DuckDB engine's research, as `sort`'s was). Tycho's ask is met (M18, closed 2026-11-18); the header control is built only if it asks for one. Advice for that research: the icon needs a "filtered" state the host sets, as the sort arrow has; and a host's popover anchored under a header cell has only `Clicked`'s position today, since the layout event is a probe (`probe_frames`). That may be enough (gpui-kit's menus open at the pointer); if not, weigh a public reader of a header cell's bounds, which a column menu would use too |
+| Global filtering | One predicate across every column: fewer rows | `replace_rows` (M18) | The query across every text column; the search box | The filtering half of TanStack's global filter. Fuzzy filtering is a kind of it. Tycho's ask is met (M18, closed 2026-11-18) |
 | Multi-column sort | Sort by several columns, Shift-click to add; priority numbers on the arrows | The arrows' Shift-click and their numbers; the list of keys | `ORDER BY a, b`, and its cost | The API's shape is settled (2026-11-17, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Component API"): the delegate's `sort`, `sort()`, `set_sort`, `Sorted`, and `SortRefused` carry a list of keys, and the table sorts by one at most (`set_sort` refuses two, the state holds one). Left for the feature, each to research: the state's list, what the arrows draw (a priority, with no room in the box today), what a plain click does to a two-key sort, what `set_columns` keeps when one key's column is gone, the bridge's published shape (the first key today), and the cost in a source (`ORDER BY a, b`). It waits for a host |
 | Right-pinned columns | Columns fixed at the right | An extension of `pin`, which is left only | — | Only if a host asks. How `DataTable` does it (`ColumnFixed::Right`, `fixed_right`, since gpui-kit 0.9.1): [the 0.9.1 note](perf/results/2026-11-10-gpui-kit-0.9.1.md) |
 | Row pinning | Data rows kept at the top or bottom while the rest scroll | Rows drawn above or below the body, outside the scroll, read apart from the pages | Which rows are pinned, held by an identity the source gives, since the table knows only indices and `sort` (or `replace_rows`) changes what an index means | TanStack's (`row.pin('top' \| 'bottom')`, state `{ top, bottom }` of row ids, `getTopRows`/`getCenterRows`/`getBottomRows`; `keepPinnedRows`, on by default, keeps a pinned row in view when a filter drops it) pins rows by id. The table has no row identity: research first, against the footer below |
@@ -79,8 +78,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | `replace_rows`, then column filtering and global filtering | Its "Sort and filter" goal: a filter changes what every row index means; a grouped result is a new source | M18 (filtering's table part is `replace_rows`: "Notes") | *Not ready* |
-| Tycho | Column visibility | Hide and show columns | M19 | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Column visibility | Hide and show columns | M19 | *Not ready* |
 | Tycho | Find | Search that keeps every row | M20 | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
 | Tycho | Nested values | JSONL, after its first release | Not planned ("Notes") | *Not ready* |
@@ -92,66 +90,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-### M18: `replace_rows`, every row index changed meaning, one call
-
-**What it adds** (in the base, no feature): one public call for a host whose rows changed wholesale (a filter, a search's filter, a query run again, a grouped result), `sort`'s reset made public. Tycho's filters wait on it. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "`replace_rows`"; the spike: [`perf/results/2026-11-18-m18-a-spike.md`](perf/results/2026-11-18-m18-a-spike.md); the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-18, M18 part A).
-
-```rust
-/// Where the view lands after `TallTableState::replace_rows`.
-#[non_exhaustive]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ViewAt {
-    /// Row 0.
-    Top,
-    /// The view's top at this row, clamped as `jump_to`'s; no highlight,
-    /// no selection.
-    Row(u64),
-    /// The last rows, as `follow()` puts them; following stays as it was.
-    End,
-}
-
-impl<D: TallTableDelegate> TallTableState<D> {
-    /// Every row index means another row now: the source holds `rows` rows
-    /// (a filter, a query run again). Swap the source in the same update
-    /// (`delegate_mut`), once its count is known: the docs' example.
-    pub fn replace_rows(&mut self, rows: u64, at: ViewAt, cx: &mut Context<Self>);
-}
-
-// `TallTableDelegate::sort`'s docs: it may be called again with the sort in
-// effect, for new rows (`replace_rows`).
-```
-
-The spec below is what part B builds; why each rule is so is in the decisions and the research.
-
-- **The reset, in the base:** `apply_sort`'s body becomes a base function taking the count and the target, but its first lines (the sort set, the pressed arrow forgotten), which stay `sort`'s; `forget_all` and the reset's hooks (`sort_selection`, `sort_lets_go`, `sort_load`) leave `sort`'s `cfg` under base names. `sort` calls it with the count unchanged and `Top`, then emits `Sorted`: its behavior, fixtures, and window tests unchanged.
-- **What it clears and keeps:** every page and read (with `live` the invalidations, with `live` and `custom-cells` the flashes); the hover, the tooltip, the jump's highlight; with `select` a `Rows` or `Cells` range (`Selected(None)`), a `Columns` range kept with its rows at the landing row (0, the named row clamped to the rows, or the last; with no rows, as `set_rows` leaves one); with `copy` a copy running (`Failed(Cancelled)`); with `follow` the drawn tail; the scroll's direction and settle. Kept: the sideways scroll and everything held by column (a pressed or hovered arrow among them), and the sort.
-- **The count:** taken as `set_rows` takes it, before the view moves. `set_rows` after it corrects the count as it would any count.
-- **The target:** `Top`, `Row(r)` (the top at `r`, clamped), `End` (at `max_top`; with `follow`, the loaded tail as the reads land, if following). With `follow`, `End` leaves following as it was; `Top` and `Row` let go unless every row fits. One `Following` at most.
-- **The sort:** with a sort in effect, the delegate's `sort` is called with it once the update ends, right before the reads are planned, with the sort in effect then. The pending tell is dropped by any call that tells the source after the last `replace_rows` in the update (`set_sort`, a click, `set_columns` clearing a gone column's sort); `sort`'s own reset never sets one. A refusal clears the sort with no second reset (the view stays at the target, following as the replace left it): the source told none, `Sorted` with no keys, `SortRefused` with the keys and the reason.
-- **`set_columns` with the sort's column gone:** the sort cleared at once as now (the source told none, `Sorted` with no keys) and its reset run at once, but for following: let go at the update's end unless a later call decided it (a replace's own reset, a jump, `follow`). After a `replace_rows` in the update, no reset (the replace's covers it). So `set_columns` and `replace_rows` end the same in either order, and a call after `set_columns` stands. A later `set_sort` in the update wins (the view at the top, as any sort). (Revised in part B from its code review: `docs/DECISIONS.md`, "Features".)
-- **Once an update:** the reads (and the sort's telling) planned once for every `replace_rows`, `set_sort`, `set_columns`, and `set_rows` in the update, during a scrollbar drag once it rests (`sort_load`'s rule).
-- **A closed table:** the count and view follow; nothing read, cancelled, or told.
-- **No event of its own.**
-- **The docs** (the method's, the README's "Replacing the rows"; `set_rows`' stops offering "a query run again", which keeps the old rows' pages under the new indices, and points to `replace_rows`): the async shape as an example (the new source kept aside, its count awaited, then swapped and called in one update); `set_columns` in the same update for new columns, in either order; a sort kept by name may match a same-named column of another result (clear it for a clean slate); correcting the count with `set_rows` works but jumps the scrollbar; `DataTable`'s `refresh` keeps a selected row's index, and this doesn't.
-- **The paging fixture** (`fixtures/paging.json`): a `replace` step (`{"rows": n, "at": "top" | <row> | "end"}`), its `expect` the sort told first (with one in effect), the cancels as one decision, then the target's reads. Scenarios: a new count at the top, at a row, at a row past the new end, at the end; with reads out (held places, an answer dropped); with `follow`, the end keeping following and the top letting go; with `sort`, the sort told again. A `replace` field's control, `keep-pages`, in every build. `fixtures/README.md` and `fixtures/CLAUDE.md` say so; the TanStack contender's test names the `replace` scenarios skipped (read `.claude/rules/comparison-protocol.md` first; `just observatory fixtures` after).
-- **The random test:** a `Replace` step in every build (a new count, a permutation, every row's era bumped, a target in, past, or at the ends of the new count), placed from a stream of its own (`with_replaces`) so no case's draw changes; checked at the step: the view at its target, the count, what's kept by row cleared, following kept only at `End`, the source's last sort the table's. The cache's `SortKeepsPages` and `SortKeepsReads` become the reset's (every build), each failing invariant 5; a control that doesn't tell the sort fails the sort check. The soak.
-- **The bare host:** `__tallTableReplace(stride, at)` with `?perf`: its source swapped for every `stride`-th row and `replace_rows` called in one update.
-
-**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part C.
-
-- **A. Research and spec** (no shipped code). *Done 2026-11-18.* The spike, the research, the decisions (four with the owner; the sort told to the new source from a review of them), this spec; revised the same day after its code review (a sort whose column `set_columns` finds gone reset to the top and let following go, so the two orders differed: its reset now waits for the update's end and yields to a replace; a refusal keeps the target; the tell dropped once the source has heard the sort; the pressed arrow `sort`'s; `set_rows`' docs). Check A1.
-- **B. The call, built and tested.** *Done 2026-11-18.* The reset moved to the base, `replace_rows` and `ViewAt`, `sort` on the reset, the sort told again, the docs, the paging fixture, the random test, the window tests, the bare host's hook, the soak, `pairs`. Checks B1–B4.
-- **C. The cost and the close.** The size effect on the base and each feature, and on each app that builds the table; `sort`'s run against the parent; the smoke check in three browsers; the README; the close-out ("Closing a milestone", above). Checks C1–C3.
-
-**Done when:**
-- [x] **A1. The research and the spec:** the research in the root's `docs/research/tall-table-features.md`, "`replace_rows`"; the spike's note; its decisions in `docs/DECISIONS.md`; the API and the checks here. *Evidence (2026-11-18):* the research section (the reset's parts from `apply_sort` and `set_rows`, `DataTable`'s `refresh` keeping a selected index, the swap's race read from the cache, the target, the sort, new columns, the fixtures and random test); the spike ([`perf/results/2026-11-18-m18-a-spike.md`](perf/results/2026-11-18-m18-a-spike.md): in memory a filter's count answered in 0–548 ms against a first page in the source's order of 0–560 (with no `ORDER BY`, the global search's page 309 ms sooner); on Gaia's file a common filter's first page 10–17 ms against a count of 181–346, a rare one's 756 against 120); four decisions in `docs/DECISIONS.md`, "Features" (the swap, the count, and the named row and new columns decided with the owner); `docs/LESSONS.md`, "M18" part A.
-- [x] **B1. The base unchanged in shape:** `just tall-table test` passes with every feature off, each on, and all on, `sort`'s window tests and fixtures unchanged; `just tall-table lint` and `pairs` pass (the reset's hooks move between `cfg`s); `just tall-table size --against <M18's parent>` shows no feature's symbols in the base and reports the base's change. *Evidence (2026-11-18):* `just tall-table test` passes with every feature off, each on, and all on, `sort`'s window tests and fixtures unchanged; `lint` and `pairs` (89 sets) pass. `size --against 55a9597` ([`perf/results/2026-11-18-m18-b.md`](perf/results/2026-11-18-m18-b.md)): no feature's symbols in the base; the bare host's base +11.7 KiB after wasm-opt (+2.5 brotli), split by building it three more ways: the table without a caller −0.1 KiB (unchanged), the call ~2.0, the host's hook glue ~4.5 and its strided source ~5.2.
-- [x] **B2. The call, natively:** window tests, each with the features it needs: everything in "What it clears and keeps" cleared or kept; each target, `Row` past the end clamped, the count 0; `follow`'s `End` keeping following on and off and `Top` letting go, one `Following` each; a `Columns` range at each landing row; the swap in the same update drawing no mixed frame, and its control (the swap an update early) drawing one; a read out before the call answered after it never stored; `set_columns` then `replace_rows` and the reverse ending the same (the view at the target, following, the pages planned once, the sort and its events, `pin`'s count, the selection), with a sort kept and with one whose column is gone, and `set_columns` alone resetting as before; `replace_rows` then `set_sort` at the top, the source told once; `set_sort`, `set_columns`, and `replace_rows` in one update reading once; the sort told again after the update, once (not after a later `set_sort`), a refusal clearing it with `Sorted` and `SortRefused` and the view kept at the target, none told with no sort; `sort` clearing its pressed arrow and `replace_rows` keeping it; `set_rows` after it correcting the count; a closed table. Every rule mutated fails a test. *Evidence (2026-11-18):* `src/state/fixtures/replace.rs`, 22 window tests in the all-on build (6 with no feature, 16 with `sort` alone), among them the swap an update early drawing eras `[1, 2]` and in the same update `[1]`; both orders of `set_columns` and `replace_rows(End)` ending equal with a sort kept and one gone; the reads heard after `Sorted` and `SortRefused`. Twenty of the rules mutated one at a time (`perf/results/raw/`'s mutation script, gitignored), each failing at least one of these tests or the paging fixture.
-- [x] **B3. The fixture and the random test:** `paging.json`'s `replace` scenarios pass, `keep-pages` fails them; the `Replace` step runs in every build with no existing case's draw changed; the reset's controls fail invariant 5 and the sort control its check (counts over `SEED`s 0–6 recorded); `just tall-table soak` passes on the final build (`CLAUDE.md`, rule 5); `just observatory fixtures` passes. *Evidence (2026-11-18):* the four `replace` scenarios pass in every build that runs them, `keep-pages` fails them (in the base, where no `sort` scenario runs); the `Replace` step placed last in every build, no case's draw changed; over `SEED`s 0–6 the reset's two controls and `Untold` are caught at every seed (21 of 21), the 25 earlier controls in 166 of 175 runs (170 without the replaces; [the note](perf/results/2026-11-18-m18-b.md)); `just tall-table soak` passes on the final build; `just observatory fixtures` passes (the TanStack contender names the `replace` scenarios skipped).
-- [x] **B4. The host calls it:** `__tallTableReplace` swaps and calls in one update, so the base build's `size` measures the call. *Evidence (2026-11-18):* `__tallTableReplace` in the base with `?perf`, the source's stride and `replace_rows` in one update; the base build's call measured at ~2.0 KiB after wasm-opt ([the note](perf/results/2026-11-18-m18-b.md)). Driven in three browsers in part C's smoke check (C2).
-- [ ] **C1. Its cost:** the base and each feature's build against M18's parent (brotli 11, and after wasm-opt), in a `perf/results/` note, and each app that builds the table (Tycho, the observatory's GPUI contender, Kirkwood) in its own `perf/results/` (root `CLAUDE.md`, rule 1); `just tall-table sort` reads its click → filled as at the parent.
-- [ ] **C2. In the browsers:** `just tall-table smoke` drives `__tallTableReplace` in Chromium, Firefox, and WebKit, in both shapes: the cells drawn against the source's rows at each target, with `sort` the order kept.
-- [ ] **C3. The README and waiting apps:** the README's "Replacing the rows" (the call, the target, the async example, new columns, the sort, the limits), its API table and "TanStack Table's features" rows (filtering's table part); Tycho's "Waiting on" row flipped to *Ready* (2026-…, tall-table M18).
+None. M18, `replace_rows`, closed 2026-11-18 ([`docs/milestones.md`](docs/milestones.md), "M18"). M19, column visibility, is next ("Next milestones"); its spec and checks are written in its part A, after its research.
 
 ---
 
@@ -179,7 +118,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-- **M19. Column visibility:** the same, after M18. If its research finds the delegate's narrowed read is more than a part, that read becomes a milestone of its own after M19, decided there.
+- **M19. Column visibility:** next; its row under "Candidates" is its spec until its part A's research. If its research finds the delegate's narrowed read is more than a part, that read becomes a milestone of its own after M19, decided there.
 - **M20. Find:** the same, after M19, so a match in a hidden column is settled against a built feature.
 
 ---
