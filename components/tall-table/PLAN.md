@@ -70,7 +70,13 @@ Not listed: TanStack's pagination (the table scrolls instead) and fuzzy filterin
 
 Only this file builds the table's features, whichever app asks (root `CLAUDE.md`, "Docs: one home per fact"). An app that needs one keeps a row in its PLAN's "Waiting on" table; closing the feature's milestone flips that row to *Ready*. When an app asks for a new feature, it gets a row under "Candidates" and one here.
 
-None open: every ask so far is built and *Ready* in its app's PLAN.
+| App | Asks for | Why | Status |
+|---|---|---|---|
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | `replace_rows`, then column filtering and global filtering | Its "Sort and filter" goal: a filter changes what every row index means | *Not ready* |
+| Tycho | Find | Search that keeps every row | *Not ready* |
+| Tycho | Column visibility | Hide and show columns | *Not ready* |
+
+Every earlier ask is built and *Ready* in its app's PLAN.
 
 ---
 

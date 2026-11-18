@@ -1,0 +1,179 @@
+# Research: Tycho as a data workbench
+
+The thinking behind Tycho's rebuild as a public utility app: what it becomes, its security model, each of its pieces, and what was tested. It came out of the planning conversation of 2026-11-17 and the review of its proposal the same day. What's built next and in what order is Tycho's [`PLAN.md`](../../apps/tycho/PLAN.md); the decisions are in its [`docs/DECISIONS.md`](../../apps/tycho/docs/DECISIONS.md) and the root's; who it's for is [`apps/tycho/docs/personas.md`](../../apps/tycho/docs/personas.md).
+
+Each item is marked **Decided** (the owner said so), **Proposed** (suggested, not yet confirmed), or **Open**. A **Proposed** item is checked and reviewed at the step that builds it, before it's built; none is settled by being written here.
+
+---
+
+## Why change
+
+Tycho was the first step: it proved that a canvas table over DuckDB-Wasm scrolls tens of millions of rows. That is all it does, and scrolling a big dataset isn't useful on its own. Since then the measuring moved to the observatory and the table became a component of its own, which leaves Tycho free to be what the tiers call it: a utility app, a tool anyone can open and get something from.
+
+## What Tycho becomes
+
+**A data workbench for files too big for a spreadsheet,** running entirely in your browser: open it, understand it, check what you need, and export the part you want. Your data never leaves your machine.
+
+- **Decided:** it is public and useful to people outside this repo.
+- **Decided:** the table and the data are the focus of the page.
+- **Decided:** Tycho hosts a *controller*: a layer around the tall table that speaks to the database, holds the logic, and can be driven by an LLM. (Named "the controller" for the layer and "the view state" for what it holds; not "smart table".) The LLM is one driver of the app, not the app.
+- **Decided:** the page is redesigned, in a design session that follows this planning.
+- **Decided:** Tycho's measurements are retired (the root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17).
+
+The test for every feature: does it help someone with a large file and a question?
+
+## Security: the rules everything else follows
+
+- **Decided:** Tycho hosts no model and no API to one.
+- **Decided:** Tycho never asks for or stores a visitor's API key.
+- **Decided:** security for the visitor and for us comes first, since the app is public.
+
+What follows from them: **Tycho is never an LLM's client. It is the tool an outside LLM operates.** The model runs in something the visitor already uses and trusts; Tycho describes itself and accepts requests.
+
+- **Proposed:** what an LLM sends is untrusted input, and whatever an input accepts, an LLM can send: an agent types where a person types, and a person pastes what their assistant wrote. So no rule of the form "a person may, an LLM may not" can hold, and the defense is in three layers:
+  1. **The grammar:** requests are validated actions from the catalog (below). Two things the view state holds can't be left to an input or a link: **the source** (a link or a pasted action could point it at any URL) and **export** (it writes a file). **Proposed:** an action or a link may describe a view of the source that's open, and nothing else; one that names a source shows it and waits for the person, and an export always ends in the browser's own save prompt. Without that carve-out, "no action can name a host or write a file" doesn't hold.
+  2. **The engine, locked down:** DuckDB-Wasm reads an `https://` path written straight into a query, with no extension to load, so a raw query could send a visitor's data out. Proposed even if Tycho never takes SQL, since it also covers a mistake in the grammar. Tested 2026-11-17 on the pinned build (DuckDB-Wasm 1.32.0, DuckDB v1.4.3) in Node, to repeat in a browser:
+     - `SET enable_external_access = false` alone is too blunt: it also blocks every file Tycho registers.
+     - What works, in this order at the engine's start: load every extension Tycho will need (`LOAD` is refused afterwards, autoloading included), `SET allowed_directories = ['tycho/']`, `SET enable_external_access = false`, `SET lock_configuration = true`.
+     - After it, a file registered under `tycho/` reads (registered after the lockdown too, so a dropped file works), and so do `CREATE TABLE … AS`, `SUMMARIZE`, and `parquet_metadata` over it. A file outside the directory, a `tycho/../` path, an `https://` path in a query, `COPY … TO` outside the directory or to a URL, `ATTACH`, and every `SET` are refused. `enable_external_access` can't be turned back on while the database runs, locked or not.
+     - **The directory is the host's, passed to the engine.** The registered names are built in Tycho's crate and written into its SQL (`workbench.rs`, `csv.rs`, `dataset.rs`); the engine only receives them and may know no app (`engines/duckdb/CLAUDE.md`, rule 1). The observatory's contenders share the engine with names of their own, so the lockdown is a host's choice, off unless asked for.
+     - **What Tycho sends lazily today breaks under it, and has to move before the lock:** every CSV open sends `ATTACH IF NOT EXISTS ':memory:' AS tycho_csv (COMPRESS)` (`csv.rs`), and `LOAD parquet` is a prefetch that can fail and be retried, followed by `SET GLOBAL parquet_metadata_cache = true` (the engine's `bridge.rs`). The lock has to wait for the load to succeed, so until it does the engine is unlocked: **proposed** that the input takes nothing until the lock is on.
+     - Not tested, Node can't: a dropped file's handle (`BROWSER_FILEREADER`, which every dropped file uses), a remote file registered under the directory (the URL route), which should pass since the check is on the name, and an export written inside the directory then handed to the page.
+  3. **The connection policy** ("Trust", below), enforced by the browser.
+- **Proposed:** the context a visitor copies out is, by default, the schema and the statistics of number columns. Anything that carries cell text is a visible opt-in: sample rows, and also a text column's top values, min, and max. Cell text is data leaving the tab, and it can be written to steer a model. **Column names are the file's text too:** a hostile CSV's header can carry instructions, and names can't be left out of a schema, so they go out marked as data like any cell, cut to a length, in the copied context, the capability schema, and every reply.
+- **Proposed:** a reply that holds data marks it as data, apart from Tycho's own wording, and the instructions tell an agent that cell text is content, never a command. This lowers the risk and doesn't remove it; the boundary is still that an agent can ask only for what the catalog holds.
+
+## The pieces
+
+### 1. The controller
+
+- **Decided:** it holds one serializable **view state**: the source, the columns and their order, filters, sort, pins, formats, color rules, and later a grouping. It compiles the state to SQL for the engine and to calls on the tall table.
+- **Decided:** every driver produces that same state: a click in a column menu, a typed command, a pasted reply from an assistant, a browser agent, a link.
+- **Decided:** it is built first and thin (source, columns, their order, widths, pins, formats: what needs nothing new from the engine), and each of the table's features is adopted through it, so none is wired to the table and then wired again. Each adoption is also a new field in the capability schema. What the table owns and reports (widths, pins, order) the controller takes from the table's events. **Sort and filter aren't thin:** the table's `sort` is built, but the DuckDB source's order isn't (an index for a CSV in memory, a sorted copy of a Parquet file within the memory budget, a refusal past it: [`tall-table-features.md`](tall-table-features.md), "`sort`"), and a source that pages by row-group range can't page a filtered result. On a remote file read by range, either would read all of it. They are a step of their own, with the engine's part.
+- **Proposed:** it lives in Tycho's crate, in Rust. It moves to a component or the engine only when a second consumer needs it (root `CLAUDE.md`, "Tiers").
+- **Proposed:** it publishes a **capability schema** generated from what the build holds (the table's compiled features, the current columns and their types, the catalog), so it can't offer what it can't do.
+
+### 2. The table's own tools
+
+What someone needs to check something in a large file, with no LLM anywhere:
+
+| Tool | State |
+|---|---|
+| Sort, resize, select, copy, pin, reorder, format, density | Built in the tall table; Tycho has adopted none yet |
+| Jump to row | Built in Tycho |
+| Filter a column; search across columns | Candidates in the tall table's PLAN, after its `replace_rows` |
+| Find (keep every row, step through matches) | A candidate in the tall table's PLAN |
+| Hide and show columns | Planned in the tall table's PLAN |
+| A column profile: type, null share, distinct count, min and max, top values, a small histogram | New, Tycho's |
+| Totals of the selection (count, sum, average) | New, Tycho's: a query over the selection's range in the catalog, since most of a large selection isn't loaded |
+| Export the current view as CSV or Parquet (and so convert between them) | New, Tycho's and the engine's; needs a size plan (below) |
+| Schema and file facts (types, row groups, compression) | New, Tycho's |
+| Filter by a cell: every row that shares this value, or every row that doesn't | New, Tycho's; **decided** |
+| A row detail view: one row opened and read in full, long text and nested values included | New, Tycho's; **decided** |
+| The view copied as SQL, to continue in another tool | New, Tycho's; **decided** |
+
+**Export's size, open:** an export is written inside DuckDB-Wasm before the browser saves it (to confirm how), so a large one could run out of memory. The choices: a cap with a clear message, which covers the common case of a small piece of a big file; or writing in pieces to a file the visitor picks (the save-file picker, Chromium only). It also needs a call the bridge doesn't have. Decided before export is built.
+
+### 3. The catalog: formulas by type
+
+- **Proposed:** a catalog of named, parameterized queries, each keyed by the column types it applies to.
+
+| Applies to | Entries |
+|---|---|
+| Any column | nulls, distinct count, top values, duplicates |
+| Numbers | quantiles, histogram, outliers |
+| Text | pattern match, length spread, stray whitespace, numbers stored as text, detected shapes (email, URL, UUID, JSON) |
+| Timestamps | range, gaps, counts per day or hour |
+| Two columns | group one and aggregate the other, pivot |
+| The table | duplicate rows, whether a column is a unique key |
+
+- **Proposed:** one catalog, three readers: the column menus, the command grammar, and the instructions an LLM is given. An LLM can ask only for what the catalog holds, which is the security boundary.
+- **Proposed:** the first profile is cheap: DuckDB's `SUMMARIZE` profiles every column in one statement, and a Parquet footer already holds each column's min, max, and null count.
+- An entry returns either a new view of the rows or a small answer (a number, a short table). Small answers show in the thread.
+- **Open, for the design session:** grouping is more than one entry. Every person in `personas.md` needs it, and a grouped result isn't a view of the file's rows: it is a new table, which can itself run to a million rows and so needs the table, not the thread. So "a result becomes a new source" is needed here, long before a SQL editor: where a grouped result appears, and how a visitor gets back to the rows.
+- **Proposed:** an action has two spellings. An agent's is JSON, which models write reliably and which validates against the capability schema (`{"filter": {"column": "mass", "op": ">", "value": 10}}`). A person's is a short typed command (`filter mass > 10`) that parses to the same action. The thread shows what was typed and the action it became.
+
+### 4. The thread
+
+- **Decided:** a thread with history and scroll, and the input beside it, in a collapsible panel at the left. Whether it earns its place is for the design session.
+- **Decided:** the input and the replies are DOM beside the canvas.
+- **Decided:** it is a log of requests and Tycho's replies, not a conversation with a model. Every action lands in it, clicks included, so a menu click shows the command it made. A reply is the new row count, a small answer, or an error.
+- **Proposed:** each entry is a view state, so an old entry can be returned to: history and undo.
+- **Proposed:** the logic stays in Rust (the controller parses and replies); the DOM side only shows the thread. This is an exception to "everything on the canvas", to be logged as a decision with its reason: text entry, selection, Ctrl+F, screen readers, and agents all need the DOM.
+- **Decided:** the thread's input takes commands and actions, never SQL. SQL gets an editor of its own (many lines, its own errors, its own results), a later goal, with the engine's lockdown under it.
+- **Open:** the input's form. Tycho holds no model, so its input can't read natural language: that goes to the visitor's assistant, and an action comes back. A box that looks like a chat invites a sentence and answers with a parse error, so it may be better as a command bar with completion than as a chat box. For the design session.
+- For the design session: the name. "Log" or "History" says "not a chat" better than styling can.
+- For the design session: a chat layout suggests someone is answering. The page should make plain that the replies are Tycho's own and that nothing was sent to a model.
+
+### 5. How an LLM reaches it
+
+- **Decided:** the clipboard. A "copy context" button gives the visitor a text for their own assistant; they paste its reply into the input.
+- **Decided:** browser agents. The visitor's agent reads the instructions and drives the same input.
+- **Proposed:** the instructions also live on the page (a section or a linked text file), so an agent finds them without a copy.
+- **Proposed:** both routes use the one input and the one validation path. An agent can't read a canvas, so it reads the thread's replies.
+- **Open:** a tool surface registered with the browser (the WebMCP proposal), and a model that runs on the visitor's device. Both need research into what browsers ship today.
+- **Proposed, ruled out:** a server-side MCP (the data is in the visitor's tab) and a local bridge to a desktop client (a page talking to localhost is its own risk).
+
+### 6. Opening a file
+
+- Drop a CSV or Parquet file: built.
+- **Decided:** JSONL joins them.
+- **Decided:** more than one file: several opened together, a dataset split across many files opened as one, and joins between them. Its shape is open (what a join looks like in the view state and the catalog), and it comes after the single-file app works.
+- **Decided:** open from a URL.
+- **Decided:** Parquet only, read by range: the footer and then only the row groups in view, as the samples are today, so part of a huge remote file opens quickly (a file on Hugging Face, say: checked 2026-11-17, its `resolve` URL answers a cross-origin request, allows the `Range` header in a preflight, and redirects to a CDN that answers `206` with `Access-Control-Allow-Origin: *`; each read pays that redirect). What the engine needs of any host is narrower than "allows cross-origin reads": a ranged `HEAD` answered with 206, and `Content-Range` exposed to the page, since that is how it sizes the file (`engines/duckdb/CLAUDE.md`; `remoteSize` in the engine's `engine.ts`). Hugging Face does both, through the redirect, checked with `curl` and not yet through DuckDB in a browser. A remote CSV has no index and isn't offered.
+- **Proposed:** no proxy through our Worker (the data would pass through us). The remote host must allow cross-origin reads, and the page says so when one doesn't.
+- **Proposed, to research before it's built:** URL opening gets a route of its own with a looser connection policy, so the drop-a-file page keeps the strict one (below). That route holds only what anyone can fetch, so it takes no dropped files: a private file never sits on the page where the browser allows other hosts. The engine's lockdown likely holds here too: the remote file is registered under the allowed directory and read by that name, so a query still can't name a host (to test in a browser).
+
+### 7. Trust
+
+- **Decided (long-term):** a collapsible panel, a small `htop` for the page, showing what comes in and what goes out, for visitors who won't open devtools. The observation panel's bytes-read and waterfall rows are its start.
+- **Proposed:** two guarantees that don't depend on believing the panel. A Content-Security-Policy that allows connections only to Tycho's origin, enforced by the browser and readable in the response headers. And working offline: once loaded, with a dropped file, nothing needs the network.
+- **Proposed:** the policy ships with the first release, not after it. The input exists from the moment the thread does, and an agent types wherever a person types, so a release without the policy is drivable with one of the three layers missing. Offline and the panel can follow.
+- **Kirkwood shares the origin** (`tycho.seiza.io/kirkwood`, a Worker of its own): "only Tycho's origin" still reaches Kirkwood's Worker, and anything Tycho saves in the browser's storage is readable by Kirkwood's page. Both are ours, so it's a limit to state, not a hole: the policy can name Tycho's own paths, and a saved view is either accepted as shared or Kirkwood moves to a hostname of its own (which reopens the root's hosting decision). **Open.**
+- **Open:** what the policy must allow for DuckDB-Wasm's worker, wasm, and extensions.
+
+### 8. Samples
+
+- **Decided:** the Gaia sample leaves Tycho's R2. Kirkwood is unaffected in production: it has a bucket of its own and ships `stars.bin`. Its `data/stars.ts` builds that file from the local Gaia Parquet that `just tycho data gaia` makes, so the Gaia fetch and prep scripts stay (or move to Kirkwood) even after the sample button goes.
+- **Decided:** the sample is downloaded whole, after first paint and on the visitor's click, and read from memory. It isn't read by range over the network: range reads are for Parquet files opened from a URL ("Opening a file"), and are tested locally against a server that answers ranges.
+- **Decided:** so the sample is a static asset under the Workers per-file limit (25 MiB on every plan, confirmed 2026-11-17 against Cloudflare's limits page; a larger file fails the deploy), and the samples leave R2. **Whether the bucket itself goes is open:** it also holds DuckDB-Wasm's two wasm bundles (33 and 38 MiB, over the limit; only their `.br`, 5 and 6 MiB, are static assets), which the Worker serves to a browser that doesn't take br (`apps/tycho/docs/hosting.md`). Either the bucket stays for those two files alone, or they get a home under the limit (a gzip copy as a static asset, say, which every browser takes). The Worker keeps the headers and the pause switch.
+- **Decided:** the sample should show the feature set at its best. The asteroids alone are a dull table.
+- **Proposed:** what a good sample has: text, categories, timestamps, numbers, and nulls, so every catalog entry has something to do; a known story a visitor can find; a license that allows re-hosting; and a size under the static-asset limit.
+- **Open:** which data. A subset of Gaia that keeps the star map (the stars within 100 parsecs draw the color-magnitude diagram once charts exist; it needs a new fetch, since today's extract holds only bright stars), or a set with more text and dates (a catalog of every object launched to orbit, exoplanets, earthquakes). Possibly two samples: one rich in types, one for charts. Its own research.
+- Today's `asteroids.parquet` is 37.7 MB, over that limit as it stands. **It stays as a build input whatever the sample becomes:** the observatory's `data/prep.ts` builds its base-level file from `apps/tycho/data/asteroids.parquet` and checks its SHA-256 against Tycho's `MANIFEST.json`, so the asteroid fetch, its prep, and its manifest entry stay where they are or move to the observatory with that script.
+
+### 9. Charts
+
+- **Decided:** a goal: "view my query as a chart". It gets a planning session of its own, which starts from the decision it reopens: "Tycho builds no plot" (root `docs/DECISIONS.md`, "Repo structure", 2026-11-10) and the research behind it ([`density-plot.md`](density-plot.md)).
+- **Proposed:** a chart is another view of the same view state, and one more catalog entry. Two sizes to separate then: a chart of an aggregate (the profile's histogram is the first), and a plot of every row on the GPU.
+
+### 10. Later: checked SQL expressions, before a SQL editor
+
+- **Decided:** explored before Tycho reaches for a full SQL editor, in an ideation session of its own when its turn comes. What follows is the starting point for that session, not a spec.
+- **What it adds:** the catalog's actions compose (several filters, a sort, a column list), and what they can't say is narrow: a computed value (mass divided by diameter), a compound condition (nested and/or), anything across two files. An action could carry a SQL *expression* in a slot, a filter's condition or a computed column, never a whole statement. Models already write SQL expressions well, so nothing new has to be taught to them.
+- **How it's checked:** by its structure, before it runs. DuckDB parses a query into a tree without running it (`json_serialize_sql`), and Tycho walks that tree. Using DuckDB's own parser matters: a parser of ours could read a query differently than DuckDB does, and that difference is how such checks get bypassed.
+- **What the check must hold to:**
+  - Default-deny: a short list of allowed node types and functions, everything else refused, subqueries included (a condition can hide one that reads a URL).
+  - The expression is wrapped in a statement Tycho writes, and the whole must parse as exactly one statement, so an expression can't close ours and start its own.
+  - The tree's format isn't a stable interface: a fixture test at each DuckDB-Wasm bump.
+  - One allowlist for everyone. The input can't tell who typed.
+- **To check first:** whether `json_serialize_sql` works in DuckDB-Wasm. It is in the JSON extension, which Tycho would serve from its own origin as the engine does its others, and which must load before the lockdown: an extension can't load after it.
+- **What it touches:** "the thread's input never takes SQL" becomes "never a statement", since `filter mass / diameter > 2` carries an expression. The engine's lockdown stays under it as the second layer.
+
+### 11. Later: a SQL editor
+
+- **Decided:** a later goal, after checked expressions have been explored, and only once the engine's lockdown is proven: with full SQL the grammar is a convenience and the lockdown is the defense.
+- On the drop-a-file page the connection policy is behind the lockdown, but it still allows requests to Tycho's own origin, so a leak could land in our Worker's logs: the lockdown has to hold for our sake too.
+- A query's result isn't a view of the file. The likely shape: the result becomes a new source, which the controller filters and sorts as usual.
+
+## Who it's for
+
+[`apps/tycho/docs/personas.md`](../../apps/tycho/docs/personas.md) holds the people Tycho is built for (the quick checker, the ML engineer, the investigator), what each needs, and why anyone exports. It is kept apart from the PLAN on purpose: a reference to come back to while building, in the people's terms, with no feature states in it. Five of the tools above came out of it: filter by a cell, the row detail view, the view copied as SQL, JSONL, and more than one file.
+
+- **Decided:** the first release is built for the quick checker. What the other two need sits on what that person needs (filter, profile, group, export), so nothing built for them is wasted. The ML engineer is second (JSONL, the row detail view, nested values: contained work); the investigator third (several files, joins, fuzzy matching: the largest).
+
+## What it needs from elsewhere
+
+- **The tall table:** `replace_rows`, then column filtering, global filtering, find, and column visibility. Tycho becomes the host waiting on them, which the table's PLAN should record.
+- **The engine:** the `WHERE` and `ORDER BY` behind the table's source, export, the profile queries, remote files beyond the samples, and the lockdown settings.
+- **The page's technology:** static and prerendered, plain TypeScript for the thread to start. A framework (React with TanStack, or another) is measured only if the page's DOM state grows enough to need one. **Decided** that this is measured, not assumed.

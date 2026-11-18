@@ -1,17 +1,19 @@
 # PLAN.md — Tycho
 
-What's next for Tycho: milestone status, the active milestone's "done when" checks, long-term goals, and open questions. Only what's still open lives here. Context and rules are in `CLAUDE.md` here and at the repo root.
+What's next for Tycho: milestone status, the next milestone's "done when" checks, the goals after it in order, and open questions. Only what's still open lives here. Context and rules are in `CLAUDE.md` here and at the repo root.
 
-**Goal:** a local-first data workbench in the browser (DuckDB-Wasm + GPUI Kit on WebGPU, WebGL2 fallback) that people use as a real tool: a utility app (root `CLAUDE.md`, "Tiers"), with a number on screen for every claim. Its table and DuckDB layer become the repo's first component and engine, and the observatory compares that component with a DOM equivalent, GPUI | TanStack ([`../observatory/PLAN.md`](../observatory/PLAN.md)).
+**Goal:** a data workbench for files too big for a spreadsheet, running entirely in the browser: open a file, understand it, check what you need, and export the part you want. The data never leaves the visitor's machine. Tycho is a utility app (root `CLAUDE.md`, "Tiers"): a public tool, built around a *controller* that sits between DuckDB-Wasm and the tall table, holds one *view state*, and can be driven by a person or by an outside LLM. Tycho hosts no model and takes no API key.
 
-**Deciding metric:** time to first paint (TTFP), measured as `performance.mark("gpui:first-frame")`.
+**The test for every feature:** does it help someone with a large file and a question? The first release is built for the quick checker ([`docs/personas.md`](docs/personas.md)).
+
+**Tycho is being rebuilt.** This plan was rewritten on 2026-11-17 and replaces the old one whole: its carried-over perf reruns, its production-performance goal, and its open questions are not carried over. Until the reset (M11) lands, `CLAUDE.md`, `README.md`, and the docs beside them still describe the app as built, measurements included.
 
 **Where everything else lives:**
+- [`../../docs/research/tycho-workbench.md`](../../docs/research/tycho-workbench.md): the research behind this plan: the security model, each piece, what was tested. Every goal below links to its section and never restates it.
+- [`docs/personas.md`](docs/personas.md): who Tycho is for and what each person needs.
 - [`docs/milestones.md`](docs/milestones.md): the specs, checks, and evidence of finished milestones (history; not edited).
-- [`docs/DECISIONS.md`](docs/DECISIONS.md): every decision, by area, with its numbers. Repo-wide ones: the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
+- [`docs/DECISIONS.md`](docs/DECISIONS.md): every decision, by area. Repo-wide ones: the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
 - [`docs/LESSONS.md`](docs/LESSONS.md): what each milestone taught us.
-- [`docs/data.md`](docs/data.md), [`docs/hosting.md`](docs/hosting.md): the samples and the Cloudflare setup.
-- [`perf/budgets.json`](perf/budgets.json) and [`perf/results/`](perf/results/): every budget, and every measurement, dated.
 
 ---
 
@@ -30,79 +32,82 @@ What's next for Tycho: milestone status, the active milestone's "done when" chec
 | M8 | Deploy to Cloudflare | Done 2026-10-10: https://tycho.seiza.io |
 | M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
 | M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Done 2026-11-01 |
-| Later | Table features: column resizing, selection, sorting | Planned in [the table's `PLAN.md`](../../components/tall-table/PLAN.md); adopted here one at a time |
-| Later | Production performance: servers, edge, and data layout | Not started; research first, in its own session |
+| — | Design session: the page, the thread, the profile, where answers show | Before any building; either side of the sample session |
+| — | Sample session: which data, under the static-asset limit | Before M11's sample check |
+| M11 | Reset: the old Tycho retired, the ground cleared | Next |
+| Later | The goals below, in order; the first release is everything through export | Each becomes a milestone when it's opened |
 
-The comparison with a DOM table moved to the observatory ([`../observatory/PLAN.md`](../observatory/PLAN.md)), which builds on M9's component and engine.
+**Closing a milestone:** every "done when" check passes; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. Tycho records no measurements (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17); what it still checks is in M11.
 
-**Closing a milestone:** every "done when" check passes; the numbers are in `perf/results/` (a dated JSON per run and a note, from [`docs/templates/app/perf/results-note.md`](../../docs/templates/app/perf/results-note.md)); new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; `just tycho report` has refreshed the generated numbers; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above.
-
-**Waiting on** (features of a component or engine Tycho needs, and repo-wide changes it adopts; only that crate's `PLAN.md` (or the change's plan) builds them, and the session that closes one flips its row to *Ready*):
+**Waiting on** (features of a component or engine Tycho needs; only that crate's `PLAN.md` builds them, and the session that closes one flips its row to *Ready*):
 
 | Needs | For | Status |
 |---|---|---|
-| Every tall-table feature ([its PLAN](../../components/tall-table/PLAN.md)) | "Table features" (below): each adopted as it's ready | *Ready so far:* `custom-cells` (2026-10-24, tall-table M2), `live` (2026-10-25, tall-table M3), `follow` (2026-10-25, tall-table M4; its `let_go` 2026-11-09, M13), `resize` (2026-10-26, tall-table M5), `select` (2026-10-26, tall-table M6), `copy` (2026-10-27, tall-table M7), `sort` (2026-10-29, tall-table M8: adopting it builds the DuckDB source's order, one of the research's options by source, an index for a CSV in memory, a sorted copy for a Parquet file within the memory budget, a refusal past it ([the research](../../docs/research/tall-table-features.md), "`sort`"), measured against Tycho's budgets), `pin` (2026-10-29, tall-table M9), `density` (2026-11-01, tall-table M10), `format` (2026-11-05, tall-table M12), `reorder` (2026-11-13, tall-table M15), `clicks` (2026-11-16, tall-table M16), `group-headers` (2026-11-16, tall-table M17) |
+| The tall table's `replace_rows`, then column filtering and global filtering ([its PLAN](../../components/tall-table/PLAN.md)) | "Sort and filter", below | *Not ready* |
+| The tall table's find | Search that keeps every row | *Not ready* |
+| The tall table's column visibility | Hide and show columns | *Not ready* |
+| The tall table's built features | "Table basics", below | *Ready:* `custom-cells`, `live`, `follow`, `resize`, `select`, `copy`, `sort`, `pin`, `density`, `format`, `reorder`, `clicks`, `group-headers` (their dates: the table's `docs/milestones.md`) |
 
 ---
 
-## Active milestone
+## Next milestone: M11, the reset
 
-None: M10, `trim-paths`, closed 2026-11-01 ([`docs/milestones.md`](docs/milestones.md)). Tycho's own milestones after it come out of the research for a long-term goal below.
+Not opened yet. The design session and the sample session come first; the sample check below waits on the second.
 
-**Carried over from the gpui-kit 0.9.1 bump** (2026-11-10, [its note](perf/results/2026-11-10-gpui-kit-0.9.1.md)), for the next milestone that adopts a table feature, which runs these anyway; on their own if a deploy comes first:
-- [ ] `just tycho table --reference-only` on both samples: the fling's and steady scroll's frame work under gpui-pre 0.3.12's cursor reset on every mouse and scroll event (a `document.body.style.cursor` write each), against `2026-10-13-m9-suite.json`'s, and an interleaved look against a 0.9.0 build if it moved.
-- [ ] `just tycho jump --reference-only`: the context menu's Paste on 0.9.1 (gpui-component 0.9.1 sizes the menu's items in rems; `perf/jump.ts`'s `MENU_PASTE_DY` is unchecked on it), then the version in that comment.
-- [ ] `just tycho lint`'s TypeScript step fails on `shared-web/perf/protocol.ts(67,11)`: `Cannot find name 'ResizeObserverEntry'` (`tsc -p shared-web/perf` from Tycho's host; the same project passes from the tall table's `lint`). Not the bump's: neither file changed with it. Fix before the next `check`, which runs `lint` first.
+**What it is:** Tycho stops being a measured demo of a scrolling table. Its measurements go, the Gaia sample goes, the new sample arrives, and every doc that describes the old app is rewritten for the new one. Nothing of the new app is built here.
 
-**A shared wait before a canvas click** (from the CLAUDE.md condensing, 2026-11-14): `.claude/rules/perf-harness.md`'s WebKit press-before-hover rule binds every app, but its fix is Tycho's own `hoverSettles` (`perf/table.ts`), and `shared-web/perf/`'s `clickTarget` doesn't wait. Shape: `clickTarget` waits two frames between the move and the press (or `shared-web/perf/` exports `hoverSettles`), Tycho's copy goes, and the rule names the shared helper.
+**Done when:**
+
+- [ ] **The measurements are retired:** the perf suite and its scripts, every budget but the wasm's size, `just tycho report`, and the generated numbers in `README.md`, this file ("Measurements", below), and the root README's table, with a plain sentence in their place. `perf/results/` stays as history.
+- [ ] **Four things are kept and still run:** the wasm's size (brotli) gated in `just tycho check`; the page's weight before first paint reported by `just tycho build`, ungated; a first frame appearing, pass or fail, in the smoke check (*proposed:* it prints the time, stored nowhere); memory when a 1 GB file is dropped, run by hand.
+- [ ] **The behavior checks are sorted from the speed checks** and kept: the smoke check, the error cases, the tricky CSV rows, the home-path check.
+- [ ] **The root says what was decided:** Tycho's exemption from rules 1 and 3 and the measurement protocol, and the reworded claim (the canvas for the GPUI components, the heavy parts; the DOM where text lives), in the root `CLAUDE.md` and README.
+- [ ] **Gaia is out of Tycho's production R2 and its button is gone.** The Gaia fetch and prep aren't deleted here: Kirkwood's `data/stars.ts` reads the local file they build, and a Kirkwood session moves them or decides they stay ([its PLAN](../kirkwood/PLAN.md), "Open questions"). If that session hasn't run when this check is reached, stop and tell the owner. *The owner confirms the deletion in production.*
+- [ ] **The asteroid file stays a build input:** the observatory's `data/prep.ts` reads `data/asteroids.parquet` and its hash in `data/MANIFEST.json`, so the asteroid fetch, prep, and manifest entry stay here or move to the observatory with that script. `just observatory` data prep still passes.
+- [ ] **The new sample is built and served whole as a static asset,** under 25 MiB, read from memory (the sample session's choice).
+- [ ] **The bucket is decided:** it also holds DuckDB-Wasm's two wasm bundles, which are over the static-asset limit ([the research](../../docs/research/tycho-workbench.md), "Samples"). Either it stays for them alone, or they get a home under the limit and the bucket, its binding, and the Worker's data path go. *The owner confirms any deletion and the deploy.*
+- [ ] **The docs describe the new Tycho:** `README.md`, `CLAUDE.md` and each folder's, `docs/data.md`, `docs/hosting.md`. Tycho's rules are revisited with them: "keep the bridge narrow" against export and URL opening, and "scope grows through `PLAN.md`".
+- [ ] **`just tycho lint` passes,** its TypeScript step included (it fails today on `shared-web/perf/protocol.ts`: `Cannot find name 'ResizeObserverEntry'`).
+- [ ] *Proposed:* the burst script (a visitor's requests against the zone's rate limit) run once on the new build, then retired.
 
 ---
 
-## Long-term goals
+## Goals, in order
 
-Not milestones yet. Each starts with research, and becomes a milestone only if the research says it's worth building.
+Not milestones yet. Each links to its section of [the research](../../docs/research/tycho-workbench.md), which holds the reasoning and what's marked decided, proposed, or open; a proposed item is checked and reviewed when its goal is opened, before it's built. **The first release is everything through "Export".**
 
-### Table features: column resizing, selection, sorting
-
-The table's features (resizing, selection and copy, sorting, and the rest of `DataTable`'s), their order, specs, and the research into their costs are the component's: [`../../components/tall-table/PLAN.md`](../../components/tall-table/PLAN.md). Only the component's PLAN builds them; Tycho waits on them ("Waiting on", above) and adopts every one, each as a milestone here that turns the feature on, wires it into the workbench, and measures it against Tycho's budgets (the table measures each feature's own cost, in a bare host).
-
-### Production performance: servers, edge, and data layout
-
-M8 measured production and stopped there: **budgets apply to the local build only**, and production numbers are recorded, never gates (root `docs/DECISIONS.md`, "Measurement protocol", 2026-10-10). Making production faster is goal work for its own session(s), with its own token budget: the upstream variables (network, edge, R2) are unknowns. Numbers below are from `perf/results/2026-10-10-m8.md`: one Apple M1 on a home connection, ~25 ms to Cloudflare's SJC data center, ~100 Mbit/s, reference run.
-
-**Where production's time goes (M8):**
-- **First paint:** 327 ms against 211 locally (interleaved). All of the gap comes before wasm ready: connection 27 ms, HTML +28, the wasm's first byte 81 ms after its request (one round trip plus the edge), its transfer 65 ms. From wasm ready to the first frame, production matches local (100.5 vs 97.9 ms).
-- **First page of rows:** ~8 sequential round trips. The app's `bytes=0-0` size probe (`engine.ts`, `remoteSize`), DuckDB's sizing HEAD, two footer reads, then the readahead steps (16 KB, 64 KB, 256 KB, 1 MB, plus 4 MB for Gaia; not configurable, see the DuckDB gotchas in CLAUDE.md). First rows: 506.8 ms asteroids, 810.8 Gaia (local 201.8 / 295.7).
-- **R2 is the slow hop:** a range read takes 55–125 ms, a static asset 20–35, an edge-cache hit 40–75.
-- **The edge cache is per data center** (Cache API). The first visitor at one pays R2: 873.8 ms first rows (asteroids), 1971.3 (Gaia). Reads over 4 MiB are never cached (the tee/isolate-memory cap), so Gaia's 16 MB readahead step always reads R2.
-- **A Gaia page is 5.6 MB:** on a normal link, most of its time is transfer.
-- **Engine ready:** 985 ms (local ~680 in a single run), much of it DuckDB's 5.2 MB br bundle.
-
-**Ideas, roughly cheapest first** (each needs measuring before and after, and a decisions-log entry):
-1. **Drop the app's `bytes=0-0` size probe:** DuckDB's ranged HEAD already sizes the file. One round trip per open. First check why M3 added it (`docs/DECISIONS.md` and LESSONS).
-2. **Worker-side readahead prefetch:** DuckDB's step pattern is predictable, so on a miss the Worker could read the next step from R2 into the edge cache (`ctx.waitUntil`) before DuckDB asks. Helps at a cold edge too.
-3. **Prefetch the default sample's footer after the engine is ready,** before a click: saves ~3 round trips on the first click. It's a product decision: it downloads bytes a visitor may never ask for (repo rule 2 allows it after first paint; still say so in the UI's loading line).
-4. **Tiered caching for R2 reads** instead of the per-colo Cache API: the Worker fetches R2 through a cached route (an R2 custom domain, read only by the Worker as a subrequest), so a miss here can come from Cloudflare's upper tier, not R2. The browser still sees one origin (COEP). Check range support and cache keys there.
-5. **Cache big reads in 4 MiB chunks,** so the 16 MB step is cached without the tee buffering risk.
-6. **Re-tune Gaia's row-group size for the network:** M7 chose 61,440 rows on per-group CPU cost (local, no network); in production, bytes per page weigh more. Rerun the M7 trade-off with the network in it.
-7. **Zone settings:** 103 Early Hints for the wasm and font preloads, HTTP/3. Measure; don't assume.
-8. **Engine ready:** whether DuckDB's bundle and worker can start sooner after first paint, or share the connection better with the app's own requests.
-
-**Fix the method first:**
-- **A deliberate cold-edge measurement:** today the edge state depends on what ran before (the table part's `firstRun` is cold only on the first run after a deploy). A cache-key salt (a query parameter or a `DATA_VERSIONS` suffix) would make cold-edge runs repeatable.
-- **More than one vantage point:** every production number so far comes from one home connection near SJC. Add at least one far-away run (a CI runner or a remote browser) before generalizing.
-- **Keep interleaving with the local build** (`perf.ts --vs-local`): the same build read 304.8 and 327.2 ms TTFP an hour apart.
-
-Record each decision with its numbers in `docs/DECISIONS.md`; production stays recorded, not budgeted, unless that rule is revisited on purpose.
+1. **The controller, thin, and the engine's lockdown.** One serializable view state behind every driver; first the parts that need nothing new from the engine (source, columns, their order, widths, pins, formats). The lockdown is repeated in a browser first, with what Tycho sends lazily today moved ahead of the lock. *("The controller"; "Security", layer 2.)*
+2. **The thread, minimal:** the input and the log, in the DOM, so every later goal has somewhere to show its commands and answers. Its form comes from the design session. *("The thread".)*
+3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view. *("The table's own tools".)*
+4. **Sort and filter,** with filter by a cell. Not thin: the DuckDB source's order and its `WHERE` are unbuilt engine work, and filtering waits on the tall table ("Waiting on"). *("The controller".)*
+5. **Profiles and the catalog,** grouping included, whose result is a new table. *("The catalog".)*
+6. **Export,** and the view copied as SQL. Its size plan is settled first. *("The table's own tools".)*
+7. **The connection policy.** *Proposed* as part of the first release, since the input is drivable from the day it ships. *("Trust".)*
+8. **Open from a URL:** Parquet only, read by range, on a route of its own. *("Opening a file".)*
+9. **The instructions, and the clipboard and agent routes.** *("How an LLM reaches it".)*
+10. **Trust:** offline, and the panel. *("Trust".)*
+11. **JSONL,** then nested values in the row detail view. *("Opening a file".)*
+12. **More than one file,** and joins. *("Opening a file".)*
+13. **Charts,** after a planning session of their own. *("Charts".)*
+14. **Checked SQL expressions,** after an ideation session of their own. *("Later: checked SQL expressions".)*
+15. **A SQL editor,** once the lockdown is proven. *("Later: a SQL editor".)*
 
 ---
 
 ## Open questions
 
-- **Tycho standing alone:** Tycho is a utility app whose look and features follow its component, and it shares no UI with the apex site (root `docs/DECISIONS.md`, "Repo structure"). Whether it should also stop building on `shared-web/`'s host pieces (the placeholder's CSS copies of gpui-kit's components, the Vite config), so a change made for the observatory or the site can't reach it, is open; `shared-web/`'s rules are revisited with it.
-- **One asteroid fetch for Tycho and Kirkwood:** Kirkwood fetched the catalog for itself on 2026-11-11, at full precision and with the orbit's other elements (`apps/kirkwood/docs/data.md`; why it didn't join to this sample: `apps/kirkwood/docs/DECISIONS.md`, "Data"). Found on the way: the sample's few digits (a to a thousandth of an au) are the API rounding for display, which `full-prec=1` turns off; every row of the sample is still in the catalog under its `spkid`, with 12,749 more since 2026-09-24; and the two fetch scripts are near copies, Kirkwood's with checks this one lacks (a resume at another page size, a row that moved across a page boundary, pages fetched days apart). Whether the two apps share one fetch (one script, one `data/raw/`, each app's prep making its own files from it), and whether the sample then takes the full precision or the new columns, is open. A new sample is new bytes: every number measured on the asteroids would be re-measured or labeled with the file it came from.
-- **A link to Kirkwood:** Kirkwood is live under this hostname at `/kirkwood/`, served by a Worker of its own (`apps/kirkwood/docs/DECISIONS.md`, "Hosting"), and nothing on Tycho's page says so. Where the link goes (beside the asteroid sample's button, since its dots are that catalog's rows; or in the page's foot), and what it says. It is chrome on the first frame: weighed against the placeholder's copy of it and the wasm's size. *Not placed in a milestone.*
-- **Crate names:** whether `seiza-tall-table` and `seiza-duckdb` are free on crates.io. Only matters if they're published; nothing is yet.
+1. Which sample or samples, chosen so a chart is waiting for one of them (the sample session).
+2. Whether the thread earns its place, and its input's form: a chat box or a command bar with completion (the design session).
+3. Where a grouped result appears, and how a visitor gets back to the rows (the design session).
+4. Whether Tycho's bucket goes, given DuckDB-Wasm's two oversize bundles (M11).
+5. What an input or a link may do to the source and to export, so the grammar's boundary holds.
+6. How column names, which are the file's text, go out in the copied context and the capability schema.
+7. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and what sharing an origin with Kirkwood means for it and for anything saved in the browser.
+8. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
+9. Export's size plan.
+10. JSONL's size limit, if it loads into memory as a CSV does, and what the table and the engine's reader do with nested values today.
+11. Whether the URL route takes dropped files.
+12. Where WebMCP and on-device models stand.
 
 ---
 

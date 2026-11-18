@@ -8,6 +8,8 @@ The project's goal is to show that **WebAssembly + GPU-rendered UI builds heavy 
 
 ---
 
+**Tycho is being rebuilt** as a public data workbench (`PLAN.md`; the research, `docs/research/tycho-workbench.md` at the repo root; who it's for, `docs/personas.md`). Until the plan's reset lands, this file and each folder's describe the app as built, its measurements included: follow `PLAN.md` where the two differ.
+
 This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the samples and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; budgets, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` (TTFP first, paint before heavy loads, measurement protocol, canvas tradeoffs, `shared/` conventions) apply here too, and so do `.claude/rules/` (the GPUI Kit gotchas, the perf harness, Cloudflare). Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
 
 ---
@@ -50,7 +52,7 @@ apps/tycho/
   worker/           # the Cloudflare Worker (worker/CLAUDE.md)
   data/             # the samples' prep, the test files, MANIFEST.json (data/CLAUDE.md)
   perf/             # checks and measurements, budgets.json, baseline.json, results/ (perf/CLAUDE.md)
-  docs/             # DECISIONS.md (by area), LESSONS.md (surprises, per milestone), milestones.md (finished specs), data.md, hosting.md; private/ is gitignored
+  docs/             # DECISIONS.md (by area), LESSONS.md (surprises, per milestone), milestones.md (finished specs), data.md, hosting.md, personas.md (who Tycho is for and what each needs); private/ is gitignored
   README.md         # for visitors: numbers, canvas tradeoffs, file size limits, how to run it
   CLAUDE.md         # this file: context and rules
   PLAN.md           # what's next: status, the active milestone, long-term goals, open questions
