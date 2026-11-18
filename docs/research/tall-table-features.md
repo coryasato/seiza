@@ -1,6 +1,6 @@
 # Research: the tall table's features
 
-The research that opens each feature's milestone (the table's [`PLAN.md`](../../components/tall-table/PLAN.md), "Research each feature's design before building it"): how a feature is built on the table's f64-row scroll model, not whether. One section per feature, in the order they're built, one for the hardening's random test of the paging, and one for the second hardening's audits. Each section's decisions are logged in the table's [`docs/DECISIONS.md`](../../components/tall-table/docs/DECISIONS.md), "Features", and its numbers are in the table's `perf/results/`; this file keeps the reasoning and the options weighed.
+The research that opens each feature's milestone (the table's [`PLAN.md`](../../components/tall-table/PLAN.md), "Research each feature's design before building it"): how a feature is built on the table's f64-row scroll model, not whether. One section per feature, in the order they're built, one for the hardening's random test of the paging, one for the second hardening's audits, and one for `replace_rows`, a call in the base. Each section's decisions are logged in the table's [`docs/DECISIONS.md`](../../components/tall-table/docs/DECISIONS.md), "Features", and its numbers are in the table's `perf/results/`; this file keeps the reasoning and the options weighed.
 
 ---
 
@@ -1218,3 +1218,123 @@ Thirty of the 78; `just tall-table test` runs three of them today (`custom-cells
 - **Browsers:** the native test runs GPUI's test platform; the smoke checks stay the browsers'.
 - **A press against a stale frame** (finding 2's kind): found by reading, tested by calling the press inside the update.
 - **Touch:** `clicks`' long press and its tap are a window test's; the gestures are a mouse's.
+
+## `replace_rows`
+
+Researched 2026-11-18, from the table's reset (`src/state/sort.rs`'s `apply_sort` and `keep_sort`, `src/state.rs`'s `set_rows`, `set_columns`, `jump_to`, and `move_top_to`, `src/pages.rs`'s `forget_all`, `src/state/follow.rs`'s `Reach` and `sort_lets_go`, `src/state/select.rs`'s `sort_selection`), `DataTable`'s at gpui-component 0.10.0 (`src/table/state.rs`, `refresh`, `scroll_to_row`; `src/table/delegate.rs`, `rows_count`), Tycho's view state (root [`tycho-workbench.md`](tycho-workbench.md), "The controller"), and a spike: native DuckDB 1.4.5, a filter's `count(*)` against its first page over Tycho's CSV in memory and Gaia's Parquet file (the numbers: the table's [`perf/results/2026-11-18-m18-a-spike.md`](../../components/tall-table/perf/results/2026-11-18-m18-a-spike.md)). Not a feature: a call in the base, since a host's filter needs it with no feature on. Its decisions: the table's `docs/DECISIONS.md`, "Features" (2026-11-18).
+
+### What asks for it
+
+- **Tycho:** its filters (a column's, a search across columns, filter by a cell), a query run again, and a grouped result shown as a new table. Each changes which row every index means. Tycho's controller holds one view state (the source, filters, sort, columns) and compiles it to SQL and to calls on the table (`tycho-workbench.md`), so it changes the source and its count together.
+- **Nothing else can say it today.** `set_rows` means the same rows grown or cut (a page past the new end forgotten, the rest kept); `live`'s `invalidate_rows`, the same indices with new values (re-read in place, flashed); `set_sort`, a new order that the table itself tells the source. A host whose filter changed has no call that forgets every page: `set_rows` with the new count would keep the old rows' pages under the new indices.
+
+### What `DataTable` does
+
+Its delegate holds every row; a host changes them and calls `refresh` (which lays the column groups out again) and the table reads `rows_count` at the next render. The scroll offset and a selected row's index stay, so a selection made of row 40 is now another row 40; `scroll_to_row` is the host's to call. No page to forget and no read in flight, so nothing to reuse but the gap it leaves: what's kept by index stays, and is wrong.
+
+### `sort`'s reset, made public
+
+`sort` already does what a new set of rows needs (root "`sort`", "What a sort does to the table"): every page forgotten and its read cancelled, what's kept by index cleared, the view moved, the reads planned once the update ends. It's base code but for its `cfg`'d hooks (`forget_all` is behind `sort`, as are `sort_selection`, `sort_lets_go`, and `sort_load`). So the reset moves to the base, a function of its own that takes the new count and where the view lands, and both callers use it:
+
+- **`replace_rows(rows, at)`:** the new count taken (as `set_rows` takes it: the scrollbar follows), then the reset.
+- **`sort`:** the reset with the count unchanged and the view at the top, then `Sorted`; its behavior doesn't change (its fixtures and window tests are the check).
+
+What the reset clears, from `apply_sort` and `set_rows`: every page and its read (a closed table's are gone already), with `live` its invalidations and with `live` and `custom-cells` its flashes; the hover, the tooltip, and the jump's highlight; with `select` a `Rows` or `Cells` range (`Selected(None)`), a `Columns` range kept with its rows moved to the row the view lands on; with `copy` a copy running (`Failed(Cancelled)`, as a sort cancels one: its later pages would come from the new rows); with `follow` the drawn tail; the scroll's direction and its settle (a reset isn't a scroll, so prefetch doesn't lean). Kept: the sideways scroll, the columns and everything held by column (widths, order, `pin`'s count, groups, a pressed or hovered arrow), and the sort (below). `apply_sort`'s first lines (the sort set, the pressed arrow forgotten: its release has just sorted) stay `sort`'s, before it calls the reset, so `sort` clears the pressed arrow as now and `replace_rows` doesn't.
+
+### The swap's race
+
+`sort` is a delegate call because the table starts it (a click), so the table owns the order of events: tell the source, then forget. `replace_rows` is the host's: the new rows exist only once the host has changed its source. `sort`'s research rejected leaving the swap to the host, for a click; here there's no other way, so the question is how a host gets it right.
+
+- **What the cache already guarantees:** a read sent before the call that answers after it is never stored. The reset forgets every slot, a forgotten read drains (still counted against `max_in_flight`), and the cache stores an answer only for the read its slot is waiting on (`PageCache::loaded`), whatever it holds. So whenever the host swaps, no page of the old source survives the call.
+- **What it doesn't:** a frame drawn between the swap and the call. Swapped in an earlier update, the table may draw (and read) the new source's rows at the old count, beside old pages still cached: a mixed frame, for as long as the gap lasts. Swapped and called in the same update, nothing draws or reads between them: GPUI draws after the update, and the reset's reads are planned after it too.
+- **Weighed: a closure** (`replace_rows(rows, at, |source, cx| …)`, run just before the reset), so a host can't get the order wrong. It doesn't prevent the real mistake either: a host that swaps its source while its new `count(*)` is pending, an update or more before it has the count to call with. And a source behind a shared handle doesn't swap through `&mut D`. Rejected, decided with the owner: the call documents "in the same update" with the async shape in an example (keep the new source aside, await its count, then swap and call in one update), and a window test pins both the right order and, as its control, the swap an update early, which must draw the mixed frame. A closure variant can be added later if a host asks.
+- **The engine's half:** the DuckDB engine's source can carry that shape itself (a filter that counts, then swaps and calls `replace_rows`), so most hosts never write it. The engine's work when Tycho builds its filter, not this milestone's.
+
+### The count that arrives later
+
+The spike's question. A filter's first page can come before its count, so either the host calls once the count is known (the old rows drawn meanwhile, with nothing in the table saying a filter is pending), or it calls with an estimate and corrects it with `set_rows`.
+
+- **In memory (Tycho's CSV), the count is never slower than the first page in the source's order:** 0–548 ms against 0–560, since both scan the same rows. With no `ORDER BY` the page's scan can stop at 1,024 matches: a few milliseconds sooner for a simple predicate, and 309 ms sooner for the global search, whose predicate is costly a row (239 against 548).
+- **On a Parquet file read by row-group range, a common filter's first page is 10–30× sooner** (10–17 ms against a count of 181–346 natively; over HTTP the count downloads the predicate's column). A rare filter is the other way round (the first page 756 ms, the count 120).
+- **Past the first page, a source needs the matches' row numbers** (`OFFSET` grows with depth: 372 ms at 50% of the commonest filter in memory), and writing them costs the count's scan and gives the count. So an estimate saves only the first page's wait: on a file, for a common filter, and in memory, for a costly predicate whose first page reads with no `ORDER BY`.
+
+Decided with the owner: **the call takes the exact count, and the host calls once it's known.** The old rows stay drawn until then; saying a filter is pending is the host's (its own UI, or the controller's state). Correcting the count with `set_rows` afterwards works (it's `set_rows`' own meaning: the same rows grown or cut), so a host that wants rows sooner may do it, and a window test pins it, but the docs don't recommend it: the scrollbar jumps when the count lands. A table-side pending state (the old rows dimmed, a "filtering" probe) was not weighed further: no host has asked, and the host can draw one over the table.
+
+### Where the view lands
+
+A target with three values, `#[non_exhaustive]` so another can be added (the guides' rule for an enum that may grow):
+
+- **The top** (row 0): a new filter's or query's start, as a sort's.
+- **A row the host names:** the view's top at that row, clamped as `jump_to`'s is (the end of the rows allows less), with **no highlight and no selection**: decided with the owner. A host keeping the reader's place (the row it was reading is still among the filtered rows) doesn't want it marked; one that does calls `jump_to` after, in the same update. Weighed: `jump_to`'s placement and highlight, which would mark a row the reader never chose.
+- **The end:** the last rows, as `follow()` puts them (the view at `rows()` until a read at the end lands, then at the loaded tail if following).
+
+**`follow`:** as the PLAN drafted it, following is kept only when the host names the end, and lets go at any other target (a sort's rule today: lets go, unless every row fits). "Kept" is literal: the end leaves following as it was, on or off; it never turns it on, so a filter applied while the reader is paused doesn't start following. The end is a value of the target rather than the host calling `follow()` after a let-go, so one call emits one `Following` state, never `false` then `true` in one update. In every case the drawn tail is forgotten (its rows are others), so a following view's next filled frame at the end emits `TailDrawn` again.
+
+**A `Columns` selection** keeps its columns with its rows moved to the row the view lands on (the top, the named row clamped to the rows, or the last row), as a sort moves them to row 0 and a shrink to the last row. With no rows, as `set_rows` leaves one at none.
+
+**Left for later:** keeping the reader's place usually means the same row at the same height on screen, not at the top. A fractional top, or a row with its offset from the top, would allow it when a host asks; the enum can take it without a break.
+
+### The sort through a new source
+
+A filter on a sorted view keeps the sort: the reader filtered, they didn't unsort. The table keeps its sort through the reset, but the new source must read in it, or the arrow shows over rows in the source's own order.
+
+- **Weighed: the host's** (the new source built already sorted: Tycho's controller compiles the sort and the filter into one query). It leaves each host to keep the source and the arrow agreeing, the shape `sort`'s research rejected.
+- **Chosen: the table tells the new source its sort.** With a sort in effect, `replace_rows` calls the delegate's `sort` with it again, so the source's order follows the table's whatever the host built. It's told once the update ends, right before the reset's reads are planned (no read goes out before it), with the sort in effect then: so a host that calls `set_columns` and `replace_rows` in the same update, in either order, tells the new source the sort that survived `set_columns`, never an index of the old columns. A source with no sort is told nothing. The delegate's docs say `sort` may be called again with the sort in effect, for new rows.
+- **Told once, and not twice:** the pending tell is dropped by any call that tells the source in the update after the last `replace_rows` (`set_sort`, a click, `set_columns` clearing a gone column's sort), since the source has heard the sort in effect from it. `set_sort` then `replace_rows` tells it twice, rightly: the swap may have come between them.
+- **A refusal clears the sort without a second reset:** the source told none (which it must accept), `Sorted` with no keys, and `SortRefused` with the keys and the reason so a host can say why the arrow went. The view stays at the replace's target and following as the replace left it: the replace's reset has already forgotten the pages, and no read has gone out, so the rows read next are the source's own order. Not `keep_sort`'s path, which resets to the top.
+
+### A new source with new columns
+
+A grouped result is a new table (Tycho's catalog), so its columns change with its rows. Decided with the owner: **`replace_rows` doesn't take columns;** the host calls `set_columns` and `replace_rows` in the same update, in either order. Each keeps what it keeps today: `set_columns` takes widths from the new columns, resets the order (with `ColumnsMoved`), keeps `pin`'s count, clears the selection, and keeps the sort only if the column at its index has the same name and is sortable. Pages loaded before are never drawn under the new columns: the reset forgets them in the same update, before any frame. **The sort whose column is gone, in either order.** Today `set_columns` clears it through `keep_sort` → `apply_sort(None)`, the whole reset: the view to the top, following let go. In one update with `replace_rows` that breaks "either order": `replace_rows` then `set_columns` ends at the top, not the target, and `set_columns` then `replace_rows` with `End` has let following go before the replace keeps it "as it was". So the clearing and the reset come apart: `set_columns` clears the sort at once (the source told none, `Sorted` with no keys, as now), and its reset waits for the update's end, where it's dropped if a `replace_rows` came in the same update, before or after (its reset covers the clear: every page forgotten, the view at the host's target). With no `replace_rows` in the update, `set_columns` resets as it does now, at the update's end instead of the call, before any frame or read. Both orders then end the same: the target, following by the target's rule, one `Sorted([])`, the source told none and nothing after.
+
+**A later `set_sort` wins.** `replace_rows` then `set_sort` in one update: the sort's own reset puts the view at the top, as a sort always does; the later call is the host's last word. Documented, and a window test pins it.
+
+Each a window test: the two orders end in the same state (the view, following, the pages planned once, the sort and its events, `pin`'s count, the selection), with a sort kept and with one whose column is gone; and the reads are planned once for the update (`set_sort`, `set_columns`, and `replace_rows` in one update read the new rows' pages once).
+
+**A sort kept by name can match the wrong column** in a new result (a `count` column in both the base table and a grouped one). The docs say so: a host that wants a clean slate clears the sort itself (`set_sort` with no keys) in the same update.
+
+### Events
+
+None of its own. `replace_rows` is the host's call, so the host knows it happened; what it changes that a host keeps is reported as it is today: `Selected` (a range cleared or moved), `Following` (let go), and with a refused sort `Sorted` and `SortRefused`. `sort` still emits `Sorted` after the reset, as now. A host timing a filter marks its own call and the next `Filled`.
+
+### A closed table
+
+As `set_rows` on one: the count and the view follow, and nothing is read, cancelled, or told (the source isn't told the sort again).
+
+### The base's cost
+
+Every app builds the base, so moving `apply_sort`'s body out of `sort` and `forget_all` out of its `cfg` reaches every app's wasm (root `CLAUDE.md`, rule 1). The bytes are the call's when a host calls it: a build that never calls `replace_rows` and doesn't build `sort` should strip it, so the base without a caller should be unchanged to the byte, and the bare host calls it (below) so `size` measures it. The `sort` builds (Kirkwood's, the bare host's) change by the refactor; each app's note records its effect. No frame work changes: the reset runs once a call, and the time from the call to the first filled frame is `sort`'s (its click → filled, measured when `sort` was built).
+
+### Frame-work risk
+
+None: no per-frame code. The reset is a cache clear and the reads a jump makes, as a sort's.
+
+### Canvas gaps
+
+None new. A filtered view's row count isn't announced (the table announces nothing); a host's own DOM can say it.
+
+### What a DOM contender does
+
+TanStack Table with `manualFiltering` and TanStack Virtual: the host sets the new data and count and scrolls the virtualizer to the target; the selection is TanStack's state, keyed by row id. No contender filters yet; the paging fixture gains `replace` scenarios (below) that a contender runs once a level filters, and until then its test names them skipped, as `sort`'s are (`.claude/rules/comparison-protocol.md`, read when the fixture changes).
+
+### The fixtures
+
+- **`paging.json`** gains a `replace` step (`{"rows": <n>, "at": "top" | <row> | "end"}`): with a sort in effect the source told the sort first (`sort <c> <direction>`, the first of the step's `expect`); every page forgotten and every read out cancelled (one decision); the view at the target; the target's pages read once the step's update ends. Scenarios: a replace with a new count at the top, at a row (and at a row past the new end, clamped), and at the end; a replace while reads are out (their places held until they answer, an answer dropped); with `follow`, the end keeping following and the top letting it go; with `sort`, the sort told again. The `sort` scenarios and the `sort` field's control (`keep-pages`) stay as they are. A `replace` field's control, `keep-pages`, keeps every page and read through a replace, in every build; it's a field of its own rather than a `cache` control, since the TanStack contender runs every `cache` control and doesn't filter yet.
+- **No fixture of its own:** what it does to the view is `jump_to`'s placement without the highlight, which the paging fixture's steps pin.
+
+### What the random test gains
+
+- **A `Replace` step in every build:** a new count, a permutation of the source's rows (the source renumbers them, as a sort's does), every row's era bumped, and a target (the top, a row in or past the new count, the end). Invariant 5 (rows drawn are of their era) catches a page of the old rows drawn after it, and 7 a copy's text crossing it. Placed among a case's steps from a stream of its own (`with_replaces`), so no existing case's draw changes; the `sort` step stays as it is.
+- **What's checked at the step:** the view at its target, the count the new one, and what's kept by row cleared (invariant 17's list, at the step rather than a shrink); with `follow`, the last `Following` the state (invariant 18) and following kept only at the end; with `sort`, the source's last sort the table's.
+- **Controls:** the cache's two sort controls (`SortKeepsPages`, `SortKeepsReads`) become the reset's, built in every build: a replace that keeps the pages, and one that forgets the loaded pages but leaves the reads in their slots. Each must fail invariant 5. A third: a replace that doesn't tell the source the sort (fails the sort check, in a `sort` build).
+- **The soak**, since the reset changes the paging (the table's `CLAUDE.md`, rule 5).
+
+### The bare host
+
+`__tallTableReplace(stride, at)` with `?perf`: the host's in-memory source swapped for every `stride`-th row of its rows (1: all of them) and `replace_rows` called with the new count, in one update, so `size` measures the call and the smoke check drives it in three browsers (the cells drawn against the source's rows at the target).
+
+### What it leaves out
+
+- **The source's filter:** the `WHERE`, its count, and how a filtered Parquet file pages are the DuckDB engine's, researched when Tycho builds its filter (the spike's last finding: a rare filter's matches span the file).
+- **A filter control in the header** and **a header cell's bounds** for a popover: the column filtering candidate's, if a host asks (`PLAN.md`, "Notes").
+- **An insert mid-list:** tree rows' (`PLAN.md`, "Notes"), which neither `set_rows` nor `replace_rows` covers.

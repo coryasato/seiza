@@ -710,3 +710,13 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - A run's late share isn't one distribution. About one run in six, in every build, draws on half its frames and reads 0% late; the rest read 2–11%. A median of 10 moves by points with how many of those it holds, which is the difference the earlier notes recorded.
 - The release build's wasm has no names, and a named build's bindings differ from the stripped one's (the closures' names), so swapping a named wasm under the shipped page fails; the named build is bundled whole.
 
+
+## M18: `replace_rows` (part A, 2026-11-18)
+
+**Results:** [`perf/results/2026-11-18-m18-a-spike.md`](../perf/results/2026-11-18-m18-a-spike.md) (a filter's count against its first page, native DuckDB).
+
+**Surprises:**
+- The count the PLAN feared would arrive late never does in memory against the first page in the source's order, which scans the same rows; only a page read with no `ORDER BY` beats it, and by much only for a costly predicate (the global search's, by 309 ms). On a Parquet file paged by row-group range it does arrive late for a common filter (10–30×), but every page after the first needs the matches' row numbers, and writing them gives the count. An estimate would buy only the first page.
+- A rare filter turns it round: its first page is the slow one (the whole file scanned for fewer than a page of matches), and a page read as a range of row numbers spans the whole file. How a filtered Parquet file pages is the engine's own research, not settled by the table's call.
+- The race `sort` rejected leaving to a host is smaller than it looked: the cache already drops every answer to a read sent before a reset, so a late swap can't store a stale page. What's left is a mixed frame between the swap and the call, which one update rules out.
+- Keeping the sort through a reset needs the table to tell the new source, and telling it when the update ends rather than at the call is what makes `set_columns` and `replace_rows` agree in either order. The review of the decisions (Claude Web's) caught the arrow over unsorted rows that leaving it to the host allowed; the code review then found "either order" broken by `set_columns`' own reset when the sort's column is gone, and a refusal that would have reset the view a second time. A spec's promise across two calls is read through each call's existing paths, not only the new one.
