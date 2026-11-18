@@ -46,6 +46,9 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | The tall table's `replace_rows`, then column filtering and global filtering ([its PLAN](../../components/tall-table/PLAN.md)) | "Sort and filter", below | *Not ready* |
 | The tall table's find | Search that keeps every row | *Not ready* |
 | The tall table's column visibility | Hide and show columns | *Not ready* |
+| The tall table's column summaries in the header | The column profile, only if the design session puts it under the headers | *Not ready* |
+| The tall table's nested values | "JSONL, then nested values in the row detail view", below | *Not ready* |
+| The tall table's row marks | The investigator's bookmarks and tags ([`docs/personas.md`](docs/personas.md)); no goal holds them yet | *Not ready* |
 | The tall table's built features | "Table basics", below | *Ready:* `custom-cells`, `live`, `follow`, `resize`, `select`, `copy`, `sort`, `pin`, `density`, `format`, `reorder`, `clicks`, `group-headers` (their dates: the table's `docs/milestones.md`) |
 
 ---
@@ -79,7 +82,7 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 1. **The controller, thin, and the engine's lockdown.** One serializable view state behind every driver; first the parts that need nothing new from the engine (source, columns, their order, widths, pins, formats). The lockdown is repeated in a browser first, with what Tycho sends lazily today moved ahead of the lock. *("The controller"; "Security", layer 2.)*
 2. **The thread, minimal:** the input and the log, in the DOM, so every later goal has somewhere to show its commands and answers. Its form comes from the design session. *("The thread".)*
 3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view. *("The table's own tools".)*
-4. **Sort and filter,** with filter by a cell. Not thin: the DuckDB source's order and its `WHERE` are unbuilt engine work, and filtering waits on the tall table ("Waiting on"). *("The controller".)*
+4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order and its `WHERE` are unbuilt engine work, and filtering and find wait on the tall table ("Waiting on"). *("The controller".)*
 5. **Profiles and the catalog,** grouping included, whose result is a new table. *("The catalog".)*
 6. **Export,** and the view copied as SQL. Its size plan is settled first. *("The table's own tools".)*
 7. **The connection policy.** *Proposed* as part of the first release, since the input is drivable from the day it ships. *("Trust".)*
@@ -98,16 +101,20 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 
 1. Which sample or samples, chosen so a chart is waiting for one of them (the sample session).
 2. Whether the thread earns its place, and its input's form: a chat box or a command bar with completion (the design session).
-3. Where a grouped result appears, and how a visitor gets back to the rows (the design session).
-4. Whether Tycho's bucket goes, given DuckDB-Wasm's two oversize bundles (M11).
-5. What an input or a link may do to the source and to export, so the grammar's boundary holds.
-6. How column names, which are the file's text, go out in the copied context and the capability schema.
-7. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and what sharing an origin with Kirkwood means for it and for anything saved in the browser.
-8. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
-9. Export's size plan.
-10. JSONL's size limit, if it loads into memory as a CSV does, and what the table and the engine's reader do with nested values today.
-11. Whether the URL route takes dropped files.
-12. Where WebMCP and on-device models stand.
+3. Where a grouped result appears, and how a visitor gets back to the rows: one way is pressing a group row filters the base view to its key, with a breadcrumb (all rows › by country › France) (the design session).
+4. Where filter controls live: an icon in the column header, a column menu, or the thread. Only a header icon needs the tall table to build something (the design session).
+5. Where find's bar lives, and Ctrl+F: whether the table claims the key while it has focus, and whether a second press falls through to the browser for the thread's text (the design session).
+6. Where the column profile shows: a strip under the headers (a tall table feature, "Waiting on"), a side panel, or the thread (the design session).
+7. Which part of the page owns each key (Ctrl+F, Cmd+C, Cmd+A, Escape) as focus moves between the thread's DOM and the canvas, written as one table. The tall table's README lists the keys it takes and which reach the host (the design session).
+8. Whether Tycho's bucket goes, given DuckDB-Wasm's two oversize bundles (M11).
+9. What an input or a link may do to the source and to export, so the grammar's boundary holds.
+10. How column names, which are the file's text, go out in the copied context and the capability schema.
+11. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and what sharing an origin with Kirkwood means for it and for anything saved in the browser.
+12. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
+13. Export's size plan.
+14. JSONL's size limit, if it loads into memory as a CSV does, and what the table and the engine's reader do with nested values today.
+15. Whether the URL route takes dropped files.
+16. Where WebMCP and on-device models stand.
 
 ---
 
