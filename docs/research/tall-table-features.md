@@ -1338,3 +1338,80 @@ TanStack Table with `manualFiltering` and TanStack Virtual: the host sets the ne
 - **The source's filter:** the `WHERE`, its count, and how a filtered Parquet file pages are the DuckDB engine's, researched when Tycho builds its filter (the spike's last finding: a rare filter's matches span the file).
 - **A filter control in the header** and **a header cell's bounds** for a popover: the column filtering candidate's, if a host asks (`PLAN.md`, "Notes").
 - **An insert mid-list:** tree rows' (`PLAN.md`, "Notes"), which neither `set_rows` nor `replace_rows` covers.
+
+---
+
+## Column visibility (`hide`)
+
+Researched 2026-11-18, from the table's layout (`src/column.rs`: `layout_columns`, `in_order`), `pin`'s geometry (`src/pin.rs`: `in_effect`, `Pin::visible`, `into_view`), the hit tests (`src/state/hit.rs`), `select`'s keys (`src/state/select.rs`: `key_step`, `scroll_into_view`), `copy`'s columns (`src/state/copy.rs`: `start_copy`), `reorder`'s gap (`src/reorder.rs`: `gap`'s `shown` and `parts`), `group-headers`' runs and cells (`src/groups.rs`), `set_columns` (`src/state.rs`) and `sort`'s `keep_sort`, gpui-component 0.10.0's `src/table/` (the pin), and TanStack Table v8's column visibility (`columnVisibility`, `column.getIsVisible`, `toggleVisibility`, `getVisibleLeafColumns`, `row.getVisibleCells`, `enableHiding`). No spike: a hidden column adds no frame work (below).
+
+### What asks for it
+
+- **Tycho:** its "Waiting on" table (column visibility: hide and show columns). A wide file (the observatory's wide shape has 500 floats) is read a few columns at a time; hiding the rest is how a reader keeps the ones they're comparing side by side, short of moving them.
+- **No observatory scenario** asks for it. TanStack has it, so a feature level could compare it, but none is planned.
+
+### What `DataTable` does
+
+Nothing: gpui-component 0.10.0's table has no column visibility. Its delegate's `visible_columns_changed` is the columns scrolled into view, not hidden ones. A `DataTable` host hides a column by giving the delegate fewer columns, so everything held by column index (widths, the sort, fixed columns) is the host's to move.
+
+### TanStack Table
+
+Visibility is a map from column id to a flag (`columnVisibility`), set by `toggleVisibility` or the state's setter, and `enableHiding` per column. A hidden column leaves the leaf list (`getVisibleLeafColumns`, `getVisibleCells`), so a hidden column has no place while it's hidden: the order (`columnOrder`) and pinning (`columnPinning.left`, ids) keep it by id, and it comes back where the order puts it. A header group whose leaves are all hidden isn't drawn, and its span counts only its visible leaves. Copy is the app's (TanStack has none).
+
+### A place at no width
+
+Two models: a hidden column leaves the places (TanStack's), or it keeps its place, laid out at no width.
+
+- **Leaving the places** would renumber every place right of it at each hide and show. Everything the table keeps by place (a selection's ranges and keys, `pin`'s count, `clicks`' targets, `reorder`'s block, a `Group` target's span) would have to move with it, and `set_order`'s order would have to say where a hidden column sits. Rejected.
+- **Kept at its place, at no width:** `layout_columns` gives a hidden column width 0 at its `x` (the right edge of the shown column before it), so every place and every index stays what it was. Its own width, as set, kept by index, comes back when it's shown. The content width is the shown columns', so the sideways scroll's end moves in and the scroll is clamped as at a resize. The owner chose this model, and `pin`'s count by place with it (below).
+
+**What falls out, and what doesn't.** The exact hit tests find a column by `x < column.x + column.width` or `contains`, so a column at no width is never hit: the hover, the tooltip, a press, and `clicks`' targets skip it with no change. `cell_clamped` doesn't: past every column it falls back to the last place (`unwrap_or(last_column)`), hidden or not, so a drag's head past a hidden last column, `first_visible`, and a gutter press would land on it; with the feature it falls back to the last shown place, and to no cell with none shown. Three drawing tests don't either: `Pin::visible` (a pinned column is drawn where `x < cells_width`, a scrolled one where it overlaps the view, true for a zero-width column strictly inside it), `reorder`'s `shown` (the same overlap), and the base's `visible_columns`. So with the feature each takes `width > 0` too, and a hidden column's header, cells, border, sort arrow, and `resize` band (which would sit on its neighbor's) are drawn nowhere and hit nowhere.
+
+### Its flag, and how it comes and goes
+
+A flag on `TallTableColumn` (`hidden(bool)`), held by index as every other column setting, so it follows its column through `reorder`'s moves with no code of its own. `set_columns` takes the new columns' flags: the host keeps them by name, as it keeps widths (`ColumnWidthsChanged`), and gives them back on the builder. Weighed: the state keeping a flag across `set_columns` for a same-named column (`sort`'s rule), which spares a host the restore but leaves a new list unable to say "shown" without a second call, and two sources of truth to merge. The owner chose the builder.
+
+- **Changed later** by `set_column_hidden(index, hidden)` (a host's menu) and `set_hidden(Vec<bool>)` (a saved view given back, by index, the event's shape).
+- **One event,** `ColumnsHidden(Vec<bool>)`, every column's flag by index, when a setter changes one; none at `set_columns` (the host gave them, as with widths) and none when nothing changed.
+- **A list of another length** given to `set_hidden` (a view saved before `set_columns` changed the count, a normal sequence) changes nothing, quietly: `set_order`'s refusal debug-asserts, a host's mistake, but a stale saved view isn't one.
+- **Every column may be hidden:** the gutter and the row numbers are drawn, the cells area empty; with no shown column a gutter press or an arrow key with nothing selected selects nothing.
+
+### What a hide does to the rest
+
+- **`pin`:** the count is of places. A hidden column in the run is still one of the *n*, drawn at no width, so `set_pinned(3)` with column 1 hidden shows two pinned columns. The half-view cap sums widths, so a hidden one costs it nothing. *P* is the run's last shown column's right edge (a hidden last column's right edge is the same x). Weighed: the count of shown columns, what the reader sees, but its meaning would change at every hide and a move across the edge would recount. The owner chose places.
+- **`select`:** ranges are of places and keep a hidden column inside them; nothing is drawn of it, so the tint runs on across the gap as one. A hide never changes the selection (no `Selected`). The arrow keys and Shift+arrows step to the next shown place that way, or stay; from a head on a hidden column (hidden after it was selected), the step starts at its place. Home and End aren't column moves today, so nothing changes there. `scroll_into_view` brings a shown column into view; to a hidden one it scrolls nothing sideways.
+- **`copy`:** shown columns only, the header line too (`headers(true)`). Excel copies hidden columns unless told "visible cells only"; here hiding is a view choice, as TanStack's is. A copy takes its columns' indices at its start, so a hide during a copy changes nothing it writes. Everything that counts its columns counts the shown ones, what would be written: the key's cap (`key_max_cells`), `Declined`'s `columns`, and `start_copy`'s smallest size (`least_bytes`) against `max_bytes`, so two shown columns in a range of 400 aren't refused as `TooLarge`. `Started`'s `columns` stays the range of places spanned, its doc saying hidden ones in it aren't written. Without `reorder`, `Running` holds a range of places; a `hide` build holds the shown indices taken at the start instead (as `reorder`'s `indices`). A selection whose columns are all hidden starts no copy: `copy` returns `None`, and Cmd+C goes on to the host (`cx.propagate()`), as with nothing selected. The owner chose shown only.
+- **`reorder`:** the gap is found among the units with a shown place in the pointer's region (`shown`), so a unit that's all hidden has no part and no center. A drop between shown columns A and B with hidden H between lands right after A (A, X, H, B): the gap after the last shown unit left of the pointer, `gap`'s rule as written. A dragged block is its range of places, hidden ones inside it moving with it; a hidden column at its edge stays. `move_columns` and `set_order` are by place and index, unchanged.
+- **`group-headers`:** the runs are of places, hidden ones in them, so a move keeps a group whole as before. A group's cell is drawn over its shown columns (their widths sum; a hidden one adds 0). A group with every column hidden draws no cell and takes no press. The label is kept in view over the shown part, as now. A press on a group selects its whole run of places.
+- **`sort`:** a hidden sorted column keeps the sort; no arrow says so. The host's column chooser says it (the README's limits).
+- **`resize`:** a hidden column's set width is kept and comes back with it; it has no band. Any drag held at a hide or a show is cancelled, as `set_columns` cancels one, not only one on the column hidden: `repin` returns early while a resize is held, and the drag's `pin_limit` was summed at its press, so a show of a pinned column under a drag on another would emit no `Pinned` and let the drag widen the run past half the view. `reorder`'s drag is cancelled too (its places' geometry changed), and `sort`'s pressed arrow on a hidden column is forgotten.
+- **`clicks`:** targets are places, a hidden one never hit. A `Group` target's span is its run's places, hidden ones in it.
+- **`format`, `custom-cells`, `live`, `follow`, `density`, the paging:** nothing. Every page still holds every column (below); a hidden column's flashes run on unseen.
+- **The probe:** `ColumnProbe` gains `hidden`; the layout still lists every column, a hidden one at width 0, so a script knows where it is.
+
+### The delegate's narrowed read: not in this milestone
+
+Telling the delegate which columns are shown, so a source reads fewer, changes what a page holds: a page read with fewer columns can't draw a column shown later, so a show re-reads every loaded page (`live`'s re-read, without a flash), and a copy of shown columns reads only them. That reaches the paging, the cache's bytes, and the soak, more than a part. No app has measured page reads as its cost of a wide file. The owner chose to leave it to a later milestone: a "Notes" row in the PLAN, researched if Tycho measures its wide pages' reads as the cost.
+
+### Frame-work risk
+
+None to measure apart: a frame tests one more `width > 0` per visible column, and a hidden column draws nothing. Hiding columns brings more shown columns into the view, so a frame draws as many cells as the view holds, as without it. Measured at the close: the wide shape's flings with half its columns hidden, against the build with none hidden.
+
+### Canvas gaps
+
+- **A screen reader isn't told** which columns are hidden: the accessibility gap the README tracks. *To close it:* the DOM mirror leaves them out, as TanStack's DOM does.
+- **A hidden sorted column** keeps its sort with nothing on screen saying so (above): a limit, not a canvas gap; the README's limits say it.
+
+### What a DOM contender does
+
+TanStack's `columnVisibility`, by id. It matches where the table's rules and its own agree: no hidden cell drawn, a header group over its visible leaves. It differs on `pin`'s count (TanStack pins ids; a hidden pinned column isn't counted in what it draws, and the table's count is of places), so a fixture's case of a hidden pinned column is one a contender reproduces by pinning the same ids. The fixtures gain a `hidden` field (places; none by default, so every existing case is unchanged): `pin.json` (a hidden column in and past the run, the run's last one hidden), `reorder.json`'s gaps (a hidden column between the pointer's neighbors, a unit all hidden), `group-headers.json` (a partly hidden group, a wholly hidden one), `selection.json` (the arrow keys skipping a hidden column, a range across one), and `copy.json` (a range across a hidden column, the header line). The TanStack contender's tests, which run `pin.json` (`wide.test.ts`, laying every width out at full width), `selection.json`, and `copy.json`, name the `hidden` cases skipped until the observatory builds a level with visibility, which no scenario asks for; `reorder.json` is skipped whole there already.
+
+### What the random test gains
+
+A `Hide` step (a column hidden or shown by `set_column_hidden`, or a whole flag list by `set_hidden`), placed from a stream of its own (`with_hides`), after `with_replaces`, so no case's draw changes. The `set_columns` step tells `Heard` the new flags, which `set_columns` changes with no event (as it does for widths). Invariants: no drawn cell, header, group cell, band, or arrow at a hidden column; no hit test returns a hidden place; a flag follows its index through moves; the last `ColumnsHidden` heard is the state; a copy's text has no hidden column. Controls: `DrawnHidden` (a hidden column drawn at its width) and `FlagByPlace` (the flag kept by place across a move), each failing its invariant. The paging's code doesn't change, but the horizontal scrollbar can come and go with a hide, which changes the body's height and the viewport's rows, so the soak runs on the final build.
+
+### What it leaves out
+
+- **The delegate's narrowed read** (above): a later milestone's, if asked.
+- **The control that hides** (a column chooser, a header menu through `clicks`): the host's.
+- **A marker where columns are hidden** (Excel's double line at the gap): not drawn; a host that wants one asks, and its research weighs where it draws among the layers.
