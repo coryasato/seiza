@@ -485,8 +485,8 @@ impl Place {
     }
 
     /// The sideways move that brings column `index` into view the least
-    /// distance (`select`'s keys).
-    #[cfg(feature = "select")]
+    /// distance (`select`'s keys, `find`'s landing).
+    #[cfg(any(feature = "select", feature = "find"))]
     fn into_view(self, _: usize, x: f32, width: f32, scroll_x: f32, cells_width: f32) -> f32 {
         scroll::into_view(x, x + width, scroll_x, scroll_x + cells_width)
     }
@@ -640,6 +640,15 @@ pub enum TallTableEvent {
     /// `set_columns`, which takes the new columns' flags.
     #[cfg(feature = "hide")]
     ColumnsHidden(Vec<bool>),
+    /// A step started (`find`): `TallTableState::find_next` or
+    /// `find_previous` asked the source. The host's bar can show it
+    /// pending until `Found`.
+    #[cfg(feature = "find")]
+    FindStarted,
+    /// A step ended, or a find out was cancelled (`find`): once a
+    /// `FindStarted`.
+    #[cfg(feature = "find")]
+    Found(crate::FindOutcome),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -774,6 +783,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The runs of the columns' groups, and the cells drawn (`group-headers`).
     #[cfg(feature = "group-headers")]
     pub(crate) group_state: groups::GroupState,
+    /// The term, the current match, and the find out (`find`).
+    #[cfg(feature = "find")]
+    find_state: find::FindState<D>,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -888,6 +900,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             clicks_state: click::ClicksState::default(),
             #[cfg(feature = "group-headers")]
             group_state: groups::GroupState::default(),
+            #[cfg(feature = "find")]
+            find_state: find::FindState::new(cx.weak_entity()),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -1010,6 +1024,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// rows' reads land (`TallTableState::follow`).
     pub fn set_rows(&mut self, rows: u64, cx: &mut Context<Self>) {
         let top = self.scroll.top();
+        #[cfg(feature = "find")]
+        let cut = rows < self.scroll.rows();
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         let shrunk = rows < self.scroll.rows();
         self.scroll.set_rows(rows);
@@ -1037,6 +1053,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.cut_selection(rows, cx);
         #[cfg(feature = "copy")]
         self.cut_copy(rows, cx);
+        // A find out cancelled, a current match past the end forgotten
+        // (`find`).
+        #[cfg(feature = "find")]
+        self.cut_find(rows, cut, cx);
         // A closed table cancelled every read at `close`, and never frees
         // their places: its cache is left as it was.
         if !self.closed {
@@ -1128,6 +1148,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     pub fn set_columns(&mut self, columns: Vec<TallTableColumn>, cx: &mut Context<Self>) {
         #[cfg(feature = "copy")]
         self.cancel_copy(cx);
+        // Its indices name other columns (`find`).
+        #[cfg(feature = "find")]
+        self.reset_find(cx);
         #[cfg(feature = "sort")]
         let sorted = self.sorted_name();
         #[cfg(feature = "reorder")]
@@ -1247,6 +1270,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         #[cfg(feature = "copy")]
         self.drop_copy(cx);
+        #[cfg(feature = "find")]
+        self.close_find(cx);
         for request in self.cache.requests() {
             self.delegate.cancel(request, cx);
         }
@@ -1836,6 +1861,31 @@ impl<D: TallTableDelegate> TallTableState<D> {
         (row < self.scroll.rows()).then_some((row, column))
     }
 
+    /// Scrolls the column at `place` into view sideways the least distance
+    /// (`select`'s keys, `find`'s landing), through the base's scroll path;
+    /// a pinned column is in view (`pin`), a hidden one has nowhere to be
+    /// brought (`hide`).
+    #[cfg(any(feature = "select", feature = "find"))]
+    fn column_into_view(&mut self, place: usize, cx: &mut Context<Self>) {
+        let Some(column) = self.columns.get(place) else {
+            return;
+        };
+        #[cfg(feature = "hide")]
+        if !column.shown() {
+            return;
+        }
+        let x = self.place().into_view(
+            place,
+            column.x,
+            column.width,
+            self.scroll_x,
+            self.cells_width(),
+        );
+        if x != 0.0 {
+            self.scroll_by(0.0, x, cx);
+        }
+    }
+
     /// The pointer moved over the cells. A new cell starts the tooltip's
     /// delay or, while a tooltip shows (or just went), is looked at at once.
     /// Nothing redraws until the pointer has rested.
@@ -2249,7 +2299,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         header
     }
 
-    fn render_body(&mut self, cx: &mut Context<Self>) -> Div {
+    fn render_body(
+        &mut self,
+        #[cfg(feature = "find")] window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let sizes = self.sizes();
         let row_h = sizes.row();
         let gutter = self.gutter_width();
@@ -2411,6 +2465,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             let read = source;
                             let value = page.value(index, read).unwrap_or(CellValue::Null);
                             let exact = cell_probes.is_some().then(|| value.to_string());
+                            // A match of the term, or the current match
+                            // (`find`).
+                            #[cfg(feature = "find")]
+                            let mark = self.find_mark(row, source, &value);
+                            #[cfg(feature = "find")]
+                            let null = matches!(value, CellValue::Null);
                             #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
                             let mut color = if matches!(value, CellValue::Null) {
                                 theme.muted_foreground
@@ -2517,6 +2577,32 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             #[cfg(not(feature = "format"))]
                             let text = shown_text(column, value);
                             if let (Some(probes), Some(exact)) = (cell_probes.as_mut(), exact) {
+                                // The find on the drawn text, after the cut
+                                // `cells_text` makes (`find`).
+                                #[cfg(feature = "find")]
+                                let found = (mark != crate::find::Mark::None).then(|| {
+                                    let drawn = crate::cells_text::drawn_text(
+                                        &text.clone().into(),
+                                        column.width,
+                                        matches!(
+                                            column.kind,
+                                            CellKind::Integer | CellKind::Decimal
+                                        ),
+                                        #[cfg(feature = "format")]
+                                        whole,
+                                        cell_pad(sizes),
+                                        &self.glyphs.font,
+                                        self.glyphs.font_size,
+                                        window,
+                                        cx,
+                                    );
+                                    crate::find::highlight(
+                                        mark == crate::find::Mark::Current,
+                                        (!null).then_some(exact.as_str()),
+                                        &drawn,
+                                        self.find_state.term.as_deref().unwrap_or_default(),
+                                    )
+                                });
                                 probes.push(CellProbe {
                                     row,
                                     column: *column_index,
@@ -2524,6 +2610,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     shown: text.clone(),
                                     #[cfg(feature = "custom-cells")]
                                     paint: drawn.probe(left),
+                                    #[cfg(feature = "find")]
+                                    found: found.flatten().map(|found| match found {
+                                        crate::find::Found::Ranges(ranges) => {
+                                            crate::FoundProbe::Ranges(ranges)
+                                        }
+                                        crate::find::Found::Cell => crate::FoundProbe::Cell,
+                                    }),
+                                    #[cfg(feature = "find")]
+                                    current: mark == crate::find::Mark::Current,
                                 });
                             }
                             let cell = CellText {
@@ -2539,6 +2634,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 color,
                                 #[cfg(feature = "format")]
                                 whole,
+                                #[cfg(feature = "find")]
+                                mark,
                                 #[cfg(test)]
                                 row,
                                 #[cfg(test)]
@@ -2640,6 +2737,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 selection: self.selection_state.current,
                 #[cfg(feature = "sort")]
                 sort: self.sort().to_vec(),
+                #[cfg(feature = "find")]
+                find: self.find_probe(),
                 tooltip: self
                     .hover
                     .as_ref()
@@ -2732,11 +2831,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let drawn_text = self.drawn_text.clone();
         #[cfg(test)]
         drawn_text.borrow_mut().clear();
+        // The find's colors and term (`find`).
+        #[cfg(feature = "find")]
+        let find_paint = self.find_paint(cx);
         let text_canvas = |texts| {
             cells_text(
                 texts,
                 row_h,
                 pad,
+                #[cfg(feature = "find")]
+                find_paint.clone(),
                 #[cfg(test)]
                 drawn_text.clone(),
             )
@@ -3196,7 +3300,11 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         let header = header
             .children(self.render_gap_line(true, cx))
             .children(self.render_preview(cx));
-        let body = self.render_body(cx);
+        let body = self.render_body(
+            #[cfg(feature = "find")]
+            window,
+            cx,
+        );
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         if self.flashes.animating {
             window.request_animation_frame();
@@ -3308,6 +3416,10 @@ pub(crate) mod groups;
 /// `hide`: the setters, and what a hide or a show cancels.
 #[cfg(feature = "hide")]
 pub(crate) mod hide;
+
+/// `find`: the term, the step and its cancels, the landing, and the marks.
+#[cfg(feature = "find")]
+pub(crate) mod find;
 
 #[cfg(test)]
 mod tests {

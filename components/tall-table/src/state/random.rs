@@ -70,7 +70,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "reorder",
     feature = "clicks",
     feature = "group-headers",
-    feature = "hide"
+    feature = "hide",
+    feature = "find"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -188,8 +189,34 @@ struct Books {
     /// replace) has been told none.
     #[cfg(feature = "sort")]
     told: Option<crate::Sort>,
+    /// Every find it was asked (`find`), by request less [`FIND_IDS`].
+    #[cfg(feature = "find")]
+    finds: Vec<FindRead>,
+    /// The last find whose answer reached the table (`find`).
+    #[cfg(feature = "find")]
+    last_delivered: Option<usize>,
     /// The table's calls that broke the delegate's contract.
     faults: Vec<String>,
+}
+
+/// A find's requests, past any read's: one id space, the delegate's
+/// `cancel` telling them apart (`find`).
+#[cfg(feature = "find")]
+const FIND_IDS: usize = 1 << 40;
+
+/// How long a find takes to answer (`find`), on the test clock.
+#[cfg(feature = "find")]
+const FIND_DELAY: Duration = Duration::from_millis(20);
+
+/// A find, as the source saw it (`find`).
+#[cfg(feature = "find")]
+struct FindRead {
+    term: gpui_kit::SharedString,
+    /// Its answer, found among the rows when it was asked, with the
+    /// row's stamp then.
+    found: Option<(crate::FoundCell, Stamp)>,
+    cancelled: bool,
+    delivered: bool,
 }
 
 impl Books {
@@ -275,6 +302,18 @@ impl TallTableDelegate for Source {
 
     fn cancel(&mut self, request: usize, _: &mut App) {
         let mut books = self.0.borrow_mut();
+        // A find's (`find`).
+        #[cfg(feature = "find")]
+        if request >= FIND_IDS {
+            let find = &mut books.finds[request - FIND_IDS];
+            if find.delivered || find.cancelled {
+                let fault = format!("find {request} cancelled twice or once answered");
+                books.faults.push(fault);
+            } else {
+                find.cancelled = true;
+            }
+            return;
+        }
         let read = &mut books.reads[request];
         if read.delivered || read.cancelled {
             let fault = format!(
@@ -289,6 +328,34 @@ impl TallTableDelegate for Source {
         } else {
             read.cancelled = true;
         }
+    }
+
+    /// Finds among its rows as they are now (`find`), answered on the test
+    /// clock after [`FIND_DELAY`], cancelled or not.
+    #[cfg(feature = "find")]
+    fn find(&mut self, query: &crate::FindQuery, cx: &mut App) -> Option<(usize, crate::FindLoad)> {
+        let mut books = self.0.borrow_mut();
+        let found = query
+            .cells(books.rows)
+            .map(|cell| (cell, books.stamps[cell.row as usize]))
+            .find(|(cell, stamp)| query.matches(&cell_text(cell.row, cell.column, *stamp)));
+        let index = books.finds.len();
+        books.finds.push(FindRead {
+            term: query.term.clone(),
+            found,
+            cancelled: false,
+            delivered: false,
+        });
+        let timer = cx.background_executor().timer(FIND_DELAY);
+        let books = self.0.clone();
+        let load = async move {
+            timer.await;
+            let mut books = books.borrow_mut();
+            books.finds[index].delivered = true;
+            books.last_delivered = Some(index);
+            Ok(found.map(|(cell, _)| cell))
+        };
+        Some((FIND_IDS + index, Box::pin(load)))
     }
 
     /// Refuses the columns drawn refused; otherwise answers in a new order
@@ -442,6 +509,11 @@ enum Step {
     /// which must change nothing.
     #[cfg(feature = "hide")]
     Hide(u64),
+    /// `set_find` (one in four: a term from a cell's text, a part of it,
+    /// or none), else `find_next` or (one in four) `find_previous`,
+    /// placed, never drawn ([`with_finds`]).
+    #[cfg(feature = "find")]
+    Find(u64),
     /// `replace_rows`, placed, never drawn ([`with_replaces`]): the source
     /// swapped for its rows permuted, every row's era new, and a count and
     /// a target from the number ([`Run::replace`]).
@@ -714,7 +786,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 21] = [
+const INVARIANTS: [&str; 24] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -736,6 +808,9 @@ const INVARIANTS: [&str; 21] = [
     "a replace lands where it was asked",
     "the source reads in the table's sort",
     "a hidden column is drawn and hit nowhere",
+    "a landed match is the source's, of the era in effect",
+    "one find out, one Found a FindStarted",
+    "every match drawn is tinted, and only matches",
 ];
 
 /// A zone a press lands in.
@@ -818,6 +893,12 @@ struct Heard {
     /// Every column's hidden flag, by index (`hide`).
     #[cfg(feature = "hide")]
     hidden: Vec<bool>,
+    /// A step started and not yet ended (`find`).
+    #[cfg(feature = "find")]
+    find_out: bool,
+    /// What the events broke (`find`): 22 or 23, and why.
+    #[cfg(feature = "find")]
+    find_fault: Option<(u8, String)>,
 }
 
 /// Each column's set width, as `ColumnWidthsChanged` reports them.
@@ -874,6 +955,12 @@ enum Control {
     Untold,
     #[cfg(all(feature = "hide", feature = "reorder"))]
     Hide(super::hide::Control),
+    /// A find out kept across a sort (`find`).
+    #[cfg(all(feature = "find", feature = "sort"))]
+    Find(super::find::Control),
+    /// The match rule's (`find`): set for the thread while the cases run.
+    #[cfg(feature = "find")]
+    FindRule(crate::find::Control),
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -925,6 +1012,10 @@ struct Before {
     loaded: Vec<usize>,
     wanted: Vec<u64>,
     following: bool,
+    /// The finds answered (`find`): one that lands in the step moves the
+    /// view between its pages' landings.
+    #[cfg(feature = "find")]
+    finds_answered: usize,
 }
 
 impl Run {
@@ -1025,6 +1116,10 @@ impl Run {
                 Some(Control::Untold) => table.sort_state.untold = true,
                 #[cfg(all(feature = "hide", feature = "reorder"))]
                 Some(Control::Hide(control)) => table.hide_control = control,
+                #[cfg(all(feature = "find", feature = "sort"))]
+                Some(Control::Find(control)) => table.find_state.control = control,
+                #[cfg(feature = "find")]
+                Some(Control::FindRule(_)) => {}
                 None => {}
             }
             #[cfg(feature = "copy")]
@@ -1050,8 +1145,14 @@ impl Run {
                 following: table.is_following(),
                 #[cfg(feature = "hide")]
                 hidden: table.hidden_flags(),
+                #[cfg(feature = "find")]
+                find_out: false,
+                #[cfg(feature = "find")]
+                find_fault: None,
             }
         });
+        #[cfg(feature = "find")]
+        let books = self.books.clone();
         let heard = self.heard.clone();
         self.subscription = Some(self.cx.update(|_, cx| {
             cx.subscribe(&table, move |_, event: &TallTableEvent, _| {
@@ -1084,6 +1185,29 @@ impl Run {
                     #[cfg(feature = "hide")]
                     TallTableEvent::ColumnsHidden(hidden) => {
                         heard.borrow_mut().hidden = hidden.clone();
+                    }
+                    #[cfg(feature = "find")]
+                    TallTableEvent::FindStarted => {
+                        let mut heard = heard.borrow_mut();
+                        if std::mem::replace(&mut heard.find_out, true) {
+                            heard
+                                .find_fault
+                                .get_or_insert((23, "FindStarted with a step out".into()));
+                        }
+                    }
+                    #[cfg(feature = "find")]
+                    TallTableEvent::Found(outcome) => {
+                        let mut heard = heard.borrow_mut();
+                        if !std::mem::replace(&mut heard.find_out, false) {
+                            heard
+                                .find_fault
+                                .get_or_insert((23, format!("{outcome:?} with no step out")));
+                        }
+                        if let crate::FindOutcome::Match { cell, .. } = outcome
+                            && let Some(fault) = landed_fault(&books.borrow(), *cell)
+                        {
+                            heard.find_fault.get_or_insert((22, fault));
+                        }
                     }
                     _ => {}
                 }
@@ -1165,7 +1289,20 @@ impl Run {
             loaded: loaded_reads(table),
             wanted: table.wanted(),
             following: following(table),
+            #[cfg(feature = "find")]
+            finds_answered: self.finds_answered(),
         })
+    }
+
+    /// The finds whose answers reached the table (`find`).
+    #[cfg(feature = "find")]
+    fn finds_answered(&self) -> usize {
+        self.books
+            .borrow()
+            .finds
+            .iter()
+            .filter(|find| find.delivered)
+            .count()
     }
 
     /// The waits a step picks from: short of and past each settle.
@@ -1296,6 +1433,14 @@ impl Run {
             }
             if table.hover.is_some() || table.marked.is_some() {
                 return Err(Violation::new(19, "the hover or the jump's mark kept"));
+            }
+            // Its index means another cell (`find`).
+            #[cfg(feature = "find")]
+            if let Some(cell) = table.current_match() {
+                return Err(Violation::new(
+                    19,
+                    format!("the current match {cell:?} kept"),
+                ));
             }
             #[cfg(all(feature = "live", feature = "custom-cells"))]
             if let Some(row) = table.flashes.past(0) {
@@ -1870,6 +2015,13 @@ impl Run {
                     format!("row {marked} marked with {rows} rows"),
                 ));
             }
+            #[cfg(feature = "find")]
+            if let Some(cell) = table.current_match().filter(|cell| cell.row >= rows) {
+                return Err(Violation::new(
+                    17,
+                    format!("the current match {cell:?} with {rows} rows"),
+                ));
+            }
             #[cfg(all(feature = "live", feature = "custom-cells"))]
             if let Some(row) = table.flashes.past(rows) {
                 return Err(Violation::new(
@@ -1911,6 +2063,40 @@ impl Run {
                         table.hidden_flags()
                     ),
                 ));
+            }
+            // One step out at a time, as the events told it (`find`).
+            #[cfg(feature = "find")]
+            {
+                if let Some((invariant, fault)) = &heard.find_fault {
+                    return Err(Violation::new(*invariant, fault.clone()));
+                }
+                if heard.find_out != table.find_state.out.is_some() {
+                    return Err(Violation::new(
+                        23,
+                        format!(
+                            "the events say a step is {}out, the table {}",
+                            if heard.find_out { "" } else { "not " },
+                            if table.find_state.out.is_some() {
+                                "has one"
+                            } else {
+                                "has none"
+                            }
+                        ),
+                    ));
+                }
+                let open = self
+                    .books
+                    .borrow()
+                    .finds
+                    .iter()
+                    .filter(|find| !find.cancelled && !find.delivered)
+                    .count();
+                if open > 1 {
+                    return Err(Violation::new(
+                        23,
+                        format!("{open} finds out, none cancelled"),
+                    ));
+                }
             }
             #[cfg(feature = "follow")]
             if heard.following != table.is_following() {
@@ -1968,6 +2154,8 @@ impl Run {
             }
             #[cfg(feature = "hide")]
             hidden_nowhere(table)?;
+            #[cfg(feature = "find")]
+            tinted_by_the_rule(table)?;
             #[cfg(any(feature = "select", feature = "reorder", feature = "clicks"))]
             let row_h = table.sizes().row();
             let texts = table.drawn_text.borrow();
@@ -2355,6 +2543,8 @@ impl Run {
             Step::Replace(pick) => self.replace(pick)?,
             #[cfg(feature = "hide")]
             Step::Hide(pick) => self.hide(pick),
+            #[cfg(feature = "find")]
+            Step::Find(pick) => self.find(pick),
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -2377,6 +2567,46 @@ impl Run {
             }
         }
         Ok(())
+    }
+
+    /// `Step::Find`: one in four `set_find` (one in five of those none,
+    /// else a cell's text or a part of it, which ends at its end one time
+    /// in two, so its era is in it, and one in three in capitals); else a
+    /// step, one in four backward.
+    #[cfg(feature = "find")]
+    fn find(&mut self, pick: u64) {
+        if !pick.is_multiple_of(4) {
+            let backward = (pick >> 2).is_multiple_of(4);
+            self.update(|table, cx| {
+                if backward {
+                    table.find_previous(cx)
+                } else {
+                    table.find_next(cx)
+                }
+            });
+            return;
+        }
+        let pick = pick >> 2;
+        let rows = self.rows();
+        let term = (!pick.is_multiple_of(5) && rows > 0).then(|| {
+            let row = (pick >> 3) % rows;
+            let column = (pick >> 20) as usize % self.columns.max(1);
+            let stamp = self.books.borrow().stamps[row as usize];
+            let text = cell_text(row, column, stamp);
+            let start = (pick >> 30) as usize % text.len();
+            let end = if (pick >> 40).is_multiple_of(2) {
+                text.len()
+            } else {
+                start + 1 + (pick >> 41) as usize % (text.len() - start)
+            };
+            let term = &text[start..end];
+            if (pick >> 50).is_multiple_of(3) {
+                term.to_uppercase()
+            } else {
+                term.to_string()
+            }
+        });
+        self.update(|table, cx| table.set_find(term.map(Into::into), cx));
     }
 
     /// `Step::Hide`: a column's flag set, or (one in four) every flag, from
@@ -2571,6 +2801,12 @@ impl Run {
                 .iter()
                 .any(|request| !before.loaded.contains(request));
             let known = !books.at_once || !(before.following || following(table));
+            // A find's landing in the step moved the view between its
+            // pages' landings, as following's pin does (`find`): the pages
+            // wanted then are neither the step's before nor its after.
+            #[cfg(feature = "find")]
+            let known = known && books.finds.iter().filter(|find| find.delivered).count()
+                == before.finds_answered;
             if landed && known && held > table.cache.budget_bytes() {
                 let wanted = &before.wanted;
                 let now = table.wanted();
@@ -2810,6 +3046,72 @@ fn order_of(table: &TallTableState<Source>) -> Vec<usize> {
     return table.order().to_vec();
     #[cfg(not(feature = "reorder"))]
     (0..table.columns().len()).collect()
+}
+
+/// 22: a landed match is a cell the source answered, of the era in
+/// effect: a row of a sort, a replace, or a cut since it was asked would
+/// be another row now (`find`).
+#[cfg(feature = "find")]
+fn landed_fault(books: &Books, cell: crate::FoundCell) -> Option<String> {
+    let Some(find) = books.last_delivered.map(|index| &books.finds[index]) else {
+        return Some(format!("{cell:?} landed, no find answered"));
+    };
+    let Some((found, then)) = find.found.filter(|(found, _)| *found == cell) else {
+        return Some(format!(
+            "{cell:?} landed, the source answered {:?}",
+            find.found
+        ));
+    };
+    if found.row >= books.rows {
+        return Some(format!("{cell:?} landed past the {} rows", books.rows));
+    }
+    let now = books.stamps[found.row as usize];
+    if now.era != then.era {
+        return Some(format!(
+            "{cell:?} landed for {:?}, found in era {}, its row's era {} now",
+            find.term, then.era, now.era
+        ));
+    }
+    None
+}
+
+/// 24: every drawn cell is tinted exactly when it matches the term by the
+/// rule (its exact text contains the term, both lowercased: written here
+/// apart from the table's code) or is the current match (`find`).
+#[cfg(feature = "find")]
+fn tinted_by_the_rule(table: &TallTableState<Source>) -> Checked {
+    let term = table
+        .find_state
+        .term
+        .as_ref()
+        .map(|term| term.to_lowercase());
+    let current = table.find_state.current;
+    for cell in table.drawn_text.borrow().iter() {
+        let RowState::Loaded(page, index) = table.cache.row(cell.row) else {
+            continue;
+        };
+        let exact = page
+            .value(index, cell.column)
+            .map(|value| value.to_string())
+            .unwrap_or_default();
+        let is_current = current == Some(crate::FoundCell::new(cell.row, cell.column));
+        let matches = term
+            .as_ref()
+            .is_some_and(|term| exact.to_lowercase().contains(term.as_str()));
+        let should = term.is_some() && (matches || is_current);
+        if should != !cell.tints.is_empty() {
+            return Err(Violation::new(
+                24,
+                format!(
+                    "row {}, column {} ({exact:?}) {} under term {term:?} (current: {is_current})",
+                    cell.row,
+                    cell.column,
+                    if should { "untinted" } else { "tinted" }
+                ),
+            ));
+        }
+    }
+    Ok(())
 }
 
 /// 21: nothing of a hidden column drawn (its cells, its arrow, its band,
@@ -3204,6 +3506,21 @@ fn with_hides(seed: u64, steps: &mut Vec<Step>) {
     place_steps(seed ^ 0x3c6e_f372_fe94_f82b, steps, Step::Hide);
 }
 
+/// `find`'s steps, up to 24 (three streams of up to eight, so a step out
+/// meets the other steps often), placed as `pin`'s are ([`with_pins`]),
+/// after `hide`'s, so every other step's place stays what it was. Its
+/// constants are SHA-512's eighth word, and SHA-256's first and second.
+#[cfg(feature = "find")]
+fn with_finds(seed: u64, steps: &mut Vec<Step>) {
+    for stream in [
+        0x5be0_cd19_137e_2179,
+        0x6a09_e667_bb67_ae85,
+        0x3c6e_f372_a54f_f53a,
+    ] {
+        place_steps(seed ^ stream, steps, Step::Find);
+    }
+}
+
 /// `density`'s steps' row heights and text sizes: the default, the bare
 /// host's dense setting, shorter, taller, and the clamp's least.
 #[cfg(feature = "density")]
@@ -3364,6 +3681,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 with_replaces(seed, &mut case.steps);
                 #[cfg(feature = "hide")]
                 with_hides(seed, &mut case.steps);
+                #[cfg(feature = "find")]
+                with_finds(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
@@ -3774,6 +4093,13 @@ mod controls {
         if !ALL_ON {
             return;
         }
+        // The match rule's control is the thread's (`find`).
+        #[cfg(feature = "find")]
+        let failure = match control {
+            Control::FindRule(rule) => crate::find::with_control(rule, || run(Some(control))).err(),
+            _ => run(Some(control)).err(),
+        };
+        #[cfg(not(feature = "find"))]
         let failure = run(Some(control)).err();
         let failure = failure.unwrap_or_else(|| panic!("{control:?} passed every case"));
         assert!(
@@ -4008,5 +4334,25 @@ mod controls {
         // A moved column's cells drawn with the values of the column at its
         // place in the host's list.
         fails(Control::Reorder(crate::reorder::Control::ReadByPlace), &[5]);
+    }
+
+    /// 22: a find out kept across a sort lands its answer of the old order.
+    #[cfg(all(feature = "find", feature = "sort"))]
+    #[test]
+    fn a_find_kept_across_a_sort() {
+        fails(
+            Control::Find(crate::state::find::Control::KeepFindOnSort),
+            &[22],
+        );
+    }
+
+    /// 24: the highlight's test without the fold.
+    #[cfg(feature = "find")]
+    #[test]
+    fn a_find_without_the_fold() {
+        fails(
+            Control::FindRule(crate::find::Control::CaseSensitive),
+            &[24],
+        );
     }
 }

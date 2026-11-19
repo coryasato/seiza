@@ -174,7 +174,7 @@ impl Pin {
     /// The sideways move that brings column `index` (`x`, `width`) into
     /// view the least distance, right of *P*: none for a pinned column,
     /// which is always in view.
-    #[cfg(any(test, feature = "select"))]
+    #[cfg(any(test, feature = "select", feature = "find"))]
     pub(crate) fn into_view(
         self,
         index: usize,

@@ -136,6 +136,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.flashes.clear();
         self.hover = None;
         self.marked = None;
+        // A find out and the current match name rows of the old order
+        // (`find`).
+        #[cfg(feature = "find")]
+        self.reset_find(cx);
         #[cfg(feature = "select")]
         {
             let last = self.scroll.rows().saturating_sub(1);

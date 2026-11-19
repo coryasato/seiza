@@ -89,6 +89,11 @@ mod click;
 #[cfg(feature = "hide")]
 mod hide;
 
+/// `find`: `fixtures/find.json` and its controls, and the steps, the
+/// landing, the cancels, and the drawing in a window.
+#[cfg(feature = "find")]
+mod find;
+
 /// `replace_rows`, in every build: what it clears and keeps, the targets,
 /// the swap, and its meeting with each feature built.
 mod replace;

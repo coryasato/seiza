@@ -43,6 +43,9 @@ group-headers = ["seiza-tall-table/group-headers"]
 # Every column's hidden flag on a global, and `hidden` on the layout's
 # columns.
 hide = ["seiza-tall-table/hide"]
+# Each step's outcome on a global, the find on the probe, and each drawn
+# cell's `found` and `current`.
+find = ["seiza-tall-table/find"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

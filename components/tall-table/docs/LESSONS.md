@@ -784,3 +784,20 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The table's exact text and DuckDB's `CAST(… AS VARCHAR)` agree on ordinary floats (both shortest round-trip, f32's own for a `FLOAT`) but not on exponents (`1e300` against `1e+300`), so "which cell is next" and "which drawn cell is highlighted" need a rule for who decides each.
 - gpui-pre-web lets the browser have any key no action handles, so "a second Ctrl+F falls through" needs no work in the table: a host's handler that propagates is enough.
 - The code review found the spec leaning on `jump_to` where it doesn't fit: `jump_select` picks the active cell's column, not the match's, and sets the jump's `marked` row. The step's start had the same blind spot: the current match outranked a reader's later key, and with rows only, a start from the landing's own row would find the same match again. "Reuse the jump" needed each of its side effects read, as `hide`'s "for free" did.
+
+## M20: `find` (part B, 2026-11-19)
+
+**Results:** [`perf/results/2026-11-19-m20-b.md`](../perf/results/2026-11-19-m20-b.md).
+
+**Surprises:**
+- A fold control can't fail on lowercase data. The random test's texts are all lowercase (`r12c3v0e1`), so "the test without the fold" (lowering neither side) changed nothing there; the control keeps the term as typed instead, and the `Find` step draws a third of its terms in capitals. The fixture's own control caught it from the start, on `Ceres`.
+- `str::to_lowercase` writes a final sigma `ς`, a character-wise fold `σ`: the match rule (whole strings) and the drawn ranges (a character at a time, to keep each byte's source) would disagree on `ΟΔΟΣ`, so the ranges' fold maps `ς` to `σ` on both sides; `find.json`'s `final-sigma` cases pin it.
+- A `#[non_exhaustive]` query a source can't build is a query a source can't test: the bare host's own test needed `FindQuery::new`, which the spec hadn't named.
+- On the web, GPUI's zero-length timer resolves without yielding, so the bare host's windowed find, waiting `Duration::ZERO` between windows, ran all 785 M cells of the wide shape in one task: 295 s with no frame drawn and no cancel taken. Only the browser showed it; the native tests' executor yields at every timer. A window now waits at least a millisecond, and holds 16,384 cells (~6 ms).
+- GPUI's test executor fires every zero-length timer in one park, so a windowed scan with no delay ran to its end before a test could cancel it; the host's test gives its windows a delay to land a cancel between two.
+- `close` takes `&mut App` and can't emit, so "every cancel emits `Cancelled`" needed a weak handle and a deferred emit; `copy`'s close had settled for no event.
+- The random test's source can't share one id space for reads and finds by index: its books are a vector of reads, which every paging invariant walks. Its finds take ids past any read's, the delegate's `cancel` telling them apart.
+- `pairs` found what the all-on runs and the soak didn't: in the `follow` + `find` build alone, a find landing inside a `Wait` step moved the view between two page landings, and invariant 4, which compares the cache with the pages wanted before and after a step, saw a page wanted only in between. Not the table's: a jump to the same row in a step of its own passes. The oracle skips such a step, as it skips following's pin.
+- A mutation survived that every cancel test missed: a cancelled find's late answer was dropped because no find was out, never by its request id. Only a new step out when the old answer arrives tells the two apart (`a_late_answer_isnt_the_next_steps`).
+- `KeepFindOnSort` is caught at 3 of 7 `SEED`s: a sort must land within a find's 20 ms on the test clock, and placed `Find` steps rarely meet one. `SEED` 0, which `test` runs, catches it; the window test `a_sort_cancels_and_forgets` holds the rule every run.
+

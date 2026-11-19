@@ -35,6 +35,36 @@ pub struct TallTableProbe {
     /// source's own.
     #[cfg(feature = "sort")]
     pub sort: Vec<crate::Sort>,
+    /// The find (`find`): its term, its current match, and whether a step
+    /// is out.
+    #[cfg(feature = "find")]
+    pub find: FindProbe,
+}
+
+/// The find in effect (`find`), on [`TallTableProbe`].
+#[cfg(feature = "find")]
+#[derive(Debug, Clone, Default, PartialEq)]
+#[non_exhaustive]
+pub struct FindProbe {
+    /// The term set, none for no find.
+    pub term: Option<String>,
+    /// The current match.
+    pub current: Option<crate::FoundCell>,
+    /// A step's find is out.
+    pub out: bool,
+}
+
+/// What a drawn cell shows of a find (`find`), on [`CellProbe`].
+#[cfg(feature = "find")]
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub enum FoundProbe {
+    /// Each occurrence of the term in its drawn text (after a format and
+    /// the cut), as byte ranges of that text, tinted.
+    Ranges(Vec<std::ops::Range<usize>>),
+    /// The whole cell tinted: it matches, but its drawn text doesn't show
+    /// the term (rounded, formatted, cut).
+    Cell,
 }
 
 /// Where the cells are, in window pixels. Reported when it changes (the
@@ -145,6 +175,13 @@ pub struct CellProbe {
     /// Its paint as drawn (`custom-cells`).
     #[cfg(feature = "custom-cells")]
     pub paint: PaintProbe,
+    /// What's drawn of the find on it (`find`): none where it doesn't
+    /// match (and isn't the current match).
+    #[cfg(feature = "find")]
+    pub found: Option<FoundProbe>,
+    /// It's the current match (`find`), edged.
+    #[cfg(feature = "find")]
+    pub current: bool,
 }
 
 /// A drawn cell's paint: each `None` where it drew none.

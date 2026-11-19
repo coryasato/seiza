@@ -71,6 +71,8 @@ const FEATURES: Record<string, string | string[]> = {
   'group-headers': ['seiza_tall_table6groups', 'seiza_tall_table5state6groups'],
   // Hiding: the state's `hide` module (its setters).
   hide: 'seiza_tall_table5state4hide',
+  // Finding: the rule's module and the state's `find` module.
+  find: ['seiza_tall_table4find', 'seiza_tall_table5state4find'],
 };
 
 /** A feature that turns on another is measured against it too, and the

@@ -695,7 +695,29 @@ pub struct MemoryRows {
     /// `sort`): 1, all of them, until a script replaces the rows
     /// ([`MemoryRows::set_stride`]).
     stride: Rc<Cell<u64>>,
+    /// The rows the table holds (`find`): what a find searches, kept by
+    /// the host as it changes them ([`MemoryRows::hold`]).
+    #[cfg(feature = "find")]
+    held: Rc<Cell<u64>>,
+    /// The finds not yet answered or cancelled (`find`): apart from the
+    /// reads, so a cancelled find isn't counted as a drained read.
+    #[cfg(feature = "find")]
+    finding: Rc<RefCell<HashSet<u32>>>,
 }
+
+/// The cells a find tests in a window (`find`), before it yields to the
+/// frames and the page reads and checks for a cancel: 16,384, about 6 ms of
+/// the wide shape's floats in Chromium (~0.37 µs a cell: a scan of all
+/// 785 M took 295 s), so a scan holds no frame back long (32 rows of the
+/// wide shape, 1,489 of the narrow).
+#[cfg(feature = "find")]
+pub const FIND_WINDOW: usize = 1 << 14;
+
+/// The least wait between two windows (`find`): GPUI's web timer answers a
+/// zero-length wait without yielding, so a scan with none ran whole in one
+/// task, frames and cancels held until it ended.
+#[cfg(feature = "find")]
+const FIND_YIELD: Duration = Duration::from_millis(1);
 
 /// What a [`MemoryRows`] was asked (`follow`, `copy`, `sort`): with
 /// `follow` or `copy`, each count published on its global as it changes
@@ -755,7 +777,17 @@ impl MemoryRows {
             #[cfg(feature = "sort")]
             sorted: Rc::default(),
             stride: Rc::new(Cell::new(1)),
+            #[cfg(feature = "find")]
+            held: Rc::new(Cell::new(shape.rows())),
+            #[cfg(feature = "find")]
+            finding: Rc::default(),
         }
+    }
+
+    /// The table holds `rows` rows now (`find`): a find searches them.
+    #[cfg(feature = "find")]
+    pub fn hold(&self, rows: u64) {
+        self.held.set(rows);
     }
 
     /// Answers every `stride`-th row (at least 1) from now on: a new source
@@ -780,7 +812,12 @@ impl MemoryRows {
     /// Reads each value's exact text (`copy`, `sort`, `reorder`), as a read
     /// now would answer it: `None` for NULL. What a script compares a
     /// copy's paste, or a sort's or a move's drawn cells, with.
-    #[cfg(any(feature = "copy", feature = "sort", feature = "reorder"))]
+    #[cfg(any(
+        feature = "copy",
+        feature = "sort",
+        feature = "reorder",
+        feature = "find"
+    ))]
     pub fn exact(&self) -> impl Fn(u64, usize) -> Option<String> + 'static {
         let shape = self.shape;
         #[cfg(feature = "live")]
@@ -907,9 +944,57 @@ impl TallTableDelegate for MemoryRows {
         (request, Box::pin(load))
     }
 
+    /// Finds over the rows the table holds, as a read now would answer
+    /// them ([`MemoryRows::exact`]), [`FIND_WINDOW`] cells at a time: each
+    /// window after `delay` (`?delay`), or at least [`FIND_YIELD`], so
+    /// frames, page reads, and a cancel go between them.
+    #[cfg(feature = "find")]
+    fn find(
+        &mut self,
+        query: &seiza_tall_table::FindQuery,
+        cx: &mut App,
+    ) -> Option<(u32, seiza_tall_table::FindLoad)> {
+        let request = self.next_request;
+        self.next_request = self.next_request.wrapping_add(1);
+        self.finding.borrow_mut().insert(request);
+        let (pending, exact, executor) = (
+            self.finding.clone(),
+            self.exact(),
+            cx.background_executor().clone(),
+        );
+        let (query, rows, delay) = (query.clone(), self.held.get(), self.delay);
+        let load = async move {
+            let mut cells = query.cells(rows);
+            loop {
+                executor
+                    .timer(delay.unwrap_or_default().max(FIND_YIELD))
+                    .await;
+                if !pending.borrow().contains(&request) {
+                    return Err(PageError::Cancelled);
+                }
+                for _ in 0..FIND_WINDOW {
+                    let Some(cell) = cells.next() else {
+                        pending.borrow_mut().remove(&request);
+                        return Ok(None);
+                    };
+                    if exact(cell.row, cell.column).is_some_and(|text| query.matches(&text)) {
+                        pending.borrow_mut().remove(&request);
+                        return Ok(Some(cell));
+                    }
+                }
+            }
+        };
+        Some((request, Box::pin(load)))
+    }
+
     /// The read makes no page when it resolves; one already resolved won
     /// the race.
     fn cancel(&mut self, request: u32, _: &mut App) {
+        // A find's (`find`): its scan stops at its next window.
+        #[cfg(feature = "find")]
+        if self.finding.borrow_mut().remove(&request) {
+            return;
+        }
         #[cfg_attr(
             not(any(feature = "follow", feature = "copy", feature = "sort")),
             expect(unused_variables)
@@ -1562,5 +1647,75 @@ mod tests {
             page.value(changed_rows[1], 5),
             after.value(changed_rows[1], 5)
         );
+    }
+
+    /// The source's find (`find`): the same cell a whole scan finds, in
+    /// windows, forward and backward; none for a term with no match; a
+    /// cancel between windows answers `Cancelled`.
+    #[cfg(feature = "find")]
+    #[gpui_kit::test]
+    fn finds_in_windows(cx: &mut gpui_kit::TestAppContext) {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        use gpui_kit::AppContext as _;
+        use seiza_tall_table::{FindQuery, FoundCell, PageError, TallTableDelegate as _};
+
+        // Each window after 10 ms: a cancel lands between two.
+        let window = std::time::Duration::from_millis(10);
+        let rows = cx.new(|_| MemoryRows::new(Shape::Narrow, Some(window)));
+        type Answer = Result<Option<FoundCell>, PageError>;
+        let ask = |query: FindQuery, cancel: bool, cx: &mut gpui_kit::TestAppContext| {
+            let answer: Rc<RefCell<Option<Answer>>> = Rc::default();
+            let (request, load) = rows
+                .update(cx, |rows, cx| rows.find(&query, cx))
+                .expect("a find");
+            let landed = answer.clone();
+            cx.foreground_executor()
+                .spawn(async move { *landed.borrow_mut() = Some(load.await) })
+                .detach();
+            if cancel {
+                // The first window searched, the second not yet.
+                cx.executor().advance_clock(window);
+                cx.run_until_parked();
+                assert!(answer.borrow().is_none());
+                rows.update(cx, |rows, cx| rows.cancel(request, cx));
+            }
+            while answer.borrow().is_none() {
+                cx.executor()
+                    .advance_clock(std::time::Duration::from_millis(1));
+                cx.run_until_parked();
+            }
+            answer.take().expect("an answer")
+        };
+        // The same rows' texts, from a source of their own.
+        let source = MemoryRows::new(Shape::Narrow, None);
+        let exact = source.exact();
+        // A text far enough down that the scan takes several windows.
+        let (row, column) = (40_000, 1);
+        let term = exact(row, column).expect("a name");
+        let whole = |query: &FindQuery| {
+            query
+                .cells(ROWS)
+                .find(|cell| exact(cell.row, cell.column).is_some_and(|text| query.matches(&text)))
+        };
+        let forward = FindQuery::new(term.to_uppercase(), vec![0, 1, 2], None, None, false);
+        let found = ask(forward.clone(), false, cx).expect("found");
+        assert_eq!(found, whole(&forward));
+        assert!(found.is_some_and(|cell| cell.row <= row));
+        let backward = FindQuery::new(
+            term.clone(),
+            vec![2, 1, 0],
+            Some(FoundCell::new(ROWS - 1, 0)),
+            None,
+            true,
+        );
+        assert_eq!(
+            ask(backward.clone(), false, cx).expect("found"),
+            whole(&backward)
+        );
+        let none = FindQuery::new("no such name", vec![1], None, None, false);
+        assert_eq!(ask(none, false, cx), Ok(None));
+        assert_eq!(ask(forward, true, cx), Err(PageError::Cancelled));
     }
 }

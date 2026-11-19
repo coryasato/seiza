@@ -233,7 +233,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.sort_state.current = sort;
         self.sort_state.pressed = None;
         self.sort_state.tell = false;
+        // The random test's `KeepFindOnSort` (`find`).
+        #[cfg(all(test, feature = "find"))]
+        let kept = self.keep_find_on_sort();
         self.reset_rows(ViewAt::Top, cx);
+        #[cfg(all(test, feature = "find"))]
+        if kept.is_some() {
+            self.find_state.out = kept;
+        }
         cx.emit(TallTableEvent::Sorted(Vec::from_iter(sort)));
         self.reset_load(cx);
     }
@@ -282,6 +289,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let cleared = self.delegate.sort(&[], cx);
         debug_assert!(cleared.is_ok(), "a source refused going back to none");
         self.sort_state.current = None;
+        // The rows are read in the source's order now (`find`).
+        #[cfg(feature = "find")]
+        self.reset_find(cx);
         cx.emit(TallTableEvent::Sorted(Vec::new()));
         cx.emit(TallTableEvent::SortRefused(vec![sort], refused));
         cx.notify();

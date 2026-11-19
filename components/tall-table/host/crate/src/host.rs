@@ -77,6 +77,12 @@ pub const PINNED_GLOBAL: &str = "__tallTablePinned";
 #[cfg(feature = "hide")]
 pub const HIDDEN_GLOBAL: &str = "__tallTableHidden";
 
+/// The last step's state, `{outcome, cell, wrapped, message, count}`,
+/// replaced at each `FindStarted` and `Found` (`find`); unset until the
+/// first.
+#[cfg(feature = "find")]
+pub const FOUND_GLOBAL: &str = "__tallTableFound";
+
 /// The group cells drawn, `[{level, label, start, end, pinned, left,
 /// width, labelX}]`, replaced as they change (`group-headers`' `Groups`),
 /// with `?perf`.
@@ -137,7 +143,11 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// `__tallTableCtrlContextOn` set to `on` once the table has it. With
 /// `hide`: `__tallTableHide(indices)`, the table's `set_hidden` with the
 /// columns at `indices` hidden and the rest shown (`false`, and nothing
-/// sent, for an index that isn't a whole one of the columns).
+/// sent, for an index that isn't a whole one of the columns). With
+/// `find`: `__tallTableFind(term)`, the table's `set_find` (a string, or
+/// null or `""` for none; `false`, and nothing sent, for anything else),
+/// and `__tallTableFindNext()` and `__tallTableFindPrevious()`, its
+/// `find_next` and `find_previous`.
 #[cfg(all(
     any(feature = "copy", feature = "sort", feature = "reorder"),
     target_family = "wasm"
@@ -169,6 +179,12 @@ const ORDER_HOOK: &str = "__tallTableOrder";
 const CTRL_CONTEXT_HOOK: &str = "__tallTableCtrlContext";
 #[cfg(all(feature = "hide", target_family = "wasm"))]
 const HIDE_HOOK: &str = "__tallTableHide";
+#[cfg(all(feature = "find", target_family = "wasm"))]
+const FIND_HOOK: &str = "__tallTableFind";
+#[cfg(all(feature = "find", target_family = "wasm"))]
+const FIND_NEXT_HOOK: &str = "__tallTableFindNext";
+#[cfg(all(feature = "find", target_family = "wasm"))]
+const FIND_PREVIOUS_HOOK: &str = "__tallTableFindPrevious";
 /// `__tallTableReplace(stride, at)`, in every build with `?perf`: the
 /// source swapped for every `stride`-th row of its rows (1: all of them;
 /// of the order, with `sort`) and the table's `replace_rows` called with
@@ -294,7 +310,8 @@ impl Host {
                 feature = "custom-cells",
                 feature = "sort",
                 feature = "format",
-                feature = "reorder"
+                feature = "reorder",
+                feature = "find"
             ),
             target_family = "wasm"
         )))]
@@ -304,7 +321,8 @@ impl Host {
                 feature = "custom-cells",
                 feature = "sort",
                 feature = "format",
-                feature = "reorder"
+                feature = "reorder",
+                feature = "find"
             ),
             target_family = "wasm"
         ))]
@@ -362,6 +380,9 @@ impl Host {
             let (outer, inner) = shape.groups();
             crate::rows::with_groups(columns, outer, inner)
         };
+        // The rows a find searches (`find`).
+        #[cfg(feature = "find")]
+        rows.hold(count);
         let table = cx.new(|cx| {
             #[cfg_attr(not(feature = "density"), expect(unused_mut))]
             let mut table = Table::new(rows, columns, count, Paging::default(), cx)
@@ -402,6 +423,8 @@ impl Host {
             pinned: Some(PINNED_GLOBAL),
             #[cfg(feature = "hide")]
             hidden: Some(HIDDEN_GLOBAL),
+            #[cfg(feature = "find")]
+            found: Some(FOUND_GLOBAL),
             #[cfg(feature = "reorder")]
             column_order: Some(COLUMN_ORDER_GLOBAL),
             #[cfg(feature = "clicks")]
@@ -448,7 +471,8 @@ impl Host {
                 feature = "follow",
                 feature = "reorder",
                 feature = "clicks",
-                feature = "hide"
+                feature = "hide",
+                feature = "find"
             ),
             target_family = "wasm"
         ))]
@@ -514,6 +538,12 @@ impl Host {
                 let order = (0..table.columns().len()).rev().collect();
                 table.set_order(order, cx);
             });
+        }
+        // A term set before the first frame (`find`, `?find=<term>`): its
+        // matches drawn; a step is a script's.
+        #[cfg(all(feature = "find", target_family = "wasm"))]
+        if let Some(term) = seiza::url::param("find").filter(|term| !term.is_empty()) {
+            table.update(cx, |table, cx| table.set_find(Some(term.into()), cx));
         }
         // Every `n`th column hidden before the first frame (`hide`,
         // `?hidden=<n>`: 2 hides every other one); absent or 0, none (the
@@ -759,6 +789,8 @@ fn replace_hook(window: &mut Window, cx: &mut Context<Host>) {
                                 }
                                 let rows = unstrided.get();
                                 table.delegate_mut().set_stride(stride);
+                                #[cfg(feature = "find")]
+                                table.delegate().hold(rows.div_ceil(stride));
                                 table.replace_rows(rows.div_ceil(stride), at, cx);
                             })
                         })
@@ -782,7 +814,8 @@ fn replace_hook(window: &mut Window, cx: &mut Context<Host>) {
         feature = "follow",
         feature = "reorder",
         feature = "clicks",
-        feature = "hide"
+        feature = "hide",
+        feature = "find"
     ),
     target_family = "wasm"
 ))]
@@ -805,7 +838,8 @@ struct Source {
 /// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`], with
 /// `density` [`DENSITY_HOOK`], with `follow` [`LET_GO_HOOK`], with
 /// `reorder` [`MOVE_HOOK`] and [`ORDER_HOOK`], with `clicks`
-/// [`CTRL_CONTEXT_HOOK`], with `hide` [`HIDE_HOOK`].
+/// [`CTRL_CONTEXT_HOOK`], with `hide` [`HIDE_HOOK`], with `find`
+/// [`FIND_HOOK`], [`FIND_NEXT_HOOK`], and [`FIND_PREVIOUS_HOOK`].
 /// Those that change the table enter GPUI through its foreground executor,
 /// so they've happened by the next turn.
 #[cfg(all(
@@ -817,7 +851,8 @@ struct Source {
         feature = "follow",
         feature = "reorder",
         feature = "clicks",
-        feature = "hide"
+        feature = "hide",
+        feature = "find"
     ),
     target_family = "wasm"
 ))]
@@ -1043,6 +1078,46 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
             .into_js_value(),
         );
     }
+    #[cfg(feature = "find")]
+    {
+        let on_find = enter.clone();
+        set(
+            FIND_HOOK,
+            Closure::<dyn Fn(wasm_bindgen::JsValue) -> bool>::new(
+                move |term: wasm_bindgen::JsValue| {
+                    let term = match term.as_string() {
+                        Some(term) => Some(term),
+                        None if term.is_null() || term.is_undefined() => None,
+                        None => return false,
+                    };
+                    on_find(Box::new(move |host, _, cx| {
+                        host.table
+                            .update(cx, |table, cx| table.set_find(term.map(Into::into), cx));
+                    }));
+                    true
+                },
+            )
+            .into_js_value(),
+        );
+        for (name, backward) in [(FIND_NEXT_HOOK, false), (FIND_PREVIOUS_HOOK, true)] {
+            let on_step = enter.clone();
+            set(
+                name,
+                Closure::<dyn Fn()>::new(move || {
+                    on_step(Box::new(move |host, _, cx| {
+                        host.table.update(cx, |table, cx| {
+                            if backward {
+                                table.find_previous(cx)
+                            } else {
+                                table.find_next(cx)
+                            }
+                        });
+                    }));
+                })
+                .into_js_value(),
+            );
+        }
+    }
     #[cfg(feature = "copy")]
     copy_hooks(set, enter);
 }
@@ -1203,6 +1278,8 @@ impl Appends {
             let start = seiza::marks::now();
             let rows = table.update(cx, |table, cx| {
                 let rows = table.rows() + count;
+                #[cfg(feature = "find")]
+                table.delegate().hold(rows);
                 table.set_rows(rows, cx);
                 rows
             });

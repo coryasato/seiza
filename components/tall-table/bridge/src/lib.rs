@@ -8,7 +8,7 @@
 //! selection, with `copy` the clipboard's writer ([`clipboard`]), with
 //! `sort` the order and its mark, with `pin` the columns pinned, with
 //! `reorder` the columns' order, with `clicks` each press, with `hide` the
-//! columns' hidden flags, and the probes (`TallTableProbe`,
+//! columns' hidden flags, with `find` each step's outcome, and the probes (`TallTableProbe`,
 //! `TallTableLayout`, `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -105,6 +105,13 @@ pub struct Publish {
     /// change. Unset until the first.
     #[cfg(feature = "hide")]
     pub hidden: Option<&'static str>,
+    /// The global holding the last step's state (`find`'s
+    /// [`TallTableEvent::FindStarted`] and [`TallTableEvent::Found`],
+    /// [`js::found`]), replaced at each, its `count` the outcomes
+    /// published so far (the bridge's own count), so a script sees a step
+    /// that found the same cell again. Unset until the first.
+    #[cfg(feature = "find")]
+    pub found: Option<&'static str>,
 }
 
 impl Publish {
@@ -210,6 +217,18 @@ impl Publish {
                     js::set_global(name, &js::hidden(hidden));
                 }
             }
+            #[cfg(all(feature = "find", target_family = "wasm"))]
+            TallTableEvent::FindStarted => {
+                if let Some(name) = self.found {
+                    js::set_global(name, &js::found(None, find_count(false)));
+                }
+            }
+            #[cfg(all(feature = "find", target_family = "wasm"))]
+            TallTableEvent::Found(outcome) => {
+                if let Some(name) = self.found {
+                    js::set_global(name, &js::found(Some(outcome), find_count(true)));
+                }
+            }
             #[cfg(all(feature = "group-headers", target_family = "wasm"))]
             TallTableEvent::Groups(groups) => {
                 if let Some(name) = self.groups {
@@ -224,6 +243,19 @@ impl Publish {
             }
             _ => {}
         }
+    }
+}
+
+/// The outcomes published so far, every `Publish` in the page together
+/// (`find`): one more when `ended`.
+#[cfg(all(feature = "find", target_family = "wasm"))]
+fn find_count(ended: bool) -> u32 {
+    use std::sync::atomic::{AtomicU32, Ordering};
+    static PUBLISHED: AtomicU32 = AtomicU32::new(0);
+    if ended {
+        PUBLISHED.fetch_add(1, Ordering::Relaxed) + 1
+    } else {
+        PUBLISHED.load(Ordering::Relaxed)
     }
 }
 
@@ -271,7 +303,9 @@ pub mod js {
     /// `{rows, top, first, end, loaded, pending, failed, lastCell, marked,
     /// scrollX, tooltip}`: `top` in rows, `scrollX` in CSS px. With
     /// `select`, also `selection` ([`selection`]); with `sort`, `sort`
-    /// ([`sort`]).
+    /// ([`sort`]); with `find`, `find`: `{term, current, out}`, the term
+    /// or null, the current match `{row, column}` (its index) or null,
+    /// and whether a step is out.
     pub fn probe(probe: &TallTableProbe) -> JsValue {
         let object = Object::new();
         set(&object, "rows", number(probe.rows as f64));
@@ -293,6 +327,50 @@ pub mod js {
         set(&object, "selection", selection(probe.selection.as_ref()));
         #[cfg(feature = "sort")]
         set(&object, "sort", sort(&probe.sort));
+        #[cfg(feature = "find")]
+        {
+            let find = Object::new();
+            set(&find, "term", text(probe.find.term.as_deref()));
+            set(&find, "current", found_cell(probe.find.current));
+            set(&find, "out", probe.find.out.into());
+            set(&object, "find", find.into());
+        }
+        object.into()
+    }
+
+    /// `{row, column}` (the column's index), or null (`find`).
+    #[cfg(feature = "find")]
+    fn found_cell(cell: Option<seiza_tall_table::FoundCell>) -> JsValue {
+        cell.map_or(JsValue::NULL, |cell| {
+            let object = Object::new();
+            set(&object, "row", number(cell.row as f64));
+            set(&object, "column", number(cell.column as f64));
+            object.into()
+        })
+    }
+
+    /// `{outcome, cell, wrapped, message, count}` (`find`): `outcome`
+    /// `started` while a step is out, then `match` (its `cell`, `{row,
+    /// column}`, and `wrapped`), `none`, `refused`, `failed` (its
+    /// `message`), or `cancelled`; `count` the outcomes published so far.
+    #[cfg(feature = "find")]
+    pub fn found(outcome: Option<&seiza_tall_table::FindOutcome>, count: u32) -> JsValue {
+        use seiza_tall_table::FindOutcome;
+        let object = Object::new();
+        let (name, cell, wrapped, message) = match outcome {
+            None => ("started", None, false, None),
+            Some(FindOutcome::Match { cell, wrapped }) => ("match", Some(*cell), *wrapped, None),
+            Some(FindOutcome::NoMatch) => ("none", None, false, None),
+            Some(FindOutcome::Refused) => ("refused", None, false, None),
+            Some(FindOutcome::Failed(message)) => ("failed", None, false, Some(message.as_ref())),
+            Some(FindOutcome::Cancelled) => ("cancelled", None, false, None),
+            Some(_) => ("unknown", None, false, None),
+        };
+        set(&object, "outcome", JsValue::from_str(name));
+        set(&object, "cell", found_cell(cell));
+        set(&object, "wrapped", wrapped.into());
+        set(&object, "message", text(message));
+        set(&object, "count", number(f64::from(count)));
         object.into()
     }
 
@@ -529,7 +607,10 @@ pub mod js {
     /// `custom-cells`, also `fill` and `text` (`[r, g, b, a]`, 8-bit, or
     /// null) and `bar` (`{left, width}` in CSS px from the cell's left, and
     /// its `color`, or null); with `live` too, `flash` (`[r, g, b, a]`, its opacity in the
-    /// alpha, or null).
+    /// alpha, or null). With `find`, `found` (null where nothing's drawn
+    /// of the find, `"cell"` for the cell tinted whole, or `[[start, end]]`,
+    /// each range in UTF-8 bytes of the drawn text, after the cut) and
+    /// `current` (the current match, edged).
     pub fn cells(cells: &[CellProbe]) -> JsValue {
         let list: Array = cells
             .iter()
@@ -558,6 +639,25 @@ pub mod js {
                     set(&object, "bar", bar);
                     #[cfg(feature = "live")]
                     set(&object, "flash", color(cell.paint.flash));
+                }
+                #[cfg(feature = "find")]
+                {
+                    let found = match &cell.found {
+                        None => JsValue::NULL,
+                        Some(seiza_tall_table::FoundProbe::Ranges(ranges)) => ranges
+                            .iter()
+                            .map(|range| {
+                                [range.start, range.end]
+                                    .iter()
+                                    .map(|at| number(*at as f64))
+                                    .collect::<Array>()
+                            })
+                            .collect::<Array>()
+                            .into(),
+                        Some(_) => JsValue::from_str("cell"),
+                    };
+                    set(&object, "found", found);
+                    set(&object, "current", cell.current.into());
                 }
                 JsValue::from(object)
             })

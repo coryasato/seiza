@@ -813,24 +813,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if rows && to != top {
             self.scroll_by(to - top, 0.0, cx);
         }
-        let Some(column) = self.columns.get(cell.1).filter(|_| columns) else {
-            return;
-        };
-        // A hidden column has nowhere to be brought (`hide`).
-        #[cfg(feature = "hide")]
-        if !column.shown() {
-            return;
-        }
-        // Right of the pinned run (`pin`); a pinned column is in view.
-        let x = self.place().into_view(
-            cell.1,
-            column.x,
-            column.width,
-            self.scroll_x,
-            self.cells_width(),
-        );
-        if x != 0.0 {
-            self.scroll_by(0.0, x, cx);
+        if columns {
+            self.column_into_view(cell.1, cx);
         }
     }
 

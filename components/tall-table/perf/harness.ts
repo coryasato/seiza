@@ -173,6 +173,17 @@ export const COLUMN_ORDER_GLOBAL = '__tallTableColumnOrder';
 export const HIDDEN_GLOBAL = '__tallTableHidden';
 export const HIDE_HOOK = '__tallTableHide';
 
+/** With `find`: the last step's state, `{outcome, cell, wrapped, message,
+ *  count}` (`outcome` one of `started`, `match`, `none`, `refused`,
+ *  `failed`, `cancelled`; `count` the outcomes so far), replaced at each
+ *  `FindStarted` and `Found` (`host/crate/src/host.rs`); unset until the
+ *  first. With `?perf`, `__tallTableFind(term)` sets the term (null for
+ *  none), `__tallTableFindNext()` and `__tallTableFindPrevious()` step. */
+export const FOUND_GLOBAL = '__tallTableFound';
+export const FIND_HOOK = '__tallTableFind';
+export const FIND_NEXT_HOOK = '__tallTableFindNext';
+export const FIND_PREVIOUS_HOOK = '__tallTableFindPrevious';
+
 /** With `density` (`host/crate/src/host.rs`, `Density`): the host's
  *  default `?density=`, the dense setting: 18 px rows, 11 px text, 56 px
  *  floats. `?density=30,14` is the control, the base's numbers. */

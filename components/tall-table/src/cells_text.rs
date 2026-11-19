@@ -29,6 +29,9 @@ pub(crate) struct CellText {
     /// Drawn uncut (`format`: a formatted text that fits by its advances).
     #[cfg(feature = "format")]
     pub(crate) whole: bool,
+    /// A match of the find's term, or its current match (`find`).
+    #[cfg(feature = "find")]
+    pub(crate) mark: crate::find::Mark,
     #[cfg(test)]
     pub(crate) row: u64,
     /// Its column's index (with `reorder`, not its place).
@@ -52,6 +55,41 @@ pub(crate) struct DrawnText {
     /// The part of `cell` its region shows: the cell cut by the clip it
     /// was painted under (with `pin`, the run's edge).
     pub(crate) visible: Bounds<Pixels>,
+    /// What the find tinted (`find`): each tint's bounds and color, in
+    /// window pixels, and the current match's edge.
+    #[cfg(feature = "find")]
+    pub(crate) tints: Vec<(Bounds<Pixels>, Hsla)>,
+    #[cfg(feature = "find")]
+    pub(crate) edge: Option<Hsla>,
+}
+
+/// The find's colors and term, for the cells it marks (`find`): every
+/// match's ranges in the theme's `selection` at saturation 0.1 (gpui-kit's
+/// editor search's), the current match's in `selection` and edged in
+/// `ring`.
+#[cfg(feature = "find")]
+#[derive(Clone)]
+pub(crate) struct FindPaint {
+    /// The term, folded a character at a time (`find::folded_term`).
+    pub(crate) folded: std::rc::Rc<str>,
+    pub(crate) matched: Hsla,
+    pub(crate) current: Hsla,
+    pub(crate) ring: Hsla,
+}
+
+#[cfg(feature = "find")]
+impl FindPaint {
+    pub(crate) fn new(folded: std::rc::Rc<str>, selection: Hsla, ring: Hsla) -> Self {
+        Self {
+            folded,
+            matched: Hsla {
+                s: 0.1,
+                ..selection
+            },
+            current: selection,
+            ring,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -71,6 +109,7 @@ pub(crate) fn cells_text(
     cells: Vec<CellText>,
     row: Pixels,
     pad: AbsoluteLength,
+    #[cfg(feature = "find")] find: Option<FindPaint>,
     #[cfg(test)] drawn: DrawnTexts,
 ) -> Option<Canvas<()>> {
     (!cells.is_empty()).then(|| {
@@ -82,6 +121,8 @@ pub(crate) fn cells_text(
                     bounds,
                     row,
                     pad,
+                    #[cfg(feature = "find")]
+                    find.as_ref(),
                     window,
                     cx,
                     #[cfg(test)]
@@ -94,11 +135,14 @@ pub(crate) fn cells_text(
     })
 }
 
+// With `find`'s paint and the tests' record, eight.
+#[cfg_attr(all(test, feature = "find"), expect(clippy::too_many_arguments))]
 fn paint(
     cells: &[CellText],
     bounds: Bounds<Pixels>,
     row: Pixels,
     pad: AbsoluteLength,
+    #[cfg(feature = "find")] find: Option<&FindPaint>,
     window: &mut Window,
     cx: &mut App,
     #[cfg(test)] drawn: &DrawnTexts,
@@ -196,6 +240,10 @@ fn paint(
             let origin = point(origin_x, clip.origin.y);
             let padding_top = (line_height - line.ascent - line.descent) / 2.;
             let baseline_offset = point(px(0.), padding_top + line.ascent);
+            // The find's tints, from the shaped line's offsets in the text
+            // drawn (after the cut), and its current match's edge (`find`).
+            #[cfg(feature = "find")]
+            let (tints, edge) = find_quads(cell, &line, origin.x, clip, find);
             #[cfg(test)]
             drawn.borrow_mut().push(DrawnText {
                 row: cell.row,
@@ -206,9 +254,23 @@ fn paint(
                 color: cell.color,
                 cell: clip,
                 visible: clip.intersect(&window.content_mask().bounds),
+                #[cfg(feature = "find")]
+                tints: tints
+                    .iter()
+                    .map(|(bounds, color)| (*bounds, *color))
+                    .collect(),
+                #[cfg(feature = "find")]
+                edge: edge
+                    .as_ref()
+                    .map(|_| find.map_or(gpui_kit::transparent_black(), |find| find.ring)),
             });
             window.with_content_mask(Some(ContentMask { bounds: clip }), |window| {
                 let mask = window.content_mask().bounds;
+                // Over the cell's paint and the selection, under its text.
+                #[cfg(feature = "find")]
+                for (bounds, color) in tints {
+                    window.paint_quad(fill(bounds, color));
+                }
                 // `paint_line`'s walk: the glyph's x summed from the gaps
                 // between positions, so its floats are the same.
                 let mut glyph_origin = origin;
@@ -240,7 +302,113 @@ fn paint(
                         };
                     }
                 }
+                // Over the text (`find`).
+                #[cfg(feature = "find")]
+                if let Some(edge) = edge {
+                    window.paint_quad(edge);
+                }
             });
         }
     });
+}
+
+/// A marked cell's tints and edge (`find`), in window pixels: its drawn
+/// text's ranges of the term (or its box, where the text doesn't show it)
+/// in the match's color or the current match's, and the current match's
+/// edge; none for a cell not marked.
+#[cfg(feature = "find")]
+fn find_quads(
+    cell: &CellText,
+    line: &ShapedLine,
+    origin_x: Pixels,
+    clip: Bounds<Pixels>,
+    find: Option<&FindPaint>,
+) -> (Vec<(Bounds<Pixels>, Hsla)>, Option<PaintQuad>) {
+    use crate::find::{Found, Mark, found};
+    let Some(find) = find else {
+        return (Vec::new(), None);
+    };
+    let current = cell.mark == Mark::Current;
+    let color = if current { find.current } else { find.matched };
+    let tints = match found(cell.mark, &line.text, &find.folded) {
+        None => Vec::new(),
+        Some(Found::Cell) => vec![(clip, color)],
+        Some(Found::Ranges(ranges)) => ranges
+            .into_iter()
+            .map(|range| {
+                let left = origin_x + line.x_for_index(range.start);
+                let right = origin_x + line.x_for_index(range.end);
+                (
+                    Bounds::new(
+                        point(left, clip.origin.y),
+                        size(right - left, clip.size.height),
+                    ),
+                    color,
+                )
+            })
+            .collect(),
+    };
+    let edge = current.then(|| {
+        fill(clip, gpui_kit::transparent_black())
+            .border_widths(px(2.))
+            .border_color(find.ring)
+    });
+    (tints, edge)
+}
+
+/// The text `paint` draws for `text` in a cell `width` wide (after the
+/// cut), shaped in `font` at `font_size`: a probe's, where the drawn
+/// ranges are read (`find`). Its cut is `paint`'s, its lengths snapped as
+/// `paint` snaps them.
+#[cfg(feature = "find")]
+#[expect(clippy::too_many_arguments)]
+pub(crate) fn drawn_text(
+    text: &SharedString,
+    width: f32,
+    middle: bool,
+    #[cfg(feature = "format")] whole: bool,
+    pad: AbsoluteLength,
+    font: &Font,
+    font_size: Pixels,
+    window: &Window,
+    cx: &App,
+) -> SharedString {
+    let scale = window.scale_factor();
+    let snap = |value: f32| round_half_toward_zero(value * scale);
+    let pad = snap(f32::from(pad.to_pixels(window.rem_size())));
+    let text_width = px((snap(width) - 2.0 * pad).max(0.0) / scale);
+    let run = TextRun {
+        len: text.len(),
+        font: font.clone(),
+        color: gpui_kit::black(),
+        background_color: None,
+        underline: None,
+        strikethrough: None,
+    };
+    let line =
+        window
+            .text_system()
+            .shape_line(text.clone(), font_size, std::slice::from_ref(&run), None);
+    #[cfg(feature = "format")]
+    let fits = whole || line.width <= text_width;
+    #[cfg(not(feature = "format"))]
+    let fits = line.width <= text_width;
+    if fits {
+        return text.clone();
+    }
+    let from = if middle {
+        TruncateFrom::Middle
+    } else {
+        TruncateFrom::End
+    };
+    cx.text_system()
+        .line_wrapper(font.clone(), font_size)
+        .truncate_line(
+            text.clone(),
+            text_width,
+            ELLIPSIS,
+            std::slice::from_ref(&run),
+            from,
+        )
+        .0
 }

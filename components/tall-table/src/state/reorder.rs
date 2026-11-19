@@ -145,6 +145,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         }
         self.cancel_drag(cx);
+        // Its columns' order is stale; the current match is kept (`find`).
+        #[cfg(feature = "find")]
+        self.cancel_find(cx);
         #[cfg(all(test, feature = "hide"))]
         let before = self.order.clone();
         self.order = order;
@@ -180,6 +183,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 return;
             }
         }
+        // Its columns' order is stale; the current match is kept (`find`).
+        #[cfg(feature = "find")]
+        self.cancel_find(cx);
         #[cfg(all(test, feature = "hide"))]
         let before = self.order.clone();
         self.order = mv.order_after(&self.order);

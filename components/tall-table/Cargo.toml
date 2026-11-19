@@ -78,3 +78,9 @@ group-headers = []
 # sort, and group kept (`TallTableColumn::hidden`,
 # `TallTableState::set_column_hidden`, `TallTableEvent::ColumnsHidden`).
 hide = []
+# A term the host sets highlighted in the drawn cells, and its next or
+# previous match in every row, loaded or not, found by the source and
+# brought into view (`TallTableState::set_find`, `find_next`,
+# `TallTableDelegate::find`, `TallTableEvent::Found`). The table binds no
+# key: the host's bar does.
+find = []

@@ -59,6 +59,11 @@ group-headers = ["seiza-tall-table/group-headers", "tall-table-bridge/group-head
 # Columns hidden: `?hidden=<n>` hides every `n`th column (2: every other
 # one) before the first frame; absent or 0, none (the control).
 hide = ["seiza-tall-table/hide", "tall-table-bridge/hide"]
+# A term found: `?find=<term>` sets it before the first frame; with
+# `?perf`, `__tallTableFind(term)`, `__tallTableFindNext()`, and
+# `__tallTableFindPrevious()`. The source finds over its rows in windows,
+# `?delay` per window.
+find = ["seiza-tall-table/find", "tall-table-bridge/find"]
 
 [dependencies]
 gpui-kit.workspace = true

@@ -67,6 +67,26 @@ pub trait TallTableDelegate: 'static {
             Err(crate::SortRefused::new("This source can't sort"))
         }
     }
+
+    /// Starts a find (`find`): the first cell of `query`'s order whose
+    /// exact text matches (`FindQuery::matches`, `FindQuery::cells`), or
+    /// none. A read like `load_page`: its request from the same ids,
+    /// cancelled through `cancel`, its load still resolving after a cancel
+    /// (an answer then is dropped). `None` refuses, the default. Not
+    /// counted in `Paging::max_in_flight`; one is out at a time. A long
+    /// scan should run in windows, so a cancel stops it and page reads go
+    /// between them. Called inside the table's update, as `load_page` is.
+    /// An answer at or past the table's rows (a tail that grew during the
+    /// scan, its `set_rows` still to come) is taken as none to the end.
+    #[cfg(feature = "find")]
+    fn find(
+        &mut self,
+        query: &crate::FindQuery,
+        cx: &mut App,
+    ) -> Option<(Self::Request, crate::FindLoad)> {
+        let _ = (query, cx);
+        None
+    }
 }
 
 /// A loaded page of rows.

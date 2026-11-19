@@ -28,6 +28,8 @@ mod copy;
 mod delegate;
 #[cfg(feature = "density")]
 mod density;
+#[cfg(feature = "find")]
+mod find;
 #[cfg(all(feature = "live", feature = "custom-cells"))]
 mod flash;
 mod format;
@@ -58,6 +60,8 @@ pub use copy::{CopyFailure, CopyId, CopyOptions, CopyProgress, TallTableCopy};
 pub use delegate::{CellValue, PageError, PageLoad, TallTableDelegate, TallTablePage};
 #[cfg(feature = "density")]
 pub use density::Density;
+#[cfg(feature = "find")]
+pub use find::{FindLoad, FindOutcome, FindQuery, FoundCell};
 #[cfg(feature = "format")]
 pub use format::{NumberFormat, Sign};
 #[cfg(feature = "custom-cells")]
@@ -67,6 +71,8 @@ pub use probe::GroupProbe;
 #[cfg(feature = "custom-cells")]
 pub use probe::PaintProbe;
 pub use probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
+#[cfg(feature = "find")]
+pub use probe::{FindProbe, FoundProbe};
 #[cfg(feature = "select")]
 pub use selection::{Cell, Selectable, TallTableSelection};
 #[cfg(feature = "sort")]

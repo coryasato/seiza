@@ -1,0 +1,344 @@
+{
+  "matches": [
+    {
+      "name": "case-folded",
+      "why": "Both lowercased: a term in capitals finds a value in mixed case.",
+      "exact": "Ceres",
+      "term": "CERES",
+      "expect": true
+    },
+    {
+      "name": "inside-a-word",
+      "why": "Contains, not whole words.",
+      "exact": "Hyperion",
+      "term": "peri",
+      "expect": true
+    },
+    {
+      "name": "no-match",
+      "why": "A term the text doesn't contain.",
+      "exact": "Vesta",
+      "term": "ceres",
+      "expect": false
+    },
+    {
+      "name": "null-never-matches",
+      "why": "A NULL never matches, though it's drawn `NULL`: a placeholder, not text.",
+      "exact": null,
+      "term": "null",
+      "expect": false
+    },
+    {
+      "name": "float-exact-text",
+      "why": "A float matches by its exact text (shortest round-trip), digits the cell rounds away included.",
+      "exact": "3.14159265",
+      "term": "4159",
+      "expect": true
+    },
+    {
+      "name": "float-exponent",
+      "why": "A very large float's exact text has an exponent, written as the table writes it (`1e300`), not DuckDB's `1e+300`.",
+      "exact": "1e300",
+      "term": "e30",
+      "expect": true
+    },
+    {
+      "name": "float-exponent-sign",
+      "why": "The table's exact text has no `+` in an exponent: DuckDB's text would match this, the table's doesn't (the README's two texts).",
+      "exact": "1e300",
+      "term": "e+300",
+      "expect": false
+    },
+    {
+      "name": "sigma-inside-a-word",
+      "why": "A term's final sigma matches a word's sigma that isn't final: both sides lowercased with `ς` as `σ`, as a SQL `lower` writes it.",
+      "exact": "ΟΔΟΣΑ",
+      "term": "ΟΔΟΣ",
+      "expect": true
+    },
+    {
+      "name": "lone-sigma",
+      "why": "A lone `Σ` lowercases to `σ`, and a word's final `ς` is taken as `σ`: the letter matches the word.",
+      "exact": "ΟΔΟΣ",
+      "term": "Σ",
+      "expect": true
+    },
+    {
+      "name": "past-the-cut",
+      "why": "The exact text matches whatever the cell cuts: a term past the \"…\" matches.",
+      "exact": "Hyperion Saturn VII",
+      "term": "saturn",
+      "expect": true
+    },
+    {
+      "name": "final-sigma",
+      "why": "`str::to_lowercase` writes a final sigma `ς` on both sides: a term typed in capitals matches the same word.",
+      "exact": "ΟΔΟΣ",
+      "term": "ΟΔΟΣ",
+      "expect": true
+    }
+  ],
+  "ranges": [
+    {
+      "name": "plain",
+      "why": "Each occurrence of the term in the drawn text, as byte ranges, in order.",
+      "exact": "banana",
+      "drawn": "banana",
+      "term": "an",
+      "expect": [[1, 3], [3, 5]]
+    },
+    {
+      "name": "case-folded",
+      "why": "The ranges are found folded too.",
+      "exact": "Ceres",
+      "drawn": "Ceres",
+      "term": "CE",
+      "expect": [[0, 2]]
+    },
+    {
+      "name": "rounded-shows-it",
+      "why": "A rounded float whose drawn text shows the term: its range in the drawn text.",
+      "exact": "3.14159265",
+      "drawn": "3.142",
+      "term": "3.14",
+      "expect": [[0, 4]]
+    },
+    {
+      "name": "rounded-hides-it",
+      "why": "A rounded float that matches, its drawn text not showing the term: the whole cell.",
+      "exact": "3.14159265",
+      "drawn": "3.142",
+      "term": "4159",
+      "expect": "cell"
+    },
+    {
+      "name": "formatted",
+      "why": "A formatted text (`format`) is the drawn text: its ranges are of it, grouping and all.",
+      "exact": "1234.5",
+      "drawn": "1,234.50",
+      "term": "234",
+      "expect": [[2, 5]]
+    },
+    {
+      "name": "formatted-hides-it",
+      "why": "The exact text matches, the format's grouping splits the term in the drawn: the whole cell.",
+      "exact": "1234.5",
+      "drawn": "1,234.50",
+      "term": "1234",
+      "expect": "cell"
+    },
+    {
+      "name": "cut-at-the-end",
+      "why": "A term before the \"…\": its range in the cut text.",
+      "exact": "Hyperion Saturn VII",
+      "drawn": "Hyperion Sat…",
+      "term": "sat",
+      "expect": [[9, 12]]
+    },
+    {
+      "name": "past-the-cut",
+      "why": "A match past the \"…\": the drawn text doesn't show it, so the whole cell.",
+      "exact": "Hyperion Saturn VII",
+      "drawn": "Hyperion Sat…",
+      "term": "saturn",
+      "expect": "cell"
+    },
+    {
+      "name": "cut-in-the-middle",
+      "why": "An integer cut in the middle: a term after the \"…\" (three bytes) is ranged in the drawn text.",
+      "exact": "123456789012",
+      "drawn": "1234…9012",
+      "term": "901",
+      "expect": [[7, 10]]
+    },
+    {
+      "name": "longer-fold",
+      "why": "`İ` folds to three bytes from two: the range maps back to whole characters of the drawn text.",
+      "exact": "İstanbul",
+      "drawn": "İstanbul",
+      "term": "stanbul",
+      "expect": [[2, 9]]
+    },
+    {
+      "name": "inside-a-fold",
+      "why": "A term inside one character's fold takes the character whole.",
+      "exact": "İstanbul",
+      "drawn": "İstanbul",
+      "term": "i",
+      "expect": [[0, 2]]
+    },
+    {
+      "name": "final-sigma",
+      "why": "A final sigma folds as any sigma: a term typed with `ς` ranges the word written in capitals.",
+      "exact": "ΟΔΟΣ",
+      "drawn": "ΟΔΟΣ",
+      "term": "οδος",
+      "expect": [[0, 8]]
+    },
+    {
+      "name": "no-match",
+      "why": "A cell that doesn't match draws nothing, whatever its drawn text.",
+      "exact": "Vesta",
+      "drawn": "Vesta",
+      "term": "ceres",
+      "expect": null
+    },
+    {
+      "name": "null",
+      "why": "A NULL draws nothing.",
+      "exact": null,
+      "drawn": "NULL",
+      "term": "null",
+      "expect": null
+    }
+  ],
+  "grid": [
+    ["apple", "x", "y"],
+    ["z", "pear", "apple pie"],
+    ["q", "w", "e"],
+    ["Apple", "r", "t"]
+  ],
+  "steps": [
+    {
+      "name": "from-the-top",
+      "why": "With no start but the view's top row, the top row's first cell is searched first.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "top": 0 },
+      "backward": false,
+      "term": "apple",
+      "expect": { "cell": [0, 0], "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "along-the-row-then-down",
+      "why": "From the current match: the rest of its row in drawn order, then the next row's.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "current": [0, 0] },
+      "backward": false,
+      "term": "apple",
+      "expect": { "cell": [1, 2], "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "drawn-order",
+      "why": "A moved column's order is followed: row 1 is searched 2, 0, 1, so after its column 2 come columns 0 and 1, then row 2.",
+      "columns": [2, 0, 1],
+      "hidden": [],
+      "start": { "current": [1, 2] },
+      "backward": false,
+      "term": "apple",
+      "expect": { "cell": [3, 0], "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "view-top",
+      "why": "From the view's top row, after the row above's last cell: the top row's matches come first.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "top": 1 },
+      "backward": false,
+      "term": "apple",
+      "expect": { "cell": [1, 2], "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "backward",
+      "why": "Backward: left along the row, then the row above's last.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "current": [1, 2] },
+      "backward": true,
+      "term": "apple",
+      "expect": { "cell": [0, 0], "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "view-top-backward",
+      "why": "Backward from the view's top row: before its first cell, so the rows above it.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "top": 2 },
+      "backward": true,
+      "term": "apple",
+      "expect": { "cell": [1, 2], "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "wrap-forward",
+      "why": "No match to the end: a second ask from the top, up to the start cell.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "current": [3, 0] },
+      "backward": false,
+      "term": "apple",
+      "expect": { "cell": [0, 0], "wrapped": true, "asks": 2 }
+    },
+    {
+      "name": "wrap-backward",
+      "why": "No match to the top: a second ask from the last row's last cell, up to the start cell.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "current": [0, 0] },
+      "backward": true,
+      "term": "apple",
+      "expect": { "cell": [3, 0], "wrapped": true, "asks": 2 }
+    },
+    {
+      "name": "lone-match-found-again",
+      "why": "The second ask includes the start cell, so a lone match is found again.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "current": [1, 1] },
+      "backward": false,
+      "term": "pear",
+      "expect": { "cell": [1, 1], "wrapped": true, "asks": 2 }
+    },
+    {
+      "name": "no-match",
+      "why": "Nothing in either ask.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "current": [1, 1] },
+      "backward": false,
+      "term": "kiwi",
+      "expect": { "cell": null, "wrapped": false, "asks": 2 }
+    },
+    {
+      "name": "no-wrap-from-the-first-row",
+      "why": "A step forward from before the first row's first cell has searched every row: no second ask.",
+      "columns": [0, 1, 2],
+      "hidden": [],
+      "start": { "top": 0 },
+      "backward": false,
+      "term": "kiwi",
+      "expect": { "cell": null, "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "hidden-not-searched",
+      "why": "A hidden column isn't in the query: `pear` is only in it.",
+      "columns": [0, 1, 2],
+      "hidden": [1],
+      "start": { "top": 0 },
+      "backward": false,
+      "term": "pear",
+      "expect": { "cell": null, "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "start-on-hidden",
+      "why": "A current match on a column hidden since is taken at the nearest shown cell before it: forward, after row 1's column 0.",
+      "columns": [0, 1, 2],
+      "hidden": [1],
+      "start": { "current": [1, 1] },
+      "backward": false,
+      "term": "apple",
+      "expect": { "cell": [1, 2], "wrapped": false, "asks": 1 }
+    },
+    {
+      "name": "start-on-hidden-backward",
+      "why": "Backward, before the nearest shown cell after it: row 1's column 2, so column 0 first.",
+      "columns": [0, 1, 2],
+      "hidden": [1],
+      "start": { "current": [1, 1] },
+      "backward": true,
+      "term": "apple",
+      "expect": { "cell": [0, 0], "wrapped": false, "asks": 1 }
+    }
+  ],
+  "controls": ["case-sensitive", "cut-ranges", "no-wrap"]
+}

@@ -16,6 +16,9 @@ export interface Shown {
   selection?: Selection | null;
   /** With `sort`: the order the rows are read in. */
   sort?: Sort | null;
+  /** With `find`: the term (null for none), the current match (its row
+   *  and its column's index), and whether a step is out. */
+  find?: { term: string | null; current: { row: number; column: number } | null; out: boolean };
 }
 
 /** With `sort`, as `tall-table-bridge`'s `js::sort` writes it: the

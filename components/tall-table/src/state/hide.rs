@@ -126,6 +126,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // An arrow on a column now hidden can't be released on (`sort`).
         #[cfg(feature = "sort")]
         self.forget_hidden_arrows();
+        // Its columns are stale; the current match is kept (`find`).
+        #[cfg(feature = "find")]
+        self.cancel_find(cx);
         self.lay_out(cx);
         #[cfg(feature = "resize")]
         if resized {

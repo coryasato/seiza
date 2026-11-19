@@ -69,6 +69,11 @@
 //! `hide`, `?hidden=<n>` hides every `n`th column before the first frame
 //! (2: every other one; absent or 0, none), the flags are published at
 //! each change, and with `?perf` the scripts get the table's `set_hidden`.
+//! With `find`, `?find=<term>` sets the term before the first frame, each
+//! step's outcome is published (`__tallTableFound`), the source finds over
+//! its rows in windows of `rows::FIND_WINDOW` cells (`?delay` before each, else a millisecond's yield),
+//! and with `?perf` the scripts get the table's `set_find`, `find_next`,
+//! and `find_previous`; `?probe-cells` publishes each drawn cell's find.
 //!
 //! The script hooks enter GPUI through its foreground executor; one that
 //! sends a column, a count, a density, or an order answers `false`, sending
