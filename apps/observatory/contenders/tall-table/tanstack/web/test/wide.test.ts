@@ -271,10 +271,15 @@ async function flashMismatches(control: FlashControl): Promise<string[]> {
 
 // --- pin ---
 
+/** The fixture's cases with hidden columns (`hide`): skipped, by name, until
+ *  a level builds column visibility on both sides. */
+const PIN_HIDDEN = ['hidden-in-run', 'hidden-past-run', 'run-last-hidden'];
+
 /** The pin fixture's cases `pin.ts` doesn't compute as pinned, under `control`. */
 function pinMismatches(control: PinControl): string[] {
   const mismatches: string[] = [];
   for (const item of fixture('pin.json').cases) {
+    if (item.hidden) continue;
     let x = 0;
     const columns = (item.widths as number[]).map((width) => {
       const placed = { x, width };
@@ -311,8 +316,14 @@ describe('pin.json', () => {
     assert.deepEqual(pinMismatches(null), []);
   });
 
+  test('the hidden columns’ cases are skipped, by name', () => {
+    const hidden = (fixture('pin.json').cases as { name: string; hidden?: number[] }[]).filter((item) => item.hidden).map((item) => item.name);
+    assert.deepEqual(hidden, PIN_HIDDEN);
+  });
+
   test('controls fail', () => {
-    const controls = fixture('pin.json').controls as string[];
+    // `hidden-at-width` is the hidden cases' (`hide`), skipped with them.
+    const controls = (fixture('pin.json').controls as string[]).filter((control) => control !== 'hidden-at-width');
     assert.deepEqual(controls.sort(), ['into-view-at-gutter', 'no-cap', 'pinned-scroll', 'under-run']);
     for (const control of controls) assert.notDeepEqual(pinMismatches(control as PinControl), [], `control ${control} passed the pin fixture`);
   });

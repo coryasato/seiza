@@ -243,6 +243,13 @@ fn run_case(
     draw(cx);
     let handle = table.read_with(cx, |table, _| table.focus_handle.clone());
     cx.update(|window, cx| window.focus(&handle, cx));
+    // Its hidden places (`hide`), before the selection.
+    #[cfg(feature = "hide")]
+    if let Some(hidden) =
+        super::hidden_flags(case, table.read_with(cx, |table, _| table.columns().len()))
+    {
+        table.update(cx, |table, cx| table.set_hidden(hidden, cx));
+    }
     let selection = selection_of(&case["selection"]);
     table.update(cx, |table, cx| table.set_selection(Some(selection), cx));
     draw(cx);
@@ -341,6 +348,10 @@ fn copy_mismatches(cx: &mut TestAppContext, control: Control) -> Vec<String> {
     let mut mismatches = Vec::new();
     for case in fixture["cases"].as_array().expect("cases") {
         let name = case["name"].as_str().expect("a name");
+        // A case with hidden columns runs only with `hide`.
+        if !case["hidden"].is_null() && !cfg!(feature = "hide") {
+            continue;
+        }
         let expect = case["expect"].as_object().expect("expect");
         let got = run_case(cx, &fixture, case, control);
         for (field, expected) in expect {
@@ -364,6 +375,8 @@ fn control_of(name: &str) -> Control {
         "whole-floats-bare" => Control::WholeFloatsBare,
         "trailing-break" => Control::TrailingBreak,
         "utf16-bytes" => Control::Utf16Bytes,
+        #[cfg(feature = "hide")]
+        "hidden-copied" => Control::HiddenCopied,
         other => panic!("no copy control {other}"),
     }
 }
@@ -381,6 +394,10 @@ fn copy_controls_fail(cx: &mut TestAppContext) {
     let fixture: Value = serde_json::from_str(COPY).expect("copy.json");
     for control in fixture["controls"].as_array().expect("controls") {
         let name = control["name"].as_str().expect("a control's name");
+        // Its cases are `hide`'s.
+        if name == "hidden-copied" && !cfg!(feature = "hide") {
+            continue;
+        }
         let mismatches = copy_mismatches(cx, control_of(name));
         assert!(
             !mismatches.is_empty(),

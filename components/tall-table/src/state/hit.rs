@@ -50,11 +50,17 @@ impl Target {
 
 impl<D: TallTableDelegate> TallTableState<D> {
     /// The cell nearest `position` (window pixels): the pointer's clamped
-    /// to the visible cells, and past the last column to the last.
+    /// to the visible cells, and past the last column to the last (with
+    /// `hide`, the last shown; none with every column hidden).
     #[cfg(any(feature = "select", feature = "clicks"))]
     pub(super) fn cell_clamped(&self, position: Point<Pixels>) -> Option<Cell> {
         let last_row = self.scroll.rows().checked_sub(1)?;
+        #[cfg(not(feature = "hide"))]
         let last_column = self.columns.len().checked_sub(1)?;
+        #[cfg(feature = "hide")]
+        let last_column = (0..self.columns.len())
+            .rev()
+            .find(|&place| self.place_shown(place))?;
         let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
         let y = f32::from(position.y - self.body.origin.y);
         // A hair inside the far edges, so the clamp lands on a cell there.

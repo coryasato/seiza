@@ -73,3 +73,8 @@ clicks = []
 # path on each column (`TallTableColumn::group`): neighbors whose paths
 # agree through a level share its cell, cut to each region's visible part.
 group-headers = []
+# A column hidden by its host keeps its place and its index, laid out at no
+# width, drawn and hit nowhere, and comes back where it was, its width,
+# sort, and group kept (`TallTableColumn::hidden`,
+# `TallTableState::set_column_hidden`, `TallTableEvent::ColumnsHidden`).
+hide = []

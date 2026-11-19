@@ -121,6 +121,10 @@ pub struct ColumnProbe {
     /// place.
     #[cfg(feature = "reorder")]
     pub index: usize,
+    /// Hidden (`hide`): laid out at width 0 at its place, `x` the right
+    /// edge of the column before it, and drawn nowhere.
+    #[cfg(feature = "hide")]
+    pub hidden: bool,
 }
 
 /// A drawn cell's value and the text handed to GPUI for it (which GPUI may

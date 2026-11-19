@@ -49,6 +49,10 @@ pub(crate) enum Control {
     /// unit of the last column whose center, not its unit's, is left of
     /// the pointer.
     GapByColumnCenters,
+    /// The fixture's `hidden-counted` (`hide`): a column at no width
+    /// counted among the units, with a center at its x.
+    #[cfg(feature = "hide")]
+    HiddenCounted,
 }
 
 /// A move: the columns at `places` (a block of places) to land with the
@@ -288,9 +292,18 @@ pub(crate) fn gap(
     };
     let right = |place: usize| left(place) + columns[place].width;
     // A place visible in the pointer's region: the run's that start in the
-    // view, or the scrolled ones overlapping it right of the edge.
+    // view, or the scrolled ones overlapping it right of the edge; with
+    // `hide`, never one at no width, so a unit all hidden has no part.
     let shown = |place: usize| {
         let column = &columns[place];
+        #[cfg(all(feature = "hide", test))]
+        let counted = control == Control::HiddenCounted;
+        #[cfg(all(feature = "hide", not(test)))]
+        let counted = false;
+        #[cfg(feature = "hide")]
+        if column.width <= 0.0 && !counted {
+            return false;
+        }
         if pointer_pinned {
             place < run && column.x < cells_width
         } else {

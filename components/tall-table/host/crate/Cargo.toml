@@ -56,6 +56,9 @@ clicks = ["seiza-tall-table/clicks", "tall-table-bridge/clicks"]
 # columns each cut into groups of `inner` (by default 50,10 in the wide
 # shape and 6,3 in the narrow); `?groups=0` builds the feature with none.
 group-headers = ["seiza-tall-table/group-headers", "tall-table-bridge/group-headers"]
+# Columns hidden: `?hidden=<n>` hides every `n`th column (2: every other
+# one) before the first frame; absent or 0, none (the control).
+hide = ["seiza-tall-table/hide", "tall-table-bridge/hide"]
 
 [dependencies]
 gpui-kit.workspace = true

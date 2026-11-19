@@ -83,14 +83,16 @@ pub enum TallTableCopy {
     Declined {
         /// The selection's rows.
         rows: u64,
-        /// The selection's columns.
+        /// The selection's columns (with `hide`, the shown ones: what it
+        /// would write).
         columns: usize,
     },
     /// In the task that asked for it (the key, or `copy`): a host writing
     /// to the web's clipboard opens its write here. `columns` are places,
     /// where they're drawn (with `reorder`, the text holds the columns
     /// `order()` drew there when it started, in that order, whatever moves
-    /// after).
+    /// after; with `hide`, hidden places in the range aren't written, and
+    /// a hide or show after it starts changes nothing it writes).
     Started {
         /// Names this copy in every event after.
         id: CopyId,

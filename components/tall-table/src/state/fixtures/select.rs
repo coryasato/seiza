@@ -359,6 +359,8 @@ fn control_of(name: &str) -> Control {
         "plain-moves-head" => Control::PlainMovesHead,
         "extend-across" => Control::ExtendAcross,
         "keep-past-rows" => Control::KeepPastRows,
+        #[cfg(feature = "hide")]
+        "key-onto-hidden" => Control::KeyOntoHidden,
         name => panic!("an unknown control: {name}"),
     }
 }
@@ -371,6 +373,10 @@ fn selection_mismatches(cx: &mut TestAppContext, control: Control) -> Vec<String
     let mut mismatches = Vec::new();
     for scenario in fixture["scenarios"].as_array().expect("scenarios") {
         let name = scenario["name"].as_str().expect("a name");
+        // A scenario with hidden columns runs only with `hide`.
+        if !scenario["hidden"].is_null() && !cfg!(feature = "hide") {
+            continue;
+        }
         let rows = scenario["rows"].as_u64().unwrap_or(number("rows") as u64);
         let mut sheet = Sheet::open(
             cx,
@@ -381,6 +387,13 @@ fn selection_mismatches(cx: &mut TestAppContext, control: Control) -> Vec<String
             selectable_of(&scenario["selectable"]),
         );
         sheet.update(|table, _| table.selection_state.control = control);
+        // Its hidden places (`hide`), before its first step.
+        #[cfg(feature = "hide")]
+        if let Some(hidden) = super::hidden_flags(scenario, count) {
+            sheet.update(|table, cx| table.set_hidden(hidden, cx));
+        }
+        // Each at the fixture's width, a hidden one (its `hidden`) at none.
+        let hidden = super::hidden_flags(scenario, count).unwrap_or_else(|| vec![false; count]);
         let widths = sheet.read(|table| {
             table
                 .columns
@@ -389,7 +402,10 @@ fn selection_mismatches(cx: &mut TestAppContext, control: Control) -> Vec<String
                 .collect::<Vec<_>>()
         });
         assert!(
-            widths.iter().all(|w| *w == width),
+            widths
+                .iter()
+                .zip(&hidden)
+                .all(|(w, hidden)| *w == if *hidden { 0.0 } else { width }),
             "the fixture's widths: {widths:?}"
         );
         for (index, step) in scenario["steps"]
@@ -471,6 +487,10 @@ fn selection_controls_fail(cx: &mut TestAppContext) {
     let fixture: Value = serde_json::from_str(SELECTION).expect("selection.json");
     for name in fixture["controls"].as_array().expect("controls") {
         let name = name.as_str().expect("a control");
+        // Its scenario is `hide`'s.
+        if name == "key-onto-hidden" && !cfg!(feature = "hide") {
+            continue;
+        }
         assert!(
             !selection_mismatches(cx, control_of(name)).is_empty(),
             "the control {name} passed the selection fixture"

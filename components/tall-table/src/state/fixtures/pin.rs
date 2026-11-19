@@ -26,12 +26,23 @@ const PIN: &str = include_str!("../../../fixtures/pin.json");
 
 // --- pin.json ---
 
-fn laid_out(widths: &[f32]) -> Vec<LaidOutColumn> {
+/// `widths` laid out left to right; with `hide`, `hidden`'s places at no
+/// width, as `layout_columns` lays them (`at_width`: the control's, at
+/// their widths).
+fn laid_out(
+    widths: &[f32],
+    #[cfg(feature = "hide")] hidden: &[usize],
+    #[cfg(feature = "hide")] at_width: bool,
+) -> Vec<LaidOutColumn> {
     let mut x = 0.0;
     widths
         .iter()
         .enumerate()
         .map(|(index, width)| {
+            #[cfg(feature = "hide")]
+            let hidden = hidden.contains(&index);
+            #[cfg(feature = "hide")]
+            let width = &if hidden && !at_width { 0.0 } else { *width };
             let column = LaidOutColumn {
                 name: format!("c{index}").into(),
                 x,
@@ -42,6 +53,8 @@ fn laid_out(widths: &[f32]) -> Vec<LaidOutColumn> {
                 format: None,
                 #[cfg(feature = "reorder")]
                 index,
+                #[cfg(feature = "hide")]
+                hidden,
             };
             x += width;
             column
@@ -65,7 +78,20 @@ fn mismatches(control: Option<&str>) -> Vec<String> {
     let mut mismatches = Vec::new();
     for case in fixture["cases"].as_array().expect("cases") {
         let name = case["name"].as_str().expect("name");
-        let columns = laid_out(&floats(&case["widths"]));
+        // A case with hidden columns runs only with `hide`.
+        #[cfg(not(feature = "hide"))]
+        if !case["hidden"].is_null() {
+            continue;
+        }
+        #[cfg(feature = "hide")]
+        let hidden = super::hidden_places(case);
+        let columns = laid_out(
+            &floats(&case["widths"]),
+            #[cfg(feature = "hide")]
+            &hidden,
+            #[cfg(feature = "hide")]
+            (control == Some("hidden-at-width")),
+        );
         let cells_width = case["cells_width"].as_f64().expect("cells_width") as f32;
         let count = case["count"].as_u64().expect("count") as usize;
         let scroll_x = case["scroll_x"].as_f64().expect("scroll_x") as f32;
@@ -196,9 +222,13 @@ fn pin_fixture() {
 fn pin_controls_fail() {
     let fixture: Value = serde_json::from_str(PIN).expect("pin.json");
     let controls = fixture["controls"].as_array().expect("controls");
-    assert_eq!(controls.len(), 4);
+    assert_eq!(controls.len(), 5);
     for control in controls {
         let control = control.as_str().expect("a control");
+        // Its cases are `hide`'s.
+        if cfg!(not(feature = "hide")) && control == "hidden-at-width" {
+            continue;
+        }
         assert!(
             !mismatches(Some(control)).is_empty(),
             "the {control} control passed the pin fixture"

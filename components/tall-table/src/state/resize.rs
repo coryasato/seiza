@@ -80,7 +80,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// Each column's set width, as [`TallTableEvent::ColumnWidthsChanged`]
     /// reports them.
-    fn set_widths(&self) -> Vec<Option<Pixels>> {
+    pub(super) fn set_widths(&self) -> Vec<Option<Pixels>> {
         self.column_info
             .iter()
             .map(|column| column.set_width(self.sizes()))
@@ -198,22 +198,31 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx.notify();
     }
 
+    /// The drag held, ended: whether its column's width changed since the
+    /// press; `None` with none held (or the `KeepOnRelease` control's
+    /// release). A release's, and a hide's or a show's (`hide`), which
+    /// lays out and reports once itself.
+    pub(super) fn take_resized(&mut self) -> Option<bool> {
+        #[cfg(test)]
+        if self.resize_control == Control::KeepOnRelease {
+            return None;
+        }
+        let resizing = self.resizing.take()?;
+        Some(
+            self.column_info
+                .get(resizing.column)
+                .is_some_and(|column| column.width != resizing.was),
+        )
+    }
+
     /// The button came up: if the column's width changed, the scroll is
     /// clamped to the new content, the layout probe reported once, and the
     /// widths emitted; otherwise nothing moved, and nothing is redone.
     pub(super) fn end_resize(&mut self, cx: &mut Context<Self>) {
-        #[cfg(test)]
-        if self.resize_control == Control::KeepOnRelease {
-            return;
-        }
-        let Some(resizing) = self.resizing.take() else {
+        let Some(changed) = self.take_resized() else {
             return;
         };
-        if self
-            .column_info
-            .get(resizing.column)
-            .is_some_and(|column| column.width != resizing.was)
-        {
+        if changed {
             self.lay_out(cx);
             cx.emit(TallTableEvent::ColumnWidthsChanged(self.set_widths()));
         }

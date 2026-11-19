@@ -736,6 +736,40 @@
         "to": 3,
         "side": "pinned"
       }
+    },
+    {
+      "name": "hidden-between",
+      "why": "Column 2 hidden (`hide`: at no width, at 200): between shown columns 1 and 3 (centers 150 and 250) the gap is after 1, before the hidden one, so the dragged column lands between 1 and the hidden column (0, 1, 5, 2, 3, 4).",
+      "features": ["hide"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "hidden": [2],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [5, 5],
+      "x": 220,
+      "expect": {
+        "gap": 2,
+        "to": 2,
+        "side": "scrolled"
+      }
+    },
+    {
+      "name": "hidden-has-no-center",
+      "why": "Column 3 hidden, a unit all hidden: it has no part in the region, so no center (at its x, 300, it would be left of the pointer). The gap is after column 2, the last shown one whose center (250) is left of 310.",
+      "features": ["hide"],
+      "widths": [100, 100, 100, 100, 100, 100],
+      "hidden": [3],
+      "cells_width": 600,
+      "scroll_x": 0,
+      "count": 0,
+      "block": [0, 0],
+      "x": 310,
+      "expect": {
+        "gap": 3,
+        "to": 2,
+        "side": "scrolled"
+      }
     }
   ],
   "controls": [
@@ -768,6 +802,11 @@
       "name": "no-edge-gap",
       "why": "The run's end beside the block refused too: a column can't be pinned or unpinned where it is.",
       "fails": ["drag-unpin-in-place", "drag-pin-in-place"]
+    },
+    {
+      "name": "hidden-counted",
+      "why": "A hidden column counted among the units at its x, with a center there: the gap lands past it.",
+      "fails": ["hidden-between", "hidden-has-no-center"]
     }
   ]
 }

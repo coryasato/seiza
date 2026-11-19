@@ -69,6 +69,8 @@ const FEATURES: Record<string, string | string[]> = {
   clicks: ['seiza_tall_table5state5click', 'seiza_tall_table5state3hit'],
   // Group headers: the runs' module and the state's `groups` module.
   'group-headers': ['seiza_tall_table6groups', 'seiza_tall_table5state6groups'],
+  // Hiding: the state's `hide` module (its setters).
+  hide: 'seiza_tall_table5state4hide',
 };
 
 /** A feature that turns on another is measured against it too, and the

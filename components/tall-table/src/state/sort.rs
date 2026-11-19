@@ -296,6 +296,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .map(|column| column.name().clone())
     }
 
+    /// A column was hidden (`hide`): an arrow pressed or hovered on a hidden
+    /// column forgotten, so a release finds nothing to sort by.
+    #[cfg(feature = "hide")]
+    pub(super) fn forget_hidden_arrows(&mut self) {
+        for state in [&mut self.sort_state.pressed, &mut self.sort_state.hovered] {
+            if state.is_some_and(|index| {
+                self.column_info
+                    .get(index)
+                    .is_none_or(|column| column.hidden)
+            }) {
+                *state = None;
+            }
+        }
+    }
+
     /// The columns were replaced: the arrow pressed and hovered forgotten
     /// (their indices are other columns now), and the sort stays if the
     /// column at its index has the name it had (`name`) and is sortable,

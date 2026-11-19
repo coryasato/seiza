@@ -161,7 +161,64 @@
         "hits": [[0, 0], [119, 0], [120, 2], [999, 9]],
         "into_view": [[1, 0], [9, 200]]
       }
+    },
+    {
+      "name": "hidden-in-run",
+      "why": "A hidden column (1) keeps its place at no width: the count is of places, so three pin and two show, their edge P 200; the hidden one is drawn nowhere and hit nowhere (x 100 is column 2's, which starts where column 1 would). The cap sums widths, so the hidden one costs it nothing. Run only with `hide`.",
+      "cells_width": 600,
+      "widths": [100, 100, 100, 100, 100, 100, 100, 100],
+      "hidden": [1],
+      "count": 3,
+      "scroll_x": 50,
+      "hits": [50, 99, 100, 199, 200, 260],
+      "into_view": [0, 2, 3, 7],
+      "expect": {
+        "pinned": 3,
+        "edge": 200,
+        "max_scroll_x": 100,
+        "lefts": [[0, 0], [2, 100], [3, 150], [4, 250], [5, 350], [6, 450], [7, 550]],
+        "hits": [[50, 0], [99, 0], [100, 2], [199, 2], [200, 3], [260, 4]],
+        "into_view": [[0, 50], [2, 50], [3, 0], [7, 100]]
+      }
+    },
+    {
+      "name": "hidden-past-run",
+      "why": "A hidden scrolled column (3) at no width: column 4 starts where it would, at 300, the content 500 wide. A screen x at its edge is column 4's. Run only with `hide`.",
+      "cells_width": 400,
+      "widths": [100, 100, 100, 100, 100, 100],
+      "hidden": [3],
+      "count": 2,
+      "scroll_x": 0,
+      "hits": [299, 300, 399],
+      "into_view": [4, 5],
+      "expect": {
+        "pinned": 2,
+        "edge": 200,
+        "max_scroll_x": 100,
+        "lefts": [[0, 0], [1, 100], [2, 200], [4, 300]],
+        "hits": [[299, 2], [300, 4], [399, 4]],
+        "into_view": [[4, 0], [5, 100]]
+      }
+    },
+    {
+      "name": "run-last-hidden",
+      "why": "The run's last column (1) hidden: still pinned in effect (two places), and P is its right edge at no width, the shown one's (100). Run only with `hide`.",
+      "cells_width": 600,
+      "widths": [100, 100, 100, 100, 100],
+      "hidden": [1],
+      "count": 2,
+      "scroll_x": 0,
+      "hits": [99, 100, 299],
+      "into_view": [2],
+      "expect": {
+        "pinned": 2,
+        "edge": 100,
+        "max_scroll_x": 0,
+        "lefts": [[0, 0], [2, 100], [3, 200], [4, 300]],
+        "hits": [[99, 0], [100, 2], [299, 3]],
+        "into_view": [[2, 0]]
+      }
     }
   ],
-  "controls": ["no-cap", "pinned-scroll", "under-run", "into-view-at-gutter"]
+  "controls": ["no-cap", "pinned-scroll", "under-run", "into-view-at-gutter", "hidden-at-width"]
 }

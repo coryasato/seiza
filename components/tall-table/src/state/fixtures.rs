@@ -83,11 +83,48 @@ mod groups;
 #[cfg(feature = "clicks")]
 mod click;
 
+/// `hide`: no fixture of its own (each fixture's `hidden` cases run in its
+/// feature's file); a hidden column drawn and hit nowhere, the setters,
+/// and each built feature's rule, in a window.
+#[cfg(feature = "hide")]
+mod hide;
+
 /// `replace_rows`, in every build: what it clears and keeps, the targets,
 /// the swap, and its meeting with each feature built.
 mod replace;
 
 const PAGING: &str = include_str!("../../fixtures/paging.json");
+
+/// A fixture case's `hidden` places (`hide`; `fixtures/README.md`), none
+/// with no field.
+#[cfg(any(
+    all(feature = "pin", feature = "hide"),
+    feature = "reorder",
+    feature = "group-headers"
+))]
+fn hidden_places(case: &Value) -> Vec<usize> {
+    case["hidden"]
+        .as_array()
+        .map(|places| {
+            places
+                .iter()
+                .map(|place| place.as_u64().expect("a place") as usize)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// A case's `hidden` places as `set_hidden`'s flags over `count` columns
+/// in the list's own order (a place its index), `None` with no field.
+#[cfg(any(feature = "select", all(feature = "hide", feature = "copy")))]
+fn hidden_flags(case: &Value, count: usize) -> Option<Vec<bool>> {
+    let places = case["hidden"].as_array()?;
+    let mut hidden = vec![false; count];
+    for place in places {
+        hidden[place.as_u64().expect("a place") as usize] = true;
+    }
+    Some(hidden)
+}
 const CELLS: &str = include_str!("../../fixtures/cells.json");
 
 // --- paging ---
@@ -788,6 +825,8 @@ fn cell_mismatches(skew: isize, exact: fn(f64) -> String, text: fn(&str) -> Stri
                 format: None,
                 #[cfg(feature = "reorder")]
                 index: 0,
+                #[cfg(feature = "hide")]
+                hidden: false,
             };
             let (value, exact_text) = match (kind, cell["value"].as_str()) {
                 (_, None) => (CellValue::Null, CellValue::Null.to_string()),

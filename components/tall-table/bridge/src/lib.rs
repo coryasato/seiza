@@ -7,7 +7,8 @@
 //! flag, with `resize` the widths a resize left, with `select` the
 //! selection, with `copy` the clipboard's writer ([`clipboard`]), with
 //! `sort` the order and its mark, with `pin` the columns pinned, with
-//! `reorder` the columns' order, with `clicks` each press, and the probes (`TallTableProbe`,
+//! `reorder` the columns' order, with `clicks` each press, with `hide` the
+//! columns' hidden flags, and the probes (`TallTableProbe`,
 //! `TallTableLayout`, `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -99,6 +100,11 @@ pub struct Publish {
     /// [`TallTableEvent::Groups`], [`js::groups`]), replaced as they change.
     #[cfg(feature = "group-headers")]
     pub groups: Option<&'static str>,
+    /// The global holding every column's hidden flag, by index (`hide`'s
+    /// [`TallTableEvent::ColumnsHidden`]): `[bool]`, replaced at each
+    /// change. Unset until the first.
+    #[cfg(feature = "hide")]
+    pub hidden: Option<&'static str>,
 }
 
 impl Publish {
@@ -196,6 +202,12 @@ impl Publish {
                     static PUBLISHED: AtomicU32 = AtomicU32::new(0);
                     let count = PUBLISHED.fetch_add(1, Ordering::Relaxed) + 1;
                     js::set_global(name, &js::click(click, count.into()));
+                }
+            }
+            #[cfg(all(feature = "hide", target_family = "wasm"))]
+            TallTableEvent::ColumnsHidden(hidden) => {
+                if let Some(name) = self.hidden {
+                    js::set_global(name, &js::hidden(hidden));
                 }
             }
             #[cfg(all(feature = "group-headers", target_family = "wasm"))]
@@ -342,7 +354,8 @@ pub mod js {
     /// float may take. With `sort`, also `arrow`: its box, `{x, width}` in
     /// CSS px from the column's left edge, or `null` where none is drawn.
     /// With `reorder`, also `index`: the column's index (the list is in
-    /// drawn order, each at its place).
+    /// drawn order, each at its place). With `hide`, also `hidden`: laid
+    /// out at width 0 and drawn nowhere.
     pub fn columns(columns: &[ColumnProbe]) -> JsValue {
         let list: Array = columns
             .iter()
@@ -366,6 +379,8 @@ pub mod js {
                 );
                 #[cfg(feature = "reorder")]
                 set(&object, "index", number(column.index as f64));
+                #[cfg(feature = "hide")]
+                set(&object, "hidden", column.hidden.into());
                 JsValue::from(object)
             })
             .collect();
@@ -475,6 +490,13 @@ pub mod js {
         set(&object, "modifiers", modifiers.into());
         set(&object, "count", number(count));
         object.into()
+    }
+
+    /// `[bool]`: each column's hidden flag, by index (`hide`).
+    #[cfg(feature = "hide")]
+    pub fn hidden(hidden: &[bool]) -> JsValue {
+        let list: Array = hidden.iter().map(|&hidden| JsValue::from(hidden)).collect();
+        list.into()
     }
 
     /// `[index]`: the column's index drawn at each place (`reorder`).

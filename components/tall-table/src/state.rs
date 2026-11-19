@@ -633,6 +633,13 @@ pub enum TallTableEvent {
     /// (`select`).
     #[cfg(feature = "clicks")]
     Clicked(crate::click::TallTableClick),
+    /// A setter hid or showed a column (`hide`): every column's flag, by
+    /// index (the order of [`TallTableState::columns`], not the order
+    /// drawn), for a host to keep by name and give back through
+    /// `TallTableColumn::hidden`. Once a call that changed a flag; none at
+    /// `set_columns`, which takes the new columns' flags.
+    #[cfg(feature = "hide")]
+    ColumnsHidden(Vec<bool>),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -779,6 +786,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The random test's `resize` negative controls.
     #[cfg(all(test, feature = "resize"))]
     pub(crate) resize_control: resize::Control,
+    /// The random test's `hide` negative controls (with `reorder`).
+    #[cfg(all(test, feature = "hide", feature = "reorder"))]
+    pub(crate) hide_control: hide::Control,
     /// The random test's negative control: a shrink keeps the jump's mark.
     #[cfg(test)]
     pub(crate) keep_mark: bool,
@@ -886,6 +896,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             reorder_control: crate::reorder::Control::None,
             #[cfg(all(test, feature = "resize"))]
             resize_control: resize::Control::None,
+            #[cfg(all(test, feature = "hide", feature = "reorder"))]
+            hide_control: hide::Control::None,
             #[cfg(test)]
             keep_mark: false,
             #[cfg(all(test, feature = "resize"))]
@@ -2095,10 +2107,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
     #[cfg(not(feature = "pin"))]
     fn visible_columns(&self) -> impl Iterator<Item = (usize, &LaidOutColumn)> {
         let (left, right) = (self.scroll_x, self.scroll_x + self.cells_width());
-        self.columns
-            .iter()
-            .enumerate()
-            .filter(move |(_, column)| column.x + column.width > left && column.x < right)
+        self.columns.iter().enumerate().filter(move |(_, column)| {
+            // Never one at no width (`hide`).
+            #[cfg(feature = "hide")]
+            if column.width <= 0.0 {
+                return false;
+            }
+            column.x + column.width > left && column.x < right
+        })
     }
 
     #[cfg(feature = "pin")]
@@ -2660,6 +2676,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             arrow: self.arrow_box(_place, column),
                             #[cfg(feature = "reorder")]
                             index: column.index(_place),
+                            #[cfg(feature = "hide")]
+                            hidden: !column.shown(),
                         })
                         .collect(),
                     #[cfg(feature = "format")]
@@ -3287,6 +3305,10 @@ pub(crate) mod reorder;
 #[cfg(feature = "group-headers")]
 pub(crate) mod groups;
 
+/// `hide`: the setters, and what a hide or a show cancels.
+#[cfg(feature = "hide")]
+pub(crate) mod hide;
+
 #[cfg(test)]
 mod tests {
     // Not `super::*`: it brings gpui-kit's `test` attribute, which shadows `#[test]`.
@@ -3312,6 +3334,8 @@ mod tests {
             format: None,
             #[cfg(feature = "reorder")]
             index: 0,
+            #[cfg(feature = "hide")]
+            hidden: false,
         };
         let text = |value: &str| cell_text(&column, CellValue::Text(value.into()));
         assert_eq!(text("a\r\nb\nc\rd"), "a¶b¶c¶d");

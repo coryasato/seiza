@@ -47,8 +47,9 @@ export interface Layout {
   /** With `sort`, each column's `arrow`: its box in CSS px from the
    *  column's left edge, `null` where none is drawn. With `reorder`, each
    *  one's `index` among the table's columns: the list is in drawn order,
-   *  each at its place. */
-  columns: { name: string; x: number; width: number; kind: string; budget: number; arrow?: { x: number; width: number } | null; index?: number }[];
+   *  each at its place. With `hide`, each one's `hidden`: laid out at
+   *  width 0, drawn nowhere. */
+  columns: { name: string; x: number; width: number; kind: string; budget: number; arrow?: { x: number; width: number } | null; index?: number; hidden?: boolean }[];
   /** With `format`: each character a format writes, its advance in CSS
    *  px in the cells' font at the text in effect (what a formatted text's
    *  fit sums). */

@@ -138,6 +138,14 @@ pub(crate) enum Control {
     ExtendAcross,
     /// `set_rows` leaves a range past the new end as it was.
     KeepPastRows,
+    /// `selection.json`'s `key-onto-hidden` (`hide`): an arrow steps onto a
+    /// hidden column, as onto any place.
+    #[cfg(feature = "hide")]
+    KeyOntoHidden,
+    /// The random test's (`hide`): a hide that leaves the selection
+    /// nothing shown keeps it.
+    #[cfg(feature = "hide")]
+    HiddenSelectionKept,
 }
 
 /// The table's selection, with the feature.
@@ -203,8 +211,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// [`TallTableEvent::Selected`] if it changed; a drag selecting ends.
     /// A cell past the last row or column is moved to it (a source that
     /// shrank, a selection kept across a reload); with no rows or no
-    /// columns, it clears. A kind that's off is the host's mistake: the
-    /// call does nothing (a debug assertion).
+    /// columns, it clears. With `hide`, a `Columns` or `Cells` range over
+    /// hidden columns alone clears too (`Selected(None)` if one was
+    /// selected). A kind that's off is the host's mistake: the call does
+    /// nothing (a debug assertion).
     pub fn set_selection(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
         if let Some(selection) = selection
             && !self.selection_state.selectable.allows(selection.kind())
@@ -217,6 +227,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         }
         let clamped = selection.and_then(|selection| self.clamped(selection));
+        // One covering hidden columns alone clears (`hide`).
+        #[cfg(feature = "hide")]
+        let clamped = clamped.filter(|selection| self.shows(selection));
         self.replace_selection(clamped, cx);
     }
 
@@ -282,6 +295,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// event; its mark isn't drawn then. With only columns on it's marked
     /// as without the feature.
     pub(super) fn jump_select(&mut self, row: u64, cx: &mut Context<Self>) {
+        // With no column shown, nothing is selectable: the jump is marked
+        // (`hide`).
+        #[cfg(feature = "hide")]
+        if !self.any_shown() {
+            self.selection_state.jump_selected = false;
+            return;
+        }
         let selectable = self.selection_state.selectable;
         let kind = [Kind::Rows, Kind::Cells]
             .into_iter()
@@ -292,7 +312,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         };
         let column = match self.selection_state.current {
+            #[cfg(not(feature = "hide"))]
             Some(selection) => selection.anchor().1,
+            // The active cell's column, or the nearest shown (`hide`).
+            #[cfg(feature = "hide")]
+            Some(selection) => {
+                let column = selection.anchor().1;
+                self.nearest_shown(column).unwrap_or(column)
+            }
             None => self.first_visible().map_or(0, |(_, column)| column),
         };
         let cell = (row.min(last), column);
@@ -587,6 +614,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// view. With nothing selected, an arrow selects the first visible cell
     /// without moving, and the rest scroll as the base's.
     fn key_step(&mut self, step: Step, extend: bool, cx: &mut Context<Self>) {
+        // With no column shown, nothing is selectable: the keys scroll as
+        // the base's, and a kept `Rows` range stays (`hide`).
+        #[cfg(feature = "hide")]
+        if !self.any_shown() {
+            match step {
+                Step::Up => self.scroll_by(-1.0, 0.0, cx),
+                Step::Down => self.scroll_by(1.0, 0.0, cx),
+                Step::PageUp => self.scroll_by(-self.page_rows(), 0.0, cx),
+                Step::PageDown => self.scroll_by(self.page_rows(), 0.0, cx),
+                Step::First => self.scroll_to_fraction(0.0, cx),
+                Step::Last => self.scroll_to_fraction(1.0, cx),
+                Step::Left | Step::Right => {}
+            }
+            return;
+        }
         let Some(selection) = self.selection_state.current else {
             match step {
                 Step::PageUp => self.scroll_by(-self.page_rows(), 0.0, cx),
@@ -644,12 +686,28 @@ impl<D: TallTableDelegate> TallTableState<D> {
             Step::Down if wraps && from.0 == last_row => (0, from.1),
             Step::Up => (from.0.saturating_sub(1), from.1),
             Step::Down => ((from.0 + 1).min(last_row), from.1),
+            #[cfg(not(feature = "hide"))]
             Step::Left => (from.0, from.1.saturating_sub(1)),
+            #[cfg(not(feature = "hide"))]
             Step::Right => (from.0, (from.1 + 1).min(last_column)),
+            // The next shown place that way, or none (`hide`).
+            #[cfg(feature = "hide")]
+            Step::Left => (from.0, self.shown_step(from.1, false, last_column)),
+            #[cfg(feature = "hide")]
+            Step::Right => (from.0, self.shown_step(from.1, true, last_column)),
             Step::PageUp => (from.0.saturating_sub(page), from.1),
             Step::PageDown => ((from.0 + page).min(last_row), from.1),
             Step::First => (0, from.1),
             Step::Last => (last_row, from.1),
+        };
+        // A plain key up or down from a hidden active cell lands on the
+        // nearest shown column (Left and Right have stepped to one, or
+        // stay): a cell on a hidden one alone isn't a selection (`hide`).
+        #[cfg(feature = "hide")]
+        let to = if moves_head || !vertical {
+            to
+        } else {
+            (to.0, self.nearest_shown(to.1).unwrap_or(to.1))
         };
         if to == from {
             return;
@@ -678,6 +736,61 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.scroll_into_view(to, rows, columns, cx);
     }
 
+    /// Whether `selection` shows a column (`hide`): a `Rows` range always,
+    /// a `Columns` or `Cells` range while any place it covers is shown.
+    #[cfg(feature = "hide")]
+    pub(super) fn shows(&self, selection: &TallTableSelection) -> bool {
+        if selection.kind() == Kind::Rows {
+            return true;
+        }
+        let (anchor, head) = (selection.anchor().1, selection.head().1);
+        (anchor.min(head)..=anchor.max(head)).any(|place| self.place_shown(place))
+    }
+
+    /// A hide left the selection nothing shown: it clears, `Selected(None)`
+    /// (`hide`). A show doesn't bring it back.
+    #[cfg(feature = "hide")]
+    pub(super) fn clear_hidden_selection(&mut self, cx: &mut Context<Self>) {
+        #[cfg(test)]
+        if self.selection_state.control == Control::HiddenSelectionKept {
+            return;
+        }
+        if self
+            .selection_state
+            .current
+            .is_some_and(|selection| !self.shows(&selection))
+        {
+            self.replace_selection(None, cx);
+        }
+    }
+
+    /// The shown place nearest `place`, itself if shown, else the next to
+    /// the right, else to the left; none with none shown (`hide`).
+    #[cfg(feature = "hide")]
+    fn nearest_shown(&self, place: usize) -> Option<usize> {
+        let shown = |place: &usize| self.place_shown(*place);
+        (place..self.columns.len())
+            .find(shown)
+            .or_else(|| (0..place).rev().find(shown))
+    }
+
+    /// The next shown place from `from` (a hidden head's too) to the right
+    /// or left, up to `last`; `from` if there's none that way (`hide`).
+    #[cfg(feature = "hide")]
+    fn shown_step(&self, from: usize, right: bool, last: usize) -> usize {
+        #[cfg(test)]
+        let any = self.selection_state.control == Control::KeyOntoHidden;
+        #[cfg(not(test))]
+        let any = false;
+        let shown = |place: &usize| any || self.place_shown(*place);
+        let found = if right {
+            (from + 1..=last).find(shown)
+        } else {
+            (0..from).rev().find(shown)
+        };
+        found.unwrap_or(from)
+    }
+
     /// Scrolls `cell` into view the least distance, down or up (`rows`) and
     /// sideways (`columns`), through the base's scroll paths (so `follow`
     /// sees a move down as the reader's).
@@ -703,6 +816,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let Some(column) = self.columns.get(cell.1).filter(|_| columns) else {
             return;
         };
+        // A hidden column has nowhere to be brought (`hide`).
+        #[cfg(feature = "hide")]
+        if !column.shown() {
+            return;
+        }
         // Right of the pinned run (`pin`); a pinned column is in view.
         let x = self.place().into_view(
             cell.1,
@@ -942,6 +1060,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if self.selection_state.focused
             && visible.contains(&row)
             && let Some(laid_out) = self.columns.get(column)
+            && Self::outlined(laid_out)
         {
             let region = usize::from(!place.holds(column));
             let bounds = Bounds::new(
@@ -978,5 +1097,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
             })
         });
         (pinned, scrolled)
+    }
+
+    /// Whether the active cell's outline is drawn over `column`: never
+    /// over one at no width, a hidden one (`hide`).
+    #[inline(always)]
+    fn outlined(column: &crate::column::LaidOutColumn) -> bool {
+        #[cfg(feature = "hide")]
+        return column.width > 0.0;
+        #[cfg(not(feature = "hide"))]
+        {
+            let _ = column;
+            true
+        }
     }
 }

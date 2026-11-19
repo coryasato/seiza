@@ -92,6 +92,8 @@ fn format_mismatches(control: Control) -> Vec<String> {
             format: Some(column_format.clone()),
             #[cfg(feature = "reorder")]
             index: 0,
+            #[cfg(feature = "hide")]
+            hidden: false,
         };
         // The page's decimals are asked only of a float column.
         let decimals = case["decimals"]

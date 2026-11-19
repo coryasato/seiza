@@ -145,7 +145,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return;
         }
         self.cancel_drag(cx);
+        #[cfg(all(test, feature = "hide"))]
+        let before = self.order.clone();
         self.order = order;
+        #[cfg(all(test, feature = "hide"))]
+        self.keep_flags_by_place(&before);
         #[cfg(feature = "select")]
         self.order_selection(cx);
         self.lay_out(cx);
@@ -176,7 +180,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 return;
             }
         }
+        #[cfg(all(test, feature = "hide"))]
+        let before = self.order.clone();
         self.order = mv.order_after(&self.order);
+        #[cfg(all(test, feature = "hide"))]
+        self.keep_flags_by_place(&before);
         #[cfg(feature = "select")]
         if let Some(selection) = self.selection_state.current {
             let after = mv.selection_after(

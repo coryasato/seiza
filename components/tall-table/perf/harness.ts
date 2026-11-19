@@ -167,6 +167,12 @@ export const DEFAULT_PINNED: Record<Shape, number> = { narrow: 2, wide: 1 };
  *  unset until the first. */
 export const COLUMN_ORDER_GLOBAL = '__tallTableColumnOrder';
 
+/** With `hide`: every column's hidden flag by index, `[bool]`, replaced at
+ *  each `ColumnsHidden` (`host/crate/src/host.rs`); unset until the first.
+ *  With `?perf`, `__tallTableHide(indices)` sets them. */
+export const HIDDEN_GLOBAL = '__tallTableHidden';
+export const HIDE_HOOK = '__tallTableHide';
+
 /** With `density` (`host/crate/src/host.rs`, `Density`): the host's
  *  default `?density=`, the dense setting: 18 px rows, 11 px text, 56 px
  *  floats. `?density=30,14` is the control, the base's numbers. */

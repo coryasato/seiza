@@ -667,6 +667,120 @@
           "too_large": {"bytes": 11, "max_bytes": 10}
         }
       }
+    },
+    {
+      "name": "range-across-hidden",
+      "source": "sheet",
+      "hidden": [1],
+      "selection": {
+        "kind": "cells",
+        "anchor": [1, 0],
+        "head": [2, 2]
+      },
+      "by": "key",
+      "why": "Column 1 hidden (`hide`; `hidden` lists places): a range across it copies the shown columns only. `started` keeps the range of places it spans. Run only with `hide`.",
+      "expect": {
+        "started": {
+          "rows": [
+            1,
+            2
+          ],
+          "columns": [
+            0,
+            2
+          ]
+        },
+        "outcome": {
+          "copied": {
+            "rows": 2,
+            "bytes": 13
+          }
+        },
+        "text": "2\t12.0\n3\t0.25",
+        "reads": false
+      }
+    },
+    {
+      "name": "headers-without-hidden",
+      "source": "sheet",
+      "options": {"headers": true},
+      "hidden": [2],
+      "selection": {
+        "kind": "rows",
+        "anchor": [0, 0],
+        "head": [1, 0]
+      },
+      "by": "key",
+      "why": "With headers on, the header line holds the shown columns' names only. Run only with `hide`.",
+      "expect": {
+        "started": {
+          "rows": [
+            0,
+            1
+          ],
+          "columns": [
+            0,
+            3
+          ]
+        },
+        "outcome": {
+          "copied": {
+            "rows": 2,
+            "bytes": 36
+          }
+        },
+        "text": "id\tname\tqty\n1\tAda\t10.00\n2\tBrook\t2.50",
+        "reads": false
+      }
+    },
+    {
+      "name": "key-counts-shown-cells",
+      "source": "sheet",
+      "options": {"key_max_cells": 4},
+      "hidden": [1, 2],
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 0],
+        "head": [1, 3]
+      },
+      "by": "key",
+      "why": "The key's cap counts the cells it would write: 2 rows of 2 shown columns, 4 cells, at the limit, where the range's 8 would be past it. Run only with `hide`.",
+      "expect": {
+        "started": {
+          "rows": [
+            0,
+            1
+          ],
+          "columns": [
+            0,
+            3
+          ]
+        },
+        "outcome": {
+          "copied": {
+            "rows": 2,
+            "bytes": 14
+          }
+        },
+        "text": "1\t10.00\n2\t2.50",
+        "reads": false
+      }
+    },
+    {
+      "name": "hidden-alone",
+      "source": "sheet",
+      "hidden": [1, 2],
+      "selection": {
+        "kind": "cells",
+        "anchor": [0, 1],
+        "head": [1, 2]
+      },
+      "by": "copy",
+      "why": "A selection of hidden columns alone isn't one: `select` clears it, so `copy` starts none (and the key goes on to the host). Run only with `hide`.",
+      "expect": {
+        "outcome": null,
+        "reads": false
+      }
     }
   ],
   "controls": [
@@ -675,6 +789,7 @@
     {"name": "key-limit-off-by-one", "fails": ["key-at-limit", "key-counts-cells"]},
     {"name": "whole-floats-bare", "fails": ["float-values", "float32-values"]},
     {"name": "trailing-break", "fails": ["one-cell", "rows"]},
-    {"name": "utf16-bytes", "fails": ["cap-in-utf8", "least-bytes-with-utf8-headers"]}
+    {"name": "utf16-bytes", "fails": ["cap-in-utf8", "least-bytes-with-utf8-headers"]},
+    {"name": "hidden-copied", "fails": ["range-across-hidden", "headers-without-hidden", "key-counts-shown-cells"]}
   ]
 }

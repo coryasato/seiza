@@ -55,6 +55,9 @@ pub struct TallTableColumn {
     /// The groups it sits under, outermost first (`group-headers`).
     #[cfg(feature = "group-headers")]
     pub(crate) group: Vec<SharedString>,
+    /// Laid out at no width, drawn and hit nowhere (`hide`).
+    #[cfg(feature = "hide")]
+    pub(crate) hidden: bool,
 }
 
 /// A set width's least and most, unless a column sets its own (`resize`):
@@ -97,7 +100,24 @@ impl TallTableColumn {
             movable: true,
             #[cfg(feature = "group-headers")]
             group: Vec::new(),
+            #[cfg(feature = "hide")]
+            hidden: false,
         }
+    }
+
+    /// Hidden (`hide`): laid out at no width, drawn and hit nowhere, its
+    /// place, width, sort, and group kept. Off by default. A host keeps
+    /// the flags by name (from `TallTableEvent::ColumnsHidden`) and gives
+    /// them back here when its columns change.
+    #[cfg(feature = "hide")]
+    pub fn hidden(self, hidden: bool) -> Self {
+        Self { hidden, ..self }
+    }
+
+    /// Whether it's hidden (`hide`).
+    #[cfg(feature = "hide")]
+    pub fn is_hidden(&self) -> bool {
+        self.hidden
     }
 
     /// The groups this column sits under, outermost first (`group-headers`).
@@ -339,6 +359,10 @@ pub(crate) struct LaidOutColumn {
     /// (`reorder`): set by [`in_order`].
     #[cfg(feature = "reorder")]
     pub(crate) index: usize,
+    /// Hidden (`hide`): its width is 0, its `x` the right edge of the
+    /// column before it.
+    #[cfg(feature = "hide")]
+    pub(crate) hidden: bool,
 }
 
 /// `columns`, laid out in index order, put in `order` (`order[place]` the
@@ -500,6 +524,11 @@ pub(crate) fn layout_columns(
                 sort_room,
                 sizes,
             );
+            // At no width, its budget its width's (`hide`).
+            #[cfg(feature = "hide")]
+            let hidden = column.hidden;
+            #[cfg(feature = "hide")]
+            let width = if hidden { 0.0 } else { width };
             // A pixel short of the room, for rounding in the shaped width.
             let budget = ((width - sizes.padding() - 1.0) / number_px)
                 .floor()
@@ -516,6 +545,8 @@ pub(crate) fn layout_columns(
                 // goes through.
                 #[cfg(feature = "reorder")]
                 index: 0,
+                #[cfg(feature = "hide")]
+                hidden,
             };
             x += width;
             laid_out
@@ -539,6 +570,15 @@ impl LaidOutColumn {
         }
         #[cfg(not(feature = "reorder"))]
         place
+    }
+
+    /// Whether it's shown (`hide`): not hidden. What the keys, a copy,
+    /// and a clamped hit go by; what's drawn goes by its width, which is 0
+    /// when it's hidden.
+    #[cfg(feature = "hide")]
+    #[inline(always)]
+    pub(crate) fn shown(&self) -> bool {
+        !self.hidden
     }
 }
 

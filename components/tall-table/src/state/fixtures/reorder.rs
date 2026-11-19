@@ -59,6 +59,8 @@ fn control_of(name: Option<&str>) -> Control {
         Some("gap-by-left-edge") => Control::GapByLeftEdge,
         Some("beside-the-block") => Control::BesideTheBlock,
         Some("no-edge-gap") => Control::NoEdgeGap,
+        #[cfg(feature = "hide")]
+        Some("hidden-counted") => Control::HiddenCounted,
         Some(name) => panic!("no control {name}"),
     }
 }
@@ -129,13 +131,15 @@ fn mismatches(control: Option<&str>) -> Vec<(String, String)> {
     mismatches
 }
 
-/// Columns laid out side by side at `widths`, in the list's order.
-fn laid_out(widths: &[f32]) -> Vec<LaidOutColumn> {
+/// Columns laid out side by side at `widths`, in the list's order; the
+/// places in `hidden` at no width (`hide`).
+fn laid_out(widths: &[f32], hidden: &[usize]) -> Vec<LaidOutColumn> {
     let mut x = 0.0;
     widths
         .iter()
         .enumerate()
         .map(|(index, width)| {
+            let width = &if hidden.contains(&index) { 0.0 } else { *width };
             let column = LaidOutColumn {
                 name: format!("c{index}").into(),
                 x,
@@ -145,6 +149,8 @@ fn laid_out(widths: &[f32]) -> Vec<LaidOutColumn> {
                 #[cfg(feature = "format")]
                 format: None,
                 index,
+                #[cfg(feature = "hide")]
+                hidden: hidden.contains(&index),
             };
             x += width;
             column
@@ -157,6 +163,7 @@ fn runs(case: &Value) -> bool {
     case["features"].as_array().is_none_or(|features| {
         features.iter().all(|feature| match feature.as_str() {
             Some("pin") => cfg!(feature = "pin"),
+            Some("hide") => cfg!(feature = "hide"),
             feature => panic!("no feature {feature:?}"),
         })
     })
@@ -179,7 +186,8 @@ fn gap_mismatches(fixture: &Value, control: Control) -> Vec<(String, String)> {
             .iter()
             .map(|width| width.as_f64().expect("a width") as f32)
             .collect();
-        let columns = laid_out(&widths);
+        let hidden = super::hidden_places(case);
+        let columns = laid_out(&widths, &hidden);
         let cells_width = float("cells_width");
         let count = case["count"].as_u64().expect("count") as usize;
         #[cfg(feature = "pin")]
@@ -241,7 +249,7 @@ fn reorder_fixture() {
 fn reorder_controls_fail() {
     let fixture: Value = serde_json::from_str(REORDER).expect("reorder.json");
     let controls = fixture["controls"].as_array().expect("controls");
-    assert_eq!(controls.len(), 6);
+    assert_eq!(controls.len(), 7);
     // A control names a case, so no two share a name.
     let mut names: Vec<&str> = fixture["moves"]
         .as_array()
@@ -266,6 +274,9 @@ fn reorder_controls_fail() {
     for control in controls {
         let name = control["name"].as_str().expect("name");
         if name == "selection-unmoved" && !cfg!(feature = "select") {
+            continue;
+        }
+        if name == "hidden-counted" && !cfg!(feature = "hide") {
             continue;
         }
         let failed = mismatches(Some(name));

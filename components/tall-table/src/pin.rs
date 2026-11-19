@@ -61,6 +61,10 @@ pub(crate) enum Control {
     /// unclipped at *P* (the window test's).
     #[cfg(feature = "custom-cells")]
     Unclipped,
+    /// The random test's (`hide`): a column at no width drawn where it
+    /// sits inside the view, as without the feature.
+    #[cfg(feature = "hide")]
+    DrawnHidden,
 }
 
 impl Pin {
@@ -133,7 +137,7 @@ impl Pin {
 
     /// Whether column `index`, laid out at `x` and `width` wide, is drawn: a
     /// pinned one where it starts in the view, a scrolled one where it
-    /// overlaps the view right of *P*.
+    /// overlaps the view right of *P*; with `hide`, never one at no width.
     #[inline(always)]
     pub(crate) fn visible(
         self,
@@ -143,6 +147,16 @@ impl Pin {
         scroll_x: f32,
         cells_width: f32,
     ) -> bool {
+        #[cfg(feature = "hide")]
+        {
+            #[cfg(test)]
+            let drawn_hidden = self.control == Control::DrawnHidden;
+            #[cfg(not(test))]
+            let drawn_hidden = false;
+            if width <= 0.0 && !drawn_hidden {
+                return false;
+            }
+        }
         if self.holds(index) {
             return x < cells_width;
         }
@@ -219,6 +233,8 @@ mod tests {
                     format: None,
                     #[cfg(feature = "reorder")]
                     index,
+                    #[cfg(feature = "hide")]
+                    hidden: false,
                 };
                 x += width;
                 column

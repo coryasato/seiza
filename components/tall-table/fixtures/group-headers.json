@@ -5,7 +5,8 @@
     "no-split-at-edge": "A run across pin's edge drawn whole in the region where it starts, the scrolled region drawing none of it.",
     "label-centered": "The label at the run's middle, not at its visible part's left: a wide group scrolled half out loses it.",
     "gap-outside-parent": "A drag's gaps found among every column over the whole table, as without groups: a column leaves its group, a group lands inside another.",
-    "gap-by-column-centers": "The gap after the child holding the last column whose center, not the child's, is left of the pointer: past a sibling group's first column is past the group."
+    "gap-by-column-centers": "The gap after the child holding the last column whose center, not the child's, is left of the pointer: past a sibling group's first column is past the group.",
+    "hidden-at-width": "A hidden column laid out at its width (`hide`): a group's cell spans it, and a group of hidden columns alone draws one."
   },
   "cases": [
     {
@@ -128,6 +129,36 @@
       "expect": {
         "group_rows": 0,
         "cells": []
+      }
+    },
+    {
+      "name": "partly-hidden",
+      "why": "Place 1 hidden (`hide`: at no width, `hidden` lists places): A's run is still places 0-2, its cell over the shown columns only (200 px), and B starts where the shown ones end. Run only with `hide`.",
+      "paths": [["A"], ["A"], ["A"], ["B"], ["B"]],
+      "widths": [100, 100, 100, 100, 100],
+      "hidden": [1],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "pad": 8,
+      "expect": {
+        "group_rows": 1,
+        "cells": [[0, "A", 0, 3, false, 0, 200, 8], [0, "B", 3, 5, false, 200, 200, 208]]
+      }
+    },
+    {
+      "name": "wholly-hidden",
+      "why": "Places 2 and 3, B's whole run, hidden: B draws no cell (nothing of it is visible), and C starts at A's end. The runs are of places, so the group row is still there. Run only with `hide`.",
+      "paths": [["A"], ["A"], ["B"], ["B"], ["C"]],
+      "widths": [100, 100, 100, 100, 100],
+      "hidden": [2, 3],
+      "count": 0,
+      "cells_width": 1000,
+      "scroll_x": 0,
+      "pad": 8,
+      "expect": {
+        "group_rows": 1,
+        "cells": [[0, "A", 0, 2, false, 0, 200, 8], [0, "C", 4, 5, false, 200, 100, 208]]
       }
     }
   ],

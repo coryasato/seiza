@@ -63,24 +63,33 @@ fn number(value: &Value) -> f32 {
     value.as_f64().expect("a number") as f32
 }
 
-/// `widths` (by index) laid out in `order` (`order[place]` the index).
-fn laid_out(widths: &[f32], order: &[usize]) -> Vec<LaidOutColumn> {
+/// `widths` (by index) laid out in `order` (`order[place]` the index), the
+/// places in `hidden` at no width (`hide`).
+fn laid_out(widths: &[f32], order: &[usize], hidden: &[usize]) -> Vec<LaidOutColumn> {
     let mut x = 0.0;
     order
         .iter()
-        .map(|&index| {
+        .enumerate()
+        .map(|(place, &index)| {
+            let width = if hidden.contains(&place) {
+                0.0
+            } else {
+                widths[index]
+            };
             let column = LaidOutColumn {
                 name: format!("c{index}").into(),
                 x,
-                width: widths[index],
+                width,
                 kind: CellKind::Float,
                 budget: 1,
                 #[cfg(feature = "format")]
                 format: None,
                 #[cfg(feature = "reorder")]
                 index,
+                #[cfg(feature = "hide")]
+                hidden: hidden.contains(&place),
             };
-            x += widths[index];
+            x += width;
             column
         })
         .collect()
@@ -130,7 +139,15 @@ fn mismatches(control: Option<&str>) -> Vec<String> {
         };
         let count = case["count"].as_u64().expect("count") as usize;
         let cells_width = number(&case["cells_width"]);
-        let columns = laid_out(&widths, &order);
+        // A case with hidden places runs only with `hide`; its control lays
+        // them out at their widths.
+        let hidden = match case["hidden"] {
+            Value::Null => Vec::new(),
+            _ if !cfg!(feature = "hide") => continue,
+            _ if control == Some("hidden-at-width") => Vec::new(),
+            _ => super::hidden_places(case),
+        };
+        let columns = laid_out(&widths, &order, &hidden);
         #[cfg(feature = "pin")]
         let (pinned, edge) = {
             let pinned = crate::pin::in_effect(&columns, count, cells_width);
@@ -238,7 +255,7 @@ fn gap_mismatches(fixture: &Value, control: Option<&str>) -> Vec<String> {
             .map(number)
             .collect();
         let order: Vec<usize> = (0..paths.len()).collect();
-        let columns = laid_out(&widths, &order);
+        let columns = laid_out(&widths, &order, &[]);
         let count = case["count"].as_u64().expect("count") as usize;
         let cells_width = number(&case["cells_width"]);
         #[cfg(feature = "pin")]
@@ -306,7 +323,7 @@ fn group_headers_fixture() {
 fn group_headers_controls_fail() {
     let fixture: Value = serde_json::from_str(GROUPS).expect("group-headers.json");
     let controls = fixture["controls"].as_object().expect("controls");
-    assert_eq!(controls.len(), 5);
+    assert_eq!(controls.len(), 6);
     for control in controls.keys() {
         // Without `pin`, the split cases don't run; without `reorder`, the
         // drag half.
@@ -314,6 +331,9 @@ fn group_headers_controls_fail() {
             continue;
         }
         if control.starts_with("gap-") && !cfg!(feature = "reorder") {
+            continue;
+        }
+        if control == "hidden-at-width" && !cfg!(feature = "hide") {
             continue;
         }
         assert!(

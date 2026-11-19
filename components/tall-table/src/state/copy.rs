@@ -66,6 +66,10 @@ pub(crate) enum Control {
     TrailingBreak,
     /// The fixture's `utf16-bytes`: every count in UTF-16 code units.
     Utf16Bytes,
+    /// The fixture's `hidden-copied` (`hide`): a hidden column copied and
+    /// counted as a shown one.
+    #[cfg(feature = "hide")]
+    HiddenCopied,
 }
 
 /// The table's copy, with the feature.
@@ -127,11 +131,12 @@ fn row_count(rows: &RangeInclusive<u64>) -> u64 {
 pub(super) struct Running<P, R> {
     id: CopyId,
     pub(super) rows: RangeInclusive<u64>,
-    #[cfg(not(feature = "reorder"))]
+    #[cfg(not(any(feature = "reorder", feature = "hide")))]
     columns: RangeInclusive<usize>,
-    /// The indices drawn at them then (`reorder`): a move since doesn't
-    /// change what it copies, or in what order.
-    #[cfg(feature = "reorder")]
+    /// The indices drawn at them then (`reorder`), the shown ones only
+    /// (`hide`): a move or a hide since doesn't change what it copies, or
+    /// in what order.
+    #[cfg(any(feature = "reorder", feature = "hide"))]
     indices: Vec<usize>,
     /// The next row to format.
     next_row: u64,
@@ -192,7 +197,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// [`TallTableCopy::Started`] before this returns, then its text in
     /// pieces and its end. A copy running is cancelled first (its
     /// `Failed(Cancelled)` before the new `Started`). `None` with nothing
-    /// selected, or once the table is closed.
+    /// selected, or once the table is closed. With `hide`, only the shown
+    /// columns are written (the header line too), and with none shown
+    /// (a `Rows` range, every column hidden) `None`.
     pub fn copy(&mut self, cx: &mut Context<Self>) -> Option<CopyId> {
         let (rows, columns) = self.copy_ranges()?;
         Some(self.start_copy(rows, columns, cx))
@@ -206,10 +213,34 @@ impl<D: TallTableDelegate> TallTableState<D> {
             return None;
         }
         let selection = self.selection_state.current?;
-        Some((
-            selection.rows(self.scroll.rows())?,
-            selection.columns(self.columns.len())?,
-        ))
+        let columns = selection.columns(self.columns.len())?;
+        // No shown column, nothing to write (`hide`): a `Rows` range with
+        // every column hidden (`select` clears any other such range).
+        #[cfg(feature = "hide")]
+        if self.shown_count(&columns) == 0 {
+            return None;
+        }
+        Some((selection.rows(self.scroll.rows())?, columns))
+    }
+
+    /// The shown places among `columns` (`hide`): what a copy of them
+    /// writes.
+    #[cfg(feature = "hide")]
+    fn shown_count(&self, columns: &RangeInclusive<usize>) -> usize {
+        columns
+            .clone()
+            .filter(|&place| self.copies_place(place))
+            .count()
+    }
+
+    /// Whether a copy writes the column at `place` (`hide`): a shown one.
+    #[cfg(feature = "hide")]
+    fn copies_place(&self, place: usize) -> bool {
+        #[cfg(test)]
+        if self.copy_state.control == Control::HiddenCopied {
+            return place < self.columns.len();
+        }
+        self.place_shown(place)
     }
 
     /// Starts a copy of `rows` × `columns`: [`TallTableCopy::Started`],
@@ -230,9 +261,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }));
         let options = self.copy_state.options;
         // The columns drawn at its places now, by index (`reorder`).
-        #[cfg(feature = "reorder")]
+        #[cfg(all(feature = "reorder", not(feature = "hide")))]
         let indices = self.order[columns.clone()].to_vec();
-        #[cfg(not(feature = "reorder"))]
+        // The shown ones only, by index (`hide`).
+        #[cfg(feature = "hide")]
+        let indices: Vec<usize> = columns
+            .clone()
+            .filter(|&place| self.copies_place(place))
+            .map(|place| self.columns[place].index(place))
+            .collect();
+        #[cfg(not(any(feature = "reorder", feature = "hide")))]
         let header = options.headers.then(|| {
             text::header_line(
                 self.column_info[columns.clone()]
@@ -240,7 +278,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     .map(|column| column.name().as_ref()),
             )
         });
-        #[cfg(feature = "reorder")]
+        #[cfg(any(feature = "reorder", feature = "hide"))]
         let header = options.headers.then(|| {
             text::header_line(
                 indices
@@ -250,9 +288,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
         });
         // Any value may be NULL: past the cap with every one empty, it's
         // refused before a read.
+        #[cfg(not(any(feature = "reorder", feature = "hide")))]
+        let column_count = columns.clone().count();
+        #[cfg(any(feature = "reorder", feature = "hide"))]
+        let column_count = indices.len();
         let least = text::least_bytes(
             row_count(&rows),
-            columns.clone().count(),
+            column_count,
             self.copy_state.writer().header_bytes(&header),
         );
         if least > options.max_bytes as u64 {
@@ -269,9 +311,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
             id,
             next_row: *rows.start(),
             rows,
-            #[cfg(not(feature = "reorder"))]
+            #[cfg(not(any(feature = "reorder", feature = "hide")))]
             columns,
-            #[cfg(feature = "reorder")]
+            #[cfg(any(feature = "reorder", feature = "hide"))]
             indices,
             reads: Vec::new(),
             landed: Vec::new(),
@@ -521,14 +563,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
         };
         running.turn_pending = false;
         let max_bytes = running.max_bytes;
-        #[cfg(not(feature = "reorder"))]
+        #[cfg(not(any(feature = "reorder", feature = "hide")))]
         let columns = running.columns.clone();
-        // The indices it started with, in that order (`reorder`): copied
-        // once a turn, so each row's pass clones a slice's iterator, not
-        // the list.
-        #[cfg(feature = "reorder")]
+        // The indices it started with, in that order (`reorder`; `hide`'s
+        // shown ones): copied once a turn, so each row's pass clones a
+        // slice's iterator, not the list.
+        #[cfg(any(feature = "reorder", feature = "hide"))]
         let indices = running.indices.clone();
-        #[cfg(feature = "reorder")]
+        #[cfg(any(feature = "reorder", feature = "hide"))]
         let columns = indices.iter().copied();
         let mut budget = (TURN_CELLS / columns.clone().count() as u64).max(1);
         let mut piece = running.header.take().unwrap_or_default();
@@ -682,7 +724,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// Cmd+C and Ctrl+C: copies the selection of at most `key_max_cells`
     /// cells; past it, `Declined` and nothing read. With nothing selected
-    /// (or the table closed), the key goes on.
+    /// (or the table closed, or with `hide` no column shown), the key goes
+    /// on.
     pub(crate) fn copy_selection(
         &mut self,
         _: &CopySelection,
@@ -693,7 +736,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
             cx.propagate();
             return;
         };
-        let (row_count, column_count) = (row_count(&rows), columns.clone().count());
+        #[cfg(not(feature = "hide"))]
+        let column_count = columns.clone().count();
+        // What it would write: the shown ones (`hide`).
+        #[cfg(feature = "hide")]
+        let column_count = self.shown_count(&columns);
+        let row_count = row_count(&rows);
         let (cells, limit) = (
             row_count.saturating_mul(column_count as u64),
             self.copy_state.options.key_max_cells,

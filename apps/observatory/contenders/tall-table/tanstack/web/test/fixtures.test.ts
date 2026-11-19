@@ -682,16 +682,25 @@ test('an open without a row count fails, naming it', async () => {
 // (`state/fixtures/select.rs`): the fixture's targets as points in the
 // table, the base's keys and wheel where the selection doesn't take them.
 
+// A case with hidden columns (`hide`) is skipped, by name, in `selection.json`,
+// `copy.json`, and `pin.json` (`wide.test.ts`), until a level builds column
+// visibility on both sides; so is each fixture's control of them.
+
 describe('selection.json', () => {
-  const scenarios = fixture('selection.json').scenarios as { name: string }[];
+  const scenarios = fixture('selection.json').scenarios as { name: string; hidden?: number[] }[];
   for (const scenario of scenarios) {
-    test(scenario.name, () => {
+    test(scenario.name, { skip: scenario.hidden && 'hidden columns: the contender has no column visibility' }, () => {
       assert.deepEqual(selectionMismatches(null, scenario.name), []);
     });
   }
 
+  test('the hidden columns’ scenarios are skipped, by name', () => {
+    assert.deepEqual(scenarios.filter((scenario) => scenario.hidden).map((scenario) => scenario.name), ['keys over hidden columns']);
+  });
+
   test('controls fail', () => {
-    for (const control of fixture('selection.json').controls as SelectControl[]) assert.notDeepEqual(selectionMismatches(control), [], `control ${control} passed the selection fixture`);
+    const controls = (fixture('selection.json').controls as string[]).filter((control) => control !== 'key-onto-hidden') as SelectControl[];
+    for (const control of controls) assert.notDeepEqual(selectionMismatches(control), [], `control ${control} passed the selection fixture`);
   });
 });
 
@@ -714,11 +723,16 @@ describe('copy.json', () => {
     assert.deepEqual([COPY_OPTIONS.keyMaxCells, COPY_OPTIONS.maxBytes], [COPY_KEY_MAX_CELLS, COPY_MAX_BYTES]);
   });
 
-  for (const scenario of copy.cases as { name: string }[]) {
-    test(scenario.name, async () => {
+  for (const scenario of copy.cases as { name: string; hidden?: number[] }[]) {
+    test(scenario.name, { skip: scenario.hidden && 'hidden columns: the contender has no column visibility' }, async () => {
       assert.deepEqual(await copyMismatches(null, scenario.name), []);
     });
   }
+
+  test('the hidden columns’ cases are skipped, by name', () => {
+    const hidden = (copy.cases as { name: string; hidden?: number[] }[]).filter((scenario) => scenario.hidden).map((scenario) => scenario.name);
+    assert.deepEqual(hidden, ['range-across-hidden', 'headers-without-hidden', 'key-counts-shown-cells', 'hidden-alone']);
+  });
 
   // The contender's columns as the copy writes them: a FLOAT's text is
   // its own float32 shortest, as GPUI's engine gives it, not the widened
@@ -734,7 +748,7 @@ describe('copy.json', () => {
   });
 
   test('controls fail', async () => {
-    for (const control of copy.controls as { name: Exclude<CopyControl, null>; fails: string[] }[]) {
+    for (const control of (copy.controls as { name: Exclude<CopyControl, null>; fails: string[] }[]).filter((control) => (control.name as string) !== 'hidden-copied')) {
       for (const name of control.fails) assert.notDeepEqual(await copyMismatches(control.name, name), [], `control ${control.name} passed ${name}`);
     }
   });
@@ -859,6 +873,7 @@ function selectionMismatches(control: SelectControl, only?: string): string[] {
   const mismatches: string[] = [];
   for (const scenario of table.scenarios) {
     if (only !== undefined && scenario.name !== only) continue;
+    if (scenario.hidden) continue;
     const sheet = new FixtureSheet(table, scenario.rows ?? table.rows, scenario.selectable, control);
     const { selector } = sheet;
     for (const [index, step] of (scenario.steps as any[]).entries()) {
@@ -944,6 +959,7 @@ async function copyMismatches(control: CopyControl, only?: string): Promise<stri
   const mismatches: string[] = [];
   for (const scenario of table.cases) {
     if (only !== undefined && scenario.name !== only) continue;
+    if (scenario.hidden) continue;
     const got = await asLevel('wide', () => runCopy(table, scenario, control));
     const expect = scenario.expect;
     const want: Record<string, unknown> = { outcome: expect.outcome };

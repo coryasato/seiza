@@ -214,7 +214,26 @@
         {"key": "cmd-a", "expect": {"selection": null, "top": 980, "scroll_x": 0}},
         {"press": {"corner": true}, "expect": {"selection": null, "top": 980, "scroll_x": 0}}
       ]
+    },
+    {
+      "name": "keys over hidden columns",
+      "why": "Hidden columns (`hide`: `hidden` lists places, each at no width) are stepped over by the arrow keys, a range runs across them, and the keys never move onto one. Run only with `hide`.",
+      "hidden": [2, 5, 11],
+      "selectable": ["cells"],
+      "steps": [
+        {"press": {"cell": [3, 1]}, "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [3, 1]}, "top": 0, "scroll_x": 0}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [3, 3], "head": [3, 3]}, "top": 0, "scroll_x": 0}, "why": "over hidden column 2 to the next shown place"},
+        {"key": "left", "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [3, 1]}, "top": 0, "scroll_x": 0}},
+        {"key": "shift-right", "expect": {"selection": {"kind": "cells", "anchor": [3, 1], "head": [3, 3]}, "top": 0, "scroll_x": 0}, "why": "the head over it too: the range runs across the hidden column"},
+        {"press": {"cell": [3, 4]}, "expect": {"selection": {"kind": "cells", "anchor": [3, 4], "head": [3, 4]}, "top": 0, "scroll_x": 0}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [3, 6], "head": [3, 6]}, "top": 0, "scroll_x": 0}, "why": "over hidden column 5; column 6 at 480..600, in view"},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [3, 7], "head": [3, 7]}, "top": 0, "scroll_x": 120}, "why": "brought into view the least distance, the hidden columns at no width"},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [3, 8], "head": [3, 8]}, "top": 0, "scroll_x": 240}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [3, 9], "head": [3, 9]}, "top": 0, "scroll_x": 360}},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [3, 10], "head": [3, 10]}, "top": 0, "scroll_x": 480}, "why": "the last shown column at the scroll's end (the content 1080 px)"},
+        {"key": "right", "expect": {"selection": {"kind": "cells", "anchor": [3, 10], "head": [3, 10]}, "top": 0, "scroll_x": 480}, "why": "toward only hidden places: it stays"}
+      ]
     }
   ],
-  "controls": ["loop", "center", "plain-moves-head", "extend-across", "keep-past-rows"]
+  "controls": ["loop", "center", "plain-moves-head", "extend-across", "keep-past-rows", "key-onto-hidden"]
 }

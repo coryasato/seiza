@@ -40,6 +40,9 @@ clicks = ["seiza-tall-table/clicks"]
 # The header's rows on the layout probe, and the group cells drawn
 # (`Groups`) on a global.
 group-headers = ["seiza-tall-table/group-headers"]
+# Every column's hidden flag on a global, and `hidden` on the layout's
+# columns.
+hide = ["seiza-tall-table/hide"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

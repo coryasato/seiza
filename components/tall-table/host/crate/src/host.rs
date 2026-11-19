@@ -72,6 +72,11 @@ pub const SORTED_MARK: &str = "tall-table:sorted";
 #[cfg(feature = "pin")]
 pub const PINNED_GLOBAL: &str = "__tallTablePinned";
 
+/// Every column's hidden flag, `[bool]` by index, replaced at each change
+/// (`hide`'s `ColumnsHidden`); unset until the first.
+#[cfg(feature = "hide")]
+pub const HIDDEN_GLOBAL: &str = "__tallTableHidden";
+
 /// The group cells drawn, `[{level, label, start, end, pinned, left,
 /// width, labelX}]`, replaced as they change (`group-headers`' `Groups`),
 /// with `?perf`.
@@ -129,7 +134,10 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// that aren't whole, a block past the columns or a `to` past what fits, or
 /// an order that isn't one of the columns. With `clicks`:
 /// `__tallTableCtrlContext(on)`, the table's `set_ctrl_press_is_context`,
-/// `__tallTableCtrlContextOn` set to `on` once the table has it.
+/// `__tallTableCtrlContextOn` set to `on` once the table has it. With
+/// `hide`: `__tallTableHide(indices)`, the table's `set_hidden` with the
+/// columns at `indices` hidden and the rest shown (`false`, and nothing
+/// sent, for an index that isn't a whole one of the columns).
 #[cfg(all(
     any(feature = "copy", feature = "sort", feature = "reorder"),
     target_family = "wasm"
@@ -159,6 +167,8 @@ const MOVE_HOOK: &str = "__tallTableMove";
 const ORDER_HOOK: &str = "__tallTableOrder";
 #[cfg(all(feature = "clicks", target_family = "wasm"))]
 const CTRL_CONTEXT_HOOK: &str = "__tallTableCtrlContext";
+#[cfg(all(feature = "hide", target_family = "wasm"))]
+const HIDE_HOOK: &str = "__tallTableHide";
 /// `__tallTableReplace(stride, at)`, in every build with `?perf`: the
 /// source swapped for every `stride`-th row of its rows (1: all of them;
 /// of the order, with `sort`) and the table's `replace_rows` called with
@@ -390,6 +400,8 @@ impl Host {
             sorted_mark: Some(SORTED_MARK),
             #[cfg(feature = "pin")]
             pinned: Some(PINNED_GLOBAL),
+            #[cfg(feature = "hide")]
+            hidden: Some(HIDDEN_GLOBAL),
             #[cfg(feature = "reorder")]
             column_order: Some(COLUMN_ORDER_GLOBAL),
             #[cfg(feature = "clicks")]
@@ -435,7 +447,8 @@ impl Host {
                 feature = "density",
                 feature = "follow",
                 feature = "reorder",
-                feature = "clicks"
+                feature = "clicks",
+                feature = "hide"
             ),
             target_family = "wasm"
         ))]
@@ -447,7 +460,7 @@ impl Host {
                 exact: Box::new(rows.exact()),
                 #[cfg(feature = "sort")]
                 source_row: Box::new(rows.source_row()),
-                #[cfg(any(feature = "sort", feature = "reorder"))]
+                #[cfg(any(feature = "sort", feature = "reorder", feature = "hide"))]
                 columns: table.read(cx).columns().len(),
                 #[cfg(feature = "sort")]
                 drained: Box::new(rows.drained_reads()),
@@ -500,6 +513,21 @@ impl Host {
             table.update(cx, |table, cx| {
                 let order = (0..table.columns().len()).rev().collect();
                 table.set_order(order, cx);
+            });
+        }
+        // Every `n`th column hidden before the first frame (`hide`,
+        // `?hidden=<n>`: 2 hides every other one); absent or 0, none (the
+        // control).
+        #[cfg(all(feature = "hide", target_family = "wasm"))]
+        if let Some(every) = seiza::url::param("hidden")
+            .and_then(|every| every.parse::<usize>().ok())
+            .filter(|every| *every > 0)
+        {
+            table.update(cx, |table, cx| {
+                let hidden = (0..table.columns().len())
+                    .map(|index| (index + 1) % every == 0)
+                    .collect();
+                table.set_hidden(hidden, cx);
             });
         }
         // Following from the start, before the first frame (a log view).
@@ -753,7 +781,8 @@ fn replace_hook(window: &mut Window, cx: &mut Context<Host>) {
         feature = "density",
         feature = "follow",
         feature = "reorder",
-        feature = "clicks"
+        feature = "clicks",
+        feature = "hide"
     ),
     target_family = "wasm"
 ))]
@@ -762,8 +791,8 @@ struct Source {
     exact: Box<dyn Fn(u64, usize) -> Option<String>>,
     #[cfg(feature = "sort")]
     source_row: Box<dyn Fn(u64) -> u64>,
-    /// The table's columns (`sort`: every one sortable; `reorder`).
-    #[cfg(any(feature = "sort", feature = "reorder"))]
+    /// The table's columns (`sort`: every one sortable; `reorder`; `hide`).
+    #[cfg(any(feature = "sort", feature = "reorder", feature = "hide"))]
     columns: usize,
     #[cfg(feature = "sort")]
     drained: Box<dyn Fn() -> u64>,
@@ -776,7 +805,7 @@ struct Source {
 /// [`SOURCE_ROW_HOOK`], and [`DRAINED_HOOK`], with `pin` [`PIN_HOOK`], with
 /// `density` [`DENSITY_HOOK`], with `follow` [`LET_GO_HOOK`], with
 /// `reorder` [`MOVE_HOOK`] and [`ORDER_HOOK`], with `clicks`
-/// [`CTRL_CONTEXT_HOOK`].
+/// [`CTRL_CONTEXT_HOOK`], with `hide` [`HIDE_HOOK`].
 /// Those that change the table enter GPUI through its foreground executor,
 /// so they've happened by the next turn.
 #[cfg(all(
@@ -787,7 +816,8 @@ struct Source {
         feature = "density",
         feature = "follow",
         feature = "reorder",
-        feature = "clicks"
+        feature = "clicks",
+        feature = "hide"
     ),
     target_family = "wasm"
 ))]
@@ -800,7 +830,7 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
         exact,
         #[cfg(feature = "sort")]
         source_row,
-        #[cfg(any(feature = "sort", feature = "reorder"))]
+        #[cfg(any(feature = "sort", feature = "reorder", feature = "hide"))]
         columns,
         #[cfg(feature = "sort")]
         drained,
@@ -983,6 +1013,30 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                 on_order(Box::new(move |host, _, cx| {
                     host.table
                         .update(cx, |table, cx| table.set_order(order, cx));
+                }));
+                true
+            })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "hide")]
+    {
+        let on_hide = enter.clone();
+        set(
+            HIDE_HOOK,
+            // The bare host never changes its columns, so their count at
+            // the hooks' start is theirs for good (as the moves' hooks).
+            Closure::<dyn Fn(Vec<f64>) -> bool>::new(move |indices: Vec<f64>| {
+                let mut hidden = vec![false; columns];
+                for index in indices {
+                    if index.fract() != 0.0 || !(0.0..columns as f64).contains(&index) {
+                        return false;
+                    }
+                    hidden[index as usize] = true;
+                }
+                on_hide(Box::new(move |host, _, cx| {
+                    host.table
+                        .update(cx, |table, cx| table.set_hidden(hidden, cx));
                 }));
                 true
             })

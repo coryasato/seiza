@@ -69,7 +69,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "density",
     feature = "reorder",
     feature = "clicks",
-    feature = "group-headers"
+    feature = "group-headers",
+    feature = "hide"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -435,6 +436,12 @@ enum Step {
     Up {
         right: bool,
     },
+    /// `set_column_hidden`, or `set_hidden` (one in four), placed, never
+    /// drawn ([`with_hides`]): a column and a flag, or every flag, from
+    /// the number; one `set_hidden` in eight a list of another length,
+    /// which must change nothing.
+    #[cfg(feature = "hide")]
+    Hide(u64),
     /// `replace_rows`, placed, never drawn ([`with_replaces`]): the source
     /// swapped for its rows permuted, every row's era new, and a count and
     /// a target from the number ([`Run::replace`]).
@@ -707,7 +714,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 20] = [
+const INVARIANTS: [&str; 21] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -728,6 +735,7 @@ const INVARIANTS: [&str; 20] = [
     "the last event is the state",
     "a replace lands where it was asked",
     "the source reads in the table's sort",
+    "a hidden column is drawn and hit nowhere",
 ];
 
 /// A zone a press lands in.
@@ -807,6 +815,9 @@ struct Heard {
     sorted: Option<crate::Sort>,
     #[cfg(feature = "follow")]
     following: bool,
+    /// Every column's hidden flag, by index (`hide`).
+    #[cfg(feature = "hide")]
+    hidden: Vec<bool>,
 }
 
 /// Each column's set width, as `ColumnWidthsChanged` reports them.
@@ -861,6 +872,8 @@ enum Control {
     /// A replace that doesn't tell the new source the sort (`sort`).
     #[cfg(feature = "sort")]
     Untold,
+    #[cfg(all(feature = "hide", feature = "reorder"))]
+    Hide(super::hide::Control),
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -1010,6 +1023,8 @@ impl Run {
                 Some(Control::MarkKept) => table.keep_mark = true,
                 #[cfg(feature = "sort")]
                 Some(Control::Untold) => table.sort_state.untold = true,
+                #[cfg(all(feature = "hide", feature = "reorder"))]
+                Some(Control::Hide(control)) => table.hide_control = control,
                 None => {}
             }
             #[cfg(feature = "copy")]
@@ -1033,6 +1048,8 @@ impl Run {
                 sorted: table.sort().first().copied(),
                 #[cfg(feature = "follow")]
                 following: table.is_following(),
+                #[cfg(feature = "hide")]
+                hidden: table.hidden_flags(),
             }
         });
         let heard = self.heard.clone();
@@ -1063,6 +1080,10 @@ impl Run {
                     #[cfg(feature = "follow")]
                     TallTableEvent::Following(following) => {
                         heard.borrow_mut().following = *following;
+                    }
+                    #[cfg(feature = "hide")]
+                    TallTableEvent::ColumnsHidden(hidden) => {
+                        heard.borrow_mut().hidden = hidden.clone();
                     }
                     _ => {}
                 }
@@ -1816,6 +1837,14 @@ impl Run {
                             format!("{selection:?} with its kind off"),
                         ));
                     }
+                    // Nothing of it shown: no longer a selection (`hide`).
+                    #[cfg(feature = "hide")]
+                    if !table.shows(&selection) {
+                        return Err(Violation::new(
+                            15,
+                            format!("{selection:?} over hidden columns alone"),
+                        ));
+                    }
                 } else if table.is_selecting() {
                     return Err(Violation::new(15, "a drag selecting with no selection"));
                 }
@@ -1870,6 +1899,19 @@ impl Run {
                     ),
                 ));
             }
+            // A flag follows its column through a move: by index, as the
+            // last `ColumnsHidden` (or `set_columns`) left it.
+            #[cfg(feature = "hide")]
+            if heard.hidden != table.hidden_flags() {
+                return Err(Violation::new(
+                    18,
+                    format!(
+                        "the last ColumnsHidden said {:?}, the flags are {:?}",
+                        heard.hidden,
+                        table.hidden_flags()
+                    ),
+                ));
+            }
             #[cfg(feature = "follow")]
             if heard.following != table.is_following() {
                 return Err(Violation::new(
@@ -1897,6 +1939,11 @@ impl Run {
                 for (place, column) in table.columns.iter().enumerate() {
                     sum += column.width;
                     let info = &table.column_info[column.index(place)];
+                    // A hidden one is laid out at no width (`hide`).
+                    #[cfg(feature = "hide")]
+                    if !column.shown() {
+                        continue;
+                    }
                     if info.width.is_some() && column.width != info.clamp_width(column.width, sizes)
                     {
                         return Err(Violation::new(
@@ -1919,6 +1966,8 @@ impl Run {
                     ));
                 }
             }
+            #[cfg(feature = "hide")]
+            hidden_nowhere(table)?;
             #[cfg(any(feature = "select", feature = "reorder", feature = "clicks"))]
             let row_h = table.sizes().row();
             let texts = table.drawn_text.borrow();
@@ -2161,6 +2210,11 @@ impl Run {
                 {
                     self.heard.borrow_mut().widths = self.read(set_widths);
                 }
+                // And their flags (`hide`): no `ColumnsHidden` says so.
+                #[cfg(feature = "hide")]
+                {
+                    self.heard.borrow_mut().hidden = self.read(TallTableState::hidden_flags);
+                }
             }
             #[cfg(feature = "live")]
             Step::Invalidate { .. } if rows == 0 => {}
@@ -2299,6 +2353,8 @@ impl Run {
             Step::PointerWheel { rows, sideways } => self.pointer_wheel(rows, sideways),
             Step::Up { right } => self.pointer_up(right)?,
             Step::Replace(pick) => self.replace(pick)?,
+            #[cfg(feature = "hide")]
+            Step::Hide(pick) => self.hide(pick),
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -2321,6 +2377,27 @@ impl Run {
             }
         }
         Ok(())
+    }
+
+    /// `Step::Hide`: a column's flag set, or (one in four) every flag, from
+    /// `pick`'s bits; one `set_hidden` in eight a list a column longer.
+    #[cfg(feature = "hide")]
+    fn hide(&mut self, pick: u64) {
+        let columns = self.read(|table| table.columns().len());
+        if columns == 0 {
+            return;
+        }
+        if pick.is_multiple_of(4) {
+            let pick = pick >> 2;
+            let long = pick.is_multiple_of(8);
+            let flags: Vec<bool> = (0..columns + usize::from(long))
+                .map(|index| (pick >> (3 + index % 60)) & 1 == 1)
+                .collect();
+            self.update(|table, cx| table.set_hidden(flags, cx));
+        } else {
+            let (index, hidden) = ((pick >> 1) as usize % columns, pick & 1 == 1);
+            self.update(|table, cx| table.set_column_hidden(index, hidden, cx));
+        }
     }
 
     /// Answers the open read `pick % open`, `how` it says.
@@ -2610,7 +2687,14 @@ impl Run {
                     }
                     // Its columns as drawn now, the step that started it
                     // having moved none since (`reorder`).
-                    let columns = self.read(|table| order_of(table)[columns].to_vec());
+                    #[cfg_attr(not(feature = "hide"), expect(unused_mut))]
+                    let mut columns = self.read(|table| order_of(table)[columns].to_vec());
+                    // The shown ones only (`hide`).
+                    #[cfg(feature = "hide")]
+                    {
+                        let hidden = self.read(TallTableState::hidden_flags);
+                        columns.retain(|&index| !hidden[index]);
+                    }
                     self.copying = Some(Copying {
                         id,
                         rows,
@@ -2726,6 +2810,109 @@ fn order_of(table: &TallTableState<Source>) -> Vec<usize> {
     return table.order().to_vec();
     #[cfg(not(feature = "reorder"))]
     (0..table.columns().len()).collect()
+}
+
+/// 21: nothing of a hidden column drawn (its cells, its arrow, its band,
+/// with `pin` any column the body drew, and a group cell over hidden
+/// places alone), and no hit test lands on it.
+#[cfg(feature = "hide")]
+fn hidden_nowhere(table: &TallTableState<Source>) -> Checked {
+    let hidden = table.hidden_flags();
+    let index_hidden = |index: usize| hidden.get(index).copied().unwrap_or(false);
+    let place_hidden = |place: usize| {
+        table
+            .columns
+            .get(place)
+            .is_some_and(|column| index_hidden(column.index(place)))
+    };
+    let drawn = |what: &str, column: usize| {
+        Err(Violation::new(
+            21,
+            format!("{what} of hidden column {column} drawn"),
+        ))
+    };
+    for cell in table.drawn_text.borrow().iter() {
+        if index_hidden(cell.column) {
+            return drawn(&format!("row {}'s cell", cell.row), cell.column);
+        }
+    }
+    #[cfg(feature = "pin")]
+    for &(place, _) in &table.pin_state.drawn {
+        if place_hidden(place) {
+            return drawn("the body's column", table.columns[place].index(place));
+        }
+    }
+    #[cfg(feature = "sort")]
+    for arrow in &table.sort_state.drawn {
+        if index_hidden(arrow.column) {
+            return drawn("the arrow", arrow.column);
+        }
+    }
+    #[cfg(feature = "resize")]
+    for band in table.bands_drawn.borrow().iter() {
+        if index_hidden(band.column) {
+            return drawn("the band", band.column);
+        }
+    }
+    #[cfg(feature = "group-headers")]
+    for cell in &table.group_state.drawn {
+        if (cell.start..cell.end).all(place_hidden) {
+            return Err(Violation::new(
+                21,
+                format!(
+                    "{} drawn over hidden places {}..{} alone",
+                    cell.label, cell.start, cell.end
+                ),
+            ));
+        }
+    }
+    // A point at a hidden column's edge, in a row and in the header, hits
+    // no hidden place.
+    let place = table.place();
+    let row_h = table.sizes().row();
+    let left = table.body.origin.x + px(table.gutter_width());
+    for (at, column) in table.columns.iter().enumerate() {
+        if !index_hidden(column.index(at)) {
+            continue;
+        }
+        let x = left + px(place.left(at, column.x, table.scroll_x));
+        let in_row = point(x, table.body.origin.y + row_h / 2.0);
+        if let Some((_, hit)) = table.cell_at(in_row)
+            && place_hidden(hit)
+        {
+            return Err(Violation::new(
+                21,
+                format!("hidden place {hit} hit at {in_row:?}"),
+            ));
+        }
+        #[cfg(any(feature = "reorder", feature = "clicks"))]
+        {
+            let over = point(x, table.body.origin.y - row_h / 2.0);
+            if let Some(hit) = table.header_place_at(over)
+                && place_hidden(hit)
+            {
+                return Err(Violation::new(
+                    21,
+                    format!("hidden place {hit}'s header hit at {over:?}"),
+                ));
+            }
+        }
+        #[cfg(any(feature = "select", feature = "clicks"))]
+        for at in [
+            in_row,
+            point(table.body.origin.x + table.body.size.width, in_row.y),
+        ] {
+            if let Some((_, hit)) = table.cell_clamped(at)
+                && place_hidden(hit)
+            {
+                return Err(Violation::new(
+                    21,
+                    format!("hidden place {hit} the nearest cell to {at:?}"),
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn following(table: &TallTableState<Source>) -> bool {
@@ -3007,6 +3194,16 @@ fn with_replaces(seed: u64, steps: &mut Vec<Step>) {
     place_steps(seed ^ 0x1f83_d9ab_fb41_bd6b, steps, Step::Replace);
 }
 
+/// `hide`'s steps, up to eight, placed as `pin`'s are ([`with_pins`]),
+/// from the scheduler seed by a stream of their own, placed after
+/// `replace_rows`', so every other step's place stays what it was. Its
+/// constant is SHA-512's third word: with it every control is caught at
+/// `SEED` 0.
+#[cfg(feature = "hide")]
+fn with_hides(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed ^ 0x3c6e_f372_fe94_f82b, steps, Step::Hide);
+}
+
 /// `density`'s steps' row heights and text sizes: the default, the bare
 /// host's dense setting, shorter, taller, and the clamp's least.
 #[cfg(feature = "density")]
@@ -3165,6 +3362,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 with_header_drags(seed, &mut case.steps);
                 with_gestures(seed, &mut case.steps);
                 with_replaces(seed, &mut case.steps);
+                #[cfg(feature = "hide")]
+                with_hides(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
@@ -3774,6 +3973,33 @@ mod controls {
     #[test]
     fn the_run_changes_unsaid() {
         fails(Control::Pin(crate::pin::Control::SilentRepin), &[18]);
+    }
+
+    /// 21: a column at no width drawn where it sits inside the view.
+    #[cfg(all(feature = "hide", feature = "pin"))]
+    #[test]
+    fn a_hidden_column_drawn() {
+        fails(Control::Pin(crate::pin::Control::DrawnHidden), &[21]);
+    }
+
+    /// 15: a hide that leaves the selection nothing shown keeps it.
+    #[cfg(all(feature = "hide", feature = "select"))]
+    #[test]
+    fn a_hidden_selection_kept() {
+        fails(
+            Control::Select(crate::state::select::Control::HiddenSelectionKept),
+            &[15],
+        );
+    }
+
+    /// 18: the flags kept by place across a move, with no `ColumnsHidden`.
+    #[cfg(all(feature = "hide", feature = "reorder"))]
+    #[test]
+    fn the_flags_kept_by_place() {
+        fails(
+            Control::Hide(crate::state::hide::Control::FlagByPlace),
+            &[18],
+        );
     }
 
     #[cfg(feature = "reorder")]

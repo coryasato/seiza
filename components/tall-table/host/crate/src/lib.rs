@@ -65,7 +65,10 @@
 //! cut into groups of `inner` (by default 50,10 in the wide shape and 6,3
 //! in the narrow; `?groups=0` builds the feature with none,
 //! `rows::with_groups`), the layout probe carries the header's rows, and
-//! with `?perf` the group cells drawn are published as they change.
+//! with `?perf` the group cells drawn are published as they change. With
+//! `hide`, `?hidden=<n>` hides every `n`th column before the first frame
+//! (2: every other one; absent or 0, none), the flags are published at
+//! each change, and with `?perf` the scripts get the table's `set_hidden`.
 //!
 //! The script hooks enter GPUI through its foreground executor; one that
 //! sends a column, a count, a density, or an order answers `false`, sending
