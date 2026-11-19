@@ -128,6 +128,15 @@
 // extending to its far edge), and with `reorder` its drag before the
 // first inner group: the order, the cells drawn from the source, the
 // groups drawn whole, and with `select` the selection moved with it.
+// Built with `hide`, it runs both shapes again and hides columns through
+// the host's hook (with `pin`, the narrow shape's run's last and the wide
+// shape's whole run among them): each laid out at width 0 at the right
+// edge of the place before, the rest at their widths, the pin's count by
+// place and its edge moved left; each column in view both ways drawn as at
+// open at its new x; with the drawn cells published, none at a hidden place
+// and (with `copy` or `sort`) each the source's, at the top and after a
+// wheel down; shown again there, the layout as at open and the cells the
+// source's; and back at the top, the screen as at open.
 // Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
@@ -153,7 +162,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -182,6 +191,7 @@ const format = builtFeatures().includes('format');
 const reorder = builtFeatures().includes('reorder');
 const clicks = builtFeatures().includes('clicks');
 const groupHeaders = builtFeatures().includes('group-headers');
+const hide = builtFeatures().includes('hide');
 /** The reorder runs: a header dragged (and with `select` a range, with
  *  `pin` across the edge, with `copy` a block copied, with `sort` a sorted
  *  column), or opened at `?order=reverse`. */
@@ -1040,6 +1050,127 @@ async function checkReplace(page: Page, label: string, layout: Layout, start: Sh
   return `, replaced ${want ? `sorted ${want.column} ${want.direction}: ` : ''}${notes.join('; ')}`;
 }
 
+/** The columns each shape's hide run hides (by index): with `pin`, the
+ *  narrow shape's run's last (`full_name`) and the wide shape's whole run
+ *  (its first column), and scrolled ones beside them. */
+const HIDE_AT: Record<Shape, number[]> = { narrow: [1, 4, 5], wide: [0, 2, 3] };
+/** A column's screen is compared this far inside its edges: its border,
+ *  and `pin`'s edge line over the last pinned column's right, move with a
+ *  hide. */
+const HIDE_INSET_PX = 2;
+
+/** With `hide`: `HIDE_AT[shape]` hidden through the host's hook, then
+ *  shown. Hidden: each laid out at width 0 at the right edge of the place
+ *  before, every place starting where the one before ends, every shown
+ *  column at its width at open; with `pin`, the count in effect the
+ *  shape's (a pinned column among it) and the edge moved left by the
+ *  hidden pinned widths; each column shown both ways and wholly in view
+ *  drawn as it was at open, inside its edges, at its new x (so the drawn
+ *  layout skips the hidden ones). With the drawn cells published
+ *  (`cellsProbed`), none at a hidden place, and with the source's exact
+ *  values (`copy` or `sort`), each drawn cell the source's, at the top and
+ *  after a wheel down. Shown again there: the layout as at open and the
+ *  cells the source's (the pages read while hidden hold every column);
+ *  then back at the top, the screen as at open, pixel for pixel. */
+async function checkHide(page: Page, label: string, start: Layout, shape: Shape): Promise<string> {
+  const notes: string[] = [];
+  const indices = HIDE_AT[shape];
+  // The source's exact values: `copy`, `sort`, and `reorder` give the hook.
+  const exact = copy || sort || reorder;
+  const identity = start.columns.map((column, place) => column.index ?? place);
+  // The pointer over the row numbers, in the body: no hover in any shot.
+  await page.mouse.move(start.left - 6, start.top + 12 * start.rowHeight);
+  const y = Math.ceil(start.top - start.rowHeight) + 1;
+  const height = Math.floor(9 * start.rowHeight);
+  const cellsClip = { x: Math.ceil(start.left), y, width: Math.floor(start.left + start.cellsWidth) - Math.ceil(start.left), height };
+  const columnClip = (layout: Layout, place: number) => ({ x: Math.round(layout.left + layout.columns[place]!.x) + HIDE_INSET_PX, y, width: Math.floor(layout.columns[place]!.width) - 2 * HIDE_INSET_PX, height });
+  const inView = (layout: Layout, place: number) => layout.columns[place]!.width > 0 && layout.columns[place]!.x + layout.columns[place]!.width <= layout.cellsWidth;
+  const differing = (a: string, b: string) => differingPixels(page, a, b, FILL_STEPS);
+  /** The pixels of `clip` differing from `want`, polled up to 1 s (Firefox's
+   *  shot can lag the probe's frame). */
+  const differsFrom = async (clip: { x: number; y: number; width: number; height: number }, want: string) => {
+    let off = 0;
+    for (let waited = 0; waited <= 1_000; waited += 100) {
+      off = await differing(await screenshot(page, clip), want);
+      if (!off) return 0;
+      await page.waitForTimeout(100);
+    }
+    return off;
+  };
+  /** With the drawn cells published: none at a hidden place, and with the
+   *  source's values, each the source's; read from a frame whose rows start
+   *  at `first` or past it (after a scroll). */
+  const cellsRight = async (what: string, layout: Layout, first = 0) => {
+    if (!cellsProbed) return;
+    const atHidden = (await drawnCells(page, { first })).find((cell) => layout.columns[cell.column]?.hidden);
+    if (atHidden) failed(`${label}: ${what}: a cell drawn at hidden place ${atHidden.column}, row ${atHidden.row}`);
+    if (exact) {
+      const checked = await cellsInOrder(page, label, what, identity);
+      if (checked) notes.push(`${what} ${checked} the source's`);
+    }
+  };
+  await page.waitForTimeout(200);
+  const openScreen = await settledScreen(page, cellsClip);
+  const openColumns = new Map(start.columns.map((_, place) => place).filter((place) => inView(start, place) && !indices.includes(identity[place]!)).map((place) => [place, '']));
+  for (const place of openColumns.keys()) openColumns.set(place, await screenshot(page, columnClip(start, place)));
+
+  const hidden = await hideThrough(page, indices).catch((error: Error) => failed(`${label}: hid ${JSON.stringify(indices)}: ${error.message.split('\n')[0]}`));
+  if (!hidden) return '';
+  hidden.columns.forEach((column, place) => {
+    const at = place ? hidden.columns[place - 1]!.x + hidden.columns[place - 1]!.width : 0;
+    if (Math.abs(column.x - at) > 0.01) failed(`${label}: hidden: place ${place} at ${column.x}, not ${at}, where the place before ends`);
+    const was = start.columns[place]!.width;
+    if (column.hidden ? column.width !== 0 : Math.abs(column.width - was) > 0.01) failed(`${label}: hidden: place ${place} ${column.hidden ? 'hidden' : 'shown'} at width ${column.width}, not ${column.hidden ? 0 : was}`);
+  });
+  const want = DEFAULT_PINNED[shape];
+  // The run at open must be the shape's whole default (not cut by the
+  // half-view cap) for the count and the edge to be read against it.
+  if (pin && start.pinned !== want) failed(`${label}: ${start.pinned} pinned at open, not the shape's ${want}: the hide's pin checks need the whole run`);
+  else if (pin) {
+    const lost = start.columns.slice(0, want).reduce((sum, column, place) => sum + (indices.includes(identity[place]!) ? column.width : 0), 0);
+    if (hidden.pinned !== want || ((await global<number>(page, PINNED_GLOBAL)) ?? want) !== want) failed(`${label}: hidden: ${hidden.pinned} pinned in effect (published ${await global(page, PINNED_GLOBAL)}), not the shape's ${want}, counted by place`);
+    else if (Math.abs(pinEdge(hidden) - (pinEdge(start) - lost)) > 0.01) failed(`${label}: hidden: the run's edge at ${pinEdge(hidden)}, not ${pinEdge(start) - lost}`);
+    else notes.push(`${want} pinned, the edge ${pinEdge(start).toFixed(0)} → ${pinEdge(hidden).toFixed(0)} px`);
+  }
+  let compared = 0;
+  for (const [place, shot] of openColumns) {
+    // Only a column moved by whole CSS px draws its text at the same
+    // sub-pixel phase (a glyph-measured width, with `density`, can be
+    // fractional).
+    const shift = start.columns[place]!.x - hidden.columns[place]!.x;
+    if (!inView(hidden, place) || Math.abs(shift - Math.round(shift)) > 0.01) continue;
+    const off = await differsFrom(columnClip(hidden, place), shot);
+    if (off) failed(`${label}: hidden: place ${place}, now at ${hidden.columns[place]!.x} px, drew ${off} px otherwise than at ${start.columns[place]!.x} at open`);
+    compared++;
+  }
+  if (compared < 2) failed(`${label}: hidden: ${compared} columns in view both ways to compare`);
+  notes.push(`hid ${JSON.stringify(indices)}: ${compared} columns drawn as at open, moved left`);
+  await cellsRight('hidden at the top', hidden);
+
+  // A wheel down while hidden: its pages read, then shown there.
+  const view = (await shown(page)).shown;
+  await page.mouse.move(start.left + 200, start.top + 200);
+  await wheel(page, 40 * start.rowHeight);
+  const down = await filledWhere(page, `s.first >= ${view.first + 30}`).catch(() => failed(`${label}: hidden: a wheel down didn't fill`));
+  if (!down) return '';
+  await cellsRight(`hidden at row ${down.first}`, hidden, down.first);
+  const back = await hideThrough(page, []).catch((error: Error) => failed(`${label}: shown again: ${error.message.split('\n')[0]}`));
+  if (!back) return '';
+  const moved = back.columns.findIndex((column, place) => Math.abs(column.x - start.columns[place]!.x) > 0.01 || Math.abs(column.width - start.columns[place]!.width) > 0.01 || column.hidden);
+  if (moved >= 0) failed(`${label}: shown again: place ${moved} at ${back.columns[moved]!.x} wide ${back.columns[moved]!.width}, not as at open`);
+  if (pin && back.pinned !== DEFAULT_PINNED[shape]) failed(`${label}: shown again: ${back.pinned} pinned`);
+  await cellsRight(`shown at row ${down.first}`, back, down.first);
+
+  // Back at the top: the screen as at open.
+  await wheel(page, -80 * start.rowHeight);
+  if (!(await filledWhere(page, 's.top === 0').catch(() => null))) return failed(`${label}: shown again: a wheel up didn't reach the top`) ?? '';
+  await page.mouse.move(start.left - 6, start.top + 12 * start.rowHeight);
+  const off = await differsFrom(cellsClip, openScreen);
+  if (off) failed(`${label}: shown again at the top: ${off} px drew otherwise than at open`);
+  notes.push(`shown at row ${down.first} and back at the top as at open`);
+  return `, ${notes.join('; ')}`;
+}
+
 /** With `pin`: the pinned and scrolled regions' screen under a sideways
  *  scroll, against the same table with nothing pinned (the host's hook),
  *  the edge line, the horizontal thumb pressed and dragged from the run's
@@ -1345,11 +1476,12 @@ function checkFormatter(): string {
   return `${checked} of ${cases.length} cases`;
 }
 
-/** The screen once two shots `SETTLE_MS` apart agree (Firefox's can show
- *  the frame before the one the probe reports), at most `SETTLE_TRIES`. */
-async function settledScreen(page: Page): Promise<string> {
+/** The screen (or `clip` of it) once two shots `SETTLE_MS` apart agree
+ *  (Firefox's can show the frame before the one the probe reports), at
+ *  most `SETTLE_TRIES`. */
+async function settledScreen(page: Page, clip?: { x: number; y: number; width: number; height: number }): Promise<string> {
   const viewport = page.viewportSize()!;
-  const clip = { x: 0, y: 0, width: viewport.width, height: viewport.height };
+  clip ??= { x: 0, y: 0, width: viewport.width, height: viewport.height };
   let last = await screenshot(page, clip);
   for (let tries = 0; tries < SETTLE_TRIES; tries++) {
     await page.waitForTimeout(SETTLE_MS);
@@ -2254,7 +2386,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -2278,10 +2410,11 @@ try {
     if (reorder) runs.push(...SHAPES.flatMap((shape) => (['drag', 'reverse'] as ReorderRun[]).map((reordering) => ({ ...quiet, shape, reordering }))));
     if (clicks) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, clicking: true })));
     if (groupHeaders) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, grouping: true })));
+    if (hide) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, hiding: true })));
     // In every build: the base's `replace_rows`.
     runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, replacing: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}`;
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -2289,7 +2422,7 @@ try {
       if (formatting) Object.assign(params, { 'probe-cells': '', ...(density ? { density: '30,14' } : {}), ...(formatting === 'off' ? { format: 'off' } : {}) });
       if (sorting) params['probe-cells'] = '';
       if (reordering || grouping) params['probe-cells'] = '';
-      if (replacing && cellsProbed) params['probe-cells'] = '';
+      if ((replacing || hiding) && cellsProbed) params['probe-cells'] = '';
       if (reordering === 'reverse') params.order = 'reverse';
       // A drag is held to its group (`group-headers`): the reorder runs'
       // moves are the ungrouped table's; the group runs drag groups.
@@ -2323,6 +2456,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The hide runs check their own, from the first screen.
+        if (hiding) {
+          const hid = await checkHide(page, label, layout, shape);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${hid}`);
+          continue;
         }
         // The replace runs check their own, from the first screen.
         if (replacing) {

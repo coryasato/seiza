@@ -70,6 +70,12 @@
 // `spkid` grouped (the host's), or with `--format off` none (`?format=off`:
 // the control that splits the code's cost from the drawing's).
 //
+// Built with `hide`, `--hidden <n>` hides every `n`th column from the first
+// frame (`?hidden=<n>`, 2 or more: 2 hides every other one, so half the wide shape's
+// columns lie at no width), checked at open against the layout probe; without
+// it, none (the control that splits the code's cost from the drawing's). The
+// visible cells count the shown columns.
+//
 // Each segment is traced on its own: per-frame work is the trace's
 // `ProxyMain::BeginMainFrame` (`frameWork`), cross-checked by
 // `workRecorder` (each rAF that drew); late frames and intervals come from
@@ -102,7 +108,7 @@
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
 //          [--density <row>,<text>[,<width>]] [--format off] [--order reverse]
-//          [--groups 0]
+//          [--groups 0] [--hidden <n>]
 //          [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
@@ -157,7 +163,14 @@ if (GROUPS_OPTION !== undefined && GROUPS_OPTION !== '0') throw new Error(`--gro
 /** The header's rows at open (`group-headers`): the host's two levels and
  *  the names, or the names alone under `--groups 0`. */
 const HEADER_ROWS = GROUPS_OPTION === '0' ? 1 : 3;
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}`);
+const HIDE = features.includes('hide');
+const HIDDEN_OPTION = option('hidden');
+if (HIDDEN_OPTION !== undefined && !HIDE) throw new Error('--hidden needs the host built with hide: `just tall-table build hide`');
+if (HIDDEN_OPTION !== undefined && !(/^\d+$/.test(HIDDEN_OPTION) && Number(HIDDEN_OPTION) >= 2)) throw new Error(`--hidden ${HIDDEN_OPTION}: not a whole count of 2 or more (1 hides every column)`);
+/** Whether the column at `index` is hidden at open (`hide`): every
+ *  `--hidden`th, as the host's `?hidden=` (none without it). */
+const hiddenAtOpen = (index: number) => HIDDEN_OPTION !== undefined && (index + 1) % Number(HIDDEN_OPTION) === 0;
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -320,6 +333,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (FORMAT_OPTION !== undefined) params.format = FORMAT_OPTION;
     if (ORDER_OPTION !== undefined) params.order = ORDER_OPTION;
     if (GROUPS_OPTION !== undefined) params.groups = GROUPS_OPTION;
+    if (HIDDEN_OPTION !== undefined) params.hidden = HIDDEN_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -330,6 +344,10 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (DENSITY && layout.rowHeight !== densityRow) throw new Error(`rows ${layout.rowHeight} px at open, not ${densityRow}`);
     if (GROUPS && layout.headerRows !== HEADER_ROWS) throw new Error(`the header ${layout.headerRows} rows tall at open, not ${HEADER_ROWS}`);
     const order = layout.columns.map((column, place) => column.index ?? place);
+    if (HIDE) {
+      const wrong = layout.columns.findIndex((column, place) => Boolean(column.hidden) !== hiddenAtOpen(order[place]!) || (column.hidden ? column.width !== 0 : column.width === 0));
+      if (wrong >= 0) throw new Error(`column ${order[wrong]} ${layout.columns[wrong]!.hidden ? 'hidden' : 'shown'} at open, width ${layout.columns[wrong]!.width}, not ${hiddenAtOpen(order[wrong]!) ? 'hidden' : 'shown'} (--hidden ${HIDDEN_OPTION ?? 'unset'})`);
+    }
     if (REORDER && JSON.stringify(order) !== JSON.stringify(ORDER_OPTION === 'reverse' ? order.map((_, place) => order.length - 1 - place) : order.map((_, place) => place))) throw new Error(`the columns at open in the order ${JSON.stringify(order.slice(0, 12))}…, not ${ORDER_OPTION ?? "the list's own"}`);
     // Over the cells, clear of the scrollbar.
     await page.mouse.move(layout.left + 300, layout.top + 300);
@@ -581,7 +599,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

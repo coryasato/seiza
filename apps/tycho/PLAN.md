@@ -45,7 +45,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 |---|---|---|
 | The tall table's `replace_rows`, then column filtering and global filtering ([its PLAN](../../components/tall-table/PLAN.md)) | "Sort and filter", below | *Ready* (2026-11-18, tall-table M18) |
 | The tall table's find | Search that keeps every row | *Not ready* |
-| The tall table's column visibility | Hide and show columns | *Not ready* |
+| The tall table's column visibility | Hide and show columns | *Ready* (2026-11-18, tall-table M19) |
 | The tall table's column summaries in the header | The column profile, only if the design session puts it under the headers | *Not ready* |
 | The tall table's nested values | "JSONL, then nested values in the row detail view", below | *Not ready* |
 | The tall table's row marks | The investigator's bookmarks and tags ([`docs/personas.md`](docs/personas.md)); no goal holds them yet | *Not ready* |

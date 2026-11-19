@@ -62,12 +62,13 @@ size *args:
 # --format off, the control), and with `reorder` built a reorder drag (the
 # first float column's header 600 px right and back, twice, released where
 # pressed) and every segment in the list's own order or reversed (--order
-# reverse),
+# reverse), and with `hide` built every segment with every nth column
+# hidden (--hidden <n>; unset, none: the control),
 # reference + throttled, cold, median of 10. Per-frame work from
 # Chromium's trace, cross-checked by `workRecorder`; late frames and the
 # presented frames; frame intervals; visible cells; a throttled segment
 # that doesn't rest reported, not failed. --runs, --shape, --profile,
-# --cells, --pin, --density, --format, --order, --groups, --label
+# --cells, --pin, --density, --format, --order, --groups, --hidden, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:
@@ -156,7 +157,10 @@ late *args:
 # with `clicks`, in both, each kind on each target against the published
 # click, Ctrl+click with the setting off and on, a right press during a
 # left drag, with `select` a right press inside and outside a block, and
-# in Chromium a long press by touch).
+# in Chromium a long press by touch; with `hide`, in both, columns hidden
+# and shown through the hook, a pinned one among them with `pin`: the
+# layout skipping them, the columns in view drawn as at open, the drawn
+# cells the source's where published, and the screen as at open after).
 # --browsers. `--screens save` runs only the reference screens and keeps
 # them under this tree's commit; `--screens <commit>` compares them with
 # that commit's, pixel for pixel (smoke.ts's header). Run `just

@@ -763,3 +763,13 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - Part A's "a hide changes no selection" held for a range and broke for a cell: one selected cell whose column is then hidden is a selection no one can see, which the keys moved unseen and the copy wrote nothing of. The owner's rule, a selection with nothing shown is no longer one, had to hold at every path that makes a selection (the hide, `set_selection`, a key, `jump_to`), and each review found one more path: the first the hide, the second the keys and the jump with every column hidden, where "the nearest shown column" has none to give. A rule about what a selection may be belongs in the random test's invariant (15) before the paths are listed, not after.
 - With every column hidden, which kinds were on decided what a key did (rows on: it moved a range; cells on: it did nothing, scrolling included), while a press already selected nothing. "Nothing is selectable" made the table answer one way whatever the kinds, and the keys scroll as with nothing selected.
 - `pairs` belongs before the code review when a change adds a `cfg` naming two features (the table's `CLAUDE.md`): the root's "ask before a long run" read as "after the review" for it, and the third review caught that the pair builds hadn't run.
+
+## M19: `hide` (part C, 2026-11-18)
+
+**Results:** [`perf/results/2026-11-18-m19-c.md`](../perf/results/2026-11-18-m19-c.md) (the bytes alone and with every feature, each app's, the wide shape's frames with half its columns hidden, the smoke check's hide run).
+
+**Surprises:**
+- Hiding half the wide shape's columns changes nothing a frame shows: the shown columns are as wide as before, so the view draws the same 308 cells, and the 250 places at width 0 cost only a width test each among the visible ones. What a hide does change is the content's width, so the sideways fling covered half the distance in the same time.
+- The scripts' count of visible cells (`visibleColumns`) is an overlap test too, and counted a zero-width column inside the view as drawn: part A's finding about the table's drawing tests held for the harness that measures it.
+- `hide` costs less with every other feature built (+4.6 KiB after wasm-opt) than alone (+5.4), though its rules in `select`, `copy`, `pin`, and `reorder` compile only beside them. Alone, its brotli (+0.2) sits inside the ~2 KiB swing, so the all-on pair (+4.8) says more about what it carries.
+- No app builds `hide`, yet every app's wasm changed: the same size to the byte, with 33–42 bytes differing in place, each a panic location's line number in the table's grown source files. "Unchanged" for an app reads as the same size after wasm-opt, and the bytes that differ are read before calling them noise.

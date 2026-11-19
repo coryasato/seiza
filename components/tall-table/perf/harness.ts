@@ -389,6 +389,9 @@ type Global = {
   __tallTableReplace?: (stride: number, at: number | 'top' | 'end') => boolean;
   /** With `pin` and `?perf`. */
   __tallTablePin?: (columns: number) => boolean;
+  /** With `hide` and `?perf`: the columns at `indices` hidden, the rest
+   *  shown (`set_hidden`); `false`, and nothing sent, for an index it refuses. */
+  __tallTableHide?: (indices: number[]) => boolean;
   /** With `density` and `?perf`. */
   __tallTableDensity?: (row: number, text: number) => boolean;
   /** With `follow` and `?perf`. */
@@ -554,7 +557,8 @@ export function visibleColumns(layout: Layout, scrollX: number): number {
   const edge = pinEdge(layout);
   return layout.columns.filter((column, index) => {
     const left = screenLeft(layout, index, scrollX);
-    return index < (layout.pinned ?? 0) || (left + column.width > edge && left < layout.cellsWidth);
+    // A hidden column (`hide`) lies at no width: drawn nowhere.
+    return column.width > 0 && (index < (layout.pinned ?? 0) || (left + column.width > edge && left < layout.cellsWidth));
   }).length;
 }
 
@@ -837,6 +841,31 @@ export async function pinThrough(page: Page, columns: number, inEffect = columns
   const sent = await page.evaluate((columns) => (globalThis as Global).__tallTablePin!(columns), columns);
   if (!sent) throw new Error(`the host's pin hook refused ${columns}`);
   return pinnedAs(page, inEffect);
+}
+
+/** With `hide` and `?perf`: the columns at `indices` (by index) hidden
+ *  and the rest shown, through the host's hook, then the layout once it
+ *  lays them out so: each hidden one flagged at width 0, none other at 0.
+ *  The flags published (`HIDDEN_GLOBAL`) must agree once set (unset until
+ *  the first change). */
+export async function hideThrough(page: Page, indices: number[], timeout = 10_000): Promise<Layout> {
+  const sent = await page.evaluate((indices) => (globalThis as Global).__tallTableHide!(indices), indices);
+  if (!sent) throw new Error(`the host's hide hook refused ${JSON.stringify(indices)}`);
+  const handle = await page.waitForFunction(
+    ({ indices, name }) => {
+      const g = globalThis as Global & Record<string, unknown>;
+      const layout = g.__tallTableLayout;
+      if (!layout) return false;
+      const flags = layout.columns.map((column, place) => [column.index ?? place, Boolean(column.hidden) && column.width === 0] as const);
+      if (!flags.every(([index, hidden]) => hidden === indices.includes(index))) return false;
+      const published = g[name] as boolean[] | undefined;
+      if (published ? !published.every((hidden, index) => hidden === indices.includes(index)) : indices.length) return false;
+      return layout;
+    },
+    { indices, name: HIDDEN_GLOBAL },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Layout;
 }
 
 /** With `density` and `?perf`: the table's `set_density` at a row height
