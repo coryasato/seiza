@@ -1415,3 +1415,91 @@ A `Hide` step (a column hidden or shown by `set_column_hidden`, or a whole flag 
 - **The delegate's narrowed read** (above): a later milestone's, if asked.
 - **The control that hides** (a column chooser, a header menu through `clicks`): the host's.
 - **A marker where columns are hidden** (Excel's double line at the gap): not drawn; a host that wants one asks, and its research weighs where it draws among the layers.
+
+## Find (`find`)
+
+Researched 2026-11-18, from the table's jump (`src/state.rs`: `jump_to`, `marked`, the jump's highlight in the body's paint), `select`'s keys and scroll (`src/state/select.rs`: `jump_select`, `scroll_into_view`), the cells' text (`src/cells_text.rs`: `shape_line`, `truncate_line`), the delegate (`src/delegate.rs`: `load_page`, `cancel`, `CellValue`'s exact text), gpui-component 0.10.0's editor search (`src/input/search.rs`; gpui-base's `input/editor/search.rs` and the match paint in `input/base/element.rs`), gpui-pre-web 0.3.12's keydown (`src/events.rs`), Tycho's open questions on find's bar and its keys (its `PLAN.md`, 5 and 7) and its Cmd/Ctrl+G (its `docs/DECISIONS.md`, 2026-10-08), and a spike: native DuckDB 1.4.5 asked "the next match after row *r*" over the asteroids and Gaia (the numbers: the table's [`perf/results/2026-11-18-m20-a-spike.md`](../../components/tall-table/perf/results/2026-11-18-m20-a-spike.md)).
+
+### What asks for it
+
+- **Tycho:** its "Waiting on" table (find: search that keeps every row). Its visitors find a value, filter, and sort (its `docs/personas.md`); filtering drops rows (`replace_rows`), find keeps them and moves to each match in turn.
+- **The canvas's Ctrl+F gap** (README, "Canvas tradeoffs"): the browser's find can't see the cells. A find of the table's own, answered by the source, is the route the README names besides a DOM mirror, and the only one that reaches rows not loaded.
+- **No observatory scenario** asks for it, and TanStack Table has no find (its global filter drops rows), so no feature level compares it.
+
+### What `DataTable` and TanStack do
+
+Neither has one. gpui-component 0.10.0's table has no search; its code editor does (`InputState::next_search_match`, `previous_search_match`), and that's the model for what's drawn: every match in the theme's `selection` color at saturation 0.1, the current one in `selection` over it, matched ASCII-case-insensitively by default, the bar (its own input, Enter and Shift+Enter, Escape) the editor's. TanStack's global filter (`globalFilter`, `getFilteredRowModel`) is a row filter, which for this table is `replace_rows`.
+
+### What matches
+
+Two texts disagree: what the table draws (a float rounded to its column's digits, a `format` text, a long text cut at "…") and what a source can match in its query (the value). Only the table knows the drawn text, so a source answering "the next match" in SQL can't match it; the table matching drawn text itself would read every page past *r*, the whole file for a term with no match.
+
+- **A cell matches when its exact text contains the term, case folded:** the exact text is `CellValue`'s (what `copy` writes and the tooltip shows: a float's shortest round-trip text, a source's text as it gave it); case folded is both lowercased (Rust's `str::to_lowercase`, DuckDB's `lower`); no regular expressions, no whole words. A NULL never matches (`CAST(NULL AS VARCHAR) ILIKE …` is NULL in SQL; its drawn `NULL` is a placeholder, not text). An empty term is no find.
+- **The source decides which cell is next;** the table decides what's highlighted in the cells it draws, by the same rule over each drawn cell's exact text. They can differ where a source's text of a value isn't the table's: DuckDB writes `1e+300` and `1e-07` where the table's exact text is `1e300` and `1e-7` (the spike's check), and lowercases a few characters differently (`İ`). The found cell is the current match whatever the table's test says; the README says the two can differ at the edges, and the fixture pins the cases both agree on.
+- **The highlight:** where the term shows in the drawn text (after a format and the cut), each occurrence's range is tinted behind its glyphs. Where a cell matches but the drawn text doesn't show the term (3.1391701154 drawn as 3.139 found by "3.13917", or a match past the "…"), the whole cell is tinted instead, so every match on screen shows. The owner chose this over ranges alone.
+- **Which columns:** every shown column, numbers as their exact text, as the browser's Ctrl+F finds a number. Hidden columns (`hide`) aren't searched. The spike's cost is the casts: a scan of every column of the asteroids takes 2.4 s where one text column takes 0.2 s. The owner chose every shown column; a source windows its scan (below), so a near match is quick whatever the columns.
+
+### The source's cost
+
+The spike (one thread, native, the files warm on a local disk), each "next match" as `min(file_row_number)` over the rows past *r* matching any column's `CAST(… AS VARCHAR) ILIKE '%term%'`:
+
+- **One query over every row past *r*** costs the whole scan however near the match: 2.6 s from the top of the asteroids (1.57 M rows, 18 columns) for a match at row 252, 51 s over Gaia (25 M rows, 11 number columns) for one at row 273,292. DuckDB's `min` and `ORDER BY … LIMIT 1` read every row in range.
+- **Windows from *r*,** doubling from 65,536 rows to 4 M, stopping at the first window with a match: a near match in 30–130 ms on the asteroids and ~1 s on Gaia (three windows), a previous match the same way back. A term with no match costs the whole scan either way: 2.5 s on the asteroids, 47 s on Gaia, in 5 and 11 queries; over Gaia's one `BIGINT` column alone, 3.5 s.
+- **So a source's find is windowed and cancellable.** A cancel between windows stops a long scan (a term changed, a sort); each window is a query of its own, so on a source with one connection (DuckDB-Wasm's) page reads run between windows rather than behind a 47 s scan. DuckDB-Wasm runs slower than native and over HTTP reads every column it casts; the engine measures its find when Tycho adopts the feature, and a host shows the scan's progress if it wants (a source can report the row it has reached; not the table's).
+- **A count of matches** is the same whole scan (2.4 s, 51 s): the host's, if its bar shows one, never the table's.
+
+### The delegate's call
+
+The owner chose a delegate call over the host's (the host running its query and giving the table the match), as `sort`'s call was chosen: the table steps, cancels, and wraps, so every host gets the races right, and the random test reaches them.
+
+- **`find(query) → (Request, FindLoad)`, or `None` to refuse** (the default: a delegate written before the feature compiles with it on and finds nothing, `Found(Refused)`). A find is a read like `load_page`: its request id comes from the same counter, it's cancelled through the same `cancel`, and its load must still resolve after a cancel (`PageError::Cancelled`, or its answer if it won the race, dropped).
+- **The query:** the term; the columns to search, by index, in their drawn order (shown ones only), so "the next cell" runs left to right along a row as drawn, then down; where to start (the cell after which it searches, exclusive, or from the first row) and where to stop (inclusive, or the last row), forward or backward. The answer is the first matching cell in that order, or none.
+- **Not a page read:** a find isn't counted in `max_in_flight`, and the plan never waits on it. At most one find is out at a time.
+- **Wrapping is the table's:** the first ask runs from the start cell to the end (the top, backward); with no match, a second ask runs from the other end up to the start cell, inclusive, so a lone match is found again. A source answers one shape. The event says it wrapped.
+- **While it's out,** another `find_next` or `find_previous` is ignored (the host's bar can show it pending from `FindStarted`); a new term cancels it; the current match stays marked. Nothing else is drawn: the rows on screen are still true.
+
+### Where a step starts and where it lands
+
+- **The start:** whichever was set last of the current match and, with `select`, the reader's own selection (a cell, or a row searched from its start), so a reader who moves the active cell after a landing goes on from there, and a landing's own selection never restarts the row it selected; a `Columns` range is no position (after a sort it's kept with its rows at the top). With neither, the cell before the first shown cell of the top row in view (forward) or that cell itself (backward), so a match in the view's top row is found first. A start on a column hidden since is taken at the nearest shown cell before it in drawn order, so the source's query names only columns it searches.
+- **No wrap from the first row:** a forward step from before the first cell has searched every row; asking again from the top would scan the file twice (94 s on Gaia for a term with no match).
+- **The landing:** the match becomes the current match. A row fully in view doesn't scroll; one out of view lands as `jump_to` places it (at the top, clamped at the end), so the matches after it are in view. Its column is brought into view sideways unless it's pinned (`select`'s `scroll_into_view`, which moves to the base so a build without `select` has it). With `select`, the found cell is selected (with cells on; its row with rows only), not as `jump_select` picks (the active cell's column), so the keys go on from it and a Cmd+C copies it (or its row); the jump's `marked` row isn't set, since the current match has its own mark. With `follow`, a landing lets go as a jump does.
+- **What's kept by index goes with it:** a sort, `replace_rows`, or `set_columns` cancels a find out and forgets the current match (its index means another row, or another column); the next step starts from the view's top (row 0 after a sort). A `set_rows` that shrinks the rows cancels a find out (an answer past the new end would land nowhere; its `until` was of the old count) and forgets a current match it cuts; a grow keeps both. An answer past the row count is dropped anyway. A move (`reorder`) or a hide (`hide`) cancels a find out (its column order is stale) and keeps the current match, by index; a hidden current match isn't drawn, and the next step starts from it. `live`'s invalidation keeps it: it's a position, and the drawn highlight follows the new text. `close` cancels it; no find starts on a closed table.
+
+### The keys
+
+The owner chose that the table binds no find key: the host owns the bar, its input (the table takes no text input), and its keys: Ctrl/Cmd+F to open it, Enter and Shift+Enter (`find_next`, `find_previous`), Escape (`set_find(None)`). Tycho binds Cmd/Ctrl+G to its jump field already, so the browser's find-next keys aren't free for the table either.
+
+- **A second Ctrl+F reaching the browser** is the host's choice: gpui-pre-web 0.3.12 calls `preventDefault` on a keydown only when an action handles it (`propagate` false) or when it inserts text into an input, so a host's Ctrl+F handler that calls `cx.propagate()` lets the browser's find open over the page's DOM text. Tycho's key table (its open question 7) decides it.
+- The README lists the table's keys and notes it takes no find key.
+
+### What's drawn, and where
+
+Among the layers ("Long-term goals", "Layers"): the row's background and stripes, `custom-cells`' fill and bar, `live`'s flash, the jump's highlight, `select`'s tint, then **find's tints**, then the text, then **the current match's edge**. Over `select`'s tint, so a match inside a selection still shows, and under the text.
+
+- **A match's range:** the theme's `selection` at saturation 0.1 (the editor's secondary), from the shaped line's offsets of each occurrence (GPUI's `ShapedLine::x_for_index`), clipped to the cell, painted in the cells' text layer before its glyphs (`cells_text`). A cell matched but not showing the term: its whole box in the same color.
+- **The current match:** its ranges (or its cell) in `selection`, and the cell edged in the theme's `ring`, so it's told apart from the others in every theme and over a blue ramp. Not `table_active_border`: that's the active cell's edge, which moves away from the match at the reader's next key, leaving two cells edged alike. It's drawn whether or not the table's rule matches it (the source found it, and `live` can change its text): its whole box when its drawn text doesn't show the term.
+- **The fold's offsets:** a few characters lowercase to more bytes (`İ`, two, to `i̇`, three), so a match's offsets in the folded text aren't the drawn text's. The fold is taken a character at a time, keeping each folded character's source, and a range maps back to whole drawn characters before the shaped line's offsets are read.
+
+### Frame-work risk
+
+A frame with a term set tests each drawn loaded cell's exact text (a lowercase and a substring search: ~310 cells in the protocol's view, ~1,100 at the densest) and shapes nothing new: a range's x comes from the line already shaped. A cell's exact text for a float is formatted per frame today only for the tooltip, so this adds a format per drawn float cell. If the wide shape's frames show it, the tests are cached per page and term (a page's matched cells, kept with the page). Measured at the close: the wide shape's flings with a term matching often, against none set.
+
+### Canvas gaps
+
+- **Ctrl+F:** with `find`, a host's bar finds a value in every row, loaded or not; the browser's find still can't see the cells. The README's row says what's closed and what isn't (a match isn't announced; a host's DOM bar can say "3 of 12" if it counts).
+- **Accessibility:** the current match isn't announced; a host's bar can announce it, from `Found`.
+
+### What a DOM contender does
+
+No observatory level (no scenario; TanStack has no find). The fixture `find.json` pins what's the table's so a DOM equivalent (a `<mark>` around each range) and a source's SQL can be checked: the match rule (a cell's exact text, a term, and whether it matches: case, NULL, floats' text); the drawn ranges (a drawn text, a term, the ranges, and "cell" when the drawn text doesn't show a match: rounded, formatted, cut); and the steps (a grid of exact texts, the columns' drawn order, a start, a direction, and the cell found with whether it wrapped).
+
+### What the random test gains
+
+A `Find` step (a term set or cleared, a next or previous), placed from a stream of its own (`with_finds`) after `with_hides`, so no case's draw changes. The source answers a find from its rows of its era, after a delay as its pages do, and can be cancelled. Invariants: a landed match is a matching cell of the era in effect (no answer from before a sort or a `replace_rows` lands); with a find out, none other starts; every drawn tint but the current match's is on a cell that matches by the rule, and every drawn matching cell is tinted. Controls: `KeepFindOnSort` (a find out across a sort, its old answer landing) and `CaseSensitive` (the highlight's test without the fold). A find's request ids share the pages' counter and their cancel, so the soak runs on the final build.
+
+### What it leaves out
+
+- **The bar, its keys, and a count of matches:** the host's.
+- **Options a bar may offer** (match case, whole words, a regular expression): not built; the term is matched as the rule above. A host asks, and its research weighs the source's SQL for each.
+- **Find and replace:** the table is read-only (`PLAN.md`, "Editing is not on the list").
+- **A source's progress through a long scan:** a source can report it to its host; the table draws nothing for it.

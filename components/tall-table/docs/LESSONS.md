@@ -773,3 +773,14 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The scripts' count of visible cells (`visibleColumns`) is an overlap test too, and counted a zero-width column inside the view as drawn: part A's finding about the table's drawing tests held for the harness that measures it.
 - `hide` costs less with every other feature built (+4.6 KiB after wasm-opt) than alone (+5.4), though its rules in `select`, `copy`, `pin`, and `reorder` compile only beside them. Alone, its brotli (+0.2) sits inside the ~2 KiB swing, so the all-on pair (+4.8) says more about what it carries.
 - No app builds `hide`, yet every app's wasm changed: the same size to the byte, with 33–42 bytes differing in place, each a panic location's line number in the table's grown source files. "Unchanged" for an app reads as the same size after wasm-opt, and the bytes that differ are read before calling them noise.
+
+## M20: `find` (part A, 2026-11-18)
+
+**Results:** [`perf/results/2026-11-18-m20-a-spike.md`](../perf/results/2026-11-18-m20-a-spike.md); the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "Find (`find`)".
+
+**Surprises:**
+- A single "next match" query costs the whole scan however near the match: DuckDB's `min` (and `ORDER BY … LIMIT 1`) reads every row in range, so a match 252 rows down took 2.6 s on the asteroids and one 273 k rows down 51 s on Gaia. Windows doubling from 65,536 rows found the same matches in 0.1 s and 1 s. A term with no match still scans the whole file (47 s on Gaia), so a source's find must stop between windows on a cancel.
+- Finding numbers is what costs: casting every column to text was 10–14× a single column's scan. Searching only text columns would have been the cheap answer, and would have missed what a reader sees.
+- The table's exact text and DuckDB's `CAST(… AS VARCHAR)` agree on ordinary floats (both shortest round-trip, f32's own for a `FLOAT`) but not on exponents (`1e300` against `1e+300`), so "which cell is next" and "which drawn cell is highlighted" need a rule for who decides each.
+- gpui-pre-web lets the browser have any key no action handles, so "a second Ctrl+F falls through" needs no work in the table: a host's handler that propagates is enough.
+- The code review found the spec leaning on `jump_to` where it doesn't fit: `jump_select` picks the active cell's column, not the match's, and sets the jump's `marked` row. The step's start had the same blind spot: the current match outranked a reader's later key, and with rows only, a start from the landing's own row would find the same match again. "Reuse the jump" needed each of its side effects read, as `hide`'s "for free" did.
