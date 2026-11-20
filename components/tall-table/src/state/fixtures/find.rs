@@ -619,8 +619,11 @@ fn a_lone_match_and_no_match(cx: &mut TestAppContext) {
     sheet.term("pear");
     assert_eq!(sheet.next(), (3, 1, false));
     assert_eq!(sheet.next(), (3, 1, true));
-    // From the top, nothing: one ask, which searched every row.
+    // From the top, nothing: one ask, which searched every row. The
+    // landing's cell cleared (`select`), else the step starts there.
     sheet.term("kiwi");
+    #[cfg(feature = "select")]
+    sheet.update(|table, cx| table.set_selection(None, cx));
     let asks = sheet.asks();
     assert_eq!(sheet.step(false), [FindOutcome::NoMatch]);
     assert_eq!(sheet.asks(), asks + 1);
@@ -646,6 +649,9 @@ fn from_the_views_top(cx: &mut TestAppContext) {
     assert_eq!(sheet.next(), (12, 0, false));
     sheet.term("apple ");
     sheet.term("apple");
+    // The landing's cell cleared (`select`), else the step starts there.
+    #[cfg(feature = "select")]
+    sheet.update(|table, cx| table.set_selection(None, cx));
     assert_eq!(sheet.previous(), (2, 0, false));
 }
 
@@ -1082,6 +1088,109 @@ mod select {
         let row = TallTableSelection::new(Kind::Rows, (2, 0), (2, 0));
         sheet.update(|table, cx| table.set_selection(Some(row), cx));
         assert_eq!(sheet.previous(), (2, 2, false));
+    }
+
+    #[gpui_kit::test]
+    fn from_an_upward_rows_range(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 900.0);
+        plant(&mut sheet);
+        // Dragged up from row 3 to row 1: forward from its first row's
+        // start, backward from its last row's end, not from its anchor.
+        let rows = TallTableSelection::new(Kind::Rows, (3, 0), (1, 0));
+        sheet.update(|table, cx| table.set_selection(Some(rows), cx));
+        assert_eq!(sheet.next(), (1, 1, false));
+        let rows = TallTableSelection::new(Kind::Rows, (3, 0), (1, 0));
+        sheet.update(|table, cx| table.set_selection(Some(rows), cx));
+        assert_eq!(sheet.previous(), (2, 2, false));
+        // Dragged down from row 1 to row 3: the same.
+        let rows = TallTableSelection::new(Kind::Rows, (1, 0), (3, 0));
+        sheet.update(|table, cx| table.set_selection(Some(rows), cx));
+        assert_eq!(sheet.previous(), (2, 2, false));
+    }
+
+    #[gpui_kit::test]
+    fn a_new_term_starts_from_the_landing(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 900.0);
+        for (row, column) in [(1, 0), (5, 0)] {
+            sheet.plant(row, column, "pear");
+        }
+        plant(&mut sheet);
+        for _ in 0..4 {
+            sheet.next();
+        }
+        assert_eq!(sheet.current(), Some((2, 2)));
+        // A new term forgets the match, and the landing's cell on screen
+        // is where the next step starts: not the view's top.
+        sheet.term("pear");
+        assert_eq!(sheet.current(), None);
+        assert_eq!(sheet.next(), (5, 0, false));
+    }
+
+    #[gpui_kit::test]
+    fn a_landing_that_selects_nothing_keeps_the_readers(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 900.0);
+        plant(&mut sheet);
+        let cell = TallTableSelection::new(Kind::Cells, (2, 1), (2, 1));
+        sheet.update(|table, cx| table.set_selection(Some(cell), cx));
+        // An answer in a column the table doesn't have: no place, so
+        // nothing selected.
+        sheet.books.borrow_mut().answer_with = Some(super::FoundCell::new(3, 9));
+        assert_eq!(sheet.next(), (3, 9, false));
+        assert_eq!(sheet.read(|table| table.selection()), Some(cell));
+        // The selection is still the reader's: the next step starts there.
+        assert_eq!(sheet.next(), (2, 2, false));
+    }
+
+    #[gpui_kit::test]
+    fn a_narrowed_term_keeps_the_landing(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 900.0);
+        sheet.plant(5, 0, "pear");
+        sheet.plant(8, 0, "peach");
+        sheet.reload();
+        sheet.term("pe");
+        assert_eq!(sheet.next(), (5, 0, false));
+        // Narrowed, the landing's cell still matches: found again, from it,
+        // not after it, so not round the end.
+        sheet.term("pea");
+        assert_eq!(sheet.next(), (5, 0, false));
+        sheet.term("pear");
+        assert_eq!(sheet.previous(), (5, 0, false));
+        // The reader's own cell is searched after, as always.
+        sheet.update(|table, cx| table.set_selection(None, cx));
+        let cell = TallTableSelection::new(Kind::Cells, (5, 0), (5, 0));
+        sheet.update(|table, cx| table.set_selection(Some(cell), cx));
+        sheet.term("pea");
+        assert_eq!(sheet.next(), (8, 0, false));
+    }
+
+    #[gpui_kit::test]
+    fn the_readers_cell_again_after_a_landing(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 900.0);
+        plant(&mut sheet);
+        assert_eq!(sheet.next(), (0, 0, false));
+        // The reader goes elsewhere and back to the landing's cell: it's
+        // theirs now, set after the match.
+        for at in [(2, 1), (0, 0)] {
+            let cell = TallTableSelection::new(Kind::Cells, at, at);
+            sheet.update(|table, cx| table.set_selection(Some(cell), cx));
+        }
+        // A landing that selects nothing, its match in no column the table
+        // has: no start, so the reader's cell is.
+        sheet.books.borrow_mut().answer_with = Some(super::FoundCell::new(3, 9));
+        assert_eq!(sheet.next(), (3, 9, false));
+        assert_eq!(sheet.next(), (0, 2, false));
+    }
+
+    #[gpui_kit::test]
+    fn a_rows_range_past_the_last_row(cx: &mut TestAppContext) {
+        let mut sheet = Sheet::open(cx, 900.0);
+        plant(&mut sheet);
+        // A range no setter would leave (a cut keeps it in the rows): set
+        // as the random test's `KeepPastRows` leaves one.
+        let rows = TallTableSelection::new(Kind::Rows, (2000, 0), (2001, 0));
+        sheet.update(|table, _| table.selection_state.current = Some(rows));
+        // Back from the last row's end: the last match, not round the start.
+        assert_eq!(sheet.previous(), (6, 3, false));
     }
 
     #[gpui_kit::test]

@@ -285,6 +285,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
     fn put_selection(&mut self, selection: Option<TallTableSelection>, cx: &mut Context<Self>) {
         if self.selection_state.current != selection {
             self.selection_state.current = selection;
+            // Set after the current match now (`find`); a landing sets it
+            // back once its selection's in.
+            #[cfg(feature = "find")]
+            {
+                self.find_state.last = super::find::Last::Selection;
+            }
             cx.emit(TallTableEvent::Selected(selection));
             cx.notify();
         }

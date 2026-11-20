@@ -706,10 +706,10 @@ pub struct MemoryRows {
 }
 
 /// The cells a find tests in a window (`find`), before it yields to the
-/// frames and the page reads and checks for a cancel: 16,384, about 6 ms of
-/// the wide shape's floats in Chromium (~0.37 µs a cell: a scan of all
-/// 785 M took 295 s), so a scan holds no frame back long (32 rows of the
-/// wide shape, 1,489 of the narrow).
+/// frames and the page reads and checks for a cancel: 16,384, about 7 ms of
+/// the wide shape's floats in Chromium (~0.41 µs a cell of script time,
+/// measured 2026-11-19 in `perf/results/`), so a scan holds no frame back
+/// long (32 rows of the wide shape, 1,489 of the narrow).
 #[cfg(feature = "find")]
 pub const FIND_WINDOW: usize = 1 << 14;
 

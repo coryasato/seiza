@@ -1,0 +1,85 @@
+{
+  "date": "2026-11-19",
+  "machine": {
+    "label": "local",
+    "cpu": "Apple M1",
+    "os": "macOS 26.6.2"
+  },
+  "versions": {
+    "gpui-kit": "0.10.0",
+    "playwright": "1.63.0"
+  },
+  "what": "find scan cost per cell in the bare host, wide shape, reference profile, cold; a term first matching row 100,000 column 499 (50,000,500 cells from the top); CDP Performance.getMetrics across the step; builds interleaved",
+  "builds": {
+    "head": "find, with FindQuery::matches lowering the term at every cell (HEAD 1f5d72e behavior)",
+    "fixed": "find, the term lowered once per query"
+  },
+  "cells": 50000500,
+  "term": "0.7600149863517591",
+  "runs": {
+    "head": [
+      {
+        "run": 1,
+        "scriptNsPerCell": 473.4,
+        "taskNsPerCell": 475.8,
+        "wallS": 54.24
+      },
+      {
+        "run": 2,
+        "scriptNsPerCell": 473.9,
+        "taskNsPerCell": 476.6,
+        "wallS": 54.29
+      },
+      {
+        "run": 3,
+        "scriptNsPerCell": 470.1,
+        "taskNsPerCell": 472.2,
+        "wallS": 54.01
+      },
+      {
+        "run": 4,
+        "scriptNsPerCell": 477.3,
+        "taskNsPerCell": 479.9,
+        "wallS": 54.31
+      },
+      {
+        "run": 5,
+        "scriptNsPerCell": 471.0,
+        "taskNsPerCell": 472.8,
+        "wallS": 54.12
+      }
+    ],
+    "fixed": [
+      {
+        "run": 1,
+        "scriptNsPerCell": 406.9,
+        "taskNsPerCell": 409.0,
+        "wallS": 50.9
+      },
+      {
+        "run": 2,
+        "scriptNsPerCell": 406.4,
+        "taskNsPerCell": 408.9,
+        "wallS": 50.93
+      },
+      {
+        "run": 3,
+        "scriptNsPerCell": 405.8,
+        "taskNsPerCell": 407.5,
+        "wallS": 50.8
+      },
+      {
+        "run": 4,
+        "scriptNsPerCell": 408.8,
+        "taskNsPerCell": 411.3,
+        "wallS": 50.92
+      },
+      {
+        "run": 5,
+        "scriptNsPerCell": 402.4,
+        "taskNsPerCell": 404.0,
+        "wallS": 50.66
+      }
+    ]
+  }
+}

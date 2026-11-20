@@ -820,3 +820,14 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The canvas gap the candidate assumed would stay open may not: gpui-base 0.10.0 has `SelectableText`, and gpui-kit's `Root`, which every seiza host opens, already draws the window's `TextSelectionLayer` and copies its selection on Cmd/Ctrl+C. The drafted row said "no partial selection inside it"; a bump's new parts are worth reading against the README's tradeoffs, not only against `DataTable`.
 - gpui-kit's `Popover` doesn't fit a painted cell (it wants a trigger element and owns its open state and focus), but the piece under it does: `Positioner::side` and `POPUP_PRIORITY` are public, so the table places its own popover the way the tooltip already does, with gpui-base's flip and clamp.
 - EUI's docs page for cell popovers was gone (404), and its source answered every question the docs would have (what opens it, its `downLeft` anchor, its `min(75vw, max(cell, 400px))` × `50vh` caps). For prior art, read the source first.
+
+## M20 follow-up: `find`'s review bugs (2026-11-19)
+
+**Results:** [`perf/results/2026-11-19-m20-scan.md`](../perf/results/2026-11-19-m20-scan.md).
+
+**Surprises:**
+- The first fix for "a new term forgets the selection on screen" made the step start *after* the landing's cell, so a narrowed term that still matched it skipped it, a regression the review caught and the tests didn't: they planted no match that survives a narrowing. Where a step starts after a new term is its own case, not the general rule's.
+- Two window tests (`a_lone_match_and_no_match`, `from_the_views_top`) passed only because of the bug: they meant "from the view's top" with a landing's cell still selected. A fix that changes where a step starts reads each test's intent, not only its result.
+- Telling the landing's selection from the reader's by value was the flaw under three findings; recording which was set last fixed them together. The design had turned down a record because it counts the table's own selection changes as the reader's, but each of those leaves the selection on the match's cell or clears it.
+- The smoke check's empty term, set before any term, passed with or without the harness fix: the probe was already null. A check of a "clear" has to clear something.
+- The scan's windows wait ~10 ms each, not `FIND_YIELD`'s 1 ms: ~60% of a scan's wall time in the bare host is waiting, in both builds.

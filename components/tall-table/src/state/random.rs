@@ -341,7 +341,7 @@ impl TallTableDelegate for Source {
             .find(|(cell, stamp)| query.matches(&cell_text(cell.row, cell.column, *stamp)));
         let index = books.finds.len();
         books.finds.push(FindRead {
-            term: query.term.clone(),
+            term: query.term().clone(),
             found,
             cancelled: false,
             delivered: false,

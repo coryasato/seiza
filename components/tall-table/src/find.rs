@@ -33,13 +33,13 @@ impl FoundCell {
 /// What the table asks a source to find (`find`): the first cell, in
 /// `columns`' order along each row, then row by row (backward: the last),
 /// strictly after `after` and up to `until` inclusive, whose exact text
-/// contains `term`, both lowercased ([`FindQuery::matches`]). A NULL never
+/// contains its term ([`FindQuery::term`]), both lowercased ([`FindQuery::matches`]). A NULL never
 /// matches.
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct FindQuery {
-    /// The term, as the host set it (never empty).
-    pub term: SharedString,
+    /// The term, as the host set it (never empty): [`FindQuery::term`].
+    term: SharedString,
     /// The shown columns, by index, in their drawn order.
     pub columns: Vec<usize>,
     /// None: from the first row's first cell (backward: the last's last).
@@ -48,6 +48,9 @@ pub struct FindQuery {
     pub until: Option<FoundCell>,
     /// Searching up and to the left.
     pub backward: bool,
+    /// The term lowercased ([`lower`]) once, as it's built: the match rule
+    /// runs once a cell.
+    lower: String,
 }
 
 impl FindQuery {
@@ -59,8 +62,10 @@ impl FindQuery {
         until: Option<FoundCell>,
         backward: bool,
     ) -> Self {
+        let term = term.into();
         Self {
-            term: term.into(),
+            lower: lower(&term),
+            term,
             columns,
             after,
             until,
@@ -68,13 +73,21 @@ impl FindQuery {
         }
     }
 
+    /// The term, as the host set it (never empty): what a SQL source
+    /// lowercases and searches for, as [`FindQuery::matches`] does.
+    pub fn term(&self) -> &SharedString {
+        &self.term
+    }
+
     /// Whether a cell whose exact text is `exact` matches: it contains the
     /// term, both lowercased (`str::to_lowercase`, a final sigma `ς` as
     /// `σ`, as a SQL `lower` writes it). The exact text is
     /// `CellValue`'s `Display` (what the tooltip shows); a NULL's is never
-    /// asked, as no NULL matches.
+    /// asked, as no NULL matches. The term is lowercased once, when the
+    /// query is built, so a source calls it once a cell.
+    #[inline]
     pub fn matches(&self, exact: &str) -> bool {
-        matches(exact, &lower(&self.term))
+        matches(exact, &self.lower)
     }
 
     /// The cells it searches over `rows` rows, in its order: the source's
@@ -325,13 +338,7 @@ pub(crate) fn first_query(
     } else {
         gap.checked_sub(1).map(cell)
     };
-    FindQuery {
-        term,
-        columns,
-        after,
-        until: None,
-        backward,
-    }
+    FindQuery::new(term, columns, after, None, backward)
 }
 
 /// The second ask after `first` found nothing: from the other end up to
@@ -401,13 +408,13 @@ mod tests {
         until: Option<(u64, usize)>,
         backward: bool,
     ) -> FindQuery {
-        FindQuery {
-            term: "x".into(),
+        FindQuery::new(
+            "x",
             columns,
-            after: after.map(|(row, column)| FoundCell::new(row, column)),
-            until: until.map(|(row, column)| FoundCell::new(row, column)),
+            after.map(|(row, column)| FoundCell::new(row, column)),
+            until.map(|(row, column)| FoundCell::new(row, column)),
             backward,
-        }
+        )
     }
 
     fn cells(query: &FindQuery, rows: u64) -> Vec<(u64, usize)> {

@@ -149,13 +149,8 @@ The shape is a sketch; part B settles names against the API review's conventions
 
 ### Bugs
 
-Found by the code review of 2026-11-19 (after `find` closed), each a nit; fixed in a session of their own, each with a window test (or the harness's check) that fails before its fix.
+Found by the code review of 2026-11-19 (after `find` closed), a nit; fixed in a session of its own, with a check that fails before its fix. (The review's `find` and harness findings are fixed: [`docs/milestones.md`](docs/milestones.md), "M20 follow-up".)
 
-- **`find`: a new term forgets the selection on screen.** After a landing, `set_find` clears the current match but not `find_state.landed`, so `find_gap` still skips the landing's selection and the next step starts from the view's top: a match above the cell the reader was on is found first. Fix: clear `landed` in `set_find` (`src/state/find.rs`, `set_find`).
-- **`find`: `select_found` records a landing that selected nothing.** It sets `landed` from the selection in effect even when `replace_selection` didn't run (no place for the column, no kind selectable), so the reader's own earlier selection is taken for the landing's and the next step ignores it. Fix: set `landed` only when the landing selected (`src/state/find.rs`, `select_found`).
-- **`find`: a `Rows` selection starts a step from its anchor, not its start.** The docs say a step starts from a `Rows` range's start (forward) or end (backward); `find_gap` uses `selection.anchor()` both ways, so a range dragged upward starts a next step past its own rows. Fix: the range's start forward and its end backward, or the docs reworded to "the anchor's row" (`src/state/find.rs`, `find_gap`).
-- **`find`: `FindQuery::matches` lowercases the term at every cell.** Sources call it once a cell (the bare host's `MemoryRows::find`, the random test), so a scan allocates and folds the term once a cell, inside the recorded 0.37 µs a cell that sized `FIND_WINDOW`. Fix: fold the term once per query (a private field, or a matcher the query returns); the bare host's scan cost re-read after (`src/find.rs`).
-- **The harness: `findThrough(page, '')` never resolves.** The hook takes `""` as no term and the probe's term becomes `null`, but the wait compares it with `""` and times out. Fix: wait for `term || null` (`perf/harness.ts`, `findThrough`).
 - **Docs: milestone IDs in the bodies of `docs/DECISIONS.md` entries** ("part A's draft", "Revises check C1's remedy", and others since 2026-10-24), where the root `CLAUDE.md` allows them only in the *[source]* tags. Fix: name the thing in each; and `check-terms` made to read `DECISIONS.md`'s bodies (outside its tags), so it can't drift again.
 
 ### `custom-cells`

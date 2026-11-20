@@ -31,15 +31,31 @@ pub(super) struct FindState<D: TallTableDelegate> {
     folded: std::rc::Rc<str>,
     pub(super) current: Option<FoundCell>,
     pub(super) out: Option<Out<D::Request>>,
-    /// The selection the last landing left (`select`): a selection that's
-    /// still it isn't the reader's, so a step doesn't start from it.
+    /// Which was set last, the reader's selection or a landing (`select`):
+    /// where a step starts.
     #[cfg(feature = "select")]
-    pub(super) landed: Option<crate::TallTableSelection>,
+    pub(super) last: Last,
     /// The table, for `close`'s `Cancelled`, which `close` can't emit.
     this: WeakEntity<TallTableState<D>>,
     /// The random test's negative controls (with `sort`).
     #[cfg(all(test, feature = "sort"))]
     pub(crate) control: Control,
+}
+
+/// Which was set last of the selection and the current match (`select`).
+#[cfg(feature = "select")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(super) enum Last {
+    /// The selection, by the reader (or by a jump, a reset, or a cut: any
+    /// change but a landing's), or nothing yet.
+    #[default]
+    Selection,
+    /// A landing that selected its cell (or its row): the selection on
+    /// screen is the match's.
+    Landed,
+    /// A landing that selected nothing (a `Columns`-only table, or a column
+    /// it has no place for): the current match is newer than the selection.
+    Match,
 }
 
 /// The random test's negative controls (tests only, with `sort`).
@@ -61,7 +77,7 @@ impl<D: TallTableDelegate> FindState<D> {
             current: None,
             out: None,
             #[cfg(feature = "select")]
-            landed: None,
+            last: Last::Selection,
             this,
             #[cfg(all(test, feature = "sort"))]
             control: Control::None,
@@ -74,9 +90,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// exact text contains it, both lowercased, is highlighted, and the
     /// next step searches for it. A find out is cancelled
     /// (`TallTableEvent::Found` with `FindOutcome::Cancelled`) and the
-    /// current match forgotten, so the next step starts from the reader's
-    /// selection (`select`) or the view's top. The same term again changes
-    /// nothing.
+    /// current match forgotten, so the next step starts from the
+    /// selection on screen (`select`) or the view's top. A landing's cell
+    /// still selected is searched first, so a narrowed term that still
+    /// matches it finds it again. The same term again changes nothing.
     pub fn set_find(&mut self, term: Option<SharedString>, cx: &mut Context<Self>) {
         let term = term.filter(|term| !term.is_empty());
         if term == self.find_state.term {
@@ -103,8 +120,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// coming round from the top past the last: `TallTableEvent::FindStarted`,
     /// then `TallTableEvent::Found` once the source answers. It starts after
     /// whichever was set last of the current match and, with `select`, the
-    /// reader's own selection (its active cell, or a `Rows` range's row
-    /// from its start); with neither, from the view's top row. The match
+    /// selection (its active cell, or a `Rows` range from its first row's
+    /// start; a `Columns` range is none), the other if that one's no start
+    /// (a match in a column the table has no place for); with neither,
+    /// from the view's top row. After a new term, a landing's cell still
+    /// selected is searched from, not after. The match
     /// found is the current match: a row out of view lands at the top, as
     /// [`TallTableState::jump_to`] puts it, its column brought into view
     /// unless pinned; with `select` its cell is selected (with cells on;
@@ -115,8 +135,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// As [`TallTableState::find_next`], up and to the left: from before
-    /// the current match (or the reader's cell, or a `Rows` range's row
-    /// from its end, or the view's top row), coming round from the end.
+    /// the current match (or the reader's cell, or a `Rows` range from its
+    /// last row's end, or the view's top row), coming round from the end.
     pub fn find_previous(&mut self, cx: &mut Context<Self>) {
         self.find_step(true, cx);
     }
@@ -171,35 +191,68 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .collect()
     }
 
-    /// Where a step starts: the reader's selection if it's theirs
-    /// (`select`), else the current match, else the view's top row.
+    /// Where a step starts: whichever was set last of the selection
+    /// (`select`) and the current match, else the other, else the view's
+    /// top row.
     fn find_gap(&self, shown: &[bool], backward: bool) -> Gap {
-        let width = shown.iter().filter(|&&shown| shown).count() as u64;
         let last = self.scroll.rows() - 1;
+        let from_match = || {
+            let cell = self.find_state.current?;
+            let place = self.place_of(cell.column)?;
+            Some(find::gap_at(cell.row.min(last), place, shown, backward))
+        };
         #[cfg(feature = "select")]
-        if let Some(selection) = self
-            .selection_state
-            .current
-            .filter(|selection| Some(*selection) != self.find_state.landed)
         {
-            let (row, place) = selection.anchor();
-            let row = row.min(last);
-            match selection.kind() {
-                crate::selection::Kind::Cells => {
-                    return find::gap_at(row, place, shown, backward);
-                }
-                crate::selection::Kind::Rows => {
-                    return (if backward { row + 1 } else { row }) * width;
-                }
-                crate::selection::Kind::Columns => {}
+            let after = self.find_state.last;
+            if after != Last::Selection
+                && let Some(gap) = from_match()
+            {
+                return gap;
+            }
+            // A landing's cell with no current match (a new term forgot
+            // it) is searched from, not after.
+            let at = after == Last::Landed;
+            if let Some(gap) = self.selection_gap(shown, backward, at) {
+                return gap;
             }
         }
-        if let Some(cell) = self.find_state.current
-            && let Some(place) = self.place_of(cell.column)
-        {
-            return find::gap_at(cell.row.min(last), place, shown, backward);
+        if let Some(gap) = from_match() {
+            return gap;
         }
+        let width = shown.iter().filter(|&&shown| shown).count() as u64;
         self.scroll.visible().start.min(last) * width
+    }
+
+    /// Where a step from the selection starts (`select`): after its active
+    /// cell (from it with `at`), or a `Rows` range from its first row's
+    /// start forward and its last row's end backward, whichever way it was
+    /// dragged; a range past the last row from the last row. None for no
+    /// selection or a `Columns` range.
+    #[cfg(feature = "select")]
+    fn selection_gap(&self, shown: &[bool], backward: bool, at: bool) -> Option<Gap> {
+        use crate::selection::Kind;
+        let selection = self.selection_state.current?;
+        let last = self.scroll.rows() - 1;
+        match selection.kind() {
+            Kind::Cells => {
+                let (row, place) = selection.anchor();
+                // From the cell: the gap a step the other way starts at.
+                Some(find::gap_at(row.min(last), place, shown, backward != at))
+            }
+            Kind::Rows => {
+                let width = shown.iter().filter(|&&shown| shown).count() as u64;
+                let (first, end) = selection
+                    .rows(last + 1)
+                    .map(|rows| rows.into_inner())
+                    .unwrap_or((last, last));
+                Some(if backward {
+                    (end + 1) * width
+                } else {
+                    first * width
+                })
+            }
+            Kind::Columns => None,
+        }
     }
 
     /// The place column `index` is drawn at.
@@ -290,8 +343,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The found cell selected (`select`): the cell with cells on, else its
-    /// row with rows on; a `Columns`-only selection is left. What's
-    /// selected after is the landing's, not the reader's.
+    /// row with rows on; a `Columns`-only selection is left. Either way the
+    /// landing is set last: what it selected is the match's, and what it
+    /// left is older than the match.
     #[cfg(feature = "select")]
     fn select_found(&mut self, row: u64, place: Option<usize>, cx: &mut Context<Self>) {
         use crate::selection::Kind;
@@ -302,8 +356,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if let (Some(kind), Some(place)) = (kind, place) {
             let cell = (row, place);
             self.replace_selection(Some(crate::TallTableSelection::new(kind, cell, cell)), cx);
+            // After the selection's change, which sets `Last::Selection`.
+            self.find_state.last = Last::Landed;
+        } else {
+            self.find_state.last = Last::Match;
         }
-        self.find_state.landed = self.selection_state.current;
     }
 
     /// Cancels the find out, if one is: its request through the delegate's

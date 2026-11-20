@@ -1275,6 +1275,18 @@ async function checkFind(page: Page, label: string, start: Layout, shape: Shape)
   if (format && !placed) failed(`${label}: no ranged cell placed by the advances`);
   notes.push(`on screen: ${ranged} cells' ranges tinted${adv ? ` (${placed} at the advances' offsets)` : ''}, ${whole} tinted whole, ${inClip.length - ranged - whole} untouched`);
 
+  // An empty term over the term is no term, as the hook takes it: the
+  // probe's term null and no drawn cell marked; then the term again.
+  const emptied = await findThrough(page, '').then(() => true, (error: Error) => failed(`${label}: the empty term: ${error.message.split('\n')[0]}`) ?? false);
+  if (emptied) {
+    const unmarked = await page
+      .waitForFunction(() => !((globalThis as { __tallTableCells?: Cell[] }).__tallTableCells ?? []).some((cell) => cell.found), null, { timeout: 10_000, polling: 10 })
+      .then(() => true, () => false);
+    if (!unmarked) failed(`${label}: drawn cells still marked after the empty term`);
+    else notes.push('the empty term cleared it');
+  }
+  await findThrough(page, term).catch((error: Error) => failed(`${label}: the term ${term} again: ${error.message.split('\n')[0]}`));
+
   /** A step: a match, its wrap as `wrapped`; its row and column fully in
    *  view, the probe's current match, and its drawn cell current. */
   const landed = async (what: string, backward: boolean, wrapped: boolean): Promise<{ found: Found; view: Shown } | null> => {

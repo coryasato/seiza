@@ -198,10 +198,11 @@ export interface Found {
 export async function findThrough(page: Page, term: string | null, timeout = 10_000): Promise<Shown> {
   const sent = await page.evaluate(({ hook, term }) => (globalThis as unknown as Record<string, (term: string | null) => boolean>)[hook]!(term), { hook: FIND_HOOK, term });
   if (sent === false) throw new Error(`the host's find hook refused ${JSON.stringify(term)}`);
+  // The hook takes `''` as no term, as `null`: the probe's term is then null.
   const handle = await page.waitForFunction((term) => {
     const s = (globalThis as Global).__tallTable;
     return s?.find && (s.find.term ?? null) === term && s;
-  }, term, { timeout, polling: 10 });
+  }, term || null, { timeout, polling: 10 });
   return (await handle.jsonValue()) as Shown;
 }
 
