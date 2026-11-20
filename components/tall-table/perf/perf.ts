@@ -82,6 +82,20 @@
 // control that splits the code's cost from the drawing's). No step is
 // taken: a step's time is `find.ts`'s.
 //
+// Built with `popover`, `--popover <chars>` opens the host with a long
+// text of that many characters in the third column (`?popover-long=`,
+// cut at the table's cap), so every segment draws that column, and adds
+// two segments last, each the same wheels at the same point (40 px down a
+// wheel every 16 ms, `POPOVER_STEPS` each way as the text's scroll has
+// room for, then back up, in round trips for about the scroll's wheels):
+// `popover-none`, with none open, so the table scrolls under them; then
+// `popover-open`, with a popover open on row 1's long text (through the
+// host's hook) and the point its middle, so its text scrolls and the
+// table doesn't, every frame laying its text out and drawing it. Without
+// it, nothing is opened: the feature built and unused (the control).
+// The table's cue for the hovered cell is decided once (the pointer is
+// still) in either.
+//
 // Each segment is traced on its own: per-frame work is the trace's
 // `ProxyMain::BeginMainFrame` (`frameWork`), cross-checked by
 // `workRecorder` (each rAF that drew); late frames and intervals come from
@@ -114,7 +128,7 @@
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
 //          [--density <row>,<text>[,<width>]] [--format off] [--order reverse]
-//          [--groups 0] [--hidden <n>] [--find <term>]
+//          [--groups 0] [--hidden <n>] [--find <term>] [--popover <chars>]
 //          [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
@@ -125,6 +139,7 @@ import { fling, frameIntervals, frameRecorder, frameStats, open, recordedBetween
 import { PROFILES, localDate, machineInfo, median, option, percentiles, type Profile } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
 import { ORIGIN_MARK, Trace, WORK_CATEGORIES, frameWork, lateFrames } from '../../../shared-web/perf/trace.ts';
+import { LONG_AT, popoverClosed, popoverThrough, popoverWhere, type Popover } from './harness.ts';
 import { CELL_STYLES, COLUMN_ORDER_GLOBAL, GROUPS_GLOBAL, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, PORT, SHAPES, SELECT_OFFSET_PX, SORTED_COLUMN, bandAt, global, moveGripAt, selectOn, buildName, builtFeatures, cellAt, cornerAt, hostWebDir, restedWhere, perfDir, selected, shown, sortThrough, visibleColumns, type CellStyle, type Layout, type Shape, type Shown, type Sort, type GroupCell, pick } from './harness.ts';
 
 const RUNS = Number(option('runs') ?? 10);
@@ -180,7 +195,11 @@ const FIND = features.includes('find');
 const FIND_OPTION = option('find');
 if (FIND_OPTION !== undefined && !FIND) throw new Error('--find needs the host built with find: `just tall-table build find`');
 if (FIND_OPTION !== undefined && !FIND_OPTION) throw new Error('--find: an empty term is no find (leave it out for the control)');
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}${FIND ? `, find: ${FIND_OPTION === undefined ? 'none' : JSON.stringify(FIND_OPTION)}` : ''}`);
+const POPOVER = features.includes('popover');
+const POPOVER_OPTION = option('popover');
+if (POPOVER_OPTION !== undefined && !POPOVER) throw new Error('--popover needs the host built with popover: `just tall-table build popover`');
+if (POPOVER_OPTION !== undefined && !(/^\d+$/.test(POPOVER_OPTION) && Number(POPOVER_OPTION) > 0)) throw new Error(`--popover ${POPOVER_OPTION}: not a positive count of characters`);
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}${FIND ? `, find: ${FIND_OPTION === undefined ? 'none' : JSON.stringify(FIND_OPTION)}` : ''}${POPOVER ? `, popover: ${POPOVER_OPTION === undefined ? 'none opened' : `${POPOVER_OPTION} characters`}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -198,6 +217,13 @@ const SELECT = features.includes('select');
 /** The reorder drag: right this far and back, `DRAG_TRIPS` times, at the
  *  resize drag's moves. */
 const MOVE_PX = 600;
+/** The popover segments' wheels: this many px, every `SCROLL_EVERY_MS`,
+ *  at most `POPOVER_STEPS` each way (fewer if its text has less room), in
+ *  round trips for about `SCROLL_STEPS` wheels. */
+const POPOVER_WHEEL_PX = 40;
+const POPOVER_STEPS = 60;
+/** The popover's text must scroll at least this many wheels each way. */
+const MIN_POPOVER_STEPS = 10;
 
 const SORT = features.includes('sort');
 /** The sorted segments' order: each shape's `SORTED_COLUMN`, descending
@@ -214,8 +240,13 @@ const REST_CAP_MS = 300_000;
 /** A rest presents no frame for this long. */
 const QUIET_MS = 300;
 
-type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select' | 'reorder' | 'reorder-group';
-const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select', 'reorder', 'reorder-group'];
+type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select' | 'reorder' | 'reorder-group' | 'popover-none' | 'popover-open';
+const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select', 'reorder', 'reorder-group', 'popover-none', 'popover-open'];
+/** The popover segments' wheels in each shape, as its first run laid them
+ *  out (the text's room set them); a later run laying them out otherwise
+ *  fails. */
+type PopoverWheels = { stepsEachWay: number; trips: number; chars: number; cut: boolean };
+const popoverWheels: Partial<Record<Shape, PopoverWheels>> = {};
 type Sample = Partial<Pick<Shown, 'top' | 'first' | 'end' | 'loaded' | 'pending' | 'scrollX'>>;
 
 interface Reading {
@@ -329,6 +360,57 @@ async function selectAll(page: Page, layout: Layout): Promise<void> {
   await page.mouse.move(layout.left + 300, layout.top + 300);
 }
 
+/** With `--popover`: the same wheels at the same point with no popover
+ *  open (the table scrolls) and with one open on row 1's long text (its
+ *  text scrolls), each traced on its own (the header's comment). */
+async function popoverSegments(browser: Browser, page: Page, layout: Layout, shape: Shape, readings: Partial<Record<Segment, Reading>>, failures: string[]): Promise<void> {
+  await home(page, layout, false);
+  const row = 1;
+  const place = layout.columns.findIndex((column, at) => (column.index ?? at) === LONG_AT);
+  if (place < 0 || layout.columns[place]!.kind !== 'text') throw new Error(`no long text's column at index ${LONG_AT}: ${JSON.stringify(layout.columns.slice(0, 4).map((column) => column.name))}`);
+  const opened = await popoverThrough(page, row, LONG_AT);
+  const [x, y, width, height] = opened.bounds;
+  const room = opened.contentHeight - height;
+  const stepsEachWay = Math.min(POPOVER_STEPS, Math.floor(room / POPOVER_WHEEL_PX));
+  if (stepsEachWay < MIN_POPOVER_STEPS) throw new Error(`the popover's text scrolls ${room.toFixed(0)} px, under ${MIN_POPOVER_STEPS} wheels of ${POPOVER_WHEEL_PX}: is --popover long enough?`);
+  const trips = Math.max(1, Math.round(SCROLL_STEPS / (2 * stepsEachWay)));
+  const laid: PopoverWheels = { stepsEachWay, trips, chars: opened.chars, cut: opened.cut };
+  if (!popoverWheels[shape]) console.log(`  ${shape}: the popover's text ${opened.chars} characters${opened.cut ? ', cut' : ''}, ${opened.contentHeight.toFixed(0)} px in ${height.toFixed(0)}: ${stepsEachWay} wheels each way, ${trips} round trips`);
+  const recorded = (popoverWheels[shape] ??= laid);
+  if (JSON.stringify(recorded) !== JSON.stringify(laid)) failures.push(`the popover's wheels laid out ${JSON.stringify(laid)}, not ${JSON.stringify(recorded)} as the first run did`);
+  const at = { x: x + width / 2, y: y + height / 2 };
+  /** Down and back up, `trips` times, on a fixed schedule (the scroll's). */
+  const wheels = async () => {
+    const sent: Promise<void>[] = [];
+    for (let trip = 0; trip < trips; trip++) {
+      for (let step = 0; step < 2 * stepsEachWay; step++) {
+        sent.push(wheel(page, step < stepsEachWay ? POPOVER_WHEEL_PX : -POPOVER_WHEEL_PX));
+        await page.waitForTimeout(SCROLL_EVERY_MS);
+      }
+    }
+    await Promise.all(sent);
+  };
+  await popoverClosed(page);
+  await page.mouse.move(at.x, at.y);
+  const none = (readings['popover-none'] = await traced(browser, page, layout, async () => {
+    await wheels();
+    return (await rest(page, 's.first === 0')) !== null;
+  }));
+  if (none.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the popover-none wheels drew ${none.recorder.frames} frames: did the table scroll?`);
+  await home(page, layout, false);
+  const again = await popoverThrough(page, row, LONG_AT);
+  if (again.bounds.some((value, index) => Math.abs(value - opened.bounds[index]!) > 0.5)) throw new Error(`the popover opened again at ${JSON.stringify(again.bounds)}, not ${JSON.stringify(opened.bounds)}`);
+  const open = (readings['popover-open'] = await traced(browser, page, layout, async () => {
+    await wheels();
+    return (await rest(page, 's.first === 0 && s.top === 0 && s.popover && s.popover.scroll === 0')) !== null;
+  }));
+  if (open.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the popover-open wheels drew ${open.recorder.frames} frames: did its text scroll?`);
+  // Still open on its cell, the table where it was.
+  const after: Popover | null = await popoverWhere(page, 'true');
+  if (!after || after.cell.row !== row || after.cell.column !== LONG_AT) failures.push(`the popover-open wheels left ${JSON.stringify(after?.cell ?? null)} open, not (${row}, ${LONG_AT})`);
+  await popoverClosed(page);
+}
+
 /** One cold run of `shape`: every segment, each traced on its own. */
 async function run(url: string, shape: Shape, profile: Profile): Promise<{ readings: Partial<Record<Segment, Reading>>; failures: string[] }> {
   const failures: string[] = [];
@@ -345,6 +427,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (GROUPS_OPTION !== undefined) params.groups = GROUPS_OPTION;
     if (HIDDEN_OPTION !== undefined) params.hidden = HIDDEN_OPTION;
     if (FIND_OPTION !== undefined) params.find = FIND_OPTION;
+    if (POPOVER_OPTION !== undefined) params['popover-long'] = POPOVER_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -546,6 +629,8 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
         if (selectOn(features)) await selected(page, { kind: 'columns', anchor: [0, group.start], head: [0, group.end - 1] }).catch(() => failures.push(`the reorder-group drag left a selection other than ${group.label}'s columns`));
       }
     }
+    // Last, so every other segment runs as in a build without it.
+    if (POPOVER_OPTION !== undefined) await popoverSegments(browser, page, layout, shape, readings, failures);
     for (const [segment, reading] of Object.entries(readings)) {
       if (reading.reached) continue;
       if (profile.name === 'reference') failures.push(`the ${segment} didn't rest where its input took it, filled`);
@@ -611,7 +696,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), ...(FIND ? { find: FIND_OPTION ?? null } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), ...(FIND ? { find: FIND_OPTION ?? null } : {}), ...(POPOVER ? { popoverLong: POPOVER_OPTION === undefined ? null : Number(POPOVER_OPTION), ...(POPOVER_OPTION === undefined ? {} : { popoverWheels: { ...popoverWheels, px: POPOVER_WHEEL_PX, everyMs: SCROLL_EVERY_MS } }) } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

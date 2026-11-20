@@ -10,11 +10,11 @@ What's next for the tall table: the candidates for its next features, the active
 
 ## Status
 
-M1–M20, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-19: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, and `find`, its search that keeps every row ([`docs/milestones.md`](docs/milestones.md)).
+M1–M21, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-20: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, and `popover`, a cell's full value with a button to the host's view of its row ([`docs/milestones.md`](docs/milestones.md)).
 
 | Milestone | Title | Status |
 |---|---|---|
-| M21 | Cell popover: a cell's full value, and a button to the host's view of its row | Active: part C next |
+| — | None active: every candidate waits for a host ("Candidates", "Notes") | — |
 
 A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
 
@@ -35,7 +35,7 @@ A *Planned* row's spec is its row under "Candidates"; its spec and checks are wr
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None drafted: the cell popover's research is done, and its spec is the active milestone's.
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None drafted: every candidate waits for a host ("Notes").
 
 ### Notes
 
@@ -70,8 +70,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Cell popover | The quick look before its row detail view (its first release), and nested values in it (JSONL, after) | M21 ("Active milestone") | *Not ready* |
-| Tycho | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
 
 Every earlier ask is built and *Ready* in its app's PLAN.
@@ -80,83 +79,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-### M21: the cell popover, a cell's full value and a button to the host's view
-
-**What it adds** (Cargo feature `popover`, off by default): a cell's exact text in a popover below it, wrapped and scrolled inside, the row height unchanged; opened by Enter on the active cell, a cue on the cell, or the host; and a button the host labels, whose press the host turns into its own view of the row. Tycho waits on it, for the quick look before its row detail view (its first release) and for nested values after (JSONL). Why it's the table's and drawn by it: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-19, the planning discussion). The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "Cell popover (`popover`)"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-19, M21 part A; three with the owner).
-
-```rust
-/// A cell, by row and column index (`popover`): the column's index in
-/// `set_columns`' list, so it names the same column after a move.
-pub struct PopoverCell { pub row: u64, pub column: usize }
-
-/// The button: the table's look with the host's label, or the host's own
-/// element; the table makes either its press target.
-impl PopoverButton {
-    pub fn label(label: impl Into<SharedString>) -> Self;
-    pub fn custom(build: impl Fn(&mut Window, &mut App) -> AnyElement + 'static) -> Self;
-}
-/// The cue: the table's expand mark (the default), an SVG from the
-/// host's assets, or the host's own element.
-impl PopoverCue {
-    pub fn expand() -> Self;
-    pub fn icon(path: impl Into<SharedString>) -> Self;
-    pub fn custom(build: impl Fn(&mut Window, &mut App) -> AnyElement + 'static) -> Self;
-}
-
-impl<D: TallTableDelegate> TallTableState<D> {
-    /// Opens the popover on a cell (`popover`), closing any other. Refused
-    /// (false) unless the cell is in view, its column shown, and its page
-    /// loaded. Lets go of `follow`.
-    pub fn open_popover(&mut self, cell: PopoverCell, cx: &mut Context<Self>) -> bool;
-    pub fn close_popover(&mut self, cx: &mut Context<Self>);
-    pub fn popover(&self) -> Option<PopoverCell>;
-    /// `None` (the default): no button.
-    pub fn set_popover_button(&mut self, button: Option<PopoverButton>, cx: &mut Context<Self>);
-    pub fn popover_button(&self) -> Option<&PopoverButton>;
-    /// `Some(PopoverCue::expand())` by default; `None` opts the cue out.
-    pub fn set_popover_cue(&mut self, cue: Option<PopoverCue>, cx: &mut Context<Self>);
-    pub fn popover_cue(&self) -> Option<&PopoverCue>;
-}
-
-// TallTableEvent:
-/// The popover opened on a cell, moved to another, or closed (`None`).
-Popover(Option<PopoverCell>),
-/// Its button was pressed, or Enter on it (`popover`); it closes.
-PopoverButton(PopoverCell),
-
-// TallTableProbe: `popover: Option<Box<PopoverProbe>>` (its cell, its
-// bounds, the side it's on, its text's characters and whether it was cut,
-// its scroll and content height, its button's bounds) and
-// `cue: Option<Box<CueProbe>>` (its cell and box), for scripts.
-```
-
-Settled in part B: the button and the cue each the table's look or the host's element, the readers beside the setters, the probe's fields boxed (`docs/DECISIONS.md`, "Features", 2026-11-20).
-
-**The rules:**
-- **The text:** the cell's exact text (`CellValue`'s: `copy`'s and the tooltip's, never `format`'s), wrapped, its line breaks as lines; a NULL as the cell's muted `NULL`; past 10,000 characters, "…" (set from a measured frame: `docs/DECISIONS.md`, "Features", 2026-11-20). The cells' font at `density`'s size. Selectable with gpui-base's `SelectableText`; Cmd+C copies the part selected, the popover's own key, before `copy`'s.
-- **Opening:** Enter on `select`'s active cell (a `Cells` selection; otherwise Enter propagates); a press on the cue; `open_popover`. The cue is drawn inside the right end of the hovered cell, and of `select`'s active cell, when the popover shows more than the cell (rounded, cut, or with line breaks: the tooltip's rule, decided when that cell changes) or a button is set; its press is stopped (not `select`'s, not reported by `clicks`) and focuses the table, and on the open popover's own cell closes it. The table's expand mark, the host's SVG, or the host's element; `None` opts it out. Opening lets go of `follow`.
-- **Closing:** Escape (bound to see it before `select`'s `ClearSelection` and `reorder`'s `CancelMove`, propagating when none is open); Enter with no button; a press outside it, which goes on to do what it does (a cue's press on another cell moves it there); `close_popover`; `select`'s keys moving the active cell; its cell leaving the view (scrolled out, sideways, or behind `pin`'s run); a sort, `replace_rows`, `set_columns`, a `set_rows` cutting its row, a hide of its column, `close`. A move (`reorder`) keeps it, by index. `live`'s re-read of its row decides its text again when the page lands, its scroll kept, clamped.
-- **The button:** shown only with a label set; its press, or Enter on the open popover, emits `PopoverButton` and closes it.
-- **Placement:** below the cell, left edges aligned, flipped above at the window's bottom, clamped sideways (gpui-base's `Positioner::side`, an 8 px margin), from the cell's bounds each frame (the tooltip's, with `pin`'s visible part); at most `max(cell width, 400 px)` and 75% of the window wide, 50% of it tall, scrolled inside past that; a wheel over it scrolls it, not the table. At `POPUP_PRIORITY`, under the tooltip; no tooltip shows while it's open. Doesn't take focus.
-- **Drawn:** the popover surface's colors (gpui-kit's `popover`, `popover_foreground`, `border`), `shadow_lg`. The cue at its cell's right end, 2 px inside its edges, an expand mark in `muted_foreground` with no box, painted with its cell's text: in place of the text's "…", the cut kept (nothing moves); with no "…" to give (a rounded float, a middle cut, a text that fits), at the cell's right end, the text cut and aligned short of it. A placeholder until Tycho's design session draws one (`docs/DECISIONS.md`, "Features", 2026-11-20).
-- **The built features:** `find`'s matches tinted in its text (the same rule and fold, the theme's `selection` at saturation 0.1); with the text selected, Cmd+C copies it (the table's `CopySelection` propagates); the rest as the research's "The built features".
-
-**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part C.
-
-- **A. Research and spec** (no shipped code). Done 2026-11-19: the research section, the decisions, this spec.
-- **B. The feature, built and tested.** First the spike (`SelectableText` in a `deferred`: a drag selects, Cmd+C copies with `copy` built, in Chromium, Firefox, and WebKit; its bytes), its outcome a decision; then the state, the opening and closing, the cue, the placement, the drawing, the button's event, the probe, the docs, the random test's step, the window tests, the bare host's hooks, `pairs`; the text cap set from a measured frame. Checks B1–B5.
-- **C. The cost and the close.** The size on its own and against the base, and on each app that builds the table; frame work with one open; the smoke check in three browsers; the README; the close-out ("Closing a milestone", above). Checks C1–C3.
-
-**Done when:**
-- [x] **A1. The research and the spec:** the research section answers each question in the candidate's row (what it shows, the tooltip, what opens and closes it, where it's placed, the built features, the canvas gaps) and reads the prior art (EuiDataGrid's and Glide Data Grid's source, gpui-kit's `Popover`); its decisions in `docs/DECISIONS.md`; the API and checks here; the Drafted row removed. *Evidence:* root `docs/research/tall-table-features.md`, "Cell popover (`popover`)"; `docs/DECISIONS.md`, "Features", five entries tagged M21 part A.
-- [x] **B1. The spike decided:** `SelectableText` in the popover selects part of a value by drag and Cmd+C copies it with `copy` built, in Chromium, Firefox, and WebKit, and its added bytes are recorded; or it fails one, and the text is plain with the whole value copied. Either way a decision in `docs/DECISIONS.md` and a note in `perf/results/`. *Evidence:* it held in all three, the same 32 characters of a 3,000-character value pasted, with a `Cells` selection standing too; +4.6 KiB brotli over plain text (`perf/results/2026-11-20-m21-b-spike.md`; `docs/DECISIONS.md`, "Features", 2026-11-20, with the popover's own Cmd+C, which a wasm `Root` lacks).
-- [x] **B2. The base unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `size` shows no `popover` symbol in the base, and `size --against 8ffce13` reports the base unchanged. *Evidence (2026-11-20, after the code review's fixes):* `test`, `lint`, and the soak passed; `pairs` passed all 134 builds in 2,445 s; `size`: `seiza_tall_table7popover` and `seiza_tall_table5state7popover` 0 in the base, 18 and 86 with `popover`; the base 9,848.3 KiB after wasm-opt at 8ffce13 and in the working tree, 0 KiB apart (`perf/results/2026-11-20-m21-b-size.json`). `popover` alone: +14.7 KiB brotli, part C's to read.
-- [x] **B3. The feature, natively:** window tests for each rule above: each way it opens (Enter on a `Cells` active cell and not on a `Rows` one, the cue's press stopped from `select` and `clicks`, `open_popover` refused out of view, on a hidden column, and on a page not loaded); each way it closes (Escape before `select`'s clear and propagated with none open, Enter with no button, a press outside going on to select, `select`'s keys, scrolled out down and sideways and behind `pin`'s run, a sort, `replace_rows`, `set_columns`, a cutting `set_rows`, a hide, `close`); a move keeping it; `live`'s re-read changing its text; the button's event by Enter and by press, by index after a move; the cue shown only when the cell has more to show or a button is set; the placement below and flipped above at the window's bottom, its width and height capped; no tooltip while open; `find`'s tints in it; the text cut at the cap. *Evidence:* `src/state/fixtures/popover.rs`, 31 window tests with every feature on, 20 with `popover` alone, among them `a_part_of_its_text_is_selected_and_copied`; the cap at 10,000 from a measured frame (`perf/results/2026-11-20-m21-b-spike.md`).
-- [x] **B4. The random test:** its `Popover` step from `with_popovers`, after `with_finds`, with no existing case's draw changed; `KeepPopoverOnSort` and `StalePopoverText` fail their invariants. The soak on the final build only if B touches the paging (the popover reads no page). *Evidence:* `Step::Popover` placed by `with_popovers` (three streams) after `with_finds`; invariants 25 (an open popover's cell in view, its text the page drawn's) and 26 (none open across a sort or `set_columns`), and its lines in 17, 18, and 19 (`replace_rows`); `a_popover_kept_across_a_sort` fails at 26, `a_stale_popover_text` at 25 (48 cases; with two streams it took 200, so its step changes its row, sorts, and frames). `set_rows` gained a line, so the soak ran: `just tall-table soak` (seeds 1 to 4, 500 cases each, `popover` among its features) passed, 2026-11-20.
-- [x] **B5. The host opens it:** the bare host's switch (`?popover`, with a button label and a long-text column for the cap) and hooks (open, close, press the button, read the probe), so `size`, `perf`, and `smoke` measure it. *Evidence:* `?popover=<label>`, `?popover-cue=off`, `?popover-long=<chars>` (a third column of one shared text); `__tallTablePopoverOpen`, `__tallTablePopoverClose`, `__tallTablePopoverEnter`; the probe's `popover` and `cue` and `__tallTablePopoverButton` through the bridge; the spike and the cap's frames ran on them.
-- [ ] **C1. Its cost:** its bytes alone and with every feature, against the base, in a `perf/results/` note, and each app that builds the table in its own `perf/results/` (root `CLAUDE.md`, rule 1); frame work in the protocol's scroll with a popover open over a long text, against none, within the spread (if not, the cap is lowered or the layout cached, with a decision).
-- [ ] **C2. In the browsers:** `just tall-table smoke` opens it by Enter and by the cue, places it below and flipped, scrolls its text, presses its button, selects and copies part of its text (if B1 kept `SelectableText`), and closes it by Escape and a press outside, in Chromium, Firefox, and WebKit.
-- [ ] **C3. The README and waiting apps:** the README's section, its API list and keys (Enter, Escape), the Features row and cost, the `DataTable` and TanStack tables' rows, the Canvas tradeoffs (what's selectable in it, no Ctrl+F or announcement inside, the host's view for both); Tycho's "Waiting on" row flipped to *Ready* (2026-…, tall-table M21).
+None: every candidate waits for a host ("Candidates", "Notes").
 
 ---
 
@@ -167,6 +90,10 @@ Settled in part B: the button and the cue each the table's look or the host's el
 Found by the code review of 2026-11-19 (after `find` closed), a nit; fixed in a session of its own, with a check that fails before its fix. (The review's `find` and harness findings are fixed: [`docs/milestones.md`](docs/milestones.md), "M20 follow-up".)
 
 - **Docs: milestone IDs in the bodies of `docs/DECISIONS.md` entries** ("part A's draft", "Revises check C1's remedy", and others since 2026-10-24), where the root `CLAUDE.md` allows them only in the *[source]* tags. Fix: name the thing in each; and `check-terms` made to read `DECISIONS.md`'s bodies (outside its tags), so it can't drift again.
+
+### A long value's cell
+
+Found 2026-11-20, measuring the cell popover ([`perf/results/2026-11-20-m21-c.md`](perf/results/2026-11-20-m21-c.md)): with a column of 10,000-character values on screen, the wide shape's steady scroll read 5.75 ms a frame against the base's 4.67, and its fling's 10.05 against 4.89 (52.6 frames a second against 59.7). The cells' text copies each drawn cell's whole value (its line breaks replaced, `cell_text`) and shapes it before cutting it to the cell, every frame. A host with long text (Tycho's JSONL, a log's messages) meets it in the base. Shape: take only as much of the value as the widest cell could show (its width over the narrowest advance, and the "…") before replacing and shaping, keeping the drawn pixels (`just tall-table smoke --screens`) and `drawn_text`'s cut; then read the same scroll and fling again. Built when a host's long values reach it, or before Tycho adopts the popover.
 
 ### `custom-cells`
 
@@ -190,7 +117,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-None drafted: the cell popover is active ("Active milestone"), and every other candidate waits for a host ("Candidates", "Notes").
+None drafted: every candidate waits for a host ("Candidates", "Notes").
 
 ---
 

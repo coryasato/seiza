@@ -47,7 +47,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | The tall table's find | Search that keeps every row | *Ready* (2026-11-19, tall-table M20) |
 | The tall table's column visibility | Hide and show columns | *Ready* (2026-11-18, tall-table M19) |
 | The tall table's column summaries in the header | The column profile, only if the design session puts it under the headers | *Not ready* |
-| The tall table's cell popover (a cell's full value, with a button that reports an event) | The quick look before the row detail view, which its button opens ("Table basics", below); nested values shown in it ("JSONL") | *Not ready* |
+| The tall table's cell popover (a cell's full value, with a button that reports an event) | The quick look before the row detail view, which its button opens ("Table basics", below); nested values shown in it ("JSONL") | *Ready* (2026-11-20, tall-table M21): a cell's exact text; a nested value's long form apart from its cell's text waits for the JSONL work (the table's `docs/DECISIONS.md`, "Features", 2026-11-19) |
 | The tall table's row marks | The investigator's bookmarks and tags ([`docs/personas.md`](docs/personas.md)); no goal holds them yet | *Not ready* |
 | The tall table's built features | "Table basics", below | *Ready:* `custom-cells`, `live`, `follow`, `resize`, `select`, `copy`, `sort`, `pin`, `density`, `format`, `reorder`, `clicks`, `group-headers` (their dates: the table's `docs/milestones.md`) |
 

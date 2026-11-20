@@ -149,6 +149,17 @@
 // at the top), and a step on again (a row in view: no scroll), each match
 // fully in view, the probe's current match it, and its drawn cell marked
 // current.
+// Built with `popover`, it runs both shapes again with its button labeled
+// and a long text in the third column (`?popover=`, `?popover-long=`): the
+// cue drawn on the hovered cell, its press opening the popover there (not
+// selecting), below the cell with its left edge's, within its width and
+// height caps; a wheel over it scrolling its text and not the table; a
+// drag along its first line and Cmd+C pasting a part of its text (before
+// `copy`'s key, with it built); its button's press published with its
+// cell, closing it; opened at the window's bottom (the host's hook),
+// flipped above; Escape and a press outside closing it (with `select`,
+// the press selecting its cell); and with `select`, Enter on the active
+// cell opening it and Enter again pressing its button.
 // Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
@@ -174,7 +185,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, findThrough, stepThrough, tintsIn, type Found, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, findThrough, stepThrough, tintsIn, type Found, LONG_AT, POPOVER_BUTTON_GLOBAL, popoverThrough, popoverWhere, type Popover, type PopoverPress, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -205,6 +216,13 @@ const clicks = builtFeatures().includes('clicks');
 const groupHeaders = builtFeatures().includes('group-headers');
 const hide = builtFeatures().includes('hide');
 const find = builtFeatures().includes('find');
+const popover = builtFeatures().includes('popover');
+/** The popover runs' button label and long text (`?popover=`,
+ *  `?popover-long=`): under the cap, longer than the popover shows. */
+const POPOVER_LABEL = 'Open row';
+const POPOVER_LONG = 3_000;
+/** The popover's border, outside the probe's bounds. */
+const POPOVER_BORDER = 1;
 /** The term each shape's find run sets: digits, which `format`'s advances
  *  measure. */
 const FIND_TERM: Record<Shape, string> = { narrow: '12', wide: '12' };
@@ -1327,6 +1345,142 @@ async function checkFind(page: Page, label: string, start: Layout, shape: Shape)
   if (!again) return `, ${notes.join('; ')}`;
   if (again.found.cell!.row < on.view.top + rows && again.view.top !== on.view.top) failed(`${label}: on again: row ${again.found.cell!.row} was in view, yet the view moved to row ${again.view.top}`);
   notes.push(`on again to (${again.found.cell!.row}, ${again.found.cell!.column}), the view ${again.view.top === on.view.top ? 'kept' : `at row ${again.view.top}`}`);
+  return `, ${notes.join('; ')}`;
+}
+
+/** With `popover` (the button labeled, the long text's column at
+ *  `LONG_AT`): opened by the cue and placed below its cell, its text
+ *  scrolled by a wheel over it (the table kept), a part of its text
+ *  selected and copied (Cmd+C, before `copy`'s with it built), its button
+ *  pressed, opened at the window's bottom and flipped above, closed by
+ *  Escape and by a press outside, and with `select` opened and its button
+ *  pressed by Enter. */
+async function checkPopover(page: Page, label: string, start: Layout): Promise<string> {
+  const notes: string[] = [];
+  const viewport = page.viewportSize()!;
+  const place = start.columns.findIndex((column, at) => (column.index ?? at) === LONG_AT);
+  if (place < 0) return failed(`${label}: no long text's column at index ${LONG_AT}`) ?? '';
+  const view = (await shown(page)).shown;
+  const cellWidth = start.columns[place]!.width;
+  /** The popover's size and place against its cell's: below it (or above,
+   *  flipped), its left at the cell's unless clamped 8 px inside the
+   *  window, at most `max(cell, 400)` and 75% of the window wide and 50% of
+   *  it tall. The probe's bounds are its box inside its 1 px border, and
+   *  gpui-base's `Positioner` rounds its place to a whole px: so the box
+   *  drawn is the probe's grown by `POPOVER_BORDER`, its left within 0.5 px
+   *  of the cell's. */
+  const placed = (what: string, popover: Popover, row: number, below: boolean): void => {
+    const [x, y, width, height] = [popover.bounds[0] - POPOVER_BORDER, popover.bounds[1] - POPOVER_BORDER, popover.bounds[2] + 2 * POPOVER_BORDER, popover.bounds[3] + 2 * POPOVER_BORDER];
+    const cellLeft = start.left + screenLeft(start, place, view.scrollX);
+    const cellTop = start.top + (row - view.top) * start.rowHeight;
+    if (popover.below !== below) failed(`${label}: ${what}: ${popover.below ? 'below' : 'above'} its cell, not ${below ? 'below' : 'above'}`);
+    if (below ? y < cellTop + start.rowHeight - 0.5 : y + height > cellTop + 0.5) failed(`${label}: ${what}: at ${y.toFixed(1)}–${(y + height).toFixed(1)} px, not ${below ? 'below' : 'above'} its cell (${cellTop.toFixed(1)}–${(cellTop + start.rowHeight).toFixed(1)})`);
+    if (Math.abs(x - cellLeft) > 0.51 && Math.abs(x + width - (viewport.width - 8)) > 0.51) failed(`${label}: ${what}: its left at ${x.toFixed(1)} px, not its cell's ${cellLeft.toFixed(1)} nor clamped at the window's right`);
+    if (width > Math.min(Math.max(cellWidth, 400), 0.75 * viewport.width) + 0.5) failed(`${label}: ${what}: ${width.toFixed(1)} px wide, past max(${cellWidth}, 400) and 75% of ${viewport.width}`);
+    if (height > 0.5 * viewport.height + 0.5) failed(`${label}: ${what}: ${height.toFixed(1)} px tall, past 50% of ${viewport.height}`);
+  };
+  const center = (bounds: [number, number, number, number]) => ({ x: bounds[0] + bounds[2] / 2, y: bounds[1] + bounds[3] / 2 });
+
+  // The cue: on the hovered cell (the button set, so every cell has one),
+  // its press opening the popover there, below it.
+  const row = view.first + 1;
+  const hovered = cellAt(start, view, row, place);
+  await page.mouse.move(hovered.x, hovered.y);
+  const cue = await page
+    .waitForFunction(({ row, column }) => {
+      const cue = (globalThis as { __tallTable?: Shown }).__tallTable?.cue;
+      return cue && cue.cell.row === row && cue.cell.column === column && cue;
+    }, { row, column: LONG_AT }, { timeout: 5_000, polling: 10 })
+    .then((handle) => handle.jsonValue() as Promise<NonNullable<Shown['cue']>>, () => null);
+  if (!cue) return failed(`${label}: no cue drawn on the hovered cell (${row}, ${LONG_AT})`) ?? '';
+  await pressAt(page, center(cue.bounds));
+  const opened = await popoverWhere(page, `p && p.cell.row === ${row} && p.cell.column === ${LONG_AT}`).catch(() => null);
+  if (!opened) return failed(`${label}: the cue's press opened no popover on (${row}, ${LONG_AT})`) ?? '';
+  placed('by the cue', opened, row, true);
+  if (!opened.button) failed(`${label}: by the cue: no button drawn, with a label set`);
+  if ((await shown(page)).shown.selection) failed(`${label}: the cue's press selected ${JSON.stringify((await shown(page)).shown.selection)}`);
+  notes.push(`the cue opened it below (${opened.bounds.map((value) => value.toFixed(0)).join(', ')}), ${opened.chars} characters`);
+
+  // A wheel over it scrolls its text, not the table.
+  if (opened.contentHeight <= opened.bounds[3]) failed(`${label}: its text ${opened.contentHeight.toFixed(0)} px tall fits its ${opened.bounds[3].toFixed(0)} px: nothing to scroll`);
+  const middle = center(opened.bounds);
+  await page.mouse.move(middle.x, middle.y);
+  await wheel(page, 200);
+  const scrolled = await popoverWhere(page, 'p && p.scroll > 0').catch(() => null);
+  const kept = (await shown(page)).shown;
+  if (!scrolled) failed(`${label}: a wheel over it didn't scroll its text`);
+  else notes.push(`a wheel scrolled its text ${scrolled.scroll.toFixed(0)} px`);
+  if (kept.top !== view.top || kept.scrollX !== view.scrollX) failed(`${label}: a wheel over it moved the table to row ${kept.top}, ${kept.scrollX} px sideways`);
+  await wheel(page, -2_000);
+  await popoverWhere(page, 'p && p.scroll < 0.5').catch(async () => failed(`${label}: its text didn't scroll back to its top (at ${(await popoverWhere(page, 'true'))?.scroll} px)`));
+
+  // A drag along its first line selects a part, and Cmd+C copies it (the
+  // popover's own key, before `copy`'s).
+  const [px, py] = opened.bounds;
+  await page.mouse.move(px + 14, py + 16);
+  await page.waitForTimeout(50);
+  await page.mouse.down();
+  for (let step = 1; step <= 8; step++) await page.mouse.move(px + 14 + (226 * step) / 8, py + 16);
+  await page.mouse.up();
+  await page.keyboard.press('ControlOrMeta+C');
+  const pasted = await paste(page);
+  if (!pasted) failed(`${label}: nothing pasted after a drag in its text and Cmd+C`);
+  else if (!/^[a-z \n]+$/.test(pasted) || pasted.length >= opened.chars || !pasted.trim()) failed(`${label}: pasted ${JSON.stringify(pasted.slice(0, 60))} (${pasted.length} characters), not a part of its text`);
+  else notes.push(`a drag selected and Cmd+C copied ${pasted.length} of its characters`);
+  if (!(await popoverWhere(page, `p && p.cell.row === ${row}`).catch(() => null))) failed(`${label}: it closed during the drag`);
+
+  // Its button: the event with its cell, and it closes.
+  const pressed = async (what: string, before: number, act: () => Promise<void>): Promise<void> => {
+    await act();
+    const press = await page
+      .waitForFunction(({ name, before }) => {
+        const press = (globalThis as unknown as Record<string, PopoverPress | undefined>)[name];
+        return press && press.count > before && press;
+      }, { name: POPOVER_BUTTON_GLOBAL, before }, { timeout: 5_000, polling: 10 })
+      .then((handle) => handle.jsonValue() as Promise<PopoverPress>, () => null);
+    if (!press) failed(`${label}: ${what}: no button press published`);
+    else if (press.column !== LONG_AT) failed(`${label}: ${what}: the press named (${press.row}, ${press.column}), not column ${LONG_AT}`);
+    await popoverWhere(page, 'p === null').catch(() => failed(`${label}: ${what}: still open after its button`));
+  };
+  const presses = async () => (await global<PopoverPress>(page, POPOVER_BUTTON_GLOBAL))?.count ?? 0;
+  const button = (await popoverWhere(page, 'p && p.button'))!.button!;
+  await pressed('its button pressed', await presses(), () => pressAt(page, center(button)));
+  notes.push('its button pressed and published');
+
+  // At the window's bottom: flipped above.
+  const lastRow = view.first + Math.floor((viewport.height - start.top) / start.rowHeight) - 2;
+  const flipped = await popoverThrough(page, lastRow, LONG_AT).catch((error: Error) => failed(`${label}: opened on row ${lastRow}: ${error.message.split('\n')[0]}`));
+  if (flipped) {
+    placed(`opened on row ${lastRow}`, flipped, lastRow, false);
+    notes.push(`opened on row ${lastRow}, flipped above`);
+  }
+
+  // Escape closes it (the table focused by the presses before).
+  await page.keyboard.press('Escape');
+  await popoverWhere(page, 'p === null').then(() => notes.push('Escape closed it'), () => failed(`${label}: Escape didn't close it`));
+
+  // A press outside closes it, and goes on to do what it does.
+  await popoverThrough(page, row, LONG_AT);
+  const outside = cellAt(start, view, row + 6, 0);
+  await pressAt(page, outside);
+  await popoverWhere(page, 'p === null').then(() => notes.push('a press outside closed it'), () => failed(`${label}: a press outside didn't close it`));
+  if (select) await selected(page, { kind: 'cells', anchor: [row + 6, 0], head: [row + 6, 0] }, 5_000).catch(() => failed(`${label}: the press outside didn't select its cell`));
+
+  // With `select`: Enter on the active cell opens it, Enter again presses
+  // its button.
+  if (select) {
+    const entered = row + 2;
+    await pressAt(page, cellAt(start, view, entered, place));
+    await selected(page, { kind: 'cells', anchor: [entered, LONG_AT], head: [entered, LONG_AT] }, 5_000).catch(() => failed(`${label}: a press didn't select (${entered}, ${LONG_AT})`));
+    await page.keyboard.press('Enter');
+    const byEnter = await popoverWhere(page, `p && p.cell.row === ${entered} && p.cell.column === ${LONG_AT}`).catch(() => null);
+    if (!byEnter) failed(`${label}: Enter on the active cell opened no popover`);
+    else {
+      placed('by Enter', byEnter, entered, true);
+      await pressed('Enter on it', await presses(), () => page.keyboard.press('Enter'));
+      notes.push('Enter opened it and Enter pressed its button');
+    }
+  }
   return `, ${notes.join('; ')}`;
 }
 
@@ -2545,7 +2699,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false, popping: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -2571,10 +2725,11 @@ try {
     if (groupHeaders) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, grouping: true })));
     if (hide) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, hiding: true })));
     if (find) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, finding: true })));
+    if (popover) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, popping: true })));
     // In every build: the base's `replace_rows`.
     runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, replacing: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}`;
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding, popping } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}${popping ? ' popover' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -2586,6 +2741,7 @@ try {
       // The find runs place each tint by the advances at the base's 14 px
       // text and its padding (`paddingAt(14)`), with `density` too.
       if (finding && density) params.density = '30,14';
+      if (popping) Object.assign(params, { popover: POPOVER_LABEL, 'popover-long': String(POPOVER_LONG) });
       if (reordering === 'reverse') params.order = 'reverse';
       // A drag is held to its group (`group-headers`): the reorder runs'
       // moves are the ungrouped table's; the group runs drag groups.
@@ -2608,7 +2764,7 @@ try {
         const { page } = session;
         // The clipboard's permissions, which a real Chrome grants a focused
         // page (the write); none to grant in an insecure context.
-        if (copying && copying !== 'insecure' && engine === chromium) await session.context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(url).origin });
+        if (((copying && copying !== 'insecure') || popping) && engine === chromium) await session.context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: new URL(url).origin });
         const first = await waitMark(page, FIRST_FRAME_MARK);
         const filled = await waitMark(page, FILLED_MARK, 0, 60_000 + 2 * heldMs);
         const { shown: start, layout } = await shown(page);
@@ -2619,6 +2775,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The popover runs check their own, from the first screen.
+        if (popping) {
+          const popped = await checkPopover(page, label, layout);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${popped}`);
+          continue;
         }
         // The find runs check their own, from the first screen.
         if (finding) {

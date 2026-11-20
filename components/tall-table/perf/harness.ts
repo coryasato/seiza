@@ -219,6 +219,58 @@ export async function stepThrough(page: Page, backward = false, timeout = 30_000
   return (await handle.jsonValue()) as Found;
 }
 
+/** With `popover`: the last press of its button (or Enter on it),
+ *  `{row, column, count}` (`count` the presses so far), replaced at each;
+ *  unset until the first. With `?perf`, `__tallTablePopoverOpen(row,
+ *  column)` opens it (the column's index; a refusal shows as no popover on
+ *  the probe), `__tallTablePopoverClose()` closes it, and
+ *  `__tallTablePopoverEnter()` sends Enter to the table, focused first. */
+export const POPOVER_BUTTON_GLOBAL = '__tallTablePopoverButton';
+export const POPOVER_OPEN_HOOK = '__tallTablePopoverOpen';
+export const POPOVER_CLOSE_HOOK = '__tallTablePopoverClose';
+export const POPOVER_ENTER_HOOK = '__tallTablePopoverEnter';
+/** With `popover`, `?popover-long=<chars>` puts the long text's column at
+ *  this index (the host's `rows::LONG_AT`), the shape's after it one on. */
+export const LONG_AT = 2;
+
+/** With `popover`, a press of its button on `POPOVER_BUTTON_GLOBAL`. */
+export interface PopoverPress {
+  row: number;
+  column: number;
+  count: number;
+}
+
+/** With `popover`: the probe once its popover satisfies `test` (given the
+ *  popover, or null for none open), the popover then. */
+export async function popoverWhere(page: Page, test: string, timeout = 10_000): Promise<Popover | null> {
+  const handle = await page.waitForFunction(
+    (test) => {
+      const s = (globalThis as Global).__tallTable;
+      if (!s || s.popover === undefined) return false;
+      // eslint-disable-next-line no-new-func
+      return new Function('p', `return ${test}`)(s.popover) ? { popover: s.popover } : false;
+    },
+    test,
+    { timeout, polling: 10 },
+  );
+  return ((await handle.jsonValue()) as { popover: Popover | null }).popover;
+}
+
+/** With `popover` and `?perf`: the popover opened on (`row`, `column`
+ *  index) through the host's hook, then the probe's once drawn there. */
+export async function popoverThrough(page: Page, row: number, column: number, timeout = 10_000): Promise<Popover> {
+  const sent = await page.evaluate(({ hook, row, column }) => (globalThis as unknown as Record<string, (row: number, column: number) => boolean>)[hook]!(row, column), { hook: POPOVER_OPEN_HOOK, row, column });
+  if (sent === false) throw new Error(`the host's popover hook refused (${row}, ${column})`);
+  return (await popoverWhere(page, `p && p.cell.row === ${row} && p.cell.column === ${column} && p.bounds[2] > 0`, timeout))!;
+}
+
+/** With `popover` and `?perf`: the popover closed through the host's hook,
+ *  then the probe showing none. */
+export async function popoverClosed(page: Page, timeout = 10_000): Promise<void> {
+  await page.evaluate((hook) => (globalThis as unknown as Record<string, () => void>)[hook]!(), POPOVER_CLOSE_HOOK);
+  await popoverWhere(page, 'p === null', timeout);
+}
+
 /** With `density` (`host/crate/src/host.rs`, `Density`): the host's
  *  default `?density=`, the dense setting: 18 px rows, 11 px text, 56 px
  *  floats. `?density=30,14` is the control, the base's numbers. */
@@ -414,8 +466,8 @@ export function buildName(features: string[]): string {
   return features.length ? features.join('+') : 'base';
 }
 
-export type { Cell, Click, CopyState, GroupCell, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
-import type { Cell, Click, CopyState, GroupCell, Layout, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+export type { Cell, Click, CopyState, GroupCell, Layout, Popover, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+import type { Cell, Click, CopyState, GroupCell, Layout, Popover, Selection, Shown, Sort } from '../host/web/src/probe.ts';
 
 type Global = {
   __tallTable?: Shown;

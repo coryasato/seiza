@@ -812,6 +812,16 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - A far landing's first frame was already filled: the bare host's pages answer at once and the jump's reads go out with it, so → drawn and → filled read the same. A source that reads slower shows the gap.
 - Kirkwood's wasm differed in its code, not only its line numbers, though it builds no `find`: part B moved `select`'s sideways bring-into-view into the state, and Kirkwood builds `select`. The same size to the byte, with wasm-bindgen's shims' function indices one apart. "No app builds the feature" isn't "no app's code changed" when a part moves shared code.
 
+## M21: the cell popover (part C, 2026-11-20)
+
+**Results:** [`perf/results/2026-11-20-m21-c.md`](../perf/results/2026-11-20-m21-c.md) (the bytes alone and with every feature, each app's, the frames with one open over the cap's text against none and built unused, the smoke check's popover run).
+
+**Surprises:**
+- The cap's cost read a third of what part B's spike predicted: 5.13 ms a frame with 10,000 characters open, where the spike read 10.4. The spike's machine was at load 6–23 and timed only the rAF callback, with no frame of the table's beside it; this run was quiet and read the same wheels with none open. A spike's numbers are for a decision's direction (the cap came down), not for the cost a host will see.
+- The long text's own column cost more than the popover over it: the protocol's scroll +1.1 ms a frame and the fling's frames doubled, because the cells' text copies and shapes each cell's whole value before cutting it. The bare host had no long values until the popover's cap needed one, so this base path was never measured with one. A host whose values are long finds it; it's a follow-up in `PLAN.md`.
+- The probe's bounds are the popover's box inside its 1 px border: its measuring canvas is an absolute child, placed in the padding box, so the smoke check's alignment read 1.5 px off (the border, and `Positioner`'s rounding to a whole px). A probe measured by a child element reports the child's box; the check says so rather than the table moving it.
+- The `popover` alone and with every feature differ in brotli by 2.7 KiB (14.7 against 17.4) while their sizes after wasm-opt agree within 1.2: brotli's share of a feature depends on what else is in the build, so the after-wasm-opt number is the one to compare across builds.
+
 ## M21: the cell popover (part B, 2026-11-20)
 
 **Results:** [`perf/results/2026-11-20-m21-b-spike.md`](../perf/results/2026-11-20-m21-b-spike.md) (the spike in three browsers, `SelectableText`'s bytes, the frames that set the cap).

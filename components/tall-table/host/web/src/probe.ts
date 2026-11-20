@@ -19,6 +19,27 @@ export interface Shown {
   /** With `find`: the term (null for none), the current match (its row
    *  and its column's index), and whether a step is out. */
   find?: { term: string | null; current: { row: number; column: number } | null; out: boolean };
+  /** With `popover`: the open popover, or null. */
+  popover?: Popover | null;
+  /** With `popover`: the drawn cue (its cell and its box), or null. */
+  cue?: { cell: { row: number; column: number }; bounds: [number, number, number, number] } | null;
+}
+
+/** With `popover`, as `tall-table-bridge`'s `js::probe` writes it: its
+ *  cell (row and column index), its bounds and its button's `[x, y,
+ *  width, height]` in CSS px of the window (`button` null without one),
+ *  below its cell or flipped above, its text's characters (the cut's "…"
+ *  among them) and whether it was cut, its scroll and its text's whole
+ *  height in px. */
+export interface Popover {
+  cell: { row: number; column: number };
+  bounds: [number, number, number, number];
+  below: boolean;
+  chars: number;
+  cut: boolean;
+  scroll: number;
+  contentHeight: number;
+  button: [number, number, number, number] | null;
 }
 
 /** With `sort`, as `tall-table-bridge`'s `js::sort` writes it: the
