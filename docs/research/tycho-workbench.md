@@ -17,7 +17,7 @@ Tycho was the first step: it proved that a canvas table over DuckDB-Wasm scrolls
 - **Decided:** it is public and useful to people outside this repo.
 - **Decided:** the table and the data are the focus of the page.
 - **Decided:** Tycho hosts a *controller*: a layer around the tall table that speaks to the database, holds the logic, and can be driven by an LLM. (Named "the controller" for the layer and "the view state" for what it holds; not "smart table".) The LLM is one driver of the app, not the app.
-- **Decided:** the page is redesigned, in a design session that follows this planning.
+- **Decided:** the page is redesigned, in a design session that follows this planning. It began 2026-11-20; what it has settled is marked below with that date, and its decisions are Tycho's `docs/DECISIONS.md`, "Scope".
 - **Decided:** Tycho's measurements are retired (the root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17).
 
 The test for every feature: does it help someone with a large file and a question?
@@ -90,20 +90,20 @@ What someone needs to check something in a large file, with no LLM anywhere:
 - **Proposed:** one catalog, three readers: the column menus, the command grammar, and the instructions an LLM is given. An LLM can ask only for what the catalog holds, which is the security boundary.
 - **Proposed:** the first profile is cheap: DuckDB's `SUMMARIZE` profiles every column in one statement, and a Parquet footer already holds each column's min, max, and null count.
 - An entry returns either a new view of the rows or a small answer (a number, a short table). Small answers show in the thread.
-- **Open, for the design session:** grouping is more than one entry. Every person in `personas.md` needs it, and a grouped result isn't a view of the file's rows: it is a new table, which can itself run to a million rows and so needs the table, not the thread. So "a result becomes a new source" is needed here, long before a SQL editor: where a grouped result appears, and how a visitor gets back to the rows.
+- **Decided (2026-11-20):** a grouped result opens as a view tab. Grouping is more than one entry: every person in `personas.md` needs it, and a grouped result isn't a view of the file's rows but a new table, which can itself run to a million rows and so needs the table, not the thread. The tab keeps the filters it was made with, and "Show rows" on a group goes back to the base rows with a filter on its key (`apps/tycho/docs/DECISIONS.md`, "Scope", 2026-11-20).
 - **Proposed:** an action has two spellings. An agent's is JSON, which models write reliably and which validates against the capability schema (`{"filter": {"column": "mass", "op": ">", "value": 10}}`). A person's is a short typed command (`filter mass > 10`) that parses to the same action. The thread shows what was typed and the action it became.
 
 ### 4. The thread
 
-- **Decided:** a thread with history and scroll, and the input beside it, in a collapsible panel at the left. Whether it earns its place is for the design session.
+- **Decided (2026-11-20):** a log with history and scroll, as a tab of the collapsible panel at the right, and the input apart from it: a command bar at the top center (`apps/tycho/docs/DECISIONS.md`, "Scope", 2026-11-20). First planned as one panel at the left with the input beside it.
 - **Decided:** the input and the replies are DOM beside the canvas.
 - **Decided:** it is a log of requests and Tycho's replies, not a conversation with a model. Every action lands in it, clicks included, so a menu click shows the command it made. A reply is the new row count, a small answer, or an error.
 - **Proposed:** each entry is a view state, so an old entry can be returned to: history and undo.
 - **Proposed:** the logic stays in Rust (the controller parses and replies); the DOM side only shows the thread. This is an exception to "everything on the canvas", to be logged as a decision with its reason: text entry, selection, Ctrl+F, screen readers, and agents all need the DOM.
 - **Decided:** the thread's input takes commands and actions, never SQL. SQL gets an editor of its own (many lines, its own errors, its own results), a later goal, with the engine's lockdown under it.
-- **Open:** the input's form. Tycho holds no model, so its input can't read natural language: that goes to the visitor's assistant, and an action comes back. A box that looks like a chat invites a sentence and answers with a parse error, so it may be better as a command bar with completion than as a chat box. For the design session.
-- For the design session: the name. "Log" or "History" says "not a chat" better than styling can.
-- For the design session: a chat layout suggests someone is answering. The page should make plain that the replies are Tycho's own and that nothing was sent to a model.
+- **Decided (2026-11-20):** the input is a command bar with completion, not a chat box. Tycho holds no model, so its input can't read natural language: that goes to the visitor's assistant, and an action comes back. A box that looks like a chat invites a sentence and answers with a parse error; the bar answers a sentence by saying what it takes and offering the context to copy.
+- **Decided (2026-11-20):** it is named "Log", which says "not a chat" better than styling can.
+- **Decided (2026-11-20):** no chat layout, which would suggest someone is answering. The log's foot says the replies are Tycho's own and that nothing is sent to a model.
 
 ### 5. How an LLM reaches it
 
