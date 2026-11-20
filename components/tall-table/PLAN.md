@@ -14,7 +14,7 @@ M1–M20, the two hardenings (between M7 and M8, and after M17), and the public 
 
 | Milestone | Title | Status |
 |---|---|---|
-| M21 | Cell popover: a cell's full value, and a button to the host's view of its row | Active: part A next |
+| M21 | Cell popover: a cell's full value, and a button to the host's view of its row | Active: part B next |
 
 A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
 
@@ -35,11 +35,7 @@ A *Planned* row's spec is its row under "Candidates"; its spec and checks are wr
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above).
-
-| Candidate | What it adds | Table's part | Engine's or host's part | Research questions |
-|---|---|---|---|---|
-| **M21. Cell popover** (Cargo name a draft: `popover`) | A cell's full value in a popover over the table, scrolled inside, the row height unchanged; a button in it asks the host to open its own view of the row. A quick look before a host's detail view, for long text and nested values (JSONL's lists, structs, and maps). Tycho's ask, replacing "Nested values": a detail panel inside the body is ruled out ("Tree rows", "Notes"), and a popover leaves the f64 row index alone | The popover: what opens and closes it, where it's placed, its scroll, its text; the button's press reported as an event (the row and the column); perhaps a cue on a cell with more to show | The value's text: a source's, a nested value pretty-printed by it (how a DuckDB `LIST`, `STRUCT`, or `MAP` becomes cells and short text is the DuckDB engine's, planned in Tycho's PLAN, "JSONL", until the engine has a PLAN); the host's detail view, opened by the button's event, in its DOM where text can be selected and found | **What it shows:** the exact text (the tooltip's and `copy`'s) wrapped, or a nested `CellValue` drawn indented. The likely first answer is text from the source, pretty-printed: a kind of its own only if that falls short, and then whether a nested value's cell wants a `ColumnKind` too (its width and cut: `[3 items]`, `{id: 4, …}`). **The tooltip:** the base's exact-value tooltip (`src/CLAUDE.md`, "One tooltip") is its smaller sibling, found by the same hit test and cleared at the same points: one grown from the other, or two. **What opens and closes it:** a press (against `select`'s press and `clicks`' `Single` and `Double`), Space or Enter on the active cell, a cue on hover (Elastic's EuiDataGrid draws an expand button on the cell); Escape, a press outside, a scroll; what a sort, `replace_rows`, a hide, a shrink, or `live`'s re-read does to an open one. **Where it's placed:** below or beside its cell, flipped at the window's edges; gpui-kit's `Popover` or the tooltip's `deferred` with `TooltipPositioner`. **The built features:** `copy` inside it (the whole value), `find`'s highlight in it, `format`'s text, `pin`, `density`. **Canvas gaps:** no partial selection and no Ctrl+F inside it, so the README says so and points to the host's view. Prior art: EuiDataGrid's cell popover, Glide Data Grid's overlays (a canvas grid, as this one is) |
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None drafted: the cell popover's research is done, and its spec is the active milestone's.
 
 ### Notes
 
@@ -54,7 +50,7 @@ Not planned; each waits for a host to ask, and is researched as any candidate is
 | Right-pinned columns | Columns fixed at the right | An extension of `pin`, which is left only | — | Only if a host asks. How `DataTable` does it (`ColumnFixed::Right`, `fixed_right`, since gpui-kit 0.9.1): [the 0.9.1 note](perf/results/2026-11-10-gpui-kit-0.9.1.md) |
 | Row pinning | Data rows kept at the top or bottom while the rest scroll | Rows drawn above or below the body, outside the scroll, read apart from the pages | Which rows are pinned, held by an identity the source gives, since the table knows only indices and `sort` (or `replace_rows`) changes what an index means | TanStack's (`row.pin('top' \| 'bottom')`, state `{ top, bottom }` of row ids, `getTopRows`/`getCenterRows`/`getBottomRows`; `keepPinnedRows`, on by default, keeps a pinned row in view when a filter drops it) pins rows by id. The table has no row identity: research first, against the footer below |
 | Footer row | A row under the body, a cell per column | The row drawn under the body, outside the f64 index, its cells formatted as their columns' (`format`) | Its values (totals, averages: an aggregate query, run again as the rows change) | TanStack's column `footer` is a render slot with no access to the rows: the app computes what it shows. Suggested as row pinning's stand-in; whether it is one is part of the research, since the two answer different asks (a summary, against a row kept in view) |
-| **Tree rows** | A flattened list in which expanding a row inserts its children below it, with an indent and a disclosure arrow, at the fixed row height | The indent, the arrow, and its press; a row's depth and whether it's open, from the page; an insert of *k* rows after row *r* (every index past *r* shifts: the pages after it are re-read or moved, what's kept by index past it moved) | Which rows exist, open or closed, in order (`GROUP BY`, a parent's children); a group's sums | Merges TanStack's grouping and aggregation and expanding. Its gap is the insert mid-list, which `set_rows` (the tail) and `replace_rows` (everything) don't cover. **Ruled out:** detail panels of variable height: they break the uniform f64 row index every scroll, jump, and page is built on (a cell's full value is the cell popover's, "Drafted"). Tycho's grouping starts as a new table (`replace_rows` with `set_columns`: the root's research, "`replace_rows`"); tree rows only if it asks for groups expanded in place |
+| **Tree rows** | A flattened list in which expanding a row inserts its children below it, with an indent and a disclosure arrow, at the fixed row height | The indent, the arrow, and its press; a row's depth and whether it's open, from the page; an insert of *k* rows after row *r* (every index past *r* shifts: the pages after it are re-read or moved, what's kept by index past it moved) | Which rows exist, open or closed, in order (`GROUP BY`, a parent's children); a group's sums | Merges TanStack's grouping and aggregation and expanding. Its gap is the insert mid-list, which `set_rows` (the tail) and `replace_rows` (everything) don't cover. **Ruled out:** detail panels of variable height: they break the uniform f64 row index every scroll, jump, and page is built on (a cell's full value is the cell popover's, the active milestone). Tycho's grouping starts as a new table (`replace_rows` with `set_columns`: the root's research, "`replace_rows`"); tree rows only if it asks for groups expanded in place |
 | Row marks | Bookmarks or tags on rows, drawn in the row-number gutter | The mark drawn in the gutter, and its press through `clicks` | Which rows are marked, held by an identity the source gives, and what a mark means (a tag, a note) | Tycho's ask, after its first release. The same gap as row pinning: the table knows only indices, and `sort` or `replace_rows` changes what an index means. Researched with row pinning, so row identity is settled once for both |
 | Column summaries in the header | A strip under each column's header: a small histogram, a null share | The strip drawn under the header, at the header's widths, from values the host gives (bins, shares), and its press through `clicks` | The profile's query (`SUMMARIZE`, a histogram); when it reruns as the rows change | Only if Tycho's design puts its column profile in the header; in a menu or its thread, the table has no part. Advice for that research: it's the footer row's sibling (a row outside the body's index, drawn from the host's values), so if both are asked for, research them together; a column's type label is the simplest thing the strip could show |
 
@@ -74,7 +70,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Cell popover | The quick look before its row detail view (its first release), and nested values in it (JSONL, after) | M21 ("Drafted") | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Cell popover | The quick look before its row detail view (its first release), and nested values in it (JSONL, after) | M21 ("Active milestone") | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
 
@@ -86,27 +82,81 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ### M21: the cell popover, a cell's full value and a button to the host's view
 
-**What it adds** (Cargo feature, its name a draft: `popover`, off by default): a cell's full value in a popover over the table, scrolled inside, the row height unchanged, and a button in it whose press the host turns into its own view of the row. Tycho waits on it, for the quick look before its row detail view (its first release) and for nested values after (JSONL). Why it's the table's and drawn by it: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-19). What's left to decide is its row's research questions under ["Candidates"](#drafted); part A answers them, and this spec, with its API and the checks B and C tighten, replaces that row.
+**What it adds** (Cargo feature `popover`, off by default): a cell's exact text in a popover below it, wrapped and scrolled inside, the row height unchanged; opened by Enter on the active cell, a cue on the cell, or the host; and a button the host labels, whose press the host turns into its own view of the row. Tycho waits on it, for the quick look before its row detail view (its first release) and for nested values after (JSONL). Why it's the table's and drawn by it: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-19, the planning discussion). The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "Cell popover (`popover`)"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-19, M21 part A; three with the owner).
+
+```rust
+/// A cell, by row and column index (`popover`): the column's index in
+/// `set_columns`' list, so it names the same column after a move.
+pub struct PopoverCell { pub row: u64, pub column: usize }
+
+impl<D: TallTableDelegate> TallTableState<D> {
+    /// Opens the popover on a cell (`popover`), closing any other. Refused
+    /// (false) unless the cell is in view, its column shown, and its page
+    /// loaded. Lets go of `follow`.
+    pub fn open_popover(&mut self, cell: PopoverCell, cx: &mut Context<Self>) -> bool;
+    pub fn close_popover(&mut self, cx: &mut Context<Self>);
+    pub fn popover(&self) -> Option<PopoverCell>;
+    /// The button's label; `None` (the default): no button.
+    pub fn set_popover_button(&mut self, label: Option<SharedString>, cx: &mut Context<Self>);
+    /// The cue drawn on the hovered and active cell (on by default), and
+    /// its icon: an SVG path from the host's assets, or `None` for the glyph.
+    pub fn set_popover_cue(&mut self, on: bool, icon: Option<SharedString>, cx: &mut Context<Self>);
+}
+
+// TallTableEvent:
+/// The popover opened on a cell, moved to another, or closed (`None`).
+Popover(Option<PopoverCell>),
+/// Its button was pressed, or Enter on it (`popover`); it closes.
+PopoverButton(PopoverCell),
+
+// TallTableProbe: `popover: Option<PopoverProbe>` (its cell, its bounds, the
+// side it's on, its text's characters and whether it was cut, its scroll and
+// content height, its button's bounds) and `cue: Option<CueProbe>` (its cell
+// and box), for scripts.
+```
+
+The shape is a sketch; part B settles names against the API review's conventions (`docs/DECISIONS.md`, "Component API") and records any change as a decision.
+
+**The rules:**
+- **The text:** the cell's exact text (`CellValue`'s: `copy`'s and the tooltip's, never `format`'s), wrapped, its line breaks as lines; a NULL as the cell's muted `NULL`; past a cap of characters, "…". The cap is set in B from a frame measured with a long text open (100,000 to start). The cells' font at `density`'s size. Selectable with gpui-base's `SelectableText` if B's spike holds (below); else plain, and Cmd+C copies the whole value.
+- **Opening:** Enter on `select`'s active cell (a `Cells` selection; otherwise Enter propagates); a press on the cue; `open_popover`. The cue is drawn inside the right end of the hovered cell, and of `select`'s active cell, when the popover shows more than the cell (rounded, cut, or with line breaks: the tooltip's rule, decided when that cell changes) or a button is set; its press is stopped (not `select`'s, not reported by `clicks`) and focuses the table. A glyph IBM Plex Sans has, or the host's SVG. Opening lets go of `follow`.
+- **Closing:** Escape (bound to see it before `select`'s `ClearSelection` and `reorder`'s `CancelMove`, propagating when none is open); Enter with no button; a press outside it, which goes on to do what it does (a cue's press on another cell moves it there); `close_popover`; `select`'s keys moving the active cell; its cell leaving the view (scrolled out, sideways, or behind `pin`'s run); a sort, `replace_rows`, `set_columns`, a `set_rows` cutting its row, a hide of its column, `close`. A move (`reorder`) keeps it, by index. `live`'s re-read of its row decides its text again when the page lands, its scroll kept, clamped.
+- **The button:** shown only with a label set; its press, or Enter on the open popover, emits `PopoverButton` and closes it.
+- **Placement:** below the cell, left edges aligned, flipped above at the window's bottom, clamped sideways (gpui-base's `Positioner::side`, an 8 px margin), from the cell's bounds each frame (the tooltip's, with `pin`'s visible part); at most `max(cell width, 400 px)` and 75% of the window wide, 50% of it tall, scrolled inside past that; a wheel over it scrolls it, not the table. At `POPUP_PRIORITY`, under the tooltip; no tooltip shows while it's open. Doesn't take focus.
+- **Drawn:** the popover surface's colors (gpui-kit's `popover`, `popover_foreground`, `border`), `shadow_lg`. The cue over its cell's text with a background of its own, under the jump's edge and `find`'s current-match edge; its look from Tycho's design canvas if it draws one, else settled with the owner in B.
+- **The built features:** `find`'s matches tinted in its text (the same rule and fold, the theme's `selection` at saturation 0.1); with the text selected, Cmd+C copies it (the table's `CopySelection` propagates); the rest as the research's "The built features".
 
 **Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part C.
 
-- **A. Research and spec** (no shipped code). The research in the root's [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section "Cell popover"; a spike in the bare host if the tooltip's path or gpui-kit's `Popover` is unclear; the decisions with the owner; the spec and API here; checks B and C written in full. Check A1.
-- **B. The feature, built and tested.** The state, the opening and closing, the placement, the drawing, the button's event, the probe, the docs, a fixture if the text it shows has rules a contender would match, the random test's step, the window tests, the bare host's hooks, the soak if it touches the paging, `pairs`. Checks B1–B4.
+- **A. Research and spec** (no shipped code). Done 2026-11-19: the research section, the decisions, this spec.
+- **B. The feature, built and tested.** First the spike (`SelectableText` in a `deferred`: a drag selects, Cmd+C copies with `copy` built, in Chromium, Firefox, and WebKit; its bytes), its outcome a decision; then the state, the opening and closing, the cue, the placement, the drawing, the button's event, the probe, the docs, the random test's step, the window tests, the bare host's hooks, `pairs`; the text cap set from a measured frame. Checks B1–B5.
 - **C. The cost and the close.** The size on its own and against the base, and on each app that builds the table; frame work with one open; the smoke check in three browsers; the README; the close-out ("Closing a milestone", above). Checks C1–C3.
 
-**Done when** (B and C in outline; part A writes them in full):
-- [ ] **A1. The research and the spec:** the research section answers each question in the candidate's row (what it shows, the tooltip, what opens and closes it, where it's placed, the built features, the canvas gaps) and reads the prior art (Elastic's EuiDataGrid, Glide Data Grid, gpui-kit's `Popover`); its decisions in `docs/DECISIONS.md`; the API and checks here; the Drafted row removed.
-- [ ] **B1. The base unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `size` shows no `popover` symbol in the base, and `size --against <M21's parent>` reports the base unchanged.
-- [ ] **B2. The feature, natively:** window tests for each rule of the spec: opening, closing, placement, what clears it, the button's event, and its meeting with each built feature.
-- [ ] **B3. The random test** (and a fixture, if the spec has one): its step runs with no existing case's draw changed, its controls fail their invariants; the soak on the final build if the paging is touched.
-- [ ] **B4. The host opens it:** the bare host's switch and hooks, so `size`, `perf`, and `smoke` measure it.
-- [ ] **C1. Its cost:** its bytes alone and with every feature, against the base, in a `perf/results/` note, and each app that builds the table in its own `perf/results/` (root `CLAUDE.md`, rule 1); frame work with a popover open while scrolling, within the spread.
-- [ ] **C2. In the browsers:** `just tall-table smoke` opens, places, scrolls, and closes it in Chromium, Firefox, and WebKit.
-- [ ] **C3. The README and waiting apps:** the README's section, its API list, the Features row and cost, the `DataTable` and TanStack tables' rows, the Canvas tradeoffs (no partial selection or find inside it); Tycho's "Waiting on" row flipped to *Ready* (2026-…, tall-table M21).
+**Done when:**
+- [x] **A1. The research and the spec:** the research section answers each question in the candidate's row (what it shows, the tooltip, what opens and closes it, where it's placed, the built features, the canvas gaps) and reads the prior art (EuiDataGrid's and Glide Data Grid's source, gpui-kit's `Popover`); its decisions in `docs/DECISIONS.md`; the API and checks here; the Drafted row removed. *Evidence:* root `docs/research/tall-table-features.md`, "Cell popover (`popover`)"; `docs/DECISIONS.md`, "Features", five entries tagged M21 part A.
+- [ ] **B1. The spike decided:** `SelectableText` in the popover selects part of a value by drag and Cmd+C copies it with `copy` built, in Chromium, Firefox, and WebKit, and its added bytes are recorded; or it fails one, and the text is plain with the whole value copied. Either way a decision in `docs/DECISIONS.md` and a note in `perf/results/`.
+- [ ] **B2. The base unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `size` shows no `popover` symbol in the base, and `size --against 8ffce13` reports the base unchanged.
+- [ ] **B3. The feature, natively:** window tests for each rule above: each way it opens (Enter on a `Cells` active cell and not on a `Rows` one, the cue's press stopped from `select` and `clicks`, `open_popover` refused out of view, on a hidden column, and on a page not loaded); each way it closes (Escape before `select`'s clear and propagated with none open, Enter with no button, a press outside going on to select, `select`'s keys, scrolled out down and sideways and behind `pin`'s run, a sort, `replace_rows`, `set_columns`, a cutting `set_rows`, a hide, `close`); a move keeping it; `live`'s re-read changing its text; the button's event by Enter and by press, by index after a move; the cue shown only when the cell has more to show or a button is set; the placement below and flipped above at the window's bottom, its width and height capped; no tooltip while open; `find`'s tints in it; the text cut at the cap.
+- [ ] **B4. The random test:** its `Popover` step from `with_popovers`, after `with_finds`, with no existing case's draw changed; `KeepPopoverOnSort` and `StalePopoverText` fail their invariants. The soak on the final build only if B touches the paging (the popover reads no page).
+- [ ] **B5. The host opens it:** the bare host's switch (`?popover`, with a button label and a long-text column for the cap) and hooks (open, close, press the button, read the probe), so `size`, `perf`, and `smoke` measure it.
+- [ ] **C1. Its cost:** its bytes alone and with every feature, against the base, in a `perf/results/` note, and each app that builds the table in its own `perf/results/` (root `CLAUDE.md`, rule 1); frame work in the protocol's scroll with a popover open over a long text, against none, within the spread (if not, the cap is lowered or the layout cached, with a decision).
+- [ ] **C2. In the browsers:** `just tall-table smoke` opens it by Enter and by the cue, places it below and flipped, scrolls its text, presses its button, selects and copies part of its text (if B1 kept `SelectableText`), and closes it by Escape and a press outside, in Chromium, Firefox, and WebKit.
+- [ ] **C3. The README and waiting apps:** the README's section, its API list and keys (Enter, Escape), the Features row and cost, the `DataTable` and TanStack tables' rows, the Canvas tradeoffs (what's selectable in it, no Ctrl+F or announcement inside, the host's view for both); Tycho's "Waiting on" row flipped to *Ready* (2026-…, tall-table M21).
 
 ---
 
 ## Follow-ups to built features
+
+### Bugs
+
+Found by the code review of 2026-11-19 (after `find` closed), each a nit; fixed in a session of their own, each with a window test (or the harness's check) that fails before its fix.
+
+- **`find`: a new term forgets the selection on screen.** After a landing, `set_find` clears the current match but not `find_state.landed`, so `find_gap` still skips the landing's selection and the next step starts from the view's top: a match above the cell the reader was on is found first. Fix: clear `landed` in `set_find` (`src/state/find.rs`, `set_find`).
+- **`find`: `select_found` records a landing that selected nothing.** It sets `landed` from the selection in effect even when `replace_selection` didn't run (no place for the column, no kind selectable), so the reader's own earlier selection is taken for the landing's and the next step ignores it. Fix: set `landed` only when the landing selected (`src/state/find.rs`, `select_found`).
+- **`find`: a `Rows` selection starts a step from its anchor, not its start.** The docs say a step starts from a `Rows` range's start (forward) or end (backward); `find_gap` uses `selection.anchor()` both ways, so a range dragged upward starts a next step past its own rows. Fix: the range's start forward and its end backward, or the docs reworded to "the anchor's row" (`src/state/find.rs`, `find_gap`).
+- **`find`: `FindQuery::matches` lowercases the term at every cell.** Sources call it once a cell (the bare host's `MemoryRows::find`, the random test), so a scan allocates and folds the term once a cell, inside the recorded 0.37 µs a cell that sized `FIND_WINDOW`. Fix: fold the term once per query (a private field, or a matcher the query returns); the bare host's scan cost re-read after (`src/find.rs`).
+- **The harness: `findThrough(page, '')` never resolves.** The hook takes `""` as no term and the probe's term becomes `null`, but the wait compares it with `""` and times out. Fix: wait for `term || null` (`perf/harness.ts`, `findThrough`).
+- **Docs: milestone IDs in the bodies of `docs/DECISIONS.md` entries** ("part A's draft", "Revises check C1's remedy", and others since 2026-10-24), where the root `CLAUDE.md` allows them only in the *[source]* tags. Fix: name the thing in each; and `check-terms` made to read `DECISIONS.md`'s bodies (outside its tags), so it can't drift again.
 
 ### `custom-cells`
 

@@ -811,3 +811,12 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - A step's own time is mostly the wait for the next frame: the table draws the match in the frame after the answer or the one after, so its medians (12–18 ms) spread 23–64% with where in the refresh the answer lands, and say nothing finer than "a frame or two".
 - A far landing's first frame was already filled: the bare host's pages answer at once and the jump's reads go out with it, so → drawn and → filled read the same. A source that reads slower shows the gap.
 - Kirkwood's wasm differed in its code, not only its line numbers, though it builds no `find`: part B moved `select`'s sideways bring-into-view into the state, and Kirkwood builds `select`. The same size to the byte, with wasm-bindgen's shims' function indices one apart. "No app builds the feature" isn't "no app's code changed" when a part moves shared code.
+
+## M21: the cell popover (part A, 2026-11-19)
+
+**Results:** no measurement; the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "Cell popover (`popover`)".
+
+**Surprises:**
+- The canvas gap the candidate assumed would stay open may not: gpui-base 0.10.0 has `SelectableText`, and gpui-kit's `Root`, which every seiza host opens, already draws the window's `TextSelectionLayer` and copies its selection on Cmd/Ctrl+C. The drafted row said "no partial selection inside it"; a bump's new parts are worth reading against the README's tradeoffs, not only against `DataTable`.
+- gpui-kit's `Popover` doesn't fit a painted cell (it wants a trigger element and owns its open state and focus), but the piece under it does: `Positioner::side` and `POPUP_PRIORITY` are public, so the table places its own popover the way the tooltip already does, with gpui-base's flip and clamp.
+- EUI's docs page for cell popovers was gone (404), and its source answered every question the docs would have (what opens it, its `downLeft` anchor, its `min(75vw, max(cell, 400px))` × `50vh` caps). For prior art, read the source first.

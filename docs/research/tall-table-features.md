@@ -1503,3 +1503,93 @@ A `Find` step (a term set or cleared, a next or previous), placed from a stream 
 - **Options a bar may offer** (match case, whole words, a regular expression): not built; the term is matched as the rule above. A host asks, and its research weighs the source's SQL for each.
 - **Find and replace:** the table is read-only (`PLAN.md`, "Editing is not on the list").
 - **A source's progress through a long scan:** a source can report it to its host; the table draws nothing for it.
+
+## Cell popover (`popover`)
+
+Researched 2026-11-19, from the table's tooltip (`src/state.rs`: `hover_at`, `decide_tooltip`, `undecide_tooltip`, `tooltip_text`, `tooltip_cell`, `render_tooltip`), its keys (`src/state.rs`'s `init`, `src/state/select.rs`, `src/state/reorder.rs`'s Escape), `clicks`' targets (`src/click.rs`, `src/state/click.rs`), `sort`'s arrow and its icons (`src/sort.rs`'s `SortIcons`), gpui-base 0.10.0's `Popover`, `Popup`, `Positioner`, `TooltipPositioner`, `SelectableText`, and `Root` (`popover.rs`, `popup.rs`, `positioner.rs`, `tooltip.rs`, `selectable_text.rs`, `root.rs`), Tycho's row detail view (its `docs/DECISIONS.md`, 2026-11-19) and its open question 17, and the prior art's source: Elastic EUI's data grid ([`data_grid_cell_popover.tsx`](https://github.com/elastic/eui/blob/main/packages/eui/src/components/datagrid/body/cell/data_grid_cell_popover.tsx), [`data_grid_cell.tsx`](https://github.com/elastic/eui/blob/main/packages/eui/src/components/datagrid/body/cell/data_grid_cell.tsx)) and Glide Data Grid ([`API.md`](https://github.com/glideapps/glide-data-grid/blob/main/packages/core/API.md), [`data-grid-overlay-editor.tsx`](https://github.com/glideapps/glide-data-grid/blob/main/packages/core/src/internal/data-grid-overlay-editor/data-grid-overlay-editor.tsx)). No spike in this research: the tooltip's path already places a `deferred` from a cell's bounds, and what's unclear (`SelectableText` in the popover, below) is spiked before the build.
+
+### What asks for it
+
+- **Tycho:** its "Waiting on" table (the cell popover). A quick look at one cell before its row detail view, which the popover's button opens; nested values in it after JSONL. The detail view is the host's DOM (Tycho's `docs/DECISIONS.md`, 2026-11-19), so the popover only has to read well and hand off.
+- **The ruled-out detail panel** ("Tree rows", "Notes" in the table's PLAN): a row grown in place breaks the uniform f64 row index. A popover over the table leaves it alone.
+- **No observatory scenario** asks for it, and TanStack Table has no popover (a cell renderer is the app's), so no feature level compares it.
+
+### What the prior art does
+
+- **EuiDataGrid:** Enter (or the rename key, F-two) on a focused cell opens it, as does an expand button (a "maximize" icon) drawn on the cell when it's hovered, focused, or open; Escape, that key again, a press outside, or the button again close it, and focus goes back to the cell. One popover for the grid, anchored below the cell at its left (`downLeft`), no arrow, at most `min(75vw, max(cell width, 400px))` wide and `50vh` tall. A `json` column's value is pretty-printed (`JSON.stringify(…, null, 2)`) in a copyable code block; other values as text. The cell's actions sit in its footer.
+- **Glide Data Grid** (a canvas grid, as this one is): a cell is "activated" by Enter, Space, a double press, or typing (`onCellActivated`); `allowOverlay` says whether an overlay editor or previewer opens over it, in a DOM portal placed at the cell's rectangle and kept on screen. Escape closes without saving, a press outside saves. Its overlay is a DOM element over the canvas, where text selection comes free.
+- **gpui-kit's `Popover`** owns its open state, its trigger's press, Enter and Space on the trigger, Escape and a press outside, and its focus, in a keyed state built around a trigger *element*. The table's cells are painted, not elements, and its open state has to follow the table's own rules (what clears it, below), so the table keeps its own state and uses the parts under `Popover`: gpui-base's `Positioner` (public: `Positioner::side(bounds)`, a side, an alignment, flipped when it doesn't fit, clamped to the window) and `POPUP_PRIORITY` (public, 100, under the tooltip's 200), in a `deferred` as the tooltip is.
+
+### What it shows
+
+**The cell's exact text**, wrapped: `CellValue`'s, what `copy` writes and the tooltip shows (a float's shortest round-trip text, a source's text as given, never `format`'s). Its line breaks are lines here, not the cell's `¶`. A NULL shows the muted `NULL` the cell draws. Text past a cap of characters ends in "…" (the tooltip's is 2,000): the cap is set in the build from a frame measured with a long text open (100,000 characters to start), and the README says the host's view shows the rest.
+
+- **Nested values: the owner chose the exact text only, now.** A source that wants a nested value's long form in the popover gives it as the cell's text today; a delegate call for a long form apart from the cell's short text (`[3 items]` in the cell, the list in the popover) is researched with Tycho's JSONL work, when the engine's nested text exists to measure. Weighed: an async `full_text(row, column)` now, as `find` reads, with its cancel and a loading state, built for a source that doesn't exist yet.
+- **The text is selectable, if the spike holds.** gpui-base 0.10.0 has `SelectableText`, plain text in the window's `TextSelection`; gpui-kit's `Root` (which every seiza host opens) draws its `TextSelectionLayer` and binds Cmd/Ctrl+C to copy it, through `writeText` in the key's task, which works for text this size (`copy`'s research, "How a copy reaches the clipboard on the web"). It would close the "no partial selection" gap inside the popover. The spike checks, in three browsers: a drag selects part of the text in a `deferred`, Cmd+C copies it with `copy` built (the table's `CopySelection` stepping aside while the popover's text holds a selection, `cx.propagate()`), and the bytes it adds. The owner chose this; if it fails, the text is plain and Cmd+C copies the whole value.
+
+### The tooltip
+
+**Two surfaces, one set of parts.** The tooltip stays as it is (a pointer at rest, read-only, only for a cell rounded, cut, or with line breaks); the popover is opened on purpose, holds a button and its own scroll, and takes presses, so one grown from the other would give the tooltip a press target and the popover a rest timer. They share: the hit test (`cell_at`), the exact text (`tooltip_text`'s first half split out), the cell's bounds in window pixels (`tooltip_cell`, with `pin`'s visible part), and the points that clear them (`undecide_tooltip`'s sites, below). While a popover is open no tooltip shows.
+
+### What opens and closes it
+
+**Opening** (the owner chose Enter, the API, and a cue):
+- **Enter on `select`'s active cell** (a `Cells` selection; a `Rows` or `Columns` one has no cell, and Enter propagates). Space stays the base's page down. Without `select`, Enter propagates.
+- **The cue:** a small button drawn inside the right end of the hovered cell, and with `select` the active cell, when the popover would show more than the cell does (the tooltip's rule: rounded, cut, or with line breaks) or when the host has set a button (so every cell reaches the host's view). EuiDataGrid's expand button. Decided when the hovered or active cell changes, by shaping that one cell, not after the tooltip's rest. Its press opens the popover on its cell, is stopped (as `sort`'s arrow's is: not reported by `clicks`, not a `select` press), and focuses the table, so Enter and Escape go to it. A glyph by default (one IBM Plex Sans has, checked as the sort arrows' were), or an SVG path from the host's assets, as `SortIcons`.
+- **`open_popover(row, column)`:** the host's, for any event of its own (`clicks`' `Double`, Tycho's question 17). Refused (false) unless the cell is in view, on a shown column, and its page loaded.
+- **Opening lets go of `follow`** as a jump does, so the cell stays put.
+
+**Closing:** Escape (the popover's action, bound after `select`'s `ClearSelection` and `reorder`'s `CancelMove` so it sees Escape first, propagating when none is open); Enter with no button set; a press outside it (the press goes on to do what it does: selects, sorts, starts a drag, is reported by `clicks`), the cue's press on another cell moving it there; `close_popover`; `select`'s keys moving the active cell (the popover was about the cell left); its cell leaving the view (scrolled out of the rows or sideways out of the cells, or behind `pin`'s run).
+
+**What's kept by index goes with it,** as find's current match: a sort, `replace_rows`, and `set_columns` close it (its row or column means another); a `set_rows` that cuts its row closes it; hiding its column (`hide`) closes it; a move (`reorder`) keeps it, by index, placed at its column's new place; `live`'s re-read of its row decides its text again when the page lands (the tooltip's `undecide_tooltip`), keeping its scroll, clamped; `close` closes it.
+
+**Enter on an open popover presses its button** (the owner chose: Enter, Enter reaches the host's view); with no button, Enter closes it.
+
+### The button
+
+The host's label (`set_popover_button(Some("Open row"))`; none by default, so no button and no app string in the table). Its press, or Enter, emits `PopoverButton { row, column }`, the column by index (as `find`'s `FoundCell`: it survives a move), and closes the popover; the host opens its view. gpui-kit's `Button` (small, ghost), its bytes measured at the close; a `div` with a press if those are many.
+
+### Where it's placed
+
+Below the cell, its left edges aligned (EuiDataGrid's `downLeft`), flipped above at the window's bottom and clamped sideways (`Positioner::side(cell).placement(Bottom).align(Start)`, a margin of 8 px as `Popup`'s), from the cell's bounds each frame (`tooltip_cell`), so it follows its cell through a scroll until the cell leaves. At most `max(cell width, 400 px)` wide and 75% of the window, 50% of the window tall (EuiDataGrid's), the text scrolled inside past that; a wheel over it scrolls it, not the table (`occlude`). The cells' font and size (`density`), the popover surface's colors (gpui-kit's `popover`, `popover_foreground`, `border`), and the tooltip's `shadow_lg` (it blended into dense rows with less). At `POPUP_PRIORITY`. It doesn't take focus: the table keeps it, so Escape, Enter, and the arrows reach the table's context, and `SelectableText`'s selection is the window's.
+
+### The built features
+
+- **`select`:** Enter opens on the active cell; its keys close it. A press outside selects as always.
+- **`copy`:** with the popover's text holding a selection, Cmd+C copies it (`Root`'s); else the table's selection, as today.
+- **`find`:** the term's matches tinted in the popover's text by the same rule and fold (`SelectableText::highlights`, the theme's `selection` at saturation 0.1); no current-match edge inside.
+- **`format`:** the exact text, not the format's, as the tooltip and `copy`.
+- **`pin`:** placed from the cell's visible part; a cell scrolled behind the run closes it.
+- **`density`:** the text, the cue, and the button at the sizes in effect.
+- **`custom-cells`:** none of the cell's paint in the popover; the cue drawn over a fill.
+- **`clicks`:** a press outside is reported as always; presses inside the popover and on the cue aren't.
+- **`resize`, `reorder`, `group-headers`, `sort`'s arrow:** a press starting any of them is a press outside, so it closes. **`live`, `follow`, the paging:** above; the popover reads no page.
+
+### What's drawn, and where
+
+Among the layers: the cue over its cell's text (and `custom-cells`' fill), with a background of its own so the text it covers doesn't show through, under the jump's edge and `find`'s current-match edge. Its look follows Tycho's design canvas if it draws one (else the theme's `secondary` and `muted_foreground`, settled with the owner in the build). The popover over everything but the tooltip.
+
+### Frame-work risk
+
+- **The cue:** one cell shaped per hover change (the tooltip shapes the same at rest); nothing per frame while the pointer is still. A fling under a still pointer changes the hovered cell each frame only if the hover follows the scroll, which it doesn't today (`hover_at` runs on pointer moves).
+- **An open popover:** its wrapped text laid out each frame it's drawn (GPUI caches a shaped line across frames); a long text is the risk, so the cap is set from a frame measured with one. Measured at the close: the protocol's scroll with a popover open over a long text, against none.
+
+### Canvas gaps
+
+- **Text selection:** inside the popover, if the spike holds (above); else none, and the README points to the host's view.
+- **Ctrl+F:** the browser's find can't see the popover's text either; `find`'s tints show the table's term in it. The host's view is where the browser finds.
+- **Accessibility:** the popover isn't announced (the canvas's gap, README); a host's view of the row is DOM.
+
+### What a DOM contender does
+
+No observatory level (no scenario; TanStack has no popover). No fixture: the text is the cell's exact text, which the cell fixture pins already; placement and closing are the window tests'.
+
+### What the random test gains
+
+A `Popover` step (open on a drawn cell, close, press its button), placed from a stream of its own (`with_popovers`) after `with_finds`, so no case's draw changes. Invariants: an open popover's cell is in view, on a shown column, loaded, and its text is the exact text of the page drawn (of the era in effect); none is open after a sort, a `replace_rows`, a `set_columns`, a hide of its column, or a cut past its row. Controls: `KeepPopoverOnSort` (left open across a sort, its old text drawn) and `StalePopoverText` (not decided again when its page is re-read). The popover reads no page, so the soak isn't needed unless the build touches the paging.
+
+### What it leaves out
+
+- **A long form for nested values:** with Tycho's JSONL work (above).
+- **Cell actions in the popover** (EuiDataGrid's footer: filter by this value, copy): one host button now; more when a host asks.
+- **Opening on a cell out of view or not loaded:** refused; a host jumps first.
