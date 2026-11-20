@@ -1,0 +1,1063 @@
+{
+  "date": "2026-11-19",
+  "label": "m20-c-frames-find-none-reference",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.10.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "protocol": {
+    "browser": "chromium headless=new",
+    "viewport": "1440x900",
+    "dpr": 2,
+    "runs": 10,
+    "cold": true,
+    "scroll": {
+      "px": 300,
+      "everyMs": 16,
+      "steps": 125
+    },
+    "flingMs": 3000,
+    "find": null,
+    "restSliceMs": 10000,
+    "tailMs": 300,
+    "build": "find",
+    "cells": null
+  },
+  "results": {
+    "wide": {
+      "reference": {
+        "runs": [
+          {
+            "scroll": {
+              "frames": 146,
+              "workP50Ms": 4.21,
+              "workP95Ms": 5.71,
+              "workMaxMs": 7.69,
+              "busyMs": 622.82,
+              "outsideFramesMs": 50.01,
+              "recorder": {
+                "frames": 124,
+                "p50Ms": 4.18,
+                "p95Ms": 5.23
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 124,
+                "perSecond": 58.32,
+                "ofRafsPct": 96.88
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2426.3,
+              "reached": true
+            },
+            "fling": {
+              "frames": 201,
+              "workP50Ms": 4.55,
+              "workP95Ms": 5.9,
+              "workMaxMs": 12.28,
+              "busyMs": 1811.71,
+              "outsideFramesMs": 879.65,
+              "recorder": {
+                "frames": 182,
+                "p50Ms": 4.83,
+                "p95Ms": 5.54
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 182,
+                "perSecond": 59.43,
+                "ofRafsPct": 98.91
+              },
+              "placeholderPct": 44.55,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3362.27,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 185,
+              "workP50Ms": 4.42,
+              "workP95Ms": 5.69,
+              "workMaxMs": 9.71,
+              "busyMs": 829.47,
+              "outsideFramesMs": 41.04,
+              "recorder": {
+                "frames": 167,
+                "p50Ms": 4.09,
+                "p95Ms": 5.71
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 167,
+                "perSecond": 59.87,
+                "ofRafsPct": 99.4
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3089.2,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 144,
+              "workP50Ms": 4.74,
+              "workP95Ms": 5.77,
+              "workMaxMs": 8.09,
+              "busyMs": 666.03,
+              "outsideFramesMs": 43.78,
+              "recorder": {
+                "frames": 125,
+                "p50Ms": 4.36,
+                "p95Ms": 5.32
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 125,
+                "perSecond": 59.14,
+                "ofRafsPct": 98.43
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2413.52,
+              "reached": true
+            },
+            "fling": {
+              "frames": 201,
+              "workP50Ms": 4.72,
+              "workP95Ms": 6.15,
+              "workMaxMs": 6.98,
+              "busyMs": 1811.32,
+              "outsideFramesMs": 876.73,
+              "recorder": {
+                "frames": 183,
+                "p50Ms": 5,
+                "p95Ms": 5.74
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 183,
+                "perSecond": 59.74,
+                "ofRafsPct": 99.46
+              },
+              "placeholderPct": 45.05,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3363.12,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 184,
+              "workP50Ms": 4.43,
+              "workP95Ms": 6.43,
+              "workMaxMs": 13.57,
+              "busyMs": 837.6,
+              "outsideFramesMs": 41.51,
+              "recorder": {
+                "frames": 166,
+                "p50Ms": 4.1,
+                "p95Ms": 5.86
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 33.32
+              },
+              "latePct": 0.54,
+              "presented": {
+                "frames": 166,
+                "perSecond": 59.36,
+                "ofRafsPct": 99.4
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3096.27,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 149,
+              "workP50Ms": 4.86,
+              "workP95Ms": 6.13,
+              "workMaxMs": 7.35,
+              "busyMs": 670.27,
+              "outsideFramesMs": 43.75,
+              "recorder": {
+                "frames": 119,
+                "p50Ms": 4.6,
+                "p95Ms": 5.9
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 119,
+                "perSecond": 54.25,
+                "ofRafsPct": 90.15
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2493.59,
+              "reached": true
+            },
+            "fling": {
+              "frames": 203,
+              "workP50Ms": 4.79,
+              "workP95Ms": 6.13,
+              "workMaxMs": 8.04,
+              "busyMs": 1804.66,
+              "outsideFramesMs": 864.17,
+              "recorder": {
+                "frames": 184,
+                "p50Ms": 4.63,
+                "p95Ms": 5.76
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 184,
+                "perSecond": 59.98,
+                "ofRafsPct": 100
+              },
+              "placeholderPct": 45.05,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3367.54,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 185,
+              "workP50Ms": 4.51,
+              "workP95Ms": 5.74,
+              "workMaxMs": 8.63,
+              "busyMs": 822.36,
+              "outsideFramesMs": 41.4,
+              "recorder": {
+                "frames": 167,
+                "p50Ms": 4.14,
+                "p95Ms": 5.24
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 167,
+                "perSecond": 59.7,
+                "ofRafsPct": 99.4
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3097.38,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 144,
+              "workP50Ms": 4.75,
+              "workP95Ms": 5.92,
+              "workMaxMs": 8.36,
+              "busyMs": 668.69,
+              "outsideFramesMs": 45.87,
+              "recorder": {
+                "frames": 125,
+                "p50Ms": 4.39,
+                "p95Ms": 5.44
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 125,
+                "perSecond": 59.31,
+                "ofRafsPct": 98.43
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2407.61,
+              "reached": true
+            },
+            "fling": {
+              "frames": 201,
+              "workP50Ms": 4.62,
+              "workP95Ms": 6.14,
+              "workMaxMs": 13.06,
+              "busyMs": 1829.74,
+              "outsideFramesMs": 872.36,
+              "recorder": {
+                "frames": 182,
+                "p50Ms": 5.3,
+                "p95Ms": 5.78
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 182,
+                "perSecond": 59.34,
+                "ofRafsPct": 98.91
+              },
+              "placeholderPct": 45.54,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3367.06,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 184,
+              "workP50Ms": 4.41,
+              "workP95Ms": 5.71,
+              "workMaxMs": 12.46,
+              "busyMs": 817.56,
+              "outsideFramesMs": 41.15,
+              "recorder": {
+                "frames": 166,
+                "p50Ms": 4.07,
+                "p95Ms": 5.21
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 166,
+                "perSecond": 59.59,
+                "ofRafsPct": 99.4
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3085.53,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 145,
+              "workP50Ms": 4.72,
+              "workP95Ms": 5.93,
+              "workMaxMs": 13.8,
+              "busyMs": 664.39,
+              "outsideFramesMs": 46.44,
+              "recorder": {
+                "frames": 123,
+                "p50Ms": 4.39,
+                "p95Ms": 5.45
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 123,
+                "perSecond": 57.9,
+                "ofRafsPct": 96.09
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2424.22,
+              "reached": true
+            },
+            "fling": {
+              "frames": 200,
+              "workP50Ms": 4.62,
+              "workP95Ms": 6.03,
+              "workMaxMs": 14.85,
+              "busyMs": 1840.17,
+              "outsideFramesMs": 889.87,
+              "recorder": {
+                "frames": 181,
+                "p50Ms": 5.16,
+                "p95Ms": 5.66
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 33.34
+              },
+              "latePct": 1.01,
+              "presented": {
+                "frames": 181,
+                "perSecond": 59.04,
+                "ofRafsPct": 99.45
+              },
+              "placeholderPct": 45,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3365.48,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 184,
+              "workP50Ms": 4.37,
+              "workP95Ms": 6.14,
+              "workMaxMs": 20.55,
+              "busyMs": 834.9,
+              "outsideFramesMs": 41.42,
+              "recorder": {
+                "frames": 165,
+                "p50Ms": 4.04,
+                "p95Ms": 5.83
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 33.32
+              },
+              "latePct": 0.54,
+              "presented": {
+                "frames": 165,
+                "perSecond": 58.95,
+                "ofRafsPct": 98.8
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3099.06,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 148,
+              "workP50Ms": 4.75,
+              "workP95Ms": 5.81,
+              "workMaxMs": 7.34,
+              "busyMs": 661.93,
+              "outsideFramesMs": 43.64,
+              "recorder": {
+                "frames": 124,
+                "p50Ms": 4.39,
+                "p95Ms": 5.27
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 124,
+                "perSecond": 57.28,
+                "ofRafsPct": 95.38
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2464.85,
+              "reached": true
+            },
+            "fling": {
+              "frames": 202,
+              "workP50Ms": 4.72,
+              "workP95Ms": 5.93,
+              "workMaxMs": 11.09,
+              "busyMs": 1783.68,
+              "outsideFramesMs": 848.2,
+              "recorder": {
+                "frames": 183,
+                "p50Ms": 5.14,
+                "p95Ms": 5.6
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 183,
+                "perSecond": 59.64,
+                "ofRafsPct": 99.46
+              },
+              "placeholderPct": 45.05,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3368.57,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 185,
+              "workP50Ms": 4.53,
+              "workP95Ms": 5.66,
+              "workMaxMs": 10.45,
+              "busyMs": 834.34,
+              "outsideFramesMs": 40.43,
+              "recorder": {
+                "frames": 166,
+                "p50Ms": 4.26,
+                "p95Ms": 5.39
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 166,
+                "perSecond": 59.8,
+                "ofRafsPct": 99.4
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3075.86,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 148,
+              "workP50Ms": 4.71,
+              "workP95Ms": 5.79,
+              "workMaxMs": 8.48,
+              "busyMs": 670.13,
+              "outsideFramesMs": 47.85,
+              "recorder": {
+                "frames": 124,
+                "p50Ms": 4.35,
+                "p95Ms": 5.6
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 124,
+                "perSecond": 57.22,
+                "ofRafsPct": 95.38
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2466.98,
+              "reached": true
+            },
+            "fling": {
+              "frames": 201,
+              "workP50Ms": 4.91,
+              "workP95Ms": 6.11,
+              "workMaxMs": 11.11,
+              "busyMs": 1814.41,
+              "outsideFramesMs": 860.9,
+              "recorder": {
+                "frames": 183,
+                "p50Ms": 4.89,
+                "p95Ms": 5.74
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 183,
+                "perSecond": 59.83,
+                "ofRafsPct": 99.46
+              },
+              "placeholderPct": 45.05,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3358.7,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 184,
+              "workP50Ms": 4.51,
+              "workP95Ms": 6.01,
+              "workMaxMs": 10.26,
+              "busyMs": 835.37,
+              "outsideFramesMs": 41.08,
+              "recorder": {
+                "frames": 166,
+                "p50Ms": 4.17,
+                "p95Ms": 5.69
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 33.33
+              },
+              "latePct": 0.55,
+              "presented": {
+                "frames": 166,
+                "perSecond": 59.56,
+                "ofRafsPct": 100
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3087.22,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 150,
+              "workP50Ms": 4.86,
+              "workP95Ms": 5.97,
+              "workMaxMs": 7.79,
+              "busyMs": 677.51,
+              "outsideFramesMs": 45.96,
+              "recorder": {
+                "frames": 123,
+                "p50Ms": 4.48,
+                "p95Ms": 5.42
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 123,
+                "perSecond": 56.09,
+                "ofRafsPct": 93.18
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2492.98,
+              "reached": true
+            },
+            "fling": {
+              "frames": 199,
+              "workP50Ms": 4.67,
+              "workP95Ms": 6.37,
+              "workMaxMs": 20.34,
+              "busyMs": 1870.74,
+              "outsideFramesMs": 910.99,
+              "recorder": {
+                "frames": 179,
+                "p50Ms": 5.18,
+                "p95Ms": 5.8
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 33.34
+              },
+              "latePct": 1.51,
+              "presented": {
+                "frames": 179,
+                "perSecond": 58.11,
+                "ofRafsPct": 98.35
+              },
+              "placeholderPct": 45,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3380.56,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 183,
+              "workP50Ms": 4.47,
+              "workP95Ms": 5.64,
+              "workMaxMs": 11.79,
+              "busyMs": 823.88,
+              "outsideFramesMs": 40.25,
+              "recorder": {
+                "frames": 164,
+                "p50Ms": 4.11,
+                "p95Ms": 5.27
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 33.33
+              },
+              "latePct": 0.55,
+              "presented": {
+                "frames": 164,
+                "perSecond": 58.95,
+                "ofRafsPct": 98.8
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3082.19,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 152,
+              "workP50Ms": 4.92,
+              "workP95Ms": 6.24,
+              "workMaxMs": 27.27,
+              "busyMs": 716.33,
+              "outsideFramesMs": 50.25,
+              "recorder": {
+                "frames": 122,
+                "p50Ms": 4.63,
+                "p95Ms": 5.77
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 122,
+                "perSecond": 54.3,
+                "ofRafsPct": 90.37
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2546.84,
+              "reached": true
+            },
+            "fling": {
+              "frames": 201,
+              "workP50Ms": 4.52,
+              "workP95Ms": 6.13,
+              "workMaxMs": 17.54,
+              "busyMs": 1830.63,
+              "outsideFramesMs": 873.72,
+              "recorder": {
+                "frames": 181,
+                "p50Ms": 5.11,
+                "p95Ms": 5.75
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 181,
+                "perSecond": 59.29,
+                "ofRafsPct": 98.91
+              },
+              "placeholderPct": 44.78,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3352.9,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 183,
+              "workP50Ms": 4.46,
+              "workP95Ms": 5.89,
+              "workMaxMs": 11.24,
+              "busyMs": 833.82,
+              "outsideFramesMs": 42.09,
+              "recorder": {
+                "frames": 163,
+                "p50Ms": 4.13,
+                "p95Ms": 5.55
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 33.33
+              },
+              "latePct": 1.1,
+              "presented": {
+                "frames": 163,
+                "perSecond": 58.77,
+                "ofRafsPct": 98.79
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3073.47,
+              "reached": true
+            }
+          },
+          {
+            "scroll": {
+              "frames": 148,
+              "workP50Ms": 4.77,
+              "workP95Ms": 6.16,
+              "workMaxMs": 9.11,
+              "busyMs": 668.81,
+              "outsideFramesMs": 46.78,
+              "recorder": {
+                "frames": 121,
+                "p50Ms": 4.44,
+                "p95Ms": 5.95
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 121,
+                "perSecond": 55.74,
+                "ofRafsPct": 92.37
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 308,
+                "max": 308
+              },
+              "windowMs": 2470.71,
+              "reached": true
+            },
+            "fling": {
+              "frames": 203,
+              "workP50Ms": 4.61,
+              "workP95Ms": 6.08,
+              "workMaxMs": 11.86,
+              "busyMs": 1839.02,
+              "outsideFramesMs": 883.78,
+              "recorder": {
+                "frames": 183,
+                "p50Ms": 5.18,
+                "p95Ms": 5.72
+              },
+              "intervals": {
+                "p50Ms": 16.66,
+                "p95Ms": 16.67,
+                "maxMs": 16.67
+              },
+              "latePct": 0,
+              "presented": {
+                "frames": 183,
+                "perSecond": 59.27,
+                "ofRafsPct": 98.92
+              },
+              "placeholderPct": 45.32,
+              "cells": {
+                "p50": 308,
+                "max": 319
+              },
+              "windowMs": 3387.55,
+              "reached": true
+            },
+            "hfling": {
+              "frames": 185,
+              "workP50Ms": 4.45,
+              "workP95Ms": 7.42,
+              "workMaxMs": 12.94,
+              "busyMs": 849.39,
+              "outsideFramesMs": 45.66,
+              "recorder": {
+                "frames": 164,
+                "p50Ms": 4.11,
+                "p95Ms": 6.79
+              },
+              "intervals": {
+                "p50Ms": 16.67,
+                "p95Ms": 16.67,
+                "maxMs": 33.34
+              },
+              "latePct": 0.54,
+              "presented": {
+                "frames": 164,
+                "perSecond": 58.55,
+                "ofRafsPct": 98.2
+              },
+              "placeholderPct": 0,
+              "cells": {
+                "p50": 336,
+                "max": 336
+              },
+              "windowMs": 3100.93,
+              "reached": true
+            }
+          }
+        ],
+        "summary": {
+          "scroll": {
+            "frames": 148,
+            "workP50Ms": 4.75,
+            "workP95Ms": 5.92,
+            "workMaxMs": 8.22,
+            "busyMs": 668.75,
+            "outsideFramesMs": 46.2,
+            "recorder.frames": 123.5,
+            "recorder.p50Ms": 4.39,
+            "recorder.p95Ms": 5.45,
+            "intervals.p50Ms": 16.66,
+            "intervals.p95Ms": 16.67,
+            "intervals.maxMs": 16.67,
+            "latePct": 0,
+            "presented.frames": 123.5,
+            "presented.perSecond": 57.25,
+            "presented.ofRafsPct": 95.38,
+            "placeholderPct": 0,
+            "cells.p50": 308,
+            "cells.max": 308,
+            "windowMs": 2465.91,
+            "notReached": 0
+          },
+          "fling": {
+            "frames": 201,
+            "workP50Ms": 4.64,
+            "workP95Ms": 6.12,
+            "workMaxMs": 12.07,
+            "busyMs": 1822.08,
+            "outsideFramesMs": 875.23,
+            "recorder.frames": 182.5,
+            "recorder.p50Ms": 5.13,
+            "recorder.p95Ms": 5.74,
+            "intervals.p50Ms": 16.66,
+            "intervals.p95Ms": 16.67,
+            "intervals.maxMs": 16.67,
+            "latePct": 0,
+            "presented.frames": 182.5,
+            "presented.perSecond": 59.39,
+            "presented.ofRafsPct": 99.19,
+            "placeholderPct": 45.05,
+            "cells.p50": 308,
+            "cells.max": 319,
+            "windowMs": 3366.27,
+            "notReached": 0
+          },
+          "hfling": {
+            "frames": 184,
+            "workP50Ms": 4.46,
+            "workP95Ms": 5.81,
+            "workMaxMs": 11.52,
+            "busyMs": 834.08,
+            "outsideFramesMs": 41.27,
+            "recorder.frames": 166,
+            "recorder.p50Ms": 4.11,
+            "recorder.p95Ms": 5.62,
+            "intervals.p50Ms": 16.67,
+            "intervals.p95Ms": 16.67,
+            "intervals.maxMs": 33.32,
+            "latePct": 0.54,
+            "presented.frames": 166,
+            "presented.perSecond": 59.46,
+            "presented.ofRafsPct": 99.4,
+            "placeholderPct": 0,
+            "cells.p50": 336,
+            "cells.max": 336,
+            "windowMs": 3088.21,
+            "notReached": 0
+          }
+        }
+      }
+    }
+  },
+  "failures": []
+}

@@ -10,11 +10,11 @@ What's next for the tall table: the candidates for its next features, the active
 
 ## Status
 
-M1–M19, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-18: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, and `hide`, its column visibility ([`docs/milestones.md`](docs/milestones.md)).
+M1–M20, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-19: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, and `find`, its search that keeps every row ([`docs/milestones.md`](docs/milestones.md)).
 
 | Milestone | Title | Status |
 |---|---|---|
-| M20 | Find: step through matches, every row kept | Active: parts A and B done (2026-11-18, 2026-11-19), part C next |
+| — | None active: every candidate waits for a host ("Candidates", "Notes") | — |
 
 A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
 
@@ -35,7 +35,7 @@ A *Planned* row's spec is its row under "Candidates"; its spec and checks are wr
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None now: find, the last, is the active milestone.
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None now: find, the last, was built in M20.
 
 ### Notes
 
@@ -71,8 +71,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Find | Search that keeps every row | M20 | *Not ready* |
-| Tycho | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
 | Tycho | Nested values | JSONL, after its first release | Not planned ("Notes") | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
 
@@ -82,102 +81,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-### M20: `find`, matches stepped through with every row kept
-
-**What it adds** (Cargo feature `find`, off by default): a term the host sets is highlighted in the cells drawn, and the host's bar steps to the next or previous match, which the source finds in every row, loaded or not; the current match is brought into view and marked apart. Tycho waits on it; it's the route to closing the README's Ctrl+F gap. The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "Find (`find`)"; the spike's numbers: [`perf/results/2026-11-18-m20-a-spike.md`](perf/results/2026-11-18-m20-a-spike.md); the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-18, M20 part A; four with the owner).
-
-```rust
-/// A cell, by row and column index (`find`).
-pub struct FoundCell { pub row: u64, pub column: usize }
-
-/// What the table asks a source to find (`find`): the first cell, in
-/// `columns`' order along each row, then row by row (backward: the last),
-/// strictly after `after` and up to `until` inclusive, whose exact text
-/// contains `term`, both lowercased. A NULL never matches.
-pub struct FindQuery {
-    pub term: SharedString,
-    /// The shown columns, by index, in their drawn order.
-    pub columns: Vec<usize>,
-    /// None: from the first row's first cell (backward: the last's last).
-    pub after: Option<FoundCell>,
-    /// None: to the last row (backward: the first).
-    pub until: Option<FoundCell>,
-    pub backward: bool,
-}
-
-pub type FindLoad = Pin<Box<dyn Future<Output = Result<Option<FoundCell>, PageError>>>>;
-
-// TallTableDelegate:
-/// Starts a find (`find`), a read like `load_page`: its request from the
-/// same ids, cancelled through `cancel`, its load resolving after a cancel.
-/// `None` refuses (the default). A long scan should run in windows, so a
-/// cancel stops it and page reads go between them.
-fn find(&mut self, query: &FindQuery, cx: &mut App) -> Option<(Self::Request, FindLoad)> { None }
-
-impl<D: TallTableDelegate> TallTableState<D> {
-    /// Sets the term (`None` or empty: no find): highlighted in the drawn
-    /// cells; a find out cancelled, the current match forgotten. The same
-    /// term again changes nothing.
-    pub fn set_find(&mut self, term: Option<SharedString>, cx: &mut Context<Self>);
-    /// Steps to the next or previous match: `FindStarted`, then `Found`.
-    /// Ignored with no term or a find out.
-    pub fn find_next(&mut self, cx: &mut Context<Self>);
-    pub fn find_previous(&mut self, cx: &mut Context<Self>);
-    pub fn find_term(&self) -> Option<&SharedString>;
-    pub fn current_match(&self) -> Option<FoundCell>;
-}
-
-// TallTableEvent:
-/// A step started (`find`): the host's bar can show it pending.
-FindStarted,
-/// A step ended (`find`).
-Found(FindOutcome),
-
-pub enum FindOutcome {
-    /// The current match, and whether it came round from the other end.
-    Match { cell: FoundCell, wrapped: bool },
-    /// No cell matches in any row.
-    NoMatch,
-    /// The delegate refused (`find` returned `None`).
-    Refused,
-    /// Its read failed: the message, as a page's.
-    Failed(SharedString),
-    /// Cancelled before it answered: a new term, a sort, `replace_rows`,
-    /// `set_columns`, a move, a hide, or `close`.
-    Cancelled,
-}
-```
-
-The spec below is what part B builds; why each rule is so is in the decisions and the research. Names may be tightened in part B's code review; the rules hold.
-
-- **The match:** a cell's exact text (`CellValue`'s `Display`: what `copy` writes and the tooltip shows) contains the term, both lowercased with `str::to_lowercase`, a final sigma `ς` taken as `σ` (part B's code review); no NULL matches; an empty term is no find. The fold is taken a character at a time, keeping where each folded character came from, so a match's range maps back to whole characters of the text it was found in (`İ` folds to three bytes from two). The source decides which cell is next; the table, what it highlights, by this rule over each drawn cell. Where a source's text differs (DuckDB's exponents, a few case folds), the found cell is still the current match, and the README says so.
-- **The columns:** the shown ones (`LaidOutColumn::shown`), by index in their drawn order (with `reorder`, its places' order); hidden columns aren't searched.
-- **The step:** from whichever was set last of the current match and, with `select`, the reader's own selection (a `Cells` range's active cell; a `Rows` range's active row, searched from before its first shown cell forward, or after its last backward; a `Columns` range doesn't count, nor a selection the landing made); with neither, the cell before the top row's first shown cell (forward) or that cell (backward). `after` and `until` always name a column in `columns`: a start on a hidden column (a current match or an active cell hidden since) is taken at the nearest shown cell before its place in drawn order (forward; after it, backward), the row before's last (the row after's first) if none, or none at the first row (the last). One find out at a time, not counted in `max_in_flight`, never waited on by the plan. With no match to the end, a second ask from the other end `until` the start cell, inclusive (`wrapped`), unless the first started at the end it would come round from (`after` none), which has searched every row already; none in either, `NoMatch`. `FindStarted` once per step, `Found` once.
-- **The landing:** an answer at or past the row count is taken as none to the end (a source's tail that grew during its scan, its `set_rows` still to come), so the wrap still asks; revised in part B's code review (`docs/DECISIONS.md`). The current match is set; a row fully in view doesn't scroll, else it lands as `jump_to` lands (at the top, clamped at the end); its column comes into view sideways unless pinned. The bring-into-view (`select`'s `scroll_into_view`, pin- and hide-aware) moves to the base, written once for both builds. With `select`, the found cell is selected itself, not as `jump_select` picks: with cells on, the cell (row and the found column), else with rows on, its row (`Selected`); a `Columns`-only selection is left. The jump's `marked` row isn't set: the current match has its own mark. With `follow`, following lets go, as at a jump.
-- **What cancels and forgets:** `set_find` cancels a find out and forgets the current match. A sort, `replace_rows`, and `set_columns` cancel and forget; the next step starts from the view's top. A `set_rows` that shrinks the rows cancels a find out (its rows and `until` were of the old count) and forgets a current match it cuts; one that grows keeps both (the step doesn't reach the new rows). A move (`reorder`) and a hide or show (`hide`) cancel and keep the current match by index; a hidden current match isn't drawn, and the next step starts from it. `live`'s invalidation keeps it. `close` cancels; a step on a closed table is ignored. Every cancel emits `Found(Cancelled)`; the find's answer, if it still comes, is dropped.
-- **What's drawn:** in the cells' text layer, before the glyphs (`cells_text`), over `select`'s tint: each occurrence of the term in a matching cell's drawn text (after a format and the cut), its range from the shaped line's offsets, in the theme's `selection` at saturation 0.1; a matching cell whose drawn text doesn't show the term (rounded, formatted, past the "…"), its whole box in the same color. The current match, whether or not the table's rule matches it (the source found it; `live` may have changed it since): its ranges in `selection` where its drawn text shows the term, else its whole box in `selection`, and its cell edged in the theme's `ring`, over the text: not `table_active_border`, the active cell's edge, which a reader's key moves away from the match. A cell not loaded draws nothing.
-- **No keys:** the table binds none; the host's bar takes Ctrl/Cmd+F, Enter, Shift+Enter, and Escape. The README's keys section says so, and that a host's Ctrl+F that propagates lets the browser's find open.
-- **The probe:** each `CellProbe` gains `found` (none, `Ranges(Vec<Range<usize>>)` of the drawn text, or `Cell`) and `current`; the probe gains `find` (the term, the current match, whether a find is out).
-- **The docs:** the README's "Finding" (the rule, the columns, the step, the landing, the source's windows and its cost, the two texts' differences, the host's keys), its API table, the Features table's row, the `DataTable` table's row (none in 0.10.0) and the TanStack table's (none; its global filter is `replace_rows`), its limits, and the Canvas tradeoffs' Ctrl+F row.
-- **The fixture:** `find.json` (new, `fixtures/README.md` says what it is): the match rule (an exact text, a term, matches or not: case, NULL, a float's text, a term past the "…"); the drawn ranges (a drawn text, a term, the ranges or `cell`: rounded, formatted, cut at the end and in the middle, a character whose fold is longer, `İstanbul`); the steps (a grid of exact texts, the columns' drawn order, a start, a direction: the cell and `wrapped`, `NoMatch`). Its controls: `CaseSensitive` (the test without the fold), `CutRanges` (ranges from the exact text, not the drawn), `NoWrap`. No contender runs it (no observatory level); the DuckDB engine checks its find SQL against the rule and steps when Tycho adopts the feature.
-- **The random test:** a `Find` step (`set_find` with a term drawn from the source's texts or none, `find_next`, `find_previous`), placed from `with_finds` after `with_hides`, no case's draw changed. The source answers a find from its rows of its era after a delay, and resolves a cancelled one. Invariants: a landed match is a matching cell of the era in effect; one find out at most; `Found` once per `FindStarted`; every drawn tint but the current match's is on a cell matching by the rule, every drawn matching cell is tinted. Controls `KeepFindOnSort` and `CaseSensitive`, each failing its invariant. The soak on the final build (a find shares the pages' request ids and `cancel`).
-- **The bare host:** `?find=<term>` and `__tallTableFind(term)`, `__tallTableFindNext()`, `__tallTableFindPrevious()` with `?perf`; its source finds over its rows in windows, `?delay` per window, for the size, frame, and smoke runs.
-
-**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part C.
-
-- **A. Research and spec** (no shipped code). *Done 2026-11-18.* The research, the spike, four decisions with the owner, this spec; revised the same day after its code review (the landing selecting the found cell, not `jump_select`'s; the step's start, the later of the match and the reader's selection; a start on a hidden column; a shrink cancelling a find; no wrap from the first row; the fold's offsets; the bring-into-view moved to the base; the current match drawn whole when the rule doesn't match it, and edged in `ring`). Check A1.
-- **B. The feature, built and tested.** *Done 2026-11-19.* The delegate's call, the state, the step and its cancels, the landing, the drawing, the probe, the docs, the fixture, the random test, the window tests, the bare host's hooks, the soak, `pairs`. Checks B1–B4.
-- **C. The cost and the close.** The size on its own and against the base, and on each app that builds the table; the wide shape's frames with a term set; a step's time to its frame; the smoke check in three browsers; the README; the close-out ("Closing a milestone", above). Checks C1–C3.
-
-**Done when:**
-- [x] **A1. The research and the spec:** the research in the root's `docs/research/tall-table-features.md`, "Find (`find`)"; its decisions in `docs/DECISIONS.md`; the API and the checks here. *Evidence (2026-11-18):* the research section (neither `DataTable` 0.10.0 nor TanStack has a find; gpui-kit's editor search as the drawing's model; the two texts and which decides what; the source's cost; the delegate's call; the step, the landing, and what forgets the current match; the keys; the layers; each built feature's rule); the spike's note, [`perf/results/2026-11-18-m20-a-spike.md`](perf/results/2026-11-18-m20-a-spike.md) (a near match windowed in 30–130 ms on the asteroids and ~1 s on Gaia, against 2.6 s and 51 s as one query; no match, 2.5 s and 47 s either way); four decisions in `docs/DECISIONS.md`, "Features" (the match and its highlight, the columns, the delegate's call, the keys), each with the owner; `docs/LESSONS.md`, "M20" part A.
-- [x] **B1. The base unchanged:** `just tall-table test` passes with every feature off, each on, and all on; `lint` and `pairs` pass (`find` meets `select`, `hide`, `reorder`, `pin`, `sort`, `follow`, `format`, `live`, `custom-cells` in `cfg`s of two); `just tall-table size` shows no `find` symbol in the base, and `size --against <M20's parent>` reports the base unchanged. *Evidence (2026-11-19):* `test` passed in all 20 of its runs and `lint` passed; `pairs` passed (118 clippy builds, the pairs' tests, 118 rustdoc builds) after the random test's check was fixed for the `follow` + `find` pair; `size --against a28f098` reports the base 9848.3 KiB after wasm-opt and 2764 brotli at both commits, and none of `find`'s modules in the base (0 symbols, against 19 and 20 in `find`'s build) ([`perf/results/2026-11-19-m20-b.md`](perf/results/2026-11-19-m20-b.md)).
-- [x] **B2. The feature, natively:** window tests, each with the features it needs: the delegate's default refusing (`Refused`); a step forward and back, along a row in drawn order then down, a hidden column skipped, a moved column's order followed; a wrap each way, a lone match found again, `NoMatch`, and no second ask from the first row; the start from the current match, a reader's cell and row after it, a landing's selection not counted, and the view's top; a start on a hidden column taken at the nearest shown one; an answer past the rows taken as none to the end; the landing in view (no scroll), out of view (`jump_to`'s placement), sideways (scrolled, or not when pinned), the found cell selected with cells on and its row with rows only, `marked` unset, following let go with `follow`; a step ignored while one is out and on a closed table; every cancel (`set_find`, a sort, `replace_rows`, `set_columns`, a move, a hide, `close`) emitting `Cancelled` once and its late answer dropped, and which of them forget the current match; a `set_rows` shrink cancelling a find out and forgetting a cut current match, a grow keeping both; the drawn ranges in a plain, a formatted, and a cut text, a cell tinted whole, the current match's color and edge, drawn whole after `live` changes its text away from the term, a match inside a selection; a find not counted in `max_in_flight`. Every rule mutated fails a test. *Evidence (2026-11-19):* `src/state/fixtures/find.rs`'s 44 window tests (with `select`, `follow`, `pin`, `reorder`, `hide`, `sort`, `live`, `format` where they need them), the host's `finds_in_windows`; 45 of `find`'s rules mutated, each alone in the all-on build, each failing at least one test (one passed at first, a late answer's request id, now caught by `a_late_answer_isnt_the_next_steps`); the answer past the rows revised in the code review to "none to the end" (`docs/DECISIONS.md`).
-- [x] **B3. The fixture and the random test:** `find.json` passes, `CaseSensitive`, `CutRanges`, and `NoWrap` fail it; the `Find` step runs with no existing case's draw changed; `KeepFindOnSort` and `CaseSensitive` fail their invariants (counts over `SEED`s 0–6 recorded); `just tall-table soak` passes on the final build. *Evidence (2026-11-19):* `find.json` (11 match cases, 14 range cases, 14 steps) passes, its three controls fail it; the `Find` step placed last (`with_finds`), the earlier controls caught at the same `SEED`s as at M19's close; over `SEED`s 0–6, `CaseSensitive` caught 7 of 7 (invariant 24), `KeepFindOnSort` 3 of 7 (22; `SEED`s 0, 2, 4); the soak passed (4 × 500, 99–104 s a `SEED`).
-- [x] **B4. The host finds:** `?find=<term>`, `__tallTableFind`, `__tallTableFindNext`, and `__tallTableFindPrevious` in the bare host, its source windowed, so `size`, `perf`, and `smoke` measure the feature. *Evidence (2026-11-19):* `m20-b-find-host.ts` in Chromium, both shapes, with and without `?delay`: `?find=` marks every drawn cell the rule matches, the probe's ranges the term in the shown text, a step lands and one back wraps, a delayed step pending, no match `none`, a new term mid-scan `cancelled`, a number refused, no console problem; the scan yields between windows of 16,384 cells.
-- [ ] **C1. Its cost:** `find`'s bytes alone and with every feature, against the base (brotli 11, and after wasm-opt), in a `perf/results/` note, and each app that builds the table (Tycho, the observatory's GPUI contender, Kirkwood) in its own `perf/results/` (root `CLAUDE.md`, rule 1); `just tall-table perf` in the wide shape with a term matching often against none set: frame work within the spread, or the tests cached per page and the run again; a step's time to the frame drawing its match (the table's own work, the source answering at once).
-- [ ] **C2. In the browsers:** `just tall-table smoke` finds in Chromium, Firefox, and WebKit, in both shapes: the ranges drawn at the shaped text's offsets (a probe's ranges against the glyphs), a cell tinted whole, a step landing out of view and sideways, a wrap.
-- [ ] **C3. The README and waiting apps:** the README's "Finding", its API list, the Features row (`find` and its cost), the `DataTable` and TanStack tables' rows, the limits (the two texts, the source's cost of a term with no match), the Canvas tradeoffs' Ctrl+F row; Tycho's "Waiting on" row flipped to *Ready* (2026-…, tall-table M20).
+None: every candidate waits for a host ("Candidates", "Notes").
 
 ---
 
@@ -205,7 +109,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-None drafted: find is the active milestone, and every other candidate waits for a host ("Candidates", "Notes").
+None drafted: every candidate waits for a host ("Candidates", "Notes").
 
 ---
 

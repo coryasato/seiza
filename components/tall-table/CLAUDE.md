@@ -63,7 +63,7 @@ One line each; a recipe's flags and what a check covers are in the justfile's co
 
 ```
 just tall-table dev | build | preview [features]   # the bare host: dev server, release build, serve the build (host)
-just tall-table size | perf | live | copy | follow | sort [flags]   # each feature's cost in the bare host (perf)
+just tall-table size | perf | live | copy | follow | sort | find [flags]   # each feature's cost in the bare host (perf)
 just tall-table late --builds <name>,<name> [flags]   # a fling's late frames by cause, kept builds side by side (perf)
 just tall-table smoke [flags] | smoke --screens save|<commit>       # the release build in three browsers; the reference screens (perf)
 just tall-table paint-fixture | density-fixture | format-fixture [--check]   # the fixtures read from Chromium (perf)

@@ -63,12 +63,15 @@ size *args:
 # first float column's header 600 px right and back, twice, released where
 # pressed) and every segment in the list's own order or reversed (--order
 # reverse), and with `hide` built every segment with every nth column
-# hidden (--hidden <n>; unset, none: the control),
+# hidden (--hidden <n>; unset, none: the control), and with `find` built
+# every segment with a term set from the first frame (--find <term>; unset,
+# none: the control),
 # reference + throttled, cold, median of 10. Per-frame work from
 # Chromium's trace, cross-checked by `workRecorder`; late frames and the
 # presented frames; frame intervals; visible cells; a throttled segment
 # that doesn't rest reported, not failed. --runs, --shape, --profile,
-# --cells, --pin, --density, --format, --order, --groups, --hidden, --label
+# --cells, --pin, --density, --format, --order, --groups, --hidden,
+# --find, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:
@@ -116,6 +119,17 @@ copy *args:
 sort *args:
     node {{component_dir}}/perf/sort.ts {{args}}
 
+# `find` in the bare host's release build, per shape, reference and
+# throttled, cold, median of 10: a step (the term --term, `1`, matching
+# nearly every cell, so the source answers in its first window) → the
+# answer, → the first frame drawing the match as current, and → that frame
+# with every row real, classed far (the view's top moved: a step back from
+# the top and on from the last row, each wrapped), sideways, or in view.
+# --runs, --shape, --profile, --cycles, --term, --label. Run
+# `just tall-table build find` first.
+find *args:
+    node {{component_dir}}/perf/find.ts {{args}}
+
 # What a fling's late frames are made of, kept builds run in turn (the
 # order reversed every round), cold, the wide shape throttled unless
 # --shape or --profile say otherwise: each late rAF interval read against
@@ -160,7 +174,12 @@ late *args:
 # in Chromium a long press by touch; with `hide`, in both, columns hidden
 # and shown through the hook, a pinned one among them with `pin`: the
 # layout skipping them, the columns in view drawn as at open, the drawn
-# cells the source's where published, and the screen as at open after).
+# cells the source's where published, and the screen as at open after;
+# with `find`, in both, a term set through the hook: the drawn cells marked
+# by the rule, the tints on screen against the view with no term (with
+# `format`, each range's edges at its advances), and a step back from the
+# top and on, each round the other end, and on again in view, each landing
+# fully in view and drawn current).
 # --browsers. `--screens save` runs only the reference screens and keeps
 # them under this tree's commit; `--screens <commit>` compares them with
 # that commit's, pixel for pixel (smoke.ts's header). Run `just

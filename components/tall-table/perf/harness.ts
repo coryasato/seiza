@@ -184,6 +184,40 @@ export const FIND_HOOK = '__tallTableFind';
 export const FIND_NEXT_HOOK = '__tallTableFindNext';
 export const FIND_PREVIOUS_HOOK = '__tallTableFindPrevious';
 
+/** With `find`, the last step's state on `FOUND_GLOBAL`. */
+export interface Found {
+  outcome: 'started' | 'match' | 'none' | 'refused' | 'failed' | 'cancelled';
+  cell: { row: number; column: number } | null;
+  wrapped: boolean;
+  message: string | null;
+  count: number;
+}
+
+/** With `find` and `?perf`: the term set through the host's hook (null for
+ *  none), then the probe once it holds it. */
+export async function findThrough(page: Page, term: string | null, timeout = 10_000): Promise<Shown> {
+  const sent = await page.evaluate(({ hook, term }) => (globalThis as unknown as Record<string, (term: string | null) => boolean>)[hook]!(term), { hook: FIND_HOOK, term });
+  if (sent === false) throw new Error(`the host's find hook refused ${JSON.stringify(term)}`);
+  const handle = await page.waitForFunction((term) => {
+    const s = (globalThis as Global).__tallTable;
+    return s?.find && (s.find.term ?? null) === term && s;
+  }, term, { timeout, polling: 10 });
+  return (await handle.jsonValue()) as Shown;
+}
+
+/** With `find` and `?perf`: a step (next, or previous with `backward`)
+ *  through the host's hook, then the step's end on `FOUND_GLOBAL` (an
+ *  outcome but `started`, its count past the one before). */
+export async function stepThrough(page: Page, backward = false, timeout = 30_000): Promise<Found> {
+  const before = (await global<Found>(page, FOUND_GLOBAL))?.count ?? 0;
+  await page.evaluate((hook) => (globalThis as unknown as Record<string, () => void>)[hook]!(), backward ? FIND_PREVIOUS_HOOK : FIND_NEXT_HOOK);
+  const handle = await page.waitForFunction(({ name, before }) => {
+    const found = (globalThis as unknown as Record<string, Found | undefined>)[name];
+    return found && found.count > before && found.outcome !== 'started' && found;
+  }, { name: FOUND_GLOBAL, before }, { timeout, polling: 10 });
+  return (await handle.jsonValue()) as Found;
+}
+
 /** With `density` (`host/crate/src/host.rs`, `Density`): the host's
  *  default `?density=`, the dense setting: 18 px rows, 11 px text, 56 px
  *  floats. `?density=30,14` is the control, the base's numbers. */
@@ -931,6 +965,63 @@ export async function inkIn(page: Page, clip: { x: number; y: number; width: num
       return { x, y, scale: image.width / width };
     },
     { png, within, width: clip.width },
+  );
+}
+
+/** For each box (CSS px of the page, inside `clip`), what screen `b`
+ *  draws otherwise than screen `a` (both of `clip`, PNGs as base64): the
+ *  runs of device pixel columns holding a pixel more than `within` off in a
+ *  color channel, `[from, to)` in CSS px of the page; and where screen `a`
+ *  has ink, each pixel compared with its row's leftmost in the box (as
+ *  `inkIn`), as `[left, right)` or null. Read in the page (`find`'s tints
+ *  against the screen without them). */
+export async function tintsIn(page: Page, a: string, b: string, clip: { x: number; y: number; width: number; height: number }, boxes: { x: number; y: number; width: number; height: number }[], within: number): Promise<{ runs: [number, number][]; ink: [number, number] | null }[]> {
+  return page.evaluate(
+    async ({ pngs, clip, boxes, within }) => {
+      const [first, second] = await Promise.all(
+        pngs.map(async (png) => {
+          const image = new Image();
+          image.src = `data:image/png;base64,${png}`;
+          await image.decode();
+          const canvas = new OffscreenCanvas(image.width, image.height);
+          const context = canvas.getContext('2d')!;
+          context.drawImage(image, 0, 0);
+          return context.getImageData(0, 0, image.width, image.height);
+        }),
+      );
+      const scale = first!.width / clip.width;
+      const off = (data: Uint8ClampedArray, at: number, other: Uint8ClampedArray, to: number, by: number) => Math.abs(data[at]! - other[to]!) > by || Math.abs(data[at + 1]! - other[to + 1]!) > by || Math.abs(data[at + 2]! - other[to + 2]!) > by;
+      return boxes.map((box) => {
+        const x0 = Math.max(0, Math.round((box.x - clip.x) * scale));
+        const x1 = Math.min(first!.width, Math.round((box.x + box.width - clip.x) * scale));
+        const y0 = Math.max(0, Math.round((box.y - clip.y) * scale));
+        const y1 = Math.min(first!.height, Math.round((box.y + box.height - clip.y) * scale));
+        const differs: boolean[] = [];
+        let inkLeft = -1;
+        let inkRight = -1;
+        for (let x = x0; x < x1; x++) {
+          let any = false;
+          for (let y = y0; y < y1; y++) {
+            const at = (y * first!.width + x) * 4;
+            if (!any && off(first!.data, at, second!.data, at, within)) any = true;
+            if (off(first!.data, at, first!.data, (y * first!.width + x0) * 4, 48)) {
+              if (inkLeft < 0) inkLeft = x;
+              inkRight = x + 1;
+            }
+          }
+          differs.push(any);
+        }
+        const runs: [number, number][] = [];
+        let from = -1;
+        differs.forEach((mark, index) => {
+          if (mark && from < 0) from = index;
+          if (!mark && from >= 0) (runs.push([clip.x + (x0 + from) / scale, clip.x + (x0 + index) / scale]), (from = -1));
+        });
+        if (from >= 0) runs.push([clip.x + (x0 + from) / scale, clip.x + x1 / scale]);
+        return { runs, ink: inkLeft < 0 ? null : ([clip.x + inkLeft / scale, clip.x + inkRight / scale] as [number, number]) };
+      });
+    },
+    { pngs: [a, b], clip, boxes, within },
   );
 }
 

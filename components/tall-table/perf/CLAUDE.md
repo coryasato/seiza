@@ -20,7 +20,7 @@ The checks and measurements run against the bare host's release build, and the s
 
 ## How the scripts run
 
-They serve the host's release build themselves (`vite preview` of `host/web/dist` on port 4350, through `serveApp`) and read what it was built with from `dist/build.json`. Each segment is traced on its own (a trace of every segment at once runs to hundreds of MB). Late frames come from `frameRecorder`'s rAFs: Chromium's compositor frame reporter doesn't see GPUI's canvas frames. The table-specific helpers (the host's globals and marks, each feature's waits and hooks, a real paste, `restedWhere`) are in `harness.ts`; look there before writing one. A few scripts read a global directly (`copy.ts` the heap hook, `perf.ts`, `follow.ts`, and `sort.ts` `__seizaFrameSample`), so grep `perf/` for a global before renaming it.
+They serve the host's release build themselves (`vite preview` of `host/web/dist` on port 4350, through `serveApp`) and read what it was built with from `dist/build.json`. Each segment is traced on its own (a trace of every segment at once runs to hundreds of MB). Late frames come from `frameRecorder`'s rAFs: Chromium's compositor frame reporter doesn't see GPUI's canvas frames. The table-specific helpers (the host's globals and marks, each feature's waits and hooks, a real paste, `restedWhere`) are in `harness.ts`; look there before writing one. A few scripts read a global directly (`copy.ts` the heap hook, `perf.ts`, `follow.ts`, `sort.ts`, and `find.ts` `__seizaFrameSample`; `find.ts` times the bridge's `__tallTableFound` through a setter), so grep `perf/` for a global before renaming it.
 
 ## Perf script gotchas
 
@@ -44,7 +44,7 @@ They serve the host's release build themselves (`vite preview` of `host/web/dist
 ## Files
 
 ```
-  perf/             # harness.ts (the host's names, waits, and hooks), size.ts, perf.ts, build-info.ts (dist/build.json), live.ts, follow.ts, copy.ts, sort.ts, late.ts (what a fling's late frames are made of, kept builds side by side), smoke.ts, paint-fixture.ts, density-fixture.ts, format-fixture.ts, pairs.ts (every feature alone and in pairs, compiled and tested: no build of the host's, no browser); results/: each feature's own cost, dated (no budgets)
+  perf/             # harness.ts (the host's names, waits, and hooks), size.ts, perf.ts, build-info.ts (dist/build.json), live.ts, follow.ts, copy.ts, sort.ts, find.ts, late.ts (what a fling's late frames are made of, kept builds side by side), smoke.ts, paint-fixture.ts, density-fixture.ts, format-fixture.ts, pairs.ts (every feature alone and in pairs, compiled and tested: no build of the host's, no browser); results/: each feature's own cost, dated (no budgets)
 ```
 
 ## Commands
@@ -54,7 +54,7 @@ What each covers and its flags are in its script's header and the justfile's com
 ```
 just tall-table size [flags]   # the wasm of the base and each feature's build; fails on an engine or the panel linked, a feature's symbols in the base, or a home-directory path
 just tall-table perf [flags]   # frame work per shape and each feature's segments, reference + throttled, cold, median of 10
-just tall-table live | follow | copy | sort [flags]   # each feature's own latency and frame work, cold, median of 10
+just tall-table live | follow | copy | sort | find [flags]   # each feature's own latency and frame work, cold, median of 10
 just tall-table late --builds <name>,<name> [flags]   # a fling's late frames by cause, kept builds run in turn; --cpu names the functions
 just tall-table smoke [flags]  # the release build in Chromium, Firefox, and WebKit: loads, fills, scrolls, and each feature built checked against the source
 just tall-table smoke --screens save|<commit>   # the reference screens alone: saved under this tree, or compared pixel for pixel with a commit's

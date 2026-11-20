@@ -137,6 +137,18 @@
 // and (with `copy` or `sort`) each the source's, at the top and after a
 // wheel down; shown again there, the layout as at open and the cells the
 // source's; and back at the top, the screen as at open.
+// Built with `find`, it runs both shapes again and finds (`12`, through
+// the host's hook, the cells probed): every drawn cell marked exactly when
+// its exact text holds the term (lowercased, NULL never); on screen, against
+// the same view with no term, nothing drawn otherwise in an unmarked cell, a
+// cell marked whole tinted across its box, and a cell's ranges tinted inside
+// it, with `format` (its advances) each tint's edges where the drawn text's
+// advances put the range's ends; then a step back from the top (round to the
+// last row's last match: wrapped, the view moved down, and in the wide
+// shape sideways), a step on (round to the first match: wrapped, its row
+// at the top), and a step on again (a row in view: no scroll), each match
+// fully in view, the probe's current match it, and its drawn cell marked
+// current.
 // Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
@@ -162,7 +174,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, findThrough, stepThrough, tintsIn, type Found, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -192,6 +204,13 @@ const reorder = builtFeatures().includes('reorder');
 const clicks = builtFeatures().includes('clicks');
 const groupHeaders = builtFeatures().includes('group-headers');
 const hide = builtFeatures().includes('hide');
+const find = builtFeatures().includes('find');
+/** The term each shape's find run sets: digits, which `format`'s advances
+ *  measure. */
+const FIND_TERM: Record<Shape, string> = { narrow: '12', wide: '12' };
+/** A tint's edge may sit this far from where the advances put it: GPUI
+ *  places quads in whole device pixels. */
+const TINT_SLACK_PX = 1.5;
 /** The reorder runs: a header dragged (and with `select` a range, with
  *  `pin` across the edge, with `copy` a block copied, with `sort` a sorted
  *  column), or opened at `?order=reverse`. */
@@ -961,7 +980,7 @@ const REPLACE_PAST = 1_000;
 /** The builds that publish the drawn cells (`?probe-cells`): elsewhere a
  *  view's last visible row's first cell (the probe's `lastCell`) is what a
  *  check reads of the cells. */
-const cellsProbed = ['custom-cells', 'sort', 'format', 'reorder'].some((feature) => builtFeatures().includes(feature));
+const cellsProbed = ['custom-cells', 'sort', 'format', 'reorder', 'find'].some((feature) => builtFeatures().includes(feature));
 
 /** The drawn cells, `row,column` → exact text, once a frame draws from
  *  `view`'s first row and covers every wholly drawn row of it; none in a
@@ -1168,6 +1187,134 @@ async function checkHide(page: Page, label: string, start: Layout, shape: Shape)
   const off = await differsFrom(cellsClip, openScreen);
   if (off) failed(`${label}: shown again at the top: ${off} px drew otherwise than at open`);
   notes.push(`shown at row ${down.first} and back at the top as at open`);
+  return `, ${notes.join('; ')}`;
+}
+
+/** With `find`: the drawn cells marked by the rule, the tints on screen
+ *  against the view with no term (with `format`, placed by its advances),
+ *  and three steps: back from the top and on (each round the other end) and
+ *  on again (in view), each landing fully in view and drawn current. */
+async function checkFind(page: Page, label: string, start: Layout, shape: Shape): Promise<string> {
+  const notes: string[] = [];
+  const term = FIND_TERM[shape];
+  const viewport = page.viewportSize()!;
+  const placeOf = (layout: Layout, index: number) => layout.columns.findIndex((column, place) => (column.index ?? place) === index);
+  const view = (await shown(page)).shown;
+  // The pointer over the row numbers, in the body: no hover in any shot.
+  await page.mouse.move(start.left - 6, start.top + 12 * start.rowHeight);
+  const rows = Math.min(20, Math.floor((viewport.height - start.top) / start.rowHeight) - 2);
+  const clip = { x: Math.ceil(start.left), y: Math.ceil(start.top), width: Math.floor(start.left + start.cellsWidth) - Math.ceil(start.left), height: Math.floor(rows * start.rowHeight) };
+  await page.waitForTimeout(200);
+  const bare = await settledScreen(page, clip);
+
+  await findThrough(page, term).catch((error: Error) => failed(`${label}: the term ${term}: ${error.message.split('\n')[0]}`));
+  // A frame drawn with the term: its cells carry what they draw of it.
+  const marked = await page
+    .waitForFunction(() => ((globalThis as { __tallTableCells?: Cell[] }).__tallTableCells ?? []).some((cell) => cell.found), null, { timeout: 10_000, polling: 10 })
+    .then(() => true, () => false);
+  if (!marked) return failed(`${label}: no drawn cell marked with the term ${term}`) ?? '';
+  const tinted = await settledScreen(page, clip);
+  const cells = await drawnCells(page);
+  const wrong = cells.find((cell) => Boolean(cell.found) !== (cell.exact !== 'NULL' && cell.exact.toLowerCase().includes(term)));
+  if (wrong) failed(`${label}: cell (${wrong.row}, ${wrong.column}) ${JSON.stringify(wrong.exact)} ${wrong.found ? 'marked' : 'not marked'} for ${term}`);
+  const offShown = cells.find((cell) => Array.isArray(cell.found) && cell.found.some(([from, to]) => new TextDecoder().decode(new TextEncoder().encode(cell.shown).slice(from, to)).toLowerCase() !== term));
+  if (offShown) failed(`${label}: cell (${offShown.row}, ${offShown.column}): a range ${JSON.stringify(offShown.found)} of ${JSON.stringify(offShown.shown)} isn't the term`);
+  notes.push(`${cells.filter((cell) => cell.found).length} of ${cells.length} drawn cells marked by the rule`);
+
+  // On screen: each cell wholly in the clip, its box less a pixel a side.
+  const adv = format ? await advances(page) : null;
+  const pad = paddingAt(14);
+  const inClip = cells.filter((cell) => {
+    const column = start.columns[cell.column]!;
+    return cell.row >= view.top && cell.row < view.top + rows && column.width > 0 && column.x + column.width <= start.cellsWidth;
+  });
+  const boxes = inClip.map((cell) => {
+    const column = start.columns[cell.column]!;
+    return { x: start.left + column.x + 1, y: start.top + (cell.row - view.top) * start.rowHeight + 2, width: column.width - 2, height: start.rowHeight - 4 };
+  });
+  const seen = await tintsIn(page, bare, tinted, clip, boxes, 2);
+  let whole = 0;
+  let ranged = 0;
+  let placed = 0;
+  inClip.forEach((cell, index) => {
+    const { runs, ink } = seen[index]!;
+    const box = boxes[index]!;
+    const at = `${label}: cell (${cell.row}, ${cell.column}) ${JSON.stringify(cell.shown)}`;
+    if (!cell.found) {
+      if (runs.length) failed(`${at}: unmarked, drawn otherwise at ${JSON.stringify(runs)}`);
+      return;
+    }
+    if (cell.found === 'cell') {
+      whole++;
+      if (runs.length !== 1 || runs[0]![0] > box.x + 0.5 || runs[0]![1] < box.x + box.width - 0.5) failed(`${at}: marked whole, tinted at ${JSON.stringify(runs)}, not across ${box.x}–${box.x + box.width}`);
+      return;
+    }
+    ranged++;
+    if (!runs.length || !ink) return failed(`${at}: ranges ${JSON.stringify(cell.found)}, nothing tinted`);
+    if (runs[0]![0] <= box.x + 0.5 && runs.at(-1)![1] >= box.x + box.width - 0.5) return failed(`${at}: ranges ${JSON.stringify(cell.found)}, tinted whole`);
+    if (!adv || ![...cell.shown].every((ch) => adv[ch] !== undefined)) return;
+    // The drawn text's start, right- or left-aligned, whichever its ink is at.
+    const textWidth = advancesWidth(cell.shown, adv);
+    const cellLeft = box.x - 1;
+    const x0 = [cellLeft + box.width + 2 - pad - textWidth, cellLeft + pad].find((x) => Math.abs(ink[0] - x) <= 2);
+    if (x0 === undefined) return failed(`${at}: its ink starts at ${ink[0].toFixed(1)}, where no alignment of its advances (${textWidth.toFixed(1)} px) puts it`);
+    const charsTo = (byte: number) => new TextDecoder().decode(new TextEncoder().encode(cell.shown).slice(0, byte));
+    const want: [number, number][] = [];
+    for (const [from, to] of cell.found) {
+      const left = x0 + advancesWidth(charsTo(from), adv);
+      const right = x0 + advancesWidth(charsTo(to), adv);
+      const last = want.at(-1);
+      if (last && left - last[1] < 0.5) last[1] = right;
+      else want.push([left, right]);
+    }
+    const off = want.length !== runs.length || want.some(([left, right], at) => Math.abs(runs[at]![0] - left) > TINT_SLACK_PX || Math.abs(runs[at]![1] - right) > TINT_SLACK_PX);
+    if (off) failed(`${at}: ranges ${JSON.stringify(cell.found)} tinted at ${JSON.stringify(runs.map(([a, b]) => [Number(a.toFixed(1)), Number(b.toFixed(1))]))}, the advances put them at ${JSON.stringify(want.map(([a, b]) => [Number(a.toFixed(1)), Number(b.toFixed(1))]))}`);
+    placed++;
+  });
+  if (!ranged) failed(`${label}: no cell in view with ranges to check`);
+  if (format && !placed) failed(`${label}: no ranged cell placed by the advances`);
+  notes.push(`on screen: ${ranged} cells' ranges tinted${adv ? ` (${placed} at the advances' offsets)` : ''}, ${whole} tinted whole, ${inClip.length - ranged - whole} untouched`);
+
+  /** A step: a match, its wrap as `wrapped`; its row and column fully in
+   *  view, the probe's current match, and its drawn cell current. */
+  const landed = async (what: string, backward: boolean, wrapped: boolean): Promise<{ found: Found; view: Shown } | null> => {
+    const found = await stepThrough(page, backward).catch((error: Error) => failed(`${label}: ${what}: ${error.message.split('\n')[0]}`));
+    if (!found) return null;
+    if (found.outcome !== 'match' || !found.cell) return failed(`${label}: ${what}: ${found.outcome}`);
+    if (found.wrapped !== wrapped) failed(`${label}: ${what}: ${found.wrapped ? '' : 'not '}wrapped`);
+    const { row, column } = found.cell;
+    const now = await filledWhere(page, `s.find && s.find.current && s.find.current.row === ${row} && s.find.current.column === ${column}`).catch(() => failed(`${label}: ${what}: (${row}, ${column}) never the probe's current match, filled`));
+    if (!now) return null;
+    const layout = (await shown(page)).layout;
+    const place = placeOf(layout, column);
+    const left = screenLeft(layout, place, now.scrollX);
+    const edge = place < (layout.pinned ?? 0) ? 0 : pinEdge(layout);
+    const bottom = layout.top + (row - now.top + 1) * layout.rowHeight;
+    // The cells area ends where the vertical track does, above the
+    // horizontal bar.
+    const [, trackY, , trackHeight] = (await page.evaluate(() => (globalThis as { __seizaTargets?: Record<string, number[]> }).__seizaTargets?.['table-scroll-track'])) ?? [];
+    if (trackY === undefined || trackHeight === undefined) return failed(`${label}: ${what}: no scroll track published`);
+    const cellsBottom = trackY + trackHeight;
+    if (row < now.top || bottom > cellsBottom + 0.5) failed(`${label}: ${what}: row ${row} not wholly in view (top ${now.top}, its bottom at ${bottom.toFixed(1)} px, the cells' at ${cellsBottom.toFixed(1)})`);
+    if (left < edge - 0.5 || left + layout.columns[place]!.width > layout.cellsWidth + 0.5) failed(`${label}: ${what}: column ${column} at ${left.toFixed(0)}–${(left + layout.columns[place]!.width).toFixed(0)} px, not wholly in view (${edge.toFixed(0)}–${layout.cellsWidth.toFixed(0)})`);
+    const current = (await drawnCells(page)).filter((cell) => cell.current);
+    if (current.length !== 1 || current[0]!.row !== row || current[0]!.column !== place) failed(`${label}: ${what}: the drawn current cells ${JSON.stringify(current.map((cell) => [cell.row, cell.column]))}, not (${row}, ${place})`);
+    return { found, view: now };
+  };
+  const back = await landed('back from the top', true, true);
+  if (!back) return `, ${notes.join('; ')}`;
+  if (back.view.top <= view.top) failed(`${label}: back from the top: the view didn't move down (top ${back.view.top})`);
+  if (shape === 'wide' && back.view.scrollX < 1) failed(`${label}: back from the top: column ${back.found.cell!.column} landed with no sideways scroll`);
+  notes.push(`back from the top to (${back.found.cell!.row}, ${back.found.cell!.column}), wrapped, the view at row ${back.view.top} and ${back.view.scrollX.toFixed(0)} px sideways`);
+  const on = await landed('on from the last row', false, true);
+  if (!on) return `, ${notes.join('; ')}`;
+  // Out of view, it lands as `jump_to` does: its row at the top.
+  if (on.view.top !== on.found.cell!.row || on.found.cell!.row >= rows) failed(`${label}: on from the last row: (${on.found.cell!.row}, ${on.found.cell!.column}), the view at row ${on.view.top}, not the first match's row at the top`);
+  notes.push(`on to (${on.found.cell!.row}, ${on.found.cell!.column}), wrapped, the view at row ${on.view.top} and ${on.view.scrollX.toFixed(0)} px sideways`);
+  const again = await landed('on again', false, false);
+  if (!again) return `, ${notes.join('; ')}`;
+  if (again.found.cell!.row < on.view.top + rows && again.view.top !== on.view.top) failed(`${label}: on again: row ${again.found.cell!.row} was in view, yet the view moved to row ${again.view.top}`);
+  notes.push(`on again to (${again.found.cell!.row}, ${again.found.cell!.column}), the view ${again.view.top === on.view.top ? 'kept' : `at row ${again.view.top}`}`);
   return `, ${notes.join('; ')}`;
 }
 
@@ -2386,7 +2533,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -2411,10 +2558,11 @@ try {
     if (clicks) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, clicking: true })));
     if (groupHeaders) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, grouping: true })));
     if (hide) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, hiding: true })));
+    if (find) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, finding: true })));
     // In every build: the base's `replace_rows`.
     runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, replacing: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}`;
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -2422,7 +2570,10 @@ try {
       if (formatting) Object.assign(params, { 'probe-cells': '', ...(density ? { density: '30,14' } : {}), ...(formatting === 'off' ? { format: 'off' } : {}) });
       if (sorting) params['probe-cells'] = '';
       if (reordering || grouping) params['probe-cells'] = '';
-      if ((replacing || hiding) && cellsProbed) params['probe-cells'] = '';
+      if ((replacing || hiding || finding) && cellsProbed) params['probe-cells'] = '';
+      // The find runs place each tint by the advances at the base's 14 px
+      // text and its padding (`paddingAt(14)`), with `density` too.
+      if (finding && density) params.density = '30,14';
       if (reordering === 'reverse') params.order = 'reverse';
       // A drag is held to its group (`group-headers`): the reorder runs'
       // moves are the ungrouped table's; the group runs drag groups.
@@ -2456,6 +2607,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The find runs check their own, from the first screen.
+        if (finding) {
+          const found = await checkFind(page, label, layout, shape);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${found}`);
+          continue;
         }
         // The hide runs check their own, from the first screen.
         if (hiding) {

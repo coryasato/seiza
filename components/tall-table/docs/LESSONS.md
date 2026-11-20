@@ -801,3 +801,13 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - A mutation survived that every cancel test missed: a cancelled find's late answer was dropped because no find was out, never by its request id. Only a new step out when the old answer arrives tells the two apart (`a_late_answer_isnt_the_next_steps`).
 - `KeepFindOnSort` is caught at 3 of 7 `SEED`s: a sort must land within a find's 20 ms on the test clock, and placed `Find` steps rarely meet one. `SEED` 0, which `test` runs, catches it; the window test `a_sort_cancels_and_forgets` holds the rule every run.
 
+
+## M20: `find` (part C, 2026-11-19)
+
+**Results:** [`perf/results/2026-11-19-m20-c.md`](../perf/results/2026-11-19-m20-c.md) (the bytes alone and with every feature, each app's, the wide shape's frames at four terms, a step's time to its frame, the smoke check's find run).
+
+**Surprises:**
+- The check named its own remedy before the cost was split: "the tests cached per page" assumed a term's frame cost is the match tests. A term matching no drawn cell (every cell tested, nothing drawn) read within the spread, and the cost grew with the tints drawn instead (+0.1 ms at 1 in 7 cells, +0.25 at nearly all), so the remedy was revised before it was built. A control that runs the work without its drawing is the reading to take before naming a fix.
+- A step's own time is mostly the wait for the next frame: the table draws the match in the frame after the answer or the one after, so its medians (12–18 ms) spread 23–64% with where in the refresh the answer lands, and say nothing finer than "a frame or two".
+- A far landing's first frame was already filled: the bare host's pages answer at once and the jump's reads go out with it, so → drawn and → filled read the same. A source that reads slower shows the gap.
+- Kirkwood's wasm differed in its code, not only its line numbers, though it builds no `find`: part B moved `select`'s sideways bring-into-view into the state, and Kirkwood builds `select`. The same size to the byte, with wasm-bindgen's shims' function indices one apart. "No app builds the feature" isn't "no app's code changed" when a part moves shared code.

@@ -101,7 +101,10 @@ export interface Click {
 /** A drawn cell, as `tall-table-bridge`'s `js::cells` writes it (`column`
  *  its place; with `reorder`, the layout's `index` there names it): with
  *  `custom-cells`, its paint (colors 8-bit RGBA; the bar in CSS px from the
- *  cell's left), and with `live` too, its flash (its opacity in the alpha). */
+ *  cell's left), and with `live` too, its flash (its opacity in the alpha).
+ *  With `find`, what's drawn of the find (`found`: null for nothing, `cell`
+ *  for the cell tinted whole, else each occurrence's byte range of `shown`)
+ *  and whether it's the current match. */
 export interface Cell {
   row: number;
   column: number;
@@ -111,6 +114,8 @@ export interface Cell {
   text?: number[] | null;
   bar?: { left: number; width: number; color: number[] } | null;
   flash?: number[] | null;
+  found?: 'cell' | [number, number][] | null;
+  current?: boolean;
 }
 
 /** With `copy`, what became of the last copy, as `tall-table-bridge`'s

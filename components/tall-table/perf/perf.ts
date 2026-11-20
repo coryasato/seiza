@@ -76,6 +76,12 @@
 // it, none (the control that splits the code's cost from the drawing's). The
 // visible cells count the shown columns.
 //
+// Built with `find`, `--find <term>` sets the term from the first frame
+// (`?find=<term>`, checked at open against the probe), so every drawn cell
+// is tested against it and each match's tint drawn; without it, none (the
+// control that splits the code's cost from the drawing's). No step is
+// taken: a step's time is `find.ts`'s.
+//
 // Each segment is traced on its own: per-frame work is the trace's
 // `ProxyMain::BeginMainFrame` (`frameWork`), cross-checked by
 // `workRecorder` (each rAF that drew); late frames and intervals come from
@@ -108,7 +114,7 @@
 // Usage: node components/tall-table/perf/perf.ts [--runs 10] [--shape narrow|wide]
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
 //          [--density <row>,<text>[,<width>]] [--format off] [--order reverse]
-//          [--groups 0] [--hidden <n>]
+//          [--groups 0] [--hidden <n>] [--find <term>]
 //          [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
@@ -170,7 +176,11 @@ if (HIDDEN_OPTION !== undefined && !(/^\d+$/.test(HIDDEN_OPTION) && Number(HIDDE
 /** Whether the column at `index` is hidden at open (`hide`): every
  *  `--hidden`th, as the host's `?hidden=` (none without it). */
 const hiddenAtOpen = (index: number) => HIDDEN_OPTION !== undefined && (index + 1) % Number(HIDDEN_OPTION) === 0;
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}`);
+const FIND = features.includes('find');
+const FIND_OPTION = option('find');
+if (FIND_OPTION !== undefined && !FIND) throw new Error('--find needs the host built with find: `just tall-table build find`');
+if (FIND_OPTION !== undefined && !FIND_OPTION) throw new Error('--find: an empty term is no find (leave it out for the control)');
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}${FIND ? `, find: ${FIND_OPTION === undefined ? 'none' : JSON.stringify(FIND_OPTION)}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -334,6 +344,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (ORDER_OPTION !== undefined) params.order = ORDER_OPTION;
     if (GROUPS_OPTION !== undefined) params.groups = GROUPS_OPTION;
     if (HIDDEN_OPTION !== undefined) params.hidden = HIDDEN_OPTION;
+    if (FIND_OPTION !== undefined) params.find = FIND_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -348,6 +359,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       const wrong = layout.columns.findIndex((column, place) => Boolean(column.hidden) !== hiddenAtOpen(order[place]!) || (column.hidden ? column.width !== 0 : column.width === 0));
       if (wrong >= 0) throw new Error(`column ${order[wrong]} ${layout.columns[wrong]!.hidden ? 'hidden' : 'shown'} at open, width ${layout.columns[wrong]!.width}, not ${hiddenAtOpen(order[wrong]!) ? 'hidden' : 'shown'} (--hidden ${HIDDEN_OPTION ?? 'unset'})`);
     }
+    if (FIND && (start.find?.term ?? null) !== (FIND_OPTION ?? null)) throw new Error(`the term ${JSON.stringify(start.find?.term)} at open, not ${JSON.stringify(FIND_OPTION ?? null)}`);
     if (REORDER && JSON.stringify(order) !== JSON.stringify(ORDER_OPTION === 'reverse' ? order.map((_, place) => order.length - 1 - place) : order.map((_, place) => place))) throw new Error(`the columns at open in the order ${JSON.stringify(order.slice(0, 12))}…, not ${ORDER_OPTION ?? "the list's own"}`);
     // Over the cells, clear of the scrollbar.
     await page.mouse.move(layout.left + 300, layout.top + 300);
@@ -599,7 +611,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), ...(FIND ? { find: FIND_OPTION ?? null } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

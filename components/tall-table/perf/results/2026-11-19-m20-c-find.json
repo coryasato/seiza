@@ -1,0 +1,1038 @@
+{
+  "date": "2026-11-19",
+  "label": "m20-c-find",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.10.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "protocol": {
+    "browser": "chromium headless=new",
+    "viewport": "1440x900",
+    "dpr": 2,
+    "runs": 10,
+    "cold": true,
+    "cycles": 3,
+    "term": "1",
+    "nearSteps": 8,
+    "settleMs": 300,
+    "build": "find"
+  },
+  "results": {
+    "narrow": {
+      "reference": {
+        "runs": [
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 20.16,
+              "drawnMs": 37.14,
+              "filledMs": 43.24,
+              "tableDrawnMs": 18.2,
+              "tableFilledMs": 20.9
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 7.69,
+              "drawnMs": 18.69,
+              "filledMs": 18.69,
+              "tableDrawnMs": 11.27,
+              "tableFilledMs": 11.27
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 7.27,
+              "drawnMs": 18.14,
+              "filledMs": 18.14,
+              "tableDrawnMs": 10.41,
+              "tableFilledMs": 10.41
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 21.45,
+              "drawnMs": 42.34,
+              "filledMs": 42.34,
+              "tableDrawnMs": 22.26,
+              "tableFilledMs": 22.26
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 7.44,
+              "drawnMs": 20.59,
+              "filledMs": 20.59,
+              "tableDrawnMs": 12.82,
+              "tableFilledMs": 12.82
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 7.01,
+              "drawnMs": 17.86,
+              "filledMs": 17.86,
+              "tableDrawnMs": 10.57,
+              "tableFilledMs": 10.57
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 21.12,
+              "drawnMs": 40.88,
+              "filledMs": 40.88,
+              "tableDrawnMs": 18.73,
+              "tableFilledMs": 20.8
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 7.1,
+              "drawnMs": 18.84,
+              "filledMs": 18.84,
+              "tableDrawnMs": 11.97,
+              "tableFilledMs": 11.97
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 7.87,
+              "drawnMs": 19.28,
+              "filledMs": 19.28,
+              "tableDrawnMs": 11.9,
+              "tableFilledMs": 11.9
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 18.89,
+              "drawnMs": 36.26,
+              "filledMs": 36.26,
+              "tableDrawnMs": 16.73,
+              "tableFilledMs": 17.38
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 6.1,
+              "drawnMs": 19.24,
+              "filledMs": 19.24,
+              "tableDrawnMs": 13.38,
+              "tableFilledMs": 13.38
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 7.16,
+              "drawnMs": 21.46,
+              "filledMs": 21.46,
+              "tableDrawnMs": 13.71,
+              "tableFilledMs": 13.71
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 20.06,
+              "drawnMs": 36.69,
+              "filledMs": 36.93,
+              "tableDrawnMs": 15.75,
+              "tableFilledMs": 17.63
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 8.39,
+              "drawnMs": 21.71,
+              "filledMs": 21.71,
+              "tableDrawnMs": 14.35,
+              "tableFilledMs": 14.35
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 8.57,
+              "drawnMs": 20.45,
+              "filledMs": 20.45,
+              "tableDrawnMs": 12.71,
+              "tableFilledMs": 12.71
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 22.96,
+              "drawnMs": 42.55,
+              "filledMs": 42.55,
+              "tableDrawnMs": 18.7,
+              "tableFilledMs": 18.7
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 6.52,
+              "drawnMs": 17.46,
+              "filledMs": 17.46,
+              "tableDrawnMs": 11.82,
+              "tableFilledMs": 11.82
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 8.5,
+              "drawnMs": 20.11,
+              "filledMs": 20.11,
+              "tableDrawnMs": 11.98,
+              "tableFilledMs": 11.98
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 21.05,
+              "drawnMs": 37.46,
+              "filledMs": 37.72,
+              "tableDrawnMs": 16.8,
+              "tableFilledMs": 17.32
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 8.24,
+              "drawnMs": 21.86,
+              "filledMs": 21.86,
+              "tableDrawnMs": 14.13,
+              "tableFilledMs": 14.13
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 8.56,
+              "drawnMs": 19.66,
+              "filledMs": 19.66,
+              "tableDrawnMs": 11.61,
+              "tableFilledMs": 11.61
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 20.75,
+              "drawnMs": 40.53,
+              "filledMs": 40.53,
+              "tableDrawnMs": 17.45,
+              "tableFilledMs": 17.45
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 7.21,
+              "drawnMs": 22.41,
+              "filledMs": 22.41,
+              "tableDrawnMs": 15.19,
+              "tableFilledMs": 15.19
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 7.91,
+              "drawnMs": 19.67,
+              "filledMs": 19.67,
+              "tableDrawnMs": 11.86,
+              "tableFilledMs": 11.86
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 22.75,
+              "drawnMs": 43.14,
+              "filledMs": 43.14,
+              "tableDrawnMs": 20.24,
+              "tableFilledMs": 20.24
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 7.71,
+              "drawnMs": 19.87,
+              "filledMs": 19.87,
+              "tableDrawnMs": 12.51,
+              "tableFilledMs": 12.51
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 7.86,
+              "drawnMs": 20.56,
+              "filledMs": 20.56,
+              "tableDrawnMs": 13.34,
+              "tableFilledMs": 13.34
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 20.09,
+              "drawnMs": 40.22,
+              "filledMs": 40.22,
+              "tableDrawnMs": 20.39,
+              "tableFilledMs": 20.39
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 8.04,
+              "drawnMs": 22.4,
+              "filledMs": 22.4,
+              "tableDrawnMs": 14.18,
+              "tableFilledMs": 14.18
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 8.18,
+              "drawnMs": 19.71,
+              "filledMs": 19.71,
+              "tableDrawnMs": 11.66,
+              "tableFilledMs": 11.66
+            }
+          }
+        ],
+        "summary": {
+          "far": {
+            "runs": 10,
+            "steps": 60,
+            "answerMs": 20.9,
+            "drawnMs": 40.38,
+            "filledMs": 40.7,
+            "tableDrawnMs": 18.45,
+            "tableFilledMs": 19.47,
+            "tableDrawnSpread": 0.35
+          },
+          "sideways": {
+            "runs": 10,
+            "steps": 60,
+            "answerMs": 7.57,
+            "drawnMs": 20.23,
+            "filledMs": 20.23,
+            "tableDrawnMs": 13.1,
+            "tableFilledMs": 13.1,
+            "tableDrawnSpread": 0.3
+          },
+          "in view": {
+            "runs": 10,
+            "steps": 180,
+            "answerMs": 7.89,
+            "drawnMs": 19.69,
+            "filledMs": 19.69,
+            "tableDrawnMs": 11.88,
+            "tableFilledMs": 11.88,
+            "tableDrawnSpread": 0.28
+          }
+        }
+      },
+      "throttled": {
+        "runs": [
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 31.39,
+              "drawnMs": 71.3,
+              "filledMs": 71.3,
+              "tableDrawnMs": 42.33,
+              "tableFilledMs": 42.33
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 13.33,
+              "drawnMs": 26,
+              "filledMs": 26,
+              "tableDrawnMs": 14.66,
+              "tableFilledMs": 14.66
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 13.54,
+              "drawnMs": 36.35,
+              "filledMs": 36.35,
+              "tableDrawnMs": 22.92,
+              "tableFilledMs": 22.92
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 28.74,
+              "drawnMs": 57.03,
+              "filledMs": 60.37,
+              "tableDrawnMs": 26.77,
+              "tableFilledMs": 26.77
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 13.03,
+              "drawnMs": 33.08,
+              "filledMs": 33.08,
+              "tableDrawnMs": 19.37,
+              "tableFilledMs": 19.37
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.88,
+              "drawnMs": 27.27,
+              "filledMs": 27.27,
+              "tableDrawnMs": 14.02,
+              "tableFilledMs": 14.02
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 27.88,
+              "drawnMs": 58.31,
+              "filledMs": 58.31,
+              "tableDrawnMs": 29.31,
+              "tableFilledMs": 30.39
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 12.13,
+              "drawnMs": 26.37,
+              "filledMs": 26.37,
+              "tableDrawnMs": 14.3,
+              "tableFilledMs": 14.3
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.48,
+              "drawnMs": 28.99,
+              "filledMs": 28.99,
+              "tableDrawnMs": 17.64,
+              "tableFilledMs": 17.64
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 29.23,
+              "drawnMs": 58.39,
+              "filledMs": 59.16,
+              "tableDrawnMs": 29.32,
+              "tableFilledMs": 29.82
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 12.78,
+              "drawnMs": 26.31,
+              "filledMs": 26.31,
+              "tableDrawnMs": 13.53,
+              "tableFilledMs": 13.53
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.98,
+              "drawnMs": 26.04,
+              "filledMs": 26.04,
+              "tableDrawnMs": 13.27,
+              "tableFilledMs": 13.27
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 30.52,
+              "drawnMs": 57.97,
+              "filledMs": 57.97,
+              "tableDrawnMs": 25.75,
+              "tableFilledMs": 25.75
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 12.07,
+              "drawnMs": 30.68,
+              "filledMs": 30.68,
+              "tableDrawnMs": 23.11,
+              "tableFilledMs": 23.11
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.61,
+              "drawnMs": 31.82,
+              "filledMs": 31.82,
+              "tableDrawnMs": 19.27,
+              "tableFilledMs": 19.27
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 28.96,
+              "drawnMs": 58.27,
+              "filledMs": 58.58,
+              "tableDrawnMs": 28.05,
+              "tableFilledMs": 28.05
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 13.38,
+              "drawnMs": 31.55,
+              "filledMs": 31.55,
+              "tableDrawnMs": 17.79,
+              "tableFilledMs": 17.79
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 13.66,
+              "drawnMs": 28.18,
+              "filledMs": 28.18,
+              "tableDrawnMs": 14.18,
+              "tableFilledMs": 14.18
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 32.56,
+              "drawnMs": 60.8,
+              "filledMs": 60.8,
+              "tableDrawnMs": 27.07,
+              "tableFilledMs": 27.09
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 12.8,
+              "drawnMs": 39.39,
+              "filledMs": 39.39,
+              "tableDrawnMs": 24.73,
+              "tableFilledMs": 24.73
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.82,
+              "drawnMs": 29.65,
+              "filledMs": 29.65,
+              "tableDrawnMs": 20.82,
+              "tableFilledMs": 20.82
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 26.18,
+              "drawnMs": 55.03,
+              "filledMs": 56.28,
+              "tableDrawnMs": 28.7,
+              "tableFilledMs": 29.3
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 12.63,
+              "drawnMs": 32.55,
+              "filledMs": 32.55,
+              "tableDrawnMs": 19.1,
+              "tableFilledMs": 19.1
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.45,
+              "drawnMs": 26.75,
+              "filledMs": 26.75,
+              "tableDrawnMs": 14.21,
+              "tableFilledMs": 14.21
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 25.27,
+              "drawnMs": 53.09,
+              "filledMs": 53.09,
+              "tableDrawnMs": 28.1,
+              "tableFilledMs": 28.1
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 11.86,
+              "drawnMs": 26.45,
+              "filledMs": 26.45,
+              "tableDrawnMs": 14.66,
+              "tableFilledMs": 14.66
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.71,
+              "drawnMs": 30.05,
+              "filledMs": 30.05,
+              "tableDrawnMs": 18.71,
+              "tableFilledMs": 18.71
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 29.77,
+              "drawnMs": 55.05,
+              "filledMs": 56.62,
+              "tableDrawnMs": 26.59,
+              "tableFilledMs": 26.59
+            },
+            "sideways": {
+              "steps": 6,
+              "answerMs": 11.71,
+              "drawnMs": 26.29,
+              "filledMs": 26.29,
+              "tableDrawnMs": 17.13,
+              "tableFilledMs": 17.13
+            },
+            "in view": {
+              "steps": 18,
+              "answerMs": 12.91,
+              "drawnMs": 28.23,
+              "filledMs": 28.23,
+              "tableDrawnMs": 16.77,
+              "tableFilledMs": 16.77
+            }
+          }
+        ],
+        "summary": {
+          "far": {
+            "runs": 10,
+            "steps": 60,
+            "answerMs": 29.09,
+            "drawnMs": 58.12,
+            "filledMs": 58.45,
+            "tableDrawnMs": 28.08,
+            "tableFilledMs": 28.08,
+            "tableDrawnSpread": 0.59
+          },
+          "sideways": {
+            "runs": 10,
+            "steps": 60,
+            "answerMs": 12.71,
+            "drawnMs": 28.56,
+            "filledMs": 28.56,
+            "tableDrawnMs": 17.46,
+            "tableFilledMs": 17.46,
+            "tableDrawnSpread": 0.64
+          },
+          "in view": {
+            "runs": 10,
+            "steps": 180,
+            "answerMs": 12.85,
+            "drawnMs": 28.61,
+            "filledMs": 28.61,
+            "tableDrawnMs": 17.2,
+            "tableFilledMs": 17.2,
+            "tableDrawnSpread": 0.56
+          }
+        }
+      }
+    },
+    "wide": {
+      "reference": {
+        "runs": [
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 17.42,
+              "drawnMs": 33.58,
+              "filledMs": 33.58,
+              "tableDrawnMs": 15.79,
+              "tableFilledMs": 18.05
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.38,
+              "drawnMs": 23.69,
+              "filledMs": 23.69,
+              "tableDrawnMs": 17.2,
+              "tableFilledMs": 17.2
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 18.37,
+              "drawnMs": 37.22,
+              "filledMs": 37.88,
+              "tableDrawnMs": 15.78,
+              "tableFilledMs": 19.57
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.24,
+              "drawnMs": 25.94,
+              "filledMs": 25.94,
+              "tableDrawnMs": 19.84,
+              "tableFilledMs": 19.84
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 18.03,
+              "drawnMs": 33.88,
+              "filledMs": 37.75,
+              "tableDrawnMs": 16.66,
+              "tableFilledMs": 18.48
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.53,
+              "drawnMs": 25.27,
+              "filledMs": 25.27,
+              "tableDrawnMs": 17.21,
+              "tableFilledMs": 17.21
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 18.95,
+              "drawnMs": 42.07,
+              "filledMs": 42.07,
+              "tableDrawnMs": 21.88,
+              "tableFilledMs": 23.89
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.25,
+              "drawnMs": 23.02,
+              "filledMs": 23.02,
+              "tableDrawnMs": 16.69,
+              "tableFilledMs": 16.69
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 17.7,
+              "drawnMs": 38.21,
+              "filledMs": 38.21,
+              "tableDrawnMs": 19.22,
+              "tableFilledMs": 19.22
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.24,
+              "drawnMs": 27.77,
+              "filledMs": 27.77,
+              "tableDrawnMs": 21.79,
+              "tableFilledMs": 21.79
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 18.4,
+              "drawnMs": 39.58,
+              "filledMs": 39.58,
+              "tableDrawnMs": 19.71,
+              "tableFilledMs": 19.71
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.33,
+              "drawnMs": 25.3,
+              "filledMs": 25.3,
+              "tableDrawnMs": 19.14,
+              "tableFilledMs": 19.14
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 21.42,
+              "drawnMs": 41.78,
+              "filledMs": 41.9,
+              "tableDrawnMs": 15.73,
+              "tableFilledMs": 20.3
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.38,
+              "drawnMs": 24.11,
+              "filledMs": 24.11,
+              "tableDrawnMs": 17.8,
+              "tableFilledMs": 17.8
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 17.91,
+              "drawnMs": 39.42,
+              "filledMs": 39.42,
+              "tableDrawnMs": 21.49,
+              "tableFilledMs": 21.49
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.28,
+              "drawnMs": 23.95,
+              "filledMs": 23.95,
+              "tableDrawnMs": 18.13,
+              "tableFilledMs": 18.13
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 18.89,
+              "drawnMs": 37.18,
+              "filledMs": 37.18,
+              "tableDrawnMs": 15.89,
+              "tableFilledMs": 17.97
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 5.94,
+              "drawnMs": 21.13,
+              "filledMs": 21.13,
+              "tableDrawnMs": 15.78,
+              "tableFilledMs": 15.78
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 19,
+              "drawnMs": 35.34,
+              "filledMs": 35.34,
+              "tableDrawnMs": 16.58,
+              "tableFilledMs": 16.58
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 6.33,
+              "drawnMs": 23.93,
+              "filledMs": 23.93,
+              "tableDrawnMs": 18.84,
+              "tableFilledMs": 18.84
+            }
+          }
+        ],
+        "summary": {
+          "far": {
+            "runs": 10,
+            "steps": 60,
+            "answerMs": 18.38,
+            "drawnMs": 37.72,
+            "filledMs": 38.05,
+            "tableDrawnMs": 16.62,
+            "tableFilledMs": 19.39,
+            "tableDrawnSpread": 0.37
+          },
+          "in view": {
+            "runs": 10,
+            "steps": 240,
+            "answerMs": 6.3,
+            "drawnMs": 24.03,
+            "filledMs": 24.03,
+            "tableDrawnMs": 17.96,
+            "tableFilledMs": 17.96,
+            "tableDrawnSpread": 0.33
+          }
+        }
+      },
+      "throttled": {
+        "runs": [
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 23.66,
+              "drawnMs": 56.41,
+              "filledMs": 56.41,
+              "tableDrawnMs": 32.75,
+              "tableFilledMs": 32.75
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 14.82,
+              "drawnMs": 39.09,
+              "filledMs": 39.09,
+              "tableDrawnMs": 23.39,
+              "tableFilledMs": 23.39
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 23.24,
+              "drawnMs": 56.91,
+              "filledMs": 56.91,
+              "tableDrawnMs": 31.71,
+              "tableFilledMs": 33.98
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 14.25,
+              "drawnMs": 38.86,
+              "filledMs": 38.86,
+              "tableDrawnMs": 24.25,
+              "tableFilledMs": 24.25
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 27.48,
+              "drawnMs": 65.05,
+              "filledMs": 65.05,
+              "tableDrawnMs": 33.84,
+              "tableFilledMs": 34.31
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 15.22,
+              "drawnMs": 37.05,
+              "filledMs": 37.05,
+              "tableDrawnMs": 21.72,
+              "tableFilledMs": 21.72
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 39.44,
+              "drawnMs": 68.67,
+              "filledMs": 68.67,
+              "tableDrawnMs": 28.73,
+              "tableFilledMs": 29.23
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 14.98,
+              "drawnMs": 37.73,
+              "filledMs": 37.73,
+              "tableDrawnMs": 22.3,
+              "tableFilledMs": 22.3
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 26.15,
+              "drawnMs": 58.7,
+              "filledMs": 62.11,
+              "tableDrawnMs": 33.28,
+              "tableFilledMs": 35.96
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 15.02,
+              "drawnMs": 37.28,
+              "filledMs": 37.28,
+              "tableDrawnMs": 23.31,
+              "tableFilledMs": 23.31
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 24.02,
+              "drawnMs": 54.61,
+              "filledMs": 54.61,
+              "tableDrawnMs": 30.11,
+              "tableFilledMs": 30.69
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 15.33,
+              "drawnMs": 37.41,
+              "filledMs": 37.41,
+              "tableDrawnMs": 21.37,
+              "tableFilledMs": 21.37
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 23.94,
+              "drawnMs": 56.58,
+              "filledMs": 56.58,
+              "tableDrawnMs": 33.3,
+              "tableFilledMs": 33.3
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 15.84,
+              "drawnMs": 38.45,
+              "filledMs": 38.45,
+              "tableDrawnMs": 22.15,
+              "tableFilledMs": 22.15
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 27.13,
+              "drawnMs": 60.98,
+              "filledMs": 60.98,
+              "tableDrawnMs": 31.66,
+              "tableFilledMs": 31.66
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 15.46,
+              "drawnMs": 36.41,
+              "filledMs": 36.41,
+              "tableDrawnMs": 21.08,
+              "tableFilledMs": 21.08
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 26.32,
+              "drawnMs": 57.37,
+              "filledMs": 57.37,
+              "tableDrawnMs": 31.52,
+              "tableFilledMs": 31.63
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 15.57,
+              "drawnMs": 36.5,
+              "filledMs": 36.5,
+              "tableDrawnMs": 19.31,
+              "tableFilledMs": 19.31
+            }
+          },
+          {
+            "far": {
+              "steps": 6,
+              "answerMs": 34.45,
+              "drawnMs": 75.67,
+              "filledMs": 75.67,
+              "tableDrawnMs": 41.98,
+              "tableFilledMs": 41.98
+            },
+            "in view": {
+              "steps": 24,
+              "answerMs": 16.53,
+              "drawnMs": 36.72,
+              "filledMs": 36.72,
+              "tableDrawnMs": 20.7,
+              "tableFilledMs": 20.7
+            }
+          }
+        ],
+        "summary": {
+          "far": {
+            "runs": 10,
+            "steps": 60,
+            "answerMs": 26.23,
+            "drawnMs": 58.03,
+            "filledMs": 59.17,
+            "tableDrawnMs": 32.23,
+            "tableFilledMs": 33.02,
+            "tableDrawnSpread": 0.41
+          },
+          "in view": {
+            "runs": 10,
+            "steps": 240,
+            "answerMs": 15.28,
+            "drawnMs": 37.34,
+            "filledMs": 37.34,
+            "tableDrawnMs": 21.93,
+            "tableFilledMs": 21.93,
+            "tableDrawnSpread": 0.23
+          }
+        }
+      }
+    }
+  },
+  "failures": []
+}

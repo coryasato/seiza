@@ -44,7 +44,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | Needs | For | Status |
 |---|---|---|
 | The tall table's `replace_rows`, then column filtering and global filtering ([its PLAN](../../components/tall-table/PLAN.md)) | "Sort and filter", below | *Ready* (2026-11-18, tall-table M18) |
-| The tall table's find | Search that keeps every row | *Not ready* |
+| The tall table's find | Search that keeps every row | *Ready* (2026-11-19, tall-table M20) |
 | The tall table's column visibility | Hide and show columns | *Ready* (2026-11-18, tall-table M19) |
 | The tall table's column summaries in the header | The column profile, only if the design session puts it under the headers | *Not ready* |
 | The tall table's nested values | "JSONL, then nested values in the row detail view", below | *Not ready* |
@@ -82,7 +82,7 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 1. **The controller, thin, and the engine's lockdown.** One serializable view state behind every driver; first the parts that need nothing new from the engine (source, columns, their order, widths, pins, formats). The lockdown is repeated in a browser first, with what Tycho sends lazily today moved ahead of the lock. *("The controller"; "Security", layer 2.)*
 2. **The thread, minimal:** the input and the log, in the DOM, so every later goal has somewhere to show its commands and answers. Its form comes from the design session. *("The thread".)*
 3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view. *("The table's own tools".)*
-4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order and its `WHERE` are unbuilt engine work, and find waits on the tall table ("Waiting on"); filtering's part in the table, `replace_rows`, is ready. *("The controller".)*
+4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order, its `WHERE`, and its find are unbuilt engine work; the table's parts, `replace_rows` for filtering and `find`, are ready ("Waiting on"). *("The controller".)*
 5. **Profiles and the catalog,** grouping included, whose result is a new table. *("The catalog".)*
 6. **Export,** and the view copied as SQL. Its size plan is settled first. *("The table's own tools".)*
 7. **The connection policy.** *Proposed* as part of the first release, since the input is drivable from the day it ships. *("Trust".)*

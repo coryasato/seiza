@@ -11,13 +11,13 @@ type Global = { __tallTable?: Shown; __tallTableFollowing?: boolean; __seizaFram
 
 // Each frame's view, for `shared-web/perf/`'s `frameRecorder` and
 // `presentedRecorder`; with `follow`, whether the table follows; with
-// `sort`, the order.
+// `sort`, the order; with `find`, the term and the current match.
 (globalThis as Global).__seizaFrameSample = () => {
   const g = globalThis as Global;
   const shown = g.__tallTable;
   if (!shown) return {};
-  const { top, first, end, loaded, pending, scrollX, sort } = shown;
-  return { top, first, end, loaded, pending, scrollX, sort, following: g.__tallTableFollowing };
+  const { top, first, end, loaded, pending, scrollX, sort, find } = shown;
+  return { top, first, end, loaded, pending, scrollX, sort, find, following: g.__tallTableFollowing };
 };
 
 void boot({ init: () => init({ module_or_path: wasmUrl }), start, fontUrl, wasmUrl });
