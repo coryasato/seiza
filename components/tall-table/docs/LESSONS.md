@@ -812,6 +812,18 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - A far landing's first frame was already filled: the bare host's pages answer at once and the jump's reads go out with it, so → drawn and → filled read the same. A source that reads slower shows the gap.
 - Kirkwood's wasm differed in its code, not only its line numbers, though it builds no `find`: part B moved `select`'s sideways bring-into-view into the state, and Kirkwood builds `select`. The same size to the byte, with wasm-bindgen's shims' function indices one apart. "No app builds the feature" isn't "no app's code changed" when a part moves shared code.
 
+## M21: the cell popover (part B, 2026-11-20)
+
+**Results:** [`perf/results/2026-11-20-m21-b-spike.md`](../perf/results/2026-11-20-m21-b-spike.md) (the spike in three browsers, `SelectableText`'s bytes, the frames that set the cap).
+
+**Surprises:**
+- The research's copy path would have failed in every Mac browser: gpui-kit's `Root` binds its copy to Cmd+C only under `cfg(target_os = "macos")`, never true on wasm, so `copy`'s key stepping aside would have handed Cmd+C to nothing. The native test passed either way (the test app is macOS). A binding read in gpui-kit's source is read for the wasm target, not the host's.
+- The starting cap was far past a frame: a 100,000-character popover drew every frame in 18.1 ms, its text laid out whole each time. The cost grew with the text, not the lines in view, so the cap came down to 10,000, read off the measured slope rather than guessed.
+- A popover's measuring canvas sat under the button it was measuring: an absolute child with no insets lands at its block static position, after its in-flow sibling, so the probe put the button 24 px low and a press there was "outside". `top_0().left_0()` on every measuring canvas.
+- A negative control that needs three steps to meet (a popover open, its row re-read, a frame) passed every one of 48 cases, and 200 caught it. The popover's step now also changes its row and frames, so the control fails where its feature's steps are, not by chance among the others'.
+- The code review found the popover copying a selection that wasn't its own, and the first test of it passed on the buggy code: it closed the popover before opening another, which drops the text element for a frame and its selection with it. The bug was a move, the element drawn throughout under the same id, its retained selection carried over. A test of a stale-state bug runs the path that keeps the state, and is checked against the code before the fix.
+- The first host column for the cap was out of view at open (the narrow shape runs past 1,440 px), so every open was refused and the probe showed nothing: a refusal that's silent by design needs the script to check the probe, which it did.
+
 ## M21: the cell popover (part A, 2026-11-19)
 
 **Results:** no measurement; the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "Cell popover (`popover`)".

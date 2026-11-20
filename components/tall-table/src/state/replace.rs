@@ -140,6 +140,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // (`find`).
         #[cfg(feature = "find")]
         self.reset_find(cx);
+        // Its row means another (`popover`).
+        #[cfg(feature = "popover")]
+        self.reset_popover(cx);
         #[cfg(feature = "select")]
         {
             let last = self.scroll.rows().saturating_sub(1);

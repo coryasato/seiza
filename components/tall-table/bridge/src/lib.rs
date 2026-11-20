@@ -8,7 +8,8 @@
 //! selection, with `copy` the clipboard's writer ([`clipboard`]), with
 //! `sort` the order and its mark, with `pin` the columns pinned, with
 //! `reorder` the columns' order, with `clicks` each press, with `hide` the
-//! columns' hidden flags, with `find` each step's outcome, and the probes (`TallTableProbe`,
+//! columns' hidden flags, with `find` each step's outcome, with `popover`
+//! each press of its button, and the probes (`TallTableProbe`,
 //! `TallTableLayout`, `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -112,6 +113,12 @@ pub struct Publish {
     /// that found the same cell again. Unset until the first.
     #[cfg(feature = "find")]
     pub found: Option<&'static str>,
+    /// The global holding the last press of the popover's button
+    /// (`popover`'s [`TallTableEvent::PopoverButton`], [`js::popover_cell`]
+    /// with a `count`: the presses published so far, the bridge's own
+    /// count), replaced at each. Unset until the first.
+    #[cfg(feature = "popover")]
+    pub popover_button: Option<&'static str>,
 }
 
 impl Publish {
@@ -229,6 +236,15 @@ impl Publish {
                     js::set_global(name, &js::found(Some(outcome), find_count(true)));
                 }
             }
+            #[cfg(all(feature = "popover", target_family = "wasm"))]
+            TallTableEvent::PopoverButton(cell) => {
+                if let Some(name) = self.popover_button {
+                    use std::sync::atomic::{AtomicU32, Ordering};
+                    static PUBLISHED: AtomicU32 = AtomicU32::new(0);
+                    let count = PUBLISHED.fetch_add(1, Ordering::Relaxed) + 1;
+                    js::set_global(name, &js::popover_press(*cell, count));
+                }
+            }
             #[cfg(all(feature = "group-headers", target_family = "wasm"))]
             TallTableEvent::Groups(groups) => {
                 if let Some(name) = self.groups {
@@ -305,7 +321,8 @@ pub mod js {
     /// `select`, also `selection` ([`selection`]); with `sort`, `sort`
     /// ([`sort`]); with `find`, `find`: `{term, current, out}`, the term
     /// or null, the current match `{row, column}` (its index) or null,
-    /// and whether a step is out.
+    /// and whether a step is out; with `popover`, `popover` ([`popover`])
+    /// and `cue` (`{cell, bounds}`, or null).
     pub fn probe(probe: &TallTableProbe) -> JsValue {
         let object = Object::new();
         set(&object, "rows", number(probe.rows as f64));
@@ -335,7 +352,67 @@ pub mod js {
             set(&find, "out", probe.find.out.into());
             set(&object, "find", find.into());
         }
+        #[cfg(feature = "popover")]
+        {
+            set(&object, "popover", popover(probe.popover.as_deref()));
+            let cue = probe.cue.as_ref().map_or(JsValue::NULL, |cue| {
+                let object = Object::new();
+                set(&object, "cell", popover_cell(cue.cell));
+                set(&object, "bounds", rect(cue.bounds));
+                object.into()
+            });
+            set(&object, "cue", cue);
+        }
         object.into()
+    }
+
+    /// `{row, column}` (the column's index) (`popover`).
+    #[cfg(feature = "popover")]
+    pub fn popover_cell(cell: seiza_tall_table::PopoverCell) -> JsValue {
+        let object = Object::new();
+        set(&object, "row", number(cell.row as f64));
+        set(&object, "column", number(cell.column as f64));
+        object.into()
+    }
+
+    /// `{row, column, count}`: a press of the popover's button, `count`
+    /// the presses published so far (`popover`).
+    #[cfg(feature = "popover")]
+    pub fn popover_press(cell: seiza_tall_table::PopoverCell, count: u32) -> JsValue {
+        let object = Object::new();
+        set(&object, "row", number(cell.row as f64));
+        set(&object, "column", number(cell.column as f64));
+        set(&object, "count", number(count));
+        object.into()
+    }
+
+    /// `[x, y, width, height]`, in CSS px (`popover`).
+    #[cfg(feature = "popover")]
+    fn rect(bounds: [f32; 4]) -> JsValue {
+        bounds
+            .iter()
+            .map(|value| number(*value))
+            .collect::<Array>()
+            .into()
+    }
+
+    /// The open popover (`popover`), or null: `{cell, bounds, below,
+    /// chars, cut, scroll, contentHeight, button}`, `bounds` and `button`
+    /// `[x, y, width, height]` (`button` null without one).
+    #[cfg(feature = "popover")]
+    fn popover(probe: Option<&seiza_tall_table::PopoverProbe>) -> JsValue {
+        probe.map_or(JsValue::NULL, |probe| {
+            let object = Object::new();
+            set(&object, "cell", popover_cell(probe.cell));
+            set(&object, "bounds", rect(probe.bounds));
+            set(&object, "below", probe.below.into());
+            set(&object, "chars", number(probe.chars as f64));
+            set(&object, "cut", probe.cut.into());
+            set(&object, "scroll", number(probe.scroll));
+            set(&object, "contentHeight", number(probe.content_height));
+            set(&object, "button", probe.button.map_or(JsValue::NULL, rect));
+            object.into()
+        })
     }
 
     /// `{row, column}` (the column's index), or null (`find`).

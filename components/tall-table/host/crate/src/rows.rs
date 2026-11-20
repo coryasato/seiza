@@ -235,6 +235,11 @@ pub struct MemoryPage {
     /// or not.
     #[cfg(feature = "format")]
     threes: Vec<bool>,
+    /// The long text (`popover`, `?popover-long=<chars>`): every row's
+    /// value in the column at [`LONG_AT`], one text shared by every page,
+    /// so a page costs no more for it.
+    #[cfg(feature = "popover")]
+    long: Option<Rc<str>>,
 }
 
 /// `columns` formatted (`format`): every float column at 2 decimals, a `+`
@@ -459,6 +464,8 @@ impl MemoryPage {
             paint: None,
             #[cfg(feature = "format")]
             threes: Vec::new(),
+            #[cfg(feature = "popover")]
+            long: None,
         }
     }
 }
@@ -583,6 +590,16 @@ fn date_text(days: i32) -> String {
 
 impl TallTablePage for MemoryPage {
     fn value(&self, row: usize, column: usize) -> Option<CellValue<'_>> {
+        // The long text's column, the third (`popover`): the shape's from
+        // it on one place on.
+        #[cfg(feature = "popover")]
+        let column = match (&self.long, column.cmp(&LONG_AT)) {
+            (Some(long), std::cmp::Ordering::Equal) => {
+                return Some(CellValue::Text(Cow::Borrowed(long)));
+            }
+            (Some(_), std::cmp::Ordering::Greater) => column - 1,
+            _ => column,
+        };
         Some(match self.columns.get(column)? {
             Values::Float(values) => {
                 let value = *values.get(row)?;
@@ -703,7 +720,17 @@ pub struct MemoryRows {
     /// reads, so a cancelled find isn't counted as a drained read.
     #[cfg(feature = "find")]
     finding: Rc<RefCell<HashSet<u32>>>,
+    /// The long text every page answers in the column at [`LONG_AT`]
+    /// (`popover`, [`MemoryRows::with_long`]).
+    #[cfg(feature = "popover")]
+    long: Option<Rc<str>>,
 }
+
+/// Where the long text's column goes (`popover`): third, after the
+/// narrow shape's `full_name`, so it's in view at open; the shape's
+/// columns from there on move one place on.
+#[cfg(feature = "popover")]
+pub const LONG_AT: usize = 2;
 
 /// The cells a find tests in a window (`find`), before it yields to the
 /// frames and the page reads and checks for a cancel: 16,384, about 7 ms of
@@ -781,6 +808,28 @@ impl MemoryRows {
             held: Rc::new(Cell::new(shape.rows())),
             #[cfg(feature = "find")]
             finding: Rc::default(),
+            #[cfg(feature = "popover")]
+            long: None,
+        }
+    }
+
+    /// Every row's value in a column at [`LONG_AT`] a text of `chars`
+    /// characters (`popover`): words of a few letters, a line break every
+    /// 40 words, so the popover wraps it as prose and lines.
+    #[cfg(feature = "popover")]
+    pub fn with_long(self, chars: usize) -> Self {
+        let mut text = String::with_capacity(chars + 16);
+        let mut word = 0u64;
+        while text.len() < chars {
+            word += 1;
+            let letters = 2 + (hash(word, 0) % 8) as usize;
+            text.extend((0..letters).map(|at| char::from(b'a' + (hash(word, at + 1) % 26) as u8)));
+            text.push(if word.is_multiple_of(40) { '\n' } else { ' ' });
+        }
+        text.truncate(chars);
+        Self {
+            long: Some(text.into()),
+            ..self
         }
     }
 
@@ -841,6 +890,8 @@ impl MemoryRows {
                 paint: None,
                 #[cfg(feature = "format")]
                 threes: Vec::new(),
+                #[cfg(feature = "popover")]
+                long: None,
             };
             match page.value(0, 0)? {
                 CellValue::Null => None,
@@ -905,6 +956,8 @@ impl TallTableDelegate for MemoryRows {
         #[cfg(feature = "sort")]
         let order = self.sorted.borrow().clone();
         let stride = self.stride.get();
+        #[cfg(feature = "popover")]
+        let long = self.long.clone();
         let load = async move {
             if let Some(timer) = timer {
                 timer.await;
@@ -912,7 +965,10 @@ impl TallTableDelegate for MemoryRows {
             if !pending.borrow_mut().remove(&request) {
                 return Err(PageError::Cancelled);
             }
-            #[cfg_attr(not(feature = "custom-cells"), expect(unused_mut))]
+            #[cfg_attr(
+                not(any(feature = "custom-cells", feature = "popover")),
+                expect(unused_mut)
+            )]
             // Unstrided, the page every perf run measures, built as it
             // always was: `strided` only once a script replaced the rows.
             let mut page = if stride == 1 {
@@ -938,6 +994,10 @@ impl TallTableDelegate for MemoryRows {
             #[cfg(feature = "custom-cells")]
             if cells != Cells::Text {
                 page.paint = Some((cells, shape));
+            }
+            #[cfg(feature = "popover")]
+            {
+                page.long = long;
             }
             Ok(page)
         };

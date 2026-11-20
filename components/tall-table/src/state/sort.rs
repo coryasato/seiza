@@ -236,11 +236,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // The random test's `KeepFindOnSort` (`find`).
         #[cfg(all(test, feature = "find"))]
         let kept = self.keep_find_on_sort();
+        // And `KeepPopoverOnSort` (`popover`).
+        #[cfg(all(test, feature = "popover"))]
+        let kept_popover = self.keep_popover_on_sort();
         self.reset_rows(ViewAt::Top, cx);
         #[cfg(all(test, feature = "find"))]
         if kept.is_some() {
             self.find_state.out = kept;
         }
+        #[cfg(all(test, feature = "popover"))]
+        self.put_back_popover(kept_popover);
         cx.emit(TallTableEvent::Sorted(Vec::from_iter(sort)));
         self.reset_load(cx);
     }

@@ -73,6 +73,8 @@ const FEATURES: Record<string, string | string[]> = {
   hide: 'seiza_tall_table5state4hide',
   // Finding: the rule's module and the state's `find` module.
   find: ['seiza_tall_table4find', 'seiza_tall_table5state4find'],
+  // The popover: its types' module and the state's `popover` module.
+  popover: ['seiza_tall_table7popover', 'seiza_tall_table5state7popover'],
 };
 
 /** A feature that turns on another is measured against it too, and the

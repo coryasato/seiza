@@ -71,7 +71,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "clicks",
     feature = "group-headers",
     feature = "hide",
-    feature = "find"
+    feature = "find",
+    feature = "popover"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -514,6 +515,13 @@ enum Step {
     /// placed, never drawn ([`with_finds`]).
     #[cfg(feature = "find")]
     Find(u64),
+    /// The popover (`popover`), placed, never drawn ([`with_popovers`]):
+    /// opened on a visible cell (one in two), closed, its button set or
+    /// taken away, its row changed (`live`), or Enter (on an open popover
+    /// its button or its close, else `select`'s active cell), from the
+    /// number ([`Run::popover`]).
+    #[cfg(feature = "popover")]
+    Popover(u64),
     /// `replace_rows`, placed, never drawn ([`with_replaces`]): the source
     /// swapped for its rows permuted, every row's era new, and a count and
     /// a target from the number ([`Run::replace`]).
@@ -786,7 +794,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 24] = [
+const INVARIANTS: [&str; 26] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -811,6 +819,8 @@ const INVARIANTS: [&str; 24] = [
     "a landed match is the source's, of the era in effect",
     "one find out, one Found a FindStarted",
     "every match drawn is tinted, and only matches",
+    "an open popover's cell is in view, and its text the page drawn's",
+    "no popover open across a sort or set_columns",
 ];
 
 /// A zone a press lands in.
@@ -899,6 +909,15 @@ struct Heard {
     /// What the events broke (`find`): 22 or 23, and why.
     #[cfg(feature = "find")]
     find_fault: Option<(u8, String)>,
+    /// The popover's cell, as `Popover` last said (`popover`).
+    #[cfg(feature = "popover")]
+    popover: Option<crate::PopoverCell>,
+    /// A reset (`Sorted`) heard while the popover was open (`popover`).
+    #[cfg(feature = "popover")]
+    reset_open: bool,
+    /// A `PopoverButton` for a cell the popover wasn't open on.
+    #[cfg(feature = "popover")]
+    popover_fault: Option<String>,
 }
 
 /// Each column's set width, as `ColumnWidthsChanged` reports them.
@@ -961,6 +980,10 @@ enum Control {
     /// The match rule's (`find`): set for the thread while the cases run.
     #[cfg(feature = "find")]
     FindRule(crate::find::Control),
+    /// A popover kept across a reset (with `sort`), or its text not
+    /// decided again (with `live`) (`popover`).
+    #[cfg(all(feature = "popover", any(feature = "sort", feature = "live")))]
+    Popover(super::popover::Control),
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -1120,6 +1143,8 @@ impl Run {
                 Some(Control::Find(control)) => table.find_state.control = control,
                 #[cfg(feature = "find")]
                 Some(Control::FindRule(_)) => {}
+                #[cfg(all(feature = "popover", any(feature = "sort", feature = "live")))]
+                Some(Control::Popover(control)) => table.popover_state.control = control,
                 None => {}
             }
             #[cfg(feature = "copy")]
@@ -1149,6 +1174,12 @@ impl Run {
                 find_out: false,
                 #[cfg(feature = "find")]
                 find_fault: None,
+                #[cfg(feature = "popover")]
+                popover: table.popover(),
+                #[cfg(feature = "popover")]
+                reset_open: false,
+                #[cfg(feature = "popover")]
+                popover_fault: None,
             }
         });
         #[cfg(feature = "find")]
@@ -1176,7 +1207,34 @@ impl Run {
                     TallTableEvent::Pinned(pinned) => heard.borrow_mut().pinned = *pinned,
                     #[cfg(feature = "sort")]
                     TallTableEvent::Sorted(keys) => {
-                        heard.borrow_mut().sorted = keys.first().copied()
+                        let mut heard = heard.borrow_mut();
+                        heard.sorted = keys.first().copied();
+                        // A reset: whatever was open is closed by now.
+                        #[cfg(feature = "popover")]
+                        if heard.popover.is_some() {
+                            heard.reset_open = true;
+                        }
+                    }
+                    #[cfg(feature = "popover")]
+                    TallTableEvent::Popover(cell) => {
+                        let mut heard = heard.borrow_mut();
+                        heard.popover = *cell;
+                        // A close after the sort (its cell scrolled out at
+                        // the next frame) doesn't undo having kept it.
+                        if cell.is_some() {
+                            heard.reset_open = false;
+                        }
+                    }
+                    #[cfg(feature = "popover")]
+                    TallTableEvent::PopoverButton(cell) => {
+                        let mut heard = heard.borrow_mut();
+                        if heard.popover != Some(*cell) {
+                            let fault = format!(
+                                "PopoverButton({cell:?}) with the popover on {:?}",
+                                heard.popover
+                            );
+                            heard.popover_fault.get_or_insert(fault);
+                        }
                     }
                     #[cfg(feature = "follow")]
                     TallTableEvent::Following(following) => {
@@ -1433,6 +1491,14 @@ impl Run {
             }
             if table.hover.is_some() || table.marked.is_some() {
                 return Err(Violation::new(19, "the hover or the jump's mark kept"));
+            }
+            // Its row means another: kept by row, so 19's (`popover`).
+            #[cfg(feature = "popover")]
+            if let Some(cell) = table.popover() {
+                return Err(Violation::new(
+                    19,
+                    format!("the popover on {cell:?} open across replace_rows"),
+                ));
             }
             // Its index means another cell (`find`).
             #[cfg(feature = "find")]
@@ -2098,6 +2164,34 @@ impl Run {
                     ));
                 }
             }
+            #[cfg(feature = "popover")]
+            {
+                if let Some(fault) = &heard.popover_fault {
+                    return Err(Violation::new(18, fault.clone()));
+                }
+                if heard.popover != table.popover() {
+                    return Err(Violation::new(
+                        18,
+                        format!(
+                            "the last Popover said {:?}, it's open on {:?}",
+                            heard.popover,
+                            table.popover()
+                        ),
+                    ));
+                }
+                if heard.reset_open {
+                    return Err(Violation::new(
+                        26,
+                        format!("the popover on {:?} open across a sort", heard.popover),
+                    ));
+                }
+                if let Some(cell) = table.popover().filter(|cell| cell.row >= rows) {
+                    return Err(Violation::new(
+                        17,
+                        format!("the popover on {cell:?} with {rows} rows"),
+                    ));
+                }
+            }
             #[cfg(feature = "follow")]
             if heard.following != table.is_following() {
                 return Err(Violation::new(
@@ -2156,6 +2250,8 @@ impl Run {
             hidden_nowhere(table)?;
             #[cfg(feature = "find")]
             tinted_by_the_rule(table)?;
+            #[cfg(feature = "popover")]
+            popover_in_view(table)?;
             #[cfg(any(feature = "select", feature = "reorder", feature = "clicks"))]
             let row_h = table.sizes().row();
             let texts = table.drawn_text.borrow();
@@ -2393,6 +2489,14 @@ impl Run {
                     }
                 }
                 self.update(|table, cx| table.set_columns(columns, cx));
+                // Its index means another column (`popover`).
+                #[cfg(feature = "popover")]
+                if let Some(cell) = self.read(|table| table.popover()) {
+                    return Err(Violation::new(
+                        26,
+                        format!("the popover on {cell:?} open across set_columns"),
+                    ));
+                }
                 // The widths are the new columns', as the host set them.
                 #[cfg(feature = "resize")]
                 {
@@ -2545,6 +2649,8 @@ impl Run {
             Step::Hide(pick) => self.hide(pick),
             #[cfg(feature = "find")]
             Step::Find(pick) => self.find(pick),
+            #[cfg(feature = "popover")]
+            Step::Popover(pick) => self.popover(pick)?,
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -2607,6 +2713,81 @@ impl Run {
             }
         });
         self.update(|table, cx| table.set_find(term.map(Into::into), cx));
+    }
+
+    /// `Step::Popover`: one in two opened on a visible cell (a row and a
+    /// place from the number, refused where the table refuses); else
+    /// closed, its button set (`Open row`) or taken away, its row changed
+    /// in the source and invalidated (`live`), a sort (`sort`), or Enter.
+    /// Then,
+    /// with one open, a frame and its checks, as `Step::Frame`'s: what
+    /// landed on its row since is drawn in it.
+    #[cfg(feature = "popover")]
+    fn popover(&mut self, pick: u64) -> Checked {
+        match pick % 16 {
+            0..=7 => {
+                let pick = pick >> 4;
+                let cell = self.read(|table| {
+                    let visible = table.visible_rows();
+                    let places = table.columns.len() as u64;
+                    if visible.is_empty() || places == 0 {
+                        return None;
+                    }
+                    let row = visible.start + pick % (visible.end - visible.start);
+                    let place = ((pick >> 20) % places) as usize;
+                    let index = table.columns[place].index(place);
+                    Some(crate::PopoverCell::new(row, index))
+                });
+                if let Some(cell) = cell {
+                    self.update(|table, cx| table.open_popover(cell, cx));
+                }
+            }
+            8 | 9 => self.update(|table, cx| table.close_popover(cx)),
+            10 => self.update(|table, cx| {
+                let button = table
+                    .popover_button()
+                    .is_none()
+                    .then(|| crate::PopoverButton::label("Open row"));
+                table.set_popover_button(button, cx)
+            }),
+            // A sort while it's open (`sort`): the first sortable column,
+            // ascending; refused or not, as the source has it.
+            #[cfg(feature = "sort")]
+            14 if self.read(|table| table.popover().is_some()) => {
+                let sortable = self.sortable();
+                if let Some(column) =
+                    (0..self.columns).find(|column| sortable & (1 << (column % 8)) != 0)
+                {
+                    let sort = crate::Sort::new(column, crate::SortDirection::Ascending);
+                    self.update(|table, cx| {
+                        let _ = table.set_sort(vec![sort], cx);
+                    });
+                }
+            }
+            // The source changes its row and says so, its re-read answered
+            // as it's sent (`live`).
+            #[cfg(feature = "live")]
+            11..=13 if let Some(cell) = self.read(|table| table.popover()) => {
+                if let Some(stamp) = self.books.borrow_mut().stamps.get_mut(cell.row as usize) {
+                    stamp.version += 1;
+                }
+                let at_once = std::mem::replace(&mut self.books.borrow_mut().at_once, true);
+                self.update(|table, cx| {
+                    table.invalidate_rows(cell.row..cell.row + 1, cx);
+                });
+                self.books.borrow_mut().at_once = at_once;
+            }
+            _ => {
+                self.cx.simulate_keystrokes("enter");
+                self.park();
+            }
+        }
+        if self.read(|table| table.popover().is_some()) {
+            self.draw();
+            self.framed()?;
+            self.park();
+        }
+        Ok(())
     }
 
     /// `Step::Hide`: a column's flag set, or (one in four) every flag, from
@@ -3075,6 +3256,43 @@ fn landed_fault(books: &Books, cell: crate::FoundCell) -> Option<String> {
     None
 }
 
+/// 25, at a frame: an open popover's cell in view (its row visible, its
+/// column shown, some of it in the cells area), and its text the exact
+/// text of the value the page drawn holds there (`popover`).
+#[cfg(feature = "popover")]
+fn popover_in_view(table: &TallTableState<Source>) -> Checked {
+    let Some(cell) = table.popover() else {
+        return Ok(());
+    };
+    let Some(place) = table.place_of(cell.column) else {
+        return Err(Violation::new(25, format!("{cell:?}: its column is gone")));
+    };
+    if table.popover_cell_bounds(cell.row, place).is_none() {
+        return Err(Violation::new(
+            25,
+            format!(
+                "{cell:?} open out of view (rows {:?})",
+                table.visible_rows()
+            ),
+        ));
+    }
+    if let RowState::Loaded(page, index) = table.cache.row(cell.row) {
+        let value = page.value(index, cell.column).unwrap_or(CellValue::Null);
+        let text = crate::popover::popover_text(&value, crate::popover::POPOVER_CHARS);
+        let shown = &table.popover_state.open.as_ref().expect("open").text;
+        if *shown != text {
+            return Err(Violation::new(
+                25,
+                format!(
+                    "{cell:?} shows {:?}, its page holds {:?}",
+                    shown.text, text.text
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// 24: every drawn cell is tinted exactly when it matches the term by the
 /// rule (its exact text contains the term, both lowercased: written here
 /// apart from the table's code) or is the current match (`find`).
@@ -3521,6 +3739,22 @@ fn with_finds(seed: u64, steps: &mut Vec<Step>) {
     }
 }
 
+/// `popover`'s steps, up to 24 (three streams of up to eight), placed as
+/// `pin`'s are ([`with_pins`]), after `find`'s, so every other step's
+/// place stays what it was. Its constants: SHA-256's third word turned 17
+/// bits, its fourth, and its sixth and seventh: with two streams, 48 cases
+/// didn't catch `StalePopoverText` (200 did).
+#[cfg(feature = "popover")]
+fn with_popovers(seed: u64, steps: &mut Vec<Step>) {
+    for stream in [
+        0x3c6e_f372_a54f_f53a_u64.rotate_left(17),
+        0xa54f_f53a_510e_527f,
+        0x9b05_688c_1f83_d9ab,
+    ] {
+        place_steps(seed ^ stream, steps, Step::Popover);
+    }
+}
+
 /// `density`'s steps' row heights and text sizes: the default, the bare
 /// host's dense setting, shorter, taller, and the clamp's least.
 #[cfg(feature = "density")]
@@ -3683,6 +3917,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 with_hides(seed, &mut case.steps);
                 #[cfg(feature = "find")]
                 with_finds(seed, &mut case.steps);
+                #[cfg(feature = "popover")]
+                with_popovers(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
@@ -4343,6 +4579,26 @@ mod controls {
         fails(
             Control::Find(crate::state::find::Control::KeepFindOnSort),
             &[22],
+        );
+    }
+
+    /// 26: a popover kept open across a sort.
+    #[cfg(all(feature = "popover", feature = "sort"))]
+    #[test]
+    fn a_popover_kept_across_a_sort() {
+        fails(
+            Control::Popover(crate::state::popover::Control::KeepPopoverOnSort),
+            &[26],
+        );
+    }
+
+    /// 25: a page landing on the popover's row leaves its text as it was.
+    #[cfg(all(feature = "popover", feature = "live"))]
+    #[test]
+    fn a_stale_popover_text() {
+        fails(
+            Control::Popover(crate::state::popover::Control::StalePopoverText),
+            &[25],
         );
     }
 

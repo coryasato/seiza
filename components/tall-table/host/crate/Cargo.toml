@@ -64,6 +64,12 @@ hide = ["seiza-tall-table/hide", "tall-table-bridge/hide"]
 # `__tallTableFindPrevious()`. The source finds over its rows in windows,
 # `?delay` per window.
 find = ["seiza-tall-table/find", "tall-table-bridge/find"]
+# The cell popover: `?popover=<label>` labels its button (`?popover` alone:
+# none), `?popover-cue=off` draws no cue, `?popover-long=<chars>` puts a
+# third column of a text that long (the cap's frame); with `?perf`,
+# `__tallTablePopoverOpen(row, column)`, `__tallTablePopoverClose()`, and
+# `__tallTablePopoverEnter()`, and each button press published.
+popover = ["seiza-tall-table/popover", "tall-table-bridge/popover"]
 
 [dependencies]
 gpui-kit.workspace = true

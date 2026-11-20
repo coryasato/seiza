@@ -26,9 +26,9 @@ pub(super) struct Out<R> {
 pub(super) struct FindState<D: TallTableDelegate> {
     pub(super) term: Option<SharedString>,
     /// The term lowercased (`find::lower`): the match rule's.
-    lower: String,
+    pub(super) lower: String,
     /// The term folded a character at a time: the ranges'.
-    folded: std::rc::Rc<str>,
+    pub(super) folded: std::rc::Rc<str>,
     pub(super) current: Option<FoundCell>,
     pub(super) out: Option<Out<D::Request>>,
     /// Which was set last, the reader's selection or a landing (`select`):
@@ -253,11 +253,6 @@ impl<D: TallTableDelegate> TallTableState<D> {
             }
             Kind::Columns => None,
         }
-    }
-
-    /// The place column `index` is drawn at.
-    pub(super) fn place_of(&self, index: usize) -> Option<usize> {
-        (0..self.columns.len()).find(|&place| self.columns[place].index(place) == index)
     }
 
     /// Asks the source `query`: the find out, answered on a task; a

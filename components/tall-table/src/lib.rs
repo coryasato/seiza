@@ -40,6 +40,8 @@ mod pages;
 mod paint;
 #[cfg(feature = "pin")]
 mod pin;
+#[cfg(feature = "popover")]
+mod popover;
 mod probe;
 #[cfg(feature = "reorder")]
 mod reorder;
@@ -66,11 +68,15 @@ pub use find::{FindLoad, FindOutcome, FindQuery, FoundCell};
 pub use format::{NumberFormat, Sign};
 #[cfg(feature = "custom-cells")]
 pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
+#[cfg(feature = "popover")]
+pub use popover::{PopoverButton, PopoverCell, PopoverCue};
 #[cfg(feature = "group-headers")]
 pub use probe::GroupProbe;
 #[cfg(feature = "custom-cells")]
 pub use probe::PaintProbe;
 pub use probe::{CellProbe, ColumnProbe, TallTableLayout, TallTableProbe};
+#[cfg(feature = "popover")]
+pub use probe::{CueProbe, PopoverProbe};
 #[cfg(feature = "find")]
 pub use probe::{FindProbe, FoundProbe};
 #[cfg(feature = "select")]

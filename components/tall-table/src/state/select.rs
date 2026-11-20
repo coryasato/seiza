@@ -580,6 +580,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// Cmd+A, Ctrl+A, and the corner: every column, else every row, else
     /// every cell.
     pub(super) fn select_everything(&mut self, cx: &mut Context<Self>) {
+        // The popover was about the active cell left (`popover`).
+        #[cfg(feature = "popover")]
+        self.close_popover(cx);
         let selectable = self.selection_state.selectable;
         let rows = self.scroll.rows();
         let (Some(first), Some(last_column)) =
@@ -620,6 +623,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// view. With nothing selected, an arrow selects the first visible cell
     /// without moving, and the rest scroll as the base's.
     fn key_step(&mut self, step: Step, extend: bool, cx: &mut Context<Self>) {
+        // The popover was about the active cell left (`popover`).
+        #[cfg(feature = "popover")]
+        self.close_popover(cx);
         // With no column shown, nothing is selectable: the keys scroll as
         // the base's, and a kept `Rows` range stays (`hide`).
         #[cfg(feature = "hide")]

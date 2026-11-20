@@ -84,3 +84,9 @@ hide = []
 # `TallTableDelegate::find`, `TallTableEvent::Found`). The table binds no
 # key: the host's bar does.
 find = []
+# A cell's exact text in a popover below it, wrapped and scrolled inside,
+# opened by Enter on the active cell, a cue on the cell, or the host, with
+# a button the host labels or draws, whose press the host turns into its
+# own view of the row (`TallTableState::open_popover`,
+# `TallTableEvent::Popover`, `TallTableEvent::PopoverButton`).
+popover = []

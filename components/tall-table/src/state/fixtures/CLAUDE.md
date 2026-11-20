@@ -13,13 +13,13 @@ A file a feature, each built with its feature (`flash.rs` with `live` and `custo
 - **A table opened at its rows reads before the window has its size:** `copy.rs` opens it at 0 rows and gives it its rows once the window is sized, so only the first page is read; the test app is set up once a test and each case's window closed after it.
 - **`live.rs`'s delegate's values say which read is on screen;** `flash.rs`'s source takes the values each test sets, on the test clock (`advance_clock`), so the tooltip through a re-read is tested there too.
 - **`click.rs` hangs a gpui-kit `ContextMenuExt` round the table** in its host view, as a host would, and counts the menus its builder makes: the check that a stopped right or long press opens none.
-- **Cmd+C and Ctrl+C are bound only with `copy`,** so `select.rs` doesn't test them.
+- **Cmd+C and Ctrl+C are bound only with `copy` or `popover`,** so `select.rs` doesn't test them; `popover.rs` puts gpui-base's `TextSelectionLayer` in its host view, as `Root` draws it, to select and copy a part of the popover's text.
 - **A value planted in `find.rs`'s source after the first page is read isn't drawn** until a page is read again: a drawing test plants, then reloads (`replace_rows`); its finds answer only when the test calls `answer`, so a test can leave one out across a cancel.
 
 ## Files
 
 ```
-src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs, groups.rs, click.rs, hide.rs, find.rs, and replace.rs (no fixture of their own: the window's checks only; `hide`'s `hidden` cases run in each fixture's own file; `replace.rs` in every build, its reads pinned by `paging.json`)
+src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs, groups.rs, click.rs, hide.rs, find.rs, popover.rs and replace.rs (no fixture of their own: the window's checks only; `hide`'s `hidden` cases run in each fixture's own file; `replace.rs` in every build, its reads pinned by `paging.json`)
 ```
 
 ## Commands

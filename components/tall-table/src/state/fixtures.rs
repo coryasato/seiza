@@ -94,6 +94,11 @@ mod hide;
 #[cfg(feature = "find")]
 mod find;
 
+/// `popover`: the popover in a window, no fixture of its own: its
+/// opening, closing, button, cue, placing, and each feature's rule.
+#[cfg(feature = "popover")]
+mod popover;
+
 /// `replace_rows`, in every build: what it clears and keeps, the targets,
 /// the swap, and its meeting with each feature built.
 mod replace;

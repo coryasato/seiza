@@ -14,7 +14,8 @@ target_dir := root / "target/wasm32-unknown-unknown"
 # `?rows=<n>&append=<rows/s>&follow`; `pin`: `?pin=<n>`; `density`:
 # `?density=<row>,<text>[,<width>]`; `format`: `?format=off`; `reorder`:
 # `?order=reverse`; `group-headers`: `?groups=<outer>,<inner>`; `hide`:
-# `?hidden=<n>`; `find`: `?find=<term>`; the rest:
+# `?hidden=<n>`; `find`: `?find=<term>`; `popover`: `?popover=<label>`,
+# `?popover-cue=off`, `?popover-long=<chars>`; the rest:
 # host/crate/src/lib.rs).
 dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
@@ -210,7 +211,8 @@ smoke *args:
 # the host's `?groups=`; `hide`: a hidden column in a window, its setters
 # and events; `find`: `find.json` and its controls, the steps, the
 # landing, the cancels, and the drawing in a window, and the host's
-# windowed find), and all
+# windowed find; `popover`: its text, the opening and closing, the button,
+# the cue, the placing, and a part of its text copied, in a window), and all
 # on (`copy`'s with `live` among them, `pin` with `resize`, `select`,
 # `sort`, and `custom-cells`, and `density` with `follow`, `resize`,
 # `sort`, and `select`, the fixtures pinned without it unchanged,
@@ -218,7 +220,7 @@ smoke *args:
 # `clicks` with `select`, `reorder`, `resize`, and `sort`, and
 # `group-headers` with `pin`, `select`, `resize`, `sort`, `density`,
 # `reorder`, and `copy`, and `hide` with each, the fixtures' `hidden`
-# cases among them, and `find` with each); in
+# cases among them, and `find` and `popover` with each); in
 # each, the random test of the paging and of what the features keep,
 # with that run's features, its gestures in the zones they have (16 cases; 48 all on, with its controls). The bridge has none: its
 # JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
@@ -243,9 +245,10 @@ test:
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/group-headers
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/hide
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/find
-    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density,tall-table-host/format,tall-table-host/reorder,tall-table-host/clicks,tall-table-host/group-headers,tall-table-host/hide,tall-table-host/find
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/popover
+    cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells,tall-table-host/follow,tall-table-host/resize,tall-table-host/select,tall-table-host/copy,tall-table-host/sort,tall-table-host/pin,tall-table-host/density,tall-table-host/format,tall-table-host/reorder,tall-table-host/clicks,tall-table-host/group-headers,tall-table-host/hide,tall-table-host/find,tall-table-host/popover
 
-# Every feature alone and every pair (15 and 105), one build a set: clippy
+# Every feature alone and every pair (16 and 120), one build a set: clippy
 # (wasm32, -D warnings) for the table, the bridge, and the host, then the
 # native tests on the pairs with code gated on both, which the script
 # finds in the sources, then the table's rustdoc at every set, its links
@@ -268,7 +271,7 @@ soak seeds="1 2 3 4" cases="500":
     for seed in {{seeds}}; do \
         SEED=$seed PROPTEST_CASES={{cases}} \
         CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS=true CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS=true \
-        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin,density,reorder,clicks,group-headers,hide,find state::random::random_paging || exit 1; \
+        cargo test -p seiza-tall-table --release --features custom-cells,follow,resize,copy,sort,pin,density,reorder,clicks,group-headers,hide,find,popover state::random::random_paging || exit 1; \
     done
 
 # Writes fixtures/paint.json's expected colors from Chromium's

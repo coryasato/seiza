@@ -32,6 +32,10 @@ pub(crate) struct CellText {
     /// A match of the find's term, or its current match (`find`).
     #[cfg(feature = "find")]
     pub(crate) mark: crate::find::Mark,
+    /// The cue on this cell (`popover`): its mark in place of the text's
+    /// "…", or the text cut short of it ([`crate::popover::CueInCell`]).
+    #[cfg(feature = "popover")]
+    pub(crate) cue: Option<crate::popover::CueInCell>,
     #[cfg(test)]
     pub(crate) row: u64,
     /// Its column's index (with `reorder`, not its place).
@@ -55,6 +59,9 @@ pub(crate) struct DrawnText {
     /// The part of `cell` its region shows: the cell cut by the clip it
     /// was painted under (with `pin`, the run's edge).
     pub(crate) visible: Bounds<Pixels>,
+    /// The cue's mark it painted (`popover`), in window pixels.
+    #[cfg(feature = "popover")]
+    pub(crate) mark: Option<Bounds<Pixels>>,
     /// What the find tinted (`find`): each tint's bounds and color, in
     /// window pixels, and the current match's edge.
     #[cfg(feature = "find")]
@@ -232,12 +239,65 @@ fn paint(
             if !cell.whole && line.width > text_width {
                 cut!();
             }
+            // The cue on the cell (`popover`): a text cut at its end keeps
+            // its cut, its "…" given to the mark; any other is cut and
+            // aligned short of the cue's room.
+            #[cfg(feature = "popover")]
+            let (text_width, prefix) = match &cell.cue {
+                Some(cue) => {
+                    #[cfg(feature = "format")]
+                    let whole = cell.whole;
+                    #[cfg(not(feature = "format"))]
+                    let whole = false;
+                    cue_cut(
+                        cell,
+                        cue,
+                        whole,
+                        &mut line,
+                        &run,
+                        content,
+                        text_width,
+                        scale,
+                        &mut wrapper,
+                        font_size,
+                        window,
+                    )
+                }
+                None => (text_width, None),
+            };
             let origin_x = if cell.right {
                 text_x + text_width - line.width
             } else {
                 text_x
             };
             let origin = point(origin_x, clip.origin.y);
+            // The mark: where the "…" was, else at the cell's right end; the
+            // text drawn the cut's, less its "…" (`popover`).
+            #[cfg(feature = "popover")]
+            let mark = cell.cue.as_ref().and_then(|cue| {
+                let look = cue.mark.clone()?;
+                let bounds = match &prefix {
+                    Some(prefix) => {
+                        let room = f32::from(line.width - prefix.width);
+                        let center = point(
+                            origin.x + prefix.width + px(room / 2.0),
+                            clip.origin.y + clip.size.height / 2.0,
+                        );
+                        crate::popover::square(center, room.round().max(6.0))
+                    }
+                    None => crate::popover::square(
+                        point(
+                            clip.origin.x + clip.size.width
+                                - px(cue.offset + crate::popover::CUE_INSET + cue.side / 2.0),
+                            clip.origin.y + clip.size.height / 2.0,
+                        ),
+                        crate::popover::cue_mark(cue.side),
+                    ),
+                };
+                Some((look, bounds))
+            });
+            #[cfg(feature = "popover")]
+            let line = prefix.unwrap_or(line);
             let padding_top = (line_height - line.ascent - line.descent) / 2.;
             let baseline_offset = point(px(0.), padding_top + line.ascent);
             // The find's tints, from the shaped line's offsets in the text
@@ -254,6 +314,8 @@ fn paint(
                 color: cell.color,
                 cell: clip,
                 visible: clip.intersect(&window.content_mask().bounds),
+                #[cfg(feature = "popover")]
+                mark: mark.as_ref().map(|(_, bounds)| *bounds),
                 #[cfg(feature = "find")]
                 tints: tints
                     .iter()
@@ -301,6 +363,11 @@ fn paint(
                             )
                         };
                     }
+                }
+                // The cue's mark, over the text's end (`popover`).
+                #[cfg(feature = "popover")]
+                if let Some((look, bounds)) = &mark {
+                    crate::popover::paint_mark(look, *bounds, window, cx);
                 }
                 // Over the text (`find`).
                 #[cfg(feature = "find")]
@@ -368,6 +435,7 @@ pub(crate) fn drawn_text(
     middle: bool,
     #[cfg(feature = "format")] whole: bool,
     pad: AbsoluteLength,
+    #[cfg(feature = "popover")] cue: Option<&crate::popover::CueInCell>,
     font: &Font,
     font_size: Pixels,
     window: &Window,
@@ -376,7 +444,40 @@ pub(crate) fn drawn_text(
     let scale = window.scale_factor();
     let snap = |value: f32| round_half_toward_zero(value * scale);
     let pad = snap(f32::from(pad.to_pixels(window.rem_size())));
-    let text_width = px((snap(width) - 2.0 * pad).max(0.0) / scale);
+    let content = (snap(width) - 2.0 * pad).max(0.0);
+    let text_width = px(content / scale);
+    // As `paint` cuts for the cue (`popover`): its "…" given up, or the
+    // text cut short of its room.
+    #[cfg(feature = "popover")]
+    let text_width = match cue {
+        Some(cue) => {
+            let cut = drawn_text(
+                text,
+                width,
+                middle,
+                #[cfg(feature = "format")]
+                whole,
+                // The padding as given: `pad` is snapped to device pixels
+                // here, and snaps to the same again.
+                AbsoluteLength::Pixels(px(pad / scale)),
+                None,
+                font,
+                font_size,
+                window,
+                cx,
+            );
+            if cue.mark.is_some()
+                && cue.offset < 0.5
+                && !middle
+                && cut != *text
+                && cut.ends_with(ELLIPSIS)
+            {
+                return cut[..cut.len() - ELLIPSIS.len()].to_string().into();
+            }
+            px((content - snap(cue.room)).max(0.0) / scale)
+        }
+        None => text_width,
+    };
     let run = TextRun {
         len: text.len(),
         font: font.clone(),
@@ -411,4 +512,69 @@ pub(crate) fn drawn_text(
             from,
         )
         .0
+}
+
+/// The cue's cut on its cell (`popover`): a text `paint` cut at its end
+/// keeps its cut, its "…" given to the mark (the text before it returned,
+/// shaped); else the text cut and aligned short of the cue's room, the
+/// width it was cut to returned.
+#[cfg(feature = "popover")]
+#[expect(clippy::too_many_arguments)]
+fn cue_cut(
+    cell: &CellText,
+    cue: &crate::popover::CueInCell,
+    whole: bool,
+    line: &mut ShapedLine,
+    run: &TextRun,
+    content: f32,
+    text_width: Pixels,
+    scale: f32,
+    wrapper: &mut LineWrapperHandle,
+    font_size: Pixels,
+    window: &mut Window,
+) -> (Pixels, Option<ShapedLine>) {
+    // Its "…" in view: not on a cell cut by the view's right edge.
+    if cue.mark.is_some()
+        && cue.offset < 0.5
+        && !cell.middle
+        && line.text != cell.text
+        && line.text.ends_with(ELLIPSIS)
+    {
+        let prefix: SharedString = line.text[..line.text.len() - ELLIPSIS.len()]
+            .to_string()
+            .into();
+        let runs = [TextRun {
+            len: prefix.len(),
+            ..run.clone()
+        }];
+        let prefix = window
+            .text_system()
+            .shape_line(prefix, font_size, &runs, None);
+        return (text_width, Some(prefix));
+    }
+    let short = px((content - round_half_toward_zero(cue.room * scale)).max(0.0) / scale);
+    *line = window.text_system().shape_line(
+        cell.text.clone(),
+        font_size,
+        std::slice::from_ref(run),
+        None,
+    );
+    if !whole && line.width > short {
+        let from = if cell.middle {
+            TruncateFrom::Middle
+        } else {
+            TruncateFrom::End
+        };
+        let (text, runs) = wrapper.truncate_line(
+            cell.text.clone(),
+            short,
+            ELLIPSIS,
+            std::slice::from_ref(run),
+            from,
+        );
+        *line = window
+            .text_system()
+            .shape_line(text, font_size, &runs, None);
+    }
+    (short, None)
 }

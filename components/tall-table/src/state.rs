@@ -53,6 +53,9 @@ pub fn init(cx: &mut App) {
     copy::init(cx);
     #[cfg(feature = "reorder")]
     reorder::init(cx);
+    // Last: its Escape is seen before `reorder`'s and `select`'s.
+    #[cfg(feature = "popover")]
+    popover::init(cx);
 }
 
 /// How the table pages through its rows.
@@ -649,6 +652,16 @@ pub enum TallTableEvent {
     /// `FindStarted`.
     #[cfg(feature = "find")]
     Found(crate::FindOutcome),
+    /// The popover opened on a cell, moved to another, or closed (`None`)
+    /// (`popover`): by Enter, a cue, Escape, a press outside it, a setter,
+    /// or its cell leaving the view.
+    #[cfg(feature = "popover")]
+    Popover(Option<crate::PopoverCell>),
+    /// The popover's button was pressed, or Enter on the open popover with
+    /// a button set (`popover`): the host opens its view of the cell's row.
+    /// The popover closes (`Popover(None)` follows).
+    #[cfg(feature = "popover")]
+    PopoverButton(crate::PopoverCell),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -786,6 +799,10 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The term, the current match, and the find out (`find`).
     #[cfg(feature = "find")]
     find_state: find::FindState<D>,
+    /// The popover open, the button and cue, and the cues decided
+    /// (`popover`).
+    #[cfg(feature = "popover")]
+    popover_state: popover::PopoverState<D>,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -902,6 +919,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             group_state: groups::GroupState::default(),
             #[cfg(feature = "find")]
             find_state: find::FindState::new(cx.weak_entity()),
+            #[cfg(feature = "popover")]
+            popover_state: popover::PopoverState::new(cx.weak_entity()),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -1057,6 +1076,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // (`find`).
         #[cfg(feature = "find")]
         self.cut_find(rows, cut, cx);
+        // Open on a row past the end, it closes (`popover`).
+        #[cfg(feature = "popover")]
+        self.cut_popover(rows, cx);
         // A closed table cancelled every read at `close`, and never frees
         // their places: its cache is left as it was.
         if !self.closed {
@@ -1151,6 +1173,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // Its indices name other columns (`find`).
         #[cfg(feature = "find")]
         self.reset_find(cx);
+        #[cfg(feature = "popover")]
+        self.reset_popover(cx);
         #[cfg(feature = "sort")]
         let sorted = self.sorted_name();
         #[cfg(feature = "reorder")]
@@ -1246,6 +1270,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.layout_generation += 1;
         #[cfg(feature = "group-headers")]
         self.regroup();
+        // The cues' cells are shaped again (`popover`).
+        #[cfg(feature = "popover")]
+        self.relayout_popover();
         #[cfg(feature = "pin")]
         self.repin(cx);
     }
@@ -1272,6 +1299,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.drop_copy(cx);
         #[cfg(feature = "find")]
         self.close_find(cx);
+        #[cfg(feature = "popover")]
+        self.close_popover_quietly(cx);
         for request in self.cache.requests() {
             self.delegate.cancel(request, cx);
         }
@@ -1843,6 +1872,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
+    /// The place column `index` is drawn at (`find`, `popover`).
+    #[cfg(any(feature = "find", feature = "popover"))]
+    pub(super) fn place_of(&self, index: usize) -> Option<usize> {
+        (0..self.columns.len()).find(|&place| self.columns[place].index(place) == index)
+    }
+
     /// The cell at `position` (window coordinates), if it's on one.
     fn cell_at(&self, position: Point<Pixels>) -> Option<(u64, usize)> {
         let x = f32::from(position.x - self.body.origin.x) - self.gutter_width();
@@ -1944,11 +1979,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
             }));
         }
         self.hover = Some(hover);
+        // The cue follows the pointer at once (`popover`).
+        #[cfg(feature = "popover")]
+        if self.popover_state.cue.is_some() {
+            cx.notify();
+        }
     }
 
     /// The pointer left the cells or went to another: the tooltip goes, and
     /// the next one within [`TOOLTIP_GRACE`] shows at once.
     pub(crate) fn hide_tooltip(&mut self, cx: &mut Context<Self>) {
+        // The hovered cell's cue goes with it (`popover`).
+        #[cfg(feature = "popover")]
+        if self.hover.is_some() && self.popover_state.cue.is_some() {
+            cx.notify();
+        }
         if self
             .hover
             .take()
@@ -1966,6 +2011,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// there may draw another value or none, so its tooltip is decided
     /// again at the next frame, from what that frame draws.
     fn undecide_tooltip(&mut self, rows: std::ops::Range<u64>) {
+        // The open popover's text and the cues there too (`popover`).
+        #[cfg(feature = "popover")]
+        self.undecide_popover(&rows);
         if let Some(hover) = self
             .hover
             .as_mut()
@@ -1983,6 +2031,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let Some(hover) = self.hover.as_mut() else {
             return;
         };
+        // None while a popover is open, and decided again once it closes
+        // (`popover`).
+        #[cfg(feature = "popover")]
+        if self.popover_state.open.is_some() {
+            hover.tooltip = None;
+            hover.decided = false;
+            return;
+        }
         if !hover.rested || hover.decided {
             return;
         }
@@ -2090,6 +2146,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// The hovered cell's tooltip, beside the cell, above everything.
     fn render_tooltip(&self) -> Option<Deferred> {
+        #[cfg(feature = "popover")]
+        if self.popover_state.open.is_some() {
+            return None;
+        }
         let (_, view) = self.hover.as_ref()?.tooltip.as_ref()?;
         let cell = self.tooltip_cell()?;
         Some(
@@ -2465,6 +2525,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             let read = source;
                             let value = page.value(index, read).unwrap_or(CellValue::Null);
                             let exact = cell_probes.is_some().then(|| value.to_string());
+                            // The cue on the cell it's drawn on, painted with
+                            // its text (`popover`).
+                            #[cfg(feature = "popover")]
+                            let cue = self.cue_in_cell(row, source, theme.muted_foreground);
                             // A match of the term, or the current match
                             // (`find`).
                             #[cfg(feature = "find")]
@@ -2591,6 +2655,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                         #[cfg(feature = "format")]
                                         whole,
                                         cell_pad(sizes),
+                                        #[cfg(feature = "popover")]
+                                        cue.as_ref(),
                                         &self.glyphs.font,
                                         self.glyphs.font_size,
                                         window,
@@ -2622,6 +2688,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 });
                             }
                             let cell = CellText {
+                                #[cfg(feature = "popover")]
+                                cue,
                                 left,
                                 top: f32::from(top),
                                 width: column.width,
@@ -2739,6 +2807,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 sort: self.sort().to_vec(),
                 #[cfg(feature = "find")]
                 find: self.find_probe(),
+                #[cfg(feature = "popover")]
+                popover: self.popover_probe().map(Box::new),
+                #[cfg(feature = "popover")]
+                cue: self.cue_probe().map(Box::new),
                 tooltip: self
                     .hover
                     .as_ref()
@@ -3270,6 +3342,10 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
                 self.lay_out(cx);
             }
         }
+        // Its cell still in view, its text and the cues decided
+        // (`popover`): before the tooltip, which none shows while it's open.
+        #[cfg(feature = "popover")]
+        self.prepare_popover(window, cx);
         self.decide_tooltip(window, cx);
         #[cfg(feature = "select")]
         {
@@ -3305,10 +3381,15 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             window,
             cx,
         );
+        // The cues over their cells (`popover`): the body's last children.
+        #[cfg(feature = "popover")]
+        let body = body.children(self.render_cues(window, cx));
         #[cfg(all(feature = "live", feature = "custom-cells"))]
         if self.flashes.animating {
             window.request_animation_frame();
         }
+        #[cfg(feature = "popover")]
+        let popover = self.render_popover(window, cx);
         let tooltip = self.render_tooltip();
         let root = div();
         // A press on a cell, the gutter, a header, or the corner selects
@@ -3342,12 +3423,11 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         // its own.
         #[cfg(feature = "density")]
         let root = root.text_size(font_size);
-        root.size_full()
-            .flex()
-            .flex_col()
-            .child(header)
-            .child(body)
-            .children(tooltip)
+        let root = root.size_full().flex().flex_col().child(header).child(body);
+        // Under the tooltip, which none shows while it's open (`popover`).
+        #[cfg(feature = "popover")]
+        let root = root.children(popover);
+        root.children(tooltip)
     }
 }
 
@@ -3420,6 +3500,11 @@ pub(crate) mod hide;
 /// `find`: the term, the step and its cancels, the landing, and the marks.
 #[cfg(feature = "find")]
 pub(crate) mod find;
+
+/// `popover`: the open popover, its keys and closers, the cue, the
+/// placing and the drawing.
+#[cfg(feature = "popover")]
+pub(crate) mod popover;
 
 #[cfg(test)]
 mod tests {

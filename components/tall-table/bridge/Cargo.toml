@@ -46,6 +46,9 @@ hide = ["seiza-tall-table/hide"]
 # Each step's outcome on a global, the find on the probe, and each drawn
 # cell's `found` and `current`.
 find = ["seiza-tall-table/find"]
+# The popover and the cue on the probe, and each press of its button
+# (`PopoverButton`) on a global.
+popover = ["seiza-tall-table/popover"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

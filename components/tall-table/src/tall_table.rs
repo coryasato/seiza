@@ -57,6 +57,12 @@ impl<D: TallTableDelegate> RenderOnce for TallTable<D> {
         #[cfg(feature = "reorder")]
         let element =
             element.on_action(window.listener_for(&self.state, TallTableState::cancel_move));
+        // Enter and Escape on the popover (`popover`).
+        #[cfg(feature = "popover")]
+        let element = element
+            .on_action(window.listener_for(&self.state, TallTableState::popover_enter))
+            .on_action(window.listener_for(&self.state, TallTableState::popover_escape))
+            .on_action(window.listener_for(&self.state, TallTableState::popover_copy));
         element
             .on_mouse_down(
                 MouseButton::Left,

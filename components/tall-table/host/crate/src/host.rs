@@ -83,6 +83,12 @@ pub const HIDDEN_GLOBAL: &str = "__tallTableHidden";
 #[cfg(feature = "find")]
 pub const FOUND_GLOBAL: &str = "__tallTableFound";
 
+/// The last press of the popover's button (or Enter on it),
+/// `{row, column, count}`, replaced at each (`popover`'s
+/// `PopoverButton`); unset until the first.
+#[cfg(feature = "popover")]
+pub const POPOVER_BUTTON_GLOBAL: &str = "__tallTablePopoverButton";
+
 /// The group cells drawn, `[{level, label, start, end, pinned, left,
 /// width, labelX}]`, replaced as they change (`group-headers`' `Groups`),
 /// with `?perf`.
@@ -147,7 +153,13 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// `find`: `__tallTableFind(term)`, the table's `set_find` (a string, or
 /// null or `""` for none; `false`, and nothing sent, for anything else),
 /// and `__tallTableFindNext()` and `__tallTableFindPrevious()`, its
-/// `find_next` and `find_previous`.
+/// `find_next` and `find_previous`. With `popover`:
+/// `__tallTablePopoverOpen(row, column)`, the table's `open_popover` on the
+/// column's index (`false`, and nothing sent, for numbers that aren't
+/// whole; a refusal shows as no popover on the probe);
+/// `__tallTablePopoverClose()`, its `close_popover`; and
+/// `__tallTablePopoverEnter()`, Enter dispatched to the table, focused
+/// first: on an open popover its button's press (or its close with none).
 #[cfg(all(
     any(feature = "copy", feature = "sort", feature = "reorder"),
     target_family = "wasm"
@@ -185,6 +197,12 @@ const FIND_HOOK: &str = "__tallTableFind";
 const FIND_NEXT_HOOK: &str = "__tallTableFindNext";
 #[cfg(all(feature = "find", target_family = "wasm"))]
 const FIND_PREVIOUS_HOOK: &str = "__tallTableFindPrevious";
+#[cfg(all(feature = "popover", target_family = "wasm"))]
+const POPOVER_OPEN_HOOK: &str = "__tallTablePopoverOpen";
+#[cfg(all(feature = "popover", target_family = "wasm"))]
+const POPOVER_CLOSE_HOOK: &str = "__tallTablePopoverClose";
+#[cfg(all(feature = "popover", target_family = "wasm"))]
+const POPOVER_ENTER_HOOK: &str = "__tallTablePopoverEnter";
 /// `__tallTableReplace(stride, at)`, in every build with `?perf`: the
 /// source swapped for every `stride`-th row of its rows (1: all of them;
 /// of the order, with `sort`) and the table's `replace_rows` called with
@@ -380,6 +398,33 @@ impl Host {
             let (outer, inner) = shape.groups();
             crate::rows::with_groups(columns, outer, inner)
         };
+        // A long text in a third column, the shape's after it one place on
+        // (`popover`, `?popover-long=<chars>`): the cap's frame. Its
+        // indices aren't the source's (`exact`, a sort, a find): the
+        // popover's runs use none of them.
+        #[cfg(feature = "popover")]
+        let (rows, columns) = {
+            #[cfg(target_family = "wasm")]
+            let long = seiza::url::param("popover-long")
+                .and_then(|chars| chars.parse::<usize>().ok())
+                .filter(|chars| *chars > 0);
+            #[cfg(not(target_family = "wasm"))]
+            let long: Option<usize> = None;
+            match long {
+                Some(chars) => {
+                    let mut columns = columns;
+                    columns.insert(
+                        crate::rows::LONG_AT.min(columns.len()),
+                        seiza_tall_table::TallTableColumn::new(
+                            "note",
+                            seiza_tall_table::ColumnKind::Text,
+                        ),
+                    );
+                    (rows.with_long(chars), columns)
+                }
+                None => (rows, columns),
+            }
+        };
         // The rows a find searches (`find`).
         #[cfg(feature = "find")]
         rows.hold(count);
@@ -425,6 +470,8 @@ impl Host {
             hidden: Some(HIDDEN_GLOBAL),
             #[cfg(feature = "find")]
             found: Some(FOUND_GLOBAL),
+            #[cfg(feature = "popover")]
+            popover_button: Some(POPOVER_BUTTON_GLOBAL),
             #[cfg(feature = "reorder")]
             column_order: Some(COLUMN_ORDER_GLOBAL),
             #[cfg(feature = "clicks")]
@@ -472,7 +519,8 @@ impl Host {
                 feature = "reorder",
                 feature = "clicks",
                 feature = "hide",
-                feature = "find"
+                feature = "find",
+                feature = "popover"
             ),
             target_family = "wasm"
         ))]
@@ -544,6 +592,21 @@ impl Host {
         #[cfg(all(feature = "find", target_family = "wasm"))]
         if let Some(term) = seiza::url::param("find").filter(|term| !term.is_empty()) {
             table.update(cx, |table, cx| table.set_find(Some(term.into()), cx));
+        }
+        // The popover's button, labeled (`popover`, `?popover=<label>`;
+        // `?popover` alone: none), and its cue opted out with
+        // `?popover-cue=off`.
+        #[cfg(all(feature = "popover", target_family = "wasm"))]
+        {
+            if let Some(label) = seiza::url::param("popover").filter(|label| !label.is_empty()) {
+                table.update(cx, |table, cx| {
+                    table
+                        .set_popover_button(Some(seiza_tall_table::PopoverButton::label(label)), cx)
+                });
+            }
+            if seiza::url::param("popover-cue").as_deref() == Some("off") {
+                table.update(cx, |table, cx| table.set_popover_cue(None, cx));
+            }
         }
         // Every `n`th column hidden before the first frame (`hide`,
         // `?hidden=<n>`: 2 hides every other one); absent or 0, none (the
@@ -815,7 +878,8 @@ fn replace_hook(window: &mut Window, cx: &mut Context<Host>) {
         feature = "reorder",
         feature = "clicks",
         feature = "hide",
-        feature = "find"
+        feature = "find",
+        feature = "popover"
     ),
     target_family = "wasm"
 ))]
@@ -852,7 +916,8 @@ struct Source {
         feature = "reorder",
         feature = "clicks",
         feature = "hide",
-        feature = "find"
+        feature = "find",
+        feature = "popover"
     ),
     target_family = "wasm"
 ))]
@@ -1117,6 +1182,51 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                 .into_js_value(),
             );
         }
+    }
+    #[cfg(feature = "popover")]
+    {
+        let on_open = enter.clone();
+        set(
+            POPOVER_OPEN_HOOK,
+            Closure::<dyn Fn(f64, f64) -> bool>::new(move |row: f64, column: f64| {
+                let whole = |value: f64| value >= 0.0 && value.fract() == 0.0;
+                if !whole(row) || !whole(column) {
+                    return false;
+                }
+                let cell = seiza_tall_table::PopoverCell::new(row as u64, column as usize);
+                on_open(Box::new(move |host, _, cx| {
+                    host.table.update(cx, |table, cx| {
+                        table.open_popover(cell, cx);
+                    });
+                }));
+                true
+            })
+            .into_js_value(),
+        );
+        let on_close = enter.clone();
+        set(
+            POPOVER_CLOSE_HOOK,
+            Closure::<dyn Fn()>::new(move || {
+                on_close(Box::new(|host, _, cx| {
+                    host.table.update(cx, |table, cx| table.close_popover(cx));
+                }));
+            })
+            .into_js_value(),
+        );
+        let on_enter = enter.clone();
+        set(
+            POPOVER_ENTER_HOOK,
+            Closure::<dyn Fn()>::new(move || {
+                on_enter(Box::new(|host, window, cx| {
+                    let focus = host.table.read(cx).focus_handle().clone();
+                    window.focus(&focus, cx);
+                    if let Ok(enter) = Keystroke::parse("enter") {
+                        window.dispatch_keystroke(enter, cx);
+                    }
+                }));
+            })
+            .into_js_value(),
+        );
     }
     #[cfg(feature = "copy")]
     copy_hooks(set, enter);

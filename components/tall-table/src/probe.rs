@@ -39,6 +39,51 @@ pub struct TallTableProbe {
     /// is out.
     #[cfg(feature = "find")]
     pub find: FindProbe,
+    /// The open popover (`popover`), as the last frame placed it. Boxed,
+    /// as `cue` is: the probe rides in a `TallTableEvent::Probe`, whose
+    /// size every event takes.
+    #[cfg(feature = "popover")]
+    pub popover: Option<Box<PopoverProbe>>,
+    /// The cue drawn on the hovered cell, else on the active one
+    /// (`popover`).
+    #[cfg(feature = "popover")]
+    pub cue: Option<Box<CueProbe>>,
+}
+
+/// The open popover (`popover`), on [`TallTableProbe`]: its bounds are
+/// the last frame's, in window pixels.
+#[cfg(feature = "popover")]
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct PopoverProbe {
+    /// Its cell, by row and column index.
+    pub cell: crate::PopoverCell,
+    /// Its bounds: `[x, y, width, height]`.
+    pub bounds: [f32; 4],
+    /// Below its cell (`false`: flipped above).
+    pub below: bool,
+    /// Its text's characters, the "…" of a cut among them.
+    pub chars: usize,
+    /// Its text was cut at the cap.
+    pub cut: bool,
+    /// How far its text is scrolled, in pixels.
+    pub scroll: f32,
+    /// Its text's whole height, in pixels: past its bounds' height, it
+    /// scrolls.
+    pub content_height: f32,
+    /// Its button's bounds, `[x, y, width, height]`; none with no button.
+    pub button: Option<[f32; 4]>,
+}
+
+/// A drawn cue (`popover`), on [`TallTableProbe`].
+#[cfg(feature = "popover")]
+#[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
+pub struct CueProbe {
+    /// Its cell, by row and column index.
+    pub cell: crate::PopoverCell,
+    /// Its box, `[x, y, width, height]` in window pixels.
+    pub bounds: [f32; 4],
 }
 
 /// The find in effect (`find`), on [`TallTableProbe`].

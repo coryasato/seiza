@@ -74,6 +74,14 @@
 //! its rows in windows of `rows::FIND_WINDOW` cells (`?delay` before each, else a millisecond's yield),
 //! and with `?perf` the scripts get the table's `set_find`, `find_next`,
 //! and `find_previous`; `?probe-cells` publishes each drawn cell's find.
+//! With `popover`, `?popover=<label>` labels its button (`?popover`
+//! alone: none), `?popover-cue=off` opts the cue out, and
+//! `?popover-long=<chars>` puts a third column, `note`, whose every value
+//! is one text that long (the cap's frame; the shape's columns after it
+//! one place on); each press of the button is
+//! published (`__tallTablePopoverButton`), the probe carries the popover
+//! and the cue, and with `?perf` the scripts get the table's
+//! `open_popover` and `close_popover`, and Enter.
 //!
 //! The script hooks enter GPUI through its foreground executor; one that
 //! sends a column, a count, a density, or an order answers `false`, sending
