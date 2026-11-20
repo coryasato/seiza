@@ -14,7 +14,7 @@ M1–M20, the two hardenings (between M7 and M8, and after M17), and the public 
 
 | Milestone | Title | Status |
 |---|---|---|
-| M21 | Cell popover: a cell's full value, and a button to the host's view of its row | Next (its row under ["Candidates"](#drafted)) |
+| M21 | Cell popover: a cell's full value, and a button to the host's view of its row | Active: part A next |
 
 A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
 
@@ -84,7 +84,25 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-None: the cell popover is next (its row under "Candidates", "Drafted").
+### M21: the cell popover, a cell's full value and a button to the host's view
+
+**What it adds** (Cargo feature, its name a draft: `popover`, off by default): a cell's full value in a popover over the table, scrolled inside, the row height unchanged, and a button in it whose press the host turns into its own view of the row. Tycho waits on it, for the quick look before its row detail view (its first release) and for nested values after (JSONL). Why it's the table's and drawn by it: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-19). What's left to decide is its row's research questions under ["Candidates"](#drafted); part A answers them, and this spec, with its API and the checks B and C tighten, replaces that row.
+
+**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part C.
+
+- **A. Research and spec** (no shipped code). The research in the root's [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section "Cell popover"; a spike in the bare host if the tooltip's path or gpui-kit's `Popover` is unclear; the decisions with the owner; the spec and API here; checks B and C written in full. Check A1.
+- **B. The feature, built and tested.** The state, the opening and closing, the placement, the drawing, the button's event, the probe, the docs, a fixture if the text it shows has rules a contender would match, the random test's step, the window tests, the bare host's hooks, the soak if it touches the paging, `pairs`. Checks B1–B4.
+- **C. The cost and the close.** The size on its own and against the base, and on each app that builds the table; frame work with one open; the smoke check in three browsers; the README; the close-out ("Closing a milestone", above). Checks C1–C3.
+
+**Done when** (B and C in outline; part A writes them in full):
+- [ ] **A1. The research and the spec:** the research section answers each question in the candidate's row (what it shows, the tooltip, what opens and closes it, where it's placed, the built features, the canvas gaps) and reads the prior art (Elastic's EuiDataGrid, Glide Data Grid, gpui-kit's `Popover`); its decisions in `docs/DECISIONS.md`; the API and checks here; the Drafted row removed.
+- [ ] **B1. The base unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `size` shows no `popover` symbol in the base, and `size --against <M21's parent>` reports the base unchanged.
+- [ ] **B2. The feature, natively:** window tests for each rule of the spec: opening, closing, placement, what clears it, the button's event, and its meeting with each built feature.
+- [ ] **B3. The random test** (and a fixture, if the spec has one): its step runs with no existing case's draw changed, its controls fail their invariants; the soak on the final build if the paging is touched.
+- [ ] **B4. The host opens it:** the bare host's switch and hooks, so `size`, `perf`, and `smoke` measure it.
+- [ ] **C1. Its cost:** its bytes alone and with every feature, against the base, in a `perf/results/` note, and each app that builds the table in its own `perf/results/` (root `CLAUDE.md`, rule 1); frame work with a popover open while scrolling, within the spread.
+- [ ] **C2. In the browsers:** `just tall-table smoke` opens, places, scrolls, and closes it in Chromium, Firefox, and WebKit.
+- [ ] **C3. The README and waiting apps:** the README's section, its API list, the Features row and cost, the `DataTable` and TanStack tables' rows, the Canvas tradeoffs (no partial selection or find inside it); Tycho's "Waiting on" row flipped to *Ready* (2026-…, tall-table M21).
 
 ---
 
@@ -112,7 +130,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-None written: the cell popover's spec and checks are written here when it opens, after its research (its row under "Candidates", "Drafted").
+None drafted: the cell popover is active ("Active milestone"), and every other candidate waits for a host ("Candidates", "Notes").
 
 ---
 
