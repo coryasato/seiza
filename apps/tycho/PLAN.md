@@ -47,7 +47,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | The tall table's find | Search that keeps every row | *Ready* (2026-11-19, tall-table M20) |
 | The tall table's column visibility | Hide and show columns | *Ready* (2026-11-18, tall-table M19) |
 | The tall table's column summaries in the header | The column profile, only if the design session puts it under the headers | *Not ready* |
-| The tall table's nested values | "JSONL, then nested values in the row detail view", below | *Not ready* |
+| The tall table's cell popover (a cell's full value, with a button that reports an event) | The quick look before the row detail view, which its button opens ("Table basics", below); nested values shown in it ("JSONL") | *Not ready* |
 | The tall table's row marks | The investigator's bookmarks and tags ([`docs/personas.md`](docs/personas.md)); no goal holds them yet | *Not ready* |
 | The tall table's built features | "Table basics", below | *Ready:* `custom-cells`, `live`, `follow`, `resize`, `select`, `copy`, `sort`, `pin`, `density`, `format`, `reorder`, `clicks`, `group-headers` (their dates: the table's `docs/milestones.md`) |
 
@@ -81,7 +81,7 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 
 1. **The controller, thin, and the engine's lockdown.** One serializable view state behind every driver; first the parts that need nothing new from the engine (source, columns, their order, widths, pins, formats). The lockdown is repeated in a browser first, with what Tycho sends lazily today moved ahead of the lock. *("The controller"; "Security", layer 2.)*
 2. **The thread, minimal:** the input and the log, in the DOM, so every later goal has somewhere to show its commands and answers. Its form comes from the design session. *("The thread".)*
-3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view. *("The table's own tools".)*
+3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view, in the DOM, opened from the table's cell popover. *("The table's own tools".)*
 4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order, its `WHERE`, and its find are unbuilt engine work; the table's parts, `replace_rows` for filtering and `find`, are ready ("Waiting on"). *("The controller".)*
 5. **Profiles and the catalog,** grouping included, whose result is a new table. *("The catalog".)*
 6. **Export,** and the view copied as SQL. Its size plan is settled first. *("The table's own tools".)*
@@ -89,7 +89,7 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 8. **Open from a URL:** Parquet only, read by range, on a route of its own. *("Opening a file".)*
 9. **The instructions, and the clipboard and agent routes.** *("How an LLM reaches it".)*
 10. **Trust:** offline, and the panel. *("Trust".)*
-11. **JSONL,** then nested values in the row detail view. *("Opening a file".)*
+11. **JSONL,** then nested values: the engine's half (how a `LIST`, `STRUCT`, or `MAP` becomes cells and short text) and their full form in the cell popover and the row detail view. *("Opening a file".)*
 12. **More than one file,** and joins. *("Opening a file".)*
 13. **Charts,** after a planning session of their own. *("Charts".)*
 14. **Checked SQL expressions,** after an ideation session of their own. *("Later: checked SQL expressions".)*
@@ -112,9 +112,10 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 11. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and what sharing an origin with Kirkwood means for it and for anything saved in the browser.
 12. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
 13. Export's size plan.
-14. JSONL's size limit, if it loads into memory as a CSV does, and what the table and the engine's reader do with nested values today.
+14. JSONL's size limit, if it loads into memory as a CSV does, and what the engine's reader does with nested values today.
 15. Whether the URL route takes dropped files.
 16. Where WebMCP and on-device models stand.
+17. How a visitor moves from a cell to the cell popover to the row detail view: what opens each (a click, Space, a double-click straight to the view), whether the view docks beside the table and follows the selection, and their keys in question 7's table (the design session).
 
 ---
 

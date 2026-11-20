@@ -14,7 +14,7 @@ M1–M20, the two hardenings (between M7 and M8, and after M17), and the public 
 
 | Milestone | Title | Status |
 |---|---|---|
-| — | None active: every candidate waits for a host ("Candidates", "Notes") | — |
+| M21 | Cell popover: a cell's full value, and a button to the host's view of its row | Next (its row under ["Candidates"](#drafted)) |
 
 A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
 
@@ -35,7 +35,11 @@ A *Planned* row's spec is its row under "Candidates"; its spec and checks are wr
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None now: find, the last, was built in M20.
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above).
+
+| Candidate | What it adds | Table's part | Engine's or host's part | Research questions |
+|---|---|---|---|---|
+| **M21. Cell popover** (Cargo name a draft: `popover`) | A cell's full value in a popover over the table, scrolled inside, the row height unchanged; a button in it asks the host to open its own view of the row. A quick look before a host's detail view, for long text and nested values (JSONL's lists, structs, and maps). Tycho's ask, replacing "Nested values": a detail panel inside the body is ruled out ("Tree rows", "Notes"), and a popover leaves the f64 row index alone | The popover: what opens and closes it, where it's placed, its scroll, its text; the button's press reported as an event (the row and the column); perhaps a cue on a cell with more to show | The value's text: a source's, a nested value pretty-printed by it (how a DuckDB `LIST`, `STRUCT`, or `MAP` becomes cells and short text is the DuckDB engine's, planned in Tycho's PLAN, "JSONL", until the engine has a PLAN); the host's detail view, opened by the button's event, in its DOM where text can be selected and found | **What it shows:** the exact text (the tooltip's and `copy`'s) wrapped, or a nested `CellValue` drawn indented. The likely first answer is text from the source, pretty-printed: a kind of its own only if that falls short, and then whether a nested value's cell wants a `ColumnKind` too (its width and cut: `[3 items]`, `{id: 4, …}`). **The tooltip:** the base's exact-value tooltip (`src/CLAUDE.md`, "One tooltip") is its smaller sibling, found by the same hit test and cleared at the same points: one grown from the other, or two. **What opens and closes it:** a press (against `select`'s press and `clicks`' `Single` and `Double`), Space or Enter on the active cell, a cue on hover (Elastic's EuiDataGrid draws an expand button on the cell); Escape, a press outside, a scroll; what a sort, `replace_rows`, a hide, a shrink, or `live`'s re-read does to an open one. **Where it's placed:** below or beside its cell, flipped at the window's edges; gpui-kit's `Popover` or the tooltip's `deferred` with `TooltipPositioner`. **The built features:** `copy` inside it (the whole value), `find`'s highlight in it, `format`'s text, `pin`, `density`. **Canvas gaps:** no partial selection and no Ctrl+F inside it, so the README says so and points to the host's view. Prior art: EuiDataGrid's cell popover, Glide Data Grid's overlays (a canvas grid, as this one is) |
 
 ### Notes
 
@@ -50,8 +54,7 @@ Not planned; each waits for a host to ask, and is researched as any candidate is
 | Right-pinned columns | Columns fixed at the right | An extension of `pin`, which is left only | — | Only if a host asks. How `DataTable` does it (`ColumnFixed::Right`, `fixed_right`, since gpui-kit 0.9.1): [the 0.9.1 note](perf/results/2026-11-10-gpui-kit-0.9.1.md) |
 | Row pinning | Data rows kept at the top or bottom while the rest scroll | Rows drawn above or below the body, outside the scroll, read apart from the pages | Which rows are pinned, held by an identity the source gives, since the table knows only indices and `sort` (or `replace_rows`) changes what an index means | TanStack's (`row.pin('top' \| 'bottom')`, state `{ top, bottom }` of row ids, `getTopRows`/`getCenterRows`/`getBottomRows`; `keepPinnedRows`, on by default, keeps a pinned row in view when a filter drops it) pins rows by id. The table has no row identity: research first, against the footer below |
 | Footer row | A row under the body, a cell per column | The row drawn under the body, outside the f64 index, its cells formatted as their columns' (`format`) | Its values (totals, averages: an aggregate query, run again as the rows change) | TanStack's column `footer` is a render slot with no access to the rows: the app computes what it shows. Suggested as row pinning's stand-in; whether it is one is part of the research, since the two answer different asks (a summary, against a row kept in view) |
-| **Tree rows** | A flattened list in which expanding a row inserts its children below it, with an indent and a disclosure arrow, at the fixed row height | The indent, the arrow, and its press; a row's depth and whether it's open, from the page; an insert of *k* rows after row *r* (every index past *r* shifts: the pages after it are re-read or moved, what's kept by index past it moved) | Which rows exist, open or closed, in order (`GROUP BY`, a parent's children); a group's sums | Merges TanStack's grouping and aggregation and expanding. Its gap is the insert mid-list, which `set_rows` (the tail) and `replace_rows` (everything) don't cover. **Ruled out:** detail panels of variable height: they break the uniform f64 row index every scroll, jump, and page is built on. Tycho's grouping starts as a new table (`replace_rows` with `set_columns`: the root's research, "`replace_rows`"); tree rows only if it asks for groups expanded in place |
-| Nested values | Lists, structs, and maps in a cell (JSONL's everyday shape), drawn readably at the fixed row height | Perhaps a `ColumnKind` and a `CellValue` of their own, so the width, alignment, and cut suit them (`[3 items]`, `{id: 4, …}`), and `copy` and the tooltip give JSON; or nothing, if a source's text is enough | How a DuckDB `LIST`, `STRUCT`, or `MAP` becomes a cell; an embedding's hundreds of floats summarized; reading one row in full (a host's detail view, opened by `clicks`' `Double` on a row) | Tycho's ask, after its first release. Today a nested value reaches the table only as text a source flattened; what the table and the DuckDB engine do with one now is the research's first step (Tycho's open question). Advice for that research: the likely first answer is no change in the table: the engine flattens top-level fields into columns (`user.name`) and gives deeper values as short text (`{3 fields}`, `[768 × float]`), and the host's detail view shows the whole value; a kind of its own only if that falls short |
+| **Tree rows** | A flattened list in which expanding a row inserts its children below it, with an indent and a disclosure arrow, at the fixed row height | The indent, the arrow, and its press; a row's depth and whether it's open, from the page; an insert of *k* rows after row *r* (every index past *r* shifts: the pages after it are re-read or moved, what's kept by index past it moved) | Which rows exist, open or closed, in order (`GROUP BY`, a parent's children); a group's sums | Merges TanStack's grouping and aggregation and expanding. Its gap is the insert mid-list, which `set_rows` (the tail) and `replace_rows` (everything) don't cover. **Ruled out:** detail panels of variable height: they break the uniform f64 row index every scroll, jump, and page is built on (a cell's full value is the cell popover's, "Drafted"). Tycho's grouping starts as a new table (`replace_rows` with `set_columns`: the root's research, "`replace_rows`"); tree rows only if it asks for groups expanded in place |
 | Row marks | Bookmarks or tags on rows, drawn in the row-number gutter | The mark drawn in the gutter, and its press through `clicks` | Which rows are marked, held by an identity the source gives, and what a mark means (a tag, a note) | Tycho's ask, after its first release. The same gap as row pinning: the table knows only indices, and `sort` or `replace_rows` changes what an index means. Researched with row pinning, so row identity is settled once for both |
 | Column summaries in the header | A strip under each column's header: a small histogram, a null share | The strip drawn under the header, at the header's widths, from values the host gives (bins, shares), and its press through `clicks` | The profile's query (`SUMMARIZE`, a histogram); when it reruns as the rows change | Only if Tycho's design puts its column profile in the header; in a menu or its thread, the table has no part. Advice for that research: it's the footer row's sibling (a row outside the body's index, drawn from the host's values), so if both are asked for, research them together; a column's type label is the simplest thing the strip could show |
 
@@ -71,8 +74,8 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
-| Tycho | Nested values | JSONL, after its first release | Not planned ("Notes") | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Cell popover | The quick look before its row detail view (its first release), and nested values in it (JSONL, after) | M21 ("Drafted") | *Not ready* |
+| Tycho | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
 
 Every earlier ask is built and *Ready* in its app's PLAN.
@@ -81,7 +84,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-None: every candidate waits for a host ("Candidates", "Notes").
+None: the cell popover is next (its row under "Candidates", "Drafted").
 
 ---
 
@@ -109,7 +112,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-None drafted: every candidate waits for a host ("Candidates", "Notes").
+None written: the cell popover's spec and checks are written here when it opens, after its research (its row under "Candidates", "Drafted").
 
 ---
 
