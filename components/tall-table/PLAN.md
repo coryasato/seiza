@@ -14,9 +14,11 @@ M1–M21, the two hardenings (between M7 and M8, and after M17), and the public 
 
 | Milestone | Title | Status |
 |---|---|---|
-| — | None active. Tycho asked for the header icon, touch presses, and the popover for cut text only on 2026-11-20 ("Who's waiting"); none is opened | — |
+| M22 | The header icon, a column's icon the host sets, its press reported | Planned: next to open |
+| M23 | The popover for cut text only, its cue a fade, and a long value's cell | Planned |
+| M24 | Touch presses, a header's tap as one press | Planned |
 
-A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
+A *Planned* row's draft is under "Next milestones": what it adds, its research questions, its parts, and its checks. Its part A (the research) settles the spec and tightens the checks when it opens.
 
 **Closing a milestone:** every "done when" check passes; a milestone that changed the paging has passed `just tall-table soak` on its final build (`CLAUDE.md`, rule 5); the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost, and its comparison tables the feature's row; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. For a feature, also flip its row in each app's "Waiting on" table (listed under "Who's waiting", below) to *Ready* (the date and the milestone); each app adopts it in a milestone of its own.
 
@@ -35,33 +37,89 @@ A *Planned* row's spec is its row under "Candidates"; its spec and checks are wr
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None drafted: Tycho's asks ("Who's waiting") are the next to research; every other candidate waits for a host ("Notes").
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are drafted as milestones, M22–M24, under "Next milestones", each with its research questions; no other row is drafted, and every other candidate waits for a host ("Notes").
 
 ### Notes
 
-Not planned; each waits for a host to ask, and is researched as any candidate is.
+Not planned; each waits for a host to ask, and is researched as any candidate is. None is built: a candidate leaves this list when its milestone opens (Tycho's header icon, popover for cut text, and touch presses are M22–M24, "Next milestones"). Global filtering left it built: its table's part was `replace_rows` alone (M18), and the README's "TanStack Table's features" has its row.
 
-| Candidate | What it adds | Table's part | Engine's or host's part | Notes |
-|---|---|---|---|---|
-| Reading the shown columns only | A source told which columns are shown reads fewer | Telling the delegate the shown columns (off unless the source asks); a show re-reads every loaded page without a flash (`live`'s re-read); a copy reads only what it writes | The page query's column list (`sql.json` grows a case) | Left out of M19 (2026-11-18, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"): it changes what a page holds and reaches the paging, the cache's bytes, and the soak. Researched if Tycho measures a wide file's page reads as its cost; weighed with "Pages of the visible columns only" ("Open questions"), its sideways twin |
-| Column filtering | A predicate per column; the row count follows | `replace_rows` (M18). If a host asks: a filter control drawn in a header, its press reported through `clicks` (a new `ClickTarget`) | The `WHERE`, the new `count(*)`, pages over the filtered rows; the filter's UI and its state | Like `sort`, a source paging by row-group range can't page a filtered result; how it does is the source's (the DuckDB engine's research, as `sort`'s was). Tycho's ask is met (M18, closed 2026-11-18); the header control is built only if it asks for one. Advice for that research: the icon needs a "filtered" state the host sets, as the sort arrow has; and a host's popover anchored under a header cell has only `Clicked`'s position today, since the layout event is a probe (`probe_frames`). That may be enough (gpui-kit's menus open at the pointer); if not, weigh a public reader of a header cell's bounds, which a column menu would use too |
-| Global filtering | One predicate across every column: fewer rows | `replace_rows` (M18) | The query across every text column; the search box | The filtering half of TanStack's global filter. Fuzzy filtering is a kind of it. Tycho's ask is met (M18, closed 2026-11-18) |
-| Multi-column sort | Sort by several columns, Shift-click to add; priority numbers on the arrows | The arrows' Shift-click and their numbers; the list of keys | `ORDER BY a, b`, and its cost | The API's shape is settled (2026-11-17, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Component API"): the delegate's `sort`, `sort()`, `set_sort`, `Sorted`, and `SortRefused` carry a list of keys, and the table sorts by one at most (`set_sort` refuses two, the state holds one). Left for the feature, each to research: the state's list, what the arrows draw (a priority, with no room in the box today), what a plain click does to a two-key sort, what `set_columns` keeps when one key's column is gone, the bridge's published shape (the first key today), and the cost in a source (`ORDER BY a, b`). It waits for a host |
-| Right-pinned columns | Columns fixed at the right | An extension of `pin`, which is left only | — | Only if a host asks. How `DataTable` does it (`ColumnFixed::Right`, `fixed_right`, since gpui-kit 0.9.1): [the 0.9.1 note](perf/results/2026-11-10-gpui-kit-0.9.1.md) |
-| Row pinning | Data rows kept at the top or bottom while the rest scroll | Rows drawn above or below the body, outside the scroll, read apart from the pages | Which rows are pinned, held by an identity the source gives, since the table knows only indices and `sort` (or `replace_rows`) changes what an index means | TanStack's (`row.pin('top' \| 'bottom')`, state `{ top, bottom }` of row ids, `getTopRows`/`getCenterRows`/`getBottomRows`; `keepPinnedRows`, on by default, keeps a pinned row in view when a filter drops it) pins rows by id. The table has no row identity: research first, against the footer below |
-| Footer row | A row under the body, a cell per column | The row drawn under the body, outside the f64 index, its cells formatted as their columns' (`format`) | Its values (totals, averages: an aggregate query, run again as the rows change) | TanStack's column `footer` is a render slot with no access to the rows: the app computes what it shows. Suggested as row pinning's stand-in; whether it is one is part of the research, since the two answer different asks (a summary, against a row kept in view) |
-| **Tree rows** | A flattened list in which expanding a row inserts its children below it, with an indent and a disclosure arrow, at the fixed row height | The indent, the arrow, and its press; a row's depth and whether it's open, from the page; an insert of *k* rows after row *r* (every index past *r* shifts: the pages after it are re-read or moved, what's kept by index past it moved) | Which rows exist, open or closed, in order (`GROUP BY`, a parent's children); a group's sums | Merges TanStack's grouping and aggregation and expanding. Its gap is the insert mid-list, which `set_rows` (the tail) and `replace_rows` (everything) don't cover. **Ruled out:** detail panels of variable height: they break the uniform f64 row index every scroll, jump, and page is built on (a cell's full value is the cell popover's, the active milestone). Tycho's grouping starts as a new table (`replace_rows` with `set_columns`: the root's research, "`replace_rows`"); tree rows only if it asks for groups expanded in place |
-| Row marks | Bookmarks or tags on rows, drawn in the row-number gutter | The mark drawn in the gutter, and its press through `clicks` | Which rows are marked, held by an identity the source gives, and what a mark means (a tag, a note) | Tycho's ask, after its first release. The same gap as row pinning: the table knows only indices, and `sort` or `replace_rows` changes what an index means. Researched with row pinning, so row identity is settled once for both |
-| Column summaries in the header | A strip under each column's header: a small histogram, a null share | The strip drawn under the header, at the header's widths, from values the host gives (bins, shares), and its press through `clicks` | The profile's query (`SUMMARIZE`, a histogram); when it reruns as the rows change | Not asked yet (2026-11-20): Tycho's design puts the profile in its columns panel first, and asks for the strip only once that proves fast enough ([its research](../../docs/research/tycho-workbench.md), "The column profile's cost": the queries are the cost, not the drawing). If asked, the table draws from the host's numbers, with a placeholder and a muted look for a summary still being read. Advice for that research: it's the footer row's sibling (a row outside the body's index, drawn from the host's values), so if both are asked for, research them together; a column's type label is the simplest thing the strip could show |
-| Header icon | An icon at the start of each column's header, set by the host, whose press the host is told of | The icon drawn first in the header, at the left whatever the kind's alignment, from a path in the host's asset source (as `sort`'s icons are) in a color the host gives; under the pointer, raised on a backdrop of its own, with the pointer cursor; its press through `clicks` (a new `ClickTarget`), selecting nothing; the room it takes from the name (the fit, the least width) | Which icon and color each column gets, and what its press opens | Tycho's ask (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK#page-columns)): the icon is the column's type and opens the column's menu, a DOM menu. For its research: how it sits with `sort`'s arrow, `resize`'s band, `reorder`'s drag, and `group-headers`; `sort`'s arrow stays at the right edge |
-| The popover for cut text only, its cue a fade | `popover` narrowed, at the host's request, to a text that is cut: a cue that moves no text, and Enter left to the host everywhere else | Each a setting of the host's, off by default, the popover as built unchanged without them. **Which cells:** the popover and its cue only on a text cut at its end or holding a line break, even with a button set, so a number or a text that fits is never cut short of the cue, and a rounded value keeps the tooltip alone. **Enter:** on an active cell with no popover to open, Enter goes on to the host, as it does with no `Cells` selection. **The cue's look:** the cell's "…" at rest; under the pointer and on the active cell the text drawn without it, washing out over its last stretch short of the cue's box, the mark at the cell's far right (turned up on the open popover's cell). **The button:** a host's own element may fill the popover's width (today it is laid out at its own size, from the left) | Which settings; the row view Enter opens | Tycho's ask (2026-11-20, its `docs/DECISIONS.md`, "Scope"): its popover is a glimpse of overflowing text and nothing else, and with a button set the cue is on every loaded cell, where a value with no "…" to give steps aside under the pointer (about 18 px at a 28 px row). Only the hovered and the active cell are drawn faded, the two cells the cue already cuts again. The research's first question: how the cells' text element fades a line (each glyph's alpha by its place, or a gradient; the row's background varies, which ruled out a quad over the text for the mark) and what it costs |
-| Touch presses | At a touch screen, a header's tap is one press and a long press is a context press | A host's setting under which a tap anywhere on a header reports the column's press and `sort`'s arrow isn't a target of its own; a long press on a header or a cell reported as `clicks`' context press is | The menu it opens; the setting | Tycho's ask (2026-11-20, as above): at a phone a header's zones (the arrow's box, `resize`'s 9 px band) are too small for a finger and a stray sort reads as a mistake, so its menu holds every ability. The research's first question: what touch input GPUI's web platform delivers at all |
+#### Reading the shown columns only
+
+A source told which columns are shown reads fewer.
+
+- **Table's part:** Telling the delegate the shown columns (off unless the source asks); a show re-reads every loaded page without a flash (`live`'s re-read); a copy reads only what it writes
+- **Engine's or host's part:** The page query's column list (`sql.json` grows a case)
+- **Notes:** Left out of M19 (2026-11-18, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features"): it changes what a page holds and reaches the paging, the cache's bytes, and the soak. Researched if Tycho measures a wide file's page reads as its cost; weighed with "Pages of the visible columns only" ("Open questions"), its sideways twin
+
+#### Column filtering
+
+A predicate per column; the row count follows.
+
+- **Table's part:** Built: `replace_rows` (M18, closed 2026-11-18), which is all a filter needs of the table. Still open, only if a host asks: a filter control drawn in a header, its press reported through `clicks` (a new `ClickTarget`)
+- **Engine's or host's part:** The `WHERE`, the new `count(*)`, pages over the filtered rows; the filter's UI and its state
+- **Notes:** Like `sort`, a source paging by row-group range can't page a filtered result; how it does is the source's (the DuckDB engine's research, as `sort`'s was). Tycho's ask is met (M18, closed 2026-11-18); the header control is built only if it asks for one. Advice for that research: the icon needs a "filtered" state the host sets, as the sort arrow has; and a host's popover anchored under a header cell has only `Clicked`'s position today, since the layout event is a probe (`probe_frames`). That may be enough (gpui-kit's menus open at the pointer); if not, weigh a public reader of a header cell's bounds, which a column menu would use too
+
+#### Multi-column sort
+
+Sort by several columns, Shift-click to add; priority numbers on the arrows.
+
+- **Table's part:** The arrows' Shift-click and their numbers; the list of keys
+- **Engine's or host's part:** `ORDER BY a, b`, and its cost
+- **Notes:** The API's shape is settled (2026-11-17, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Component API"): the delegate's `sort`, `sort()`, `set_sort`, `Sorted`, and `SortRefused` carry a list of keys, and the table sorts by one at most (`set_sort` refuses two, the state holds one). Left for the feature, each to research: the state's list, what the arrows draw (a priority, with no room in the box today), what a plain click does to a two-key sort, what `set_columns` keeps when one key's column is gone, the bridge's published shape (the first key today), and the cost in a source (`ORDER BY a, b`). It waits for a host
+
+#### Right-pinned columns
+
+Columns fixed at the right.
+
+- **Table's part:** An extension of `pin`, which is left only
+- **Engine's or host's part:** —
+- **Notes:** Only if a host asks. How `DataTable` does it (`ColumnFixed::Right`, `fixed_right`, since gpui-kit 0.9.1): [the 0.9.1 note](perf/results/2026-11-10-gpui-kit-0.9.1.md)
+
+#### Row pinning
+
+Data rows kept at the top or bottom while the rest scroll.
+
+- **Table's part:** Rows drawn above or below the body, outside the scroll, read apart from the pages
+- **Engine's or host's part:** Which rows are pinned, held by an identity the source gives, since the table knows only indices and `sort` (or `replace_rows`) changes what an index means
+- **Notes:** TanStack's (`row.pin('top' | 'bottom')`, state `{ top, bottom }` of row ids, `getTopRows`/`getCenterRows`/`getBottomRows`; `keepPinnedRows`, on by default, keeps a pinned row in view when a filter drops it) pins rows by id. The table has no row identity: research first, against the footer below
+
+#### Footer row
+
+A row under the body, a cell per column.
+
+- **Table's part:** The row drawn under the body, outside the f64 index, its cells formatted as their columns' (`format`)
+- **Engine's or host's part:** Its values (totals, averages: an aggregate query, run again as the rows change)
+- **Notes:** TanStack's column `footer` is a render slot with no access to the rows: the app computes what it shows. Suggested as row pinning's stand-in; whether it is one is part of the research, since the two answer different asks (a summary, against a row kept in view)
+
+#### Tree rows
+
+A flattened list in which expanding a row inserts its children below it, with an indent and a disclosure arrow, at the fixed row height.
+
+- **Table's part:** The indent, the arrow, and its press; a row's depth and whether it's open, from the page; an insert of *k* rows after row *r* (every index past *r* shifts: the pages after it are re-read or moved, what's kept by index past it moved)
+- **Engine's or host's part:** Which rows exist, open or closed, in order (`GROUP BY`, a parent's children); a group's sums
+- **Notes:** Merges TanStack's grouping and aggregation and expanding. Its gap is the insert mid-list, which `set_rows` (the tail) and `replace_rows` (everything) don't cover. **Ruled out:** detail panels of variable height: they break the uniform f64 row index every scroll, jump, and page is built on (a cell's full value is the cell popover's, `popover`). Tycho's grouping starts as a new table (`replace_rows` with `set_columns`: the root's research, "`replace_rows`"); tree rows only if it asks for groups expanded in place
+
+#### Row marks
+
+Bookmarks or tags on rows, drawn in the row-number gutter.
+
+- **Table's part:** The mark drawn in the gutter, and its press through `clicks`
+- **Engine's or host's part:** Which rows are marked, held by an identity the source gives, and what a mark means (a tag, a note)
+- **Notes:** Tycho's ask, after its first release. The same gap as row pinning: the table knows only indices, and `sort` or `replace_rows` changes what an index means. Researched with row pinning, so row identity is settled once for both
+
+#### Column summaries in the header
+
+A strip under each column's header: a small histogram, a null share.
+
+- **Table's part:** The strip drawn under the header, at the header's widths, from values the host gives (bins, shares), and its press through `clicks`
+- **Engine's or host's part:** The profile's query (`SUMMARIZE`, a histogram); when it reruns as the rows change
+- **Notes:** Not asked yet (2026-11-20): Tycho's design puts the profile in its columns panel first, and asks for the strip only once that proves fast enough ([its research](../../docs/research/tycho-workbench.md), "The column profile's cost": the queries are the cost, not the drawing). If asked, the table draws from the host's numbers, with a placeholder and a muted look for a summary still being read. Advice for that research: it's the footer row's sibling (a row outside the body's index, drawn from the host's values), so if both are asked for, research them together; a column's type label is the simplest thing the strip could show
 
 ### Not the table's, not listed, and editing
 
 **Not the table's:** faceting (each column's distinct values, or its min and max, for a filter's UI) is aggregate queries and a host's UI; the table has no part in it.
 
-Not listed: TanStack's pagination (the table scrolls instead) and fuzzy filtering (a kind of global filtering).
+Not listed: TanStack's pagination (the table scrolls instead) and fuzzy filtering (a kind of global filtering, the source's query through `replace_rows`).
 
 **Editing is not on the list** (the table is read-only, and a paste lands in another app, which undoes it). If editing or paste-into-cells is ever added, undo and redo come in the same milestone, not after: a mistaken paste needs a quick remedy (noted 2026-10-26).
 
@@ -73,10 +131,10 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Header icon | Its column's menu button, the column's type icon | Not planned ("Notes") | *Not ready* |
-| Tycho | Touch presses | Its column's and cell's menus at a phone | Not planned ("Notes") | *Not ready* |
-| Tycho | The popover for cut text only, its cue a fade | Its cell popover: a glimpse of overflowing text, a cue that moves no text, Enter opening its row view everywhere else | Not planned ("Notes") | *Not ready* |
-| Tycho | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Candidates") | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Header icon | Its column's menu button, the column's type icon | M22, planned | *Not ready* |
+| Tycho | The popover for cut text only, its cue a fade | Its cell popover: a glimpse of overflowing text, a cue that moves no text, Enter opening its row view everywhere else | M23, planned | *Not ready* |
+| Tycho | Touch presses | Its column's and cell's menus at a phone | M24, planned | *Not ready* |
+| Tycho | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Notes") | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile's strip, only once its panel's profile proves fast enough | Not planned ("Notes"): not asked yet | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
 
@@ -86,7 +144,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-None. Tycho's asks ("Who's waiting": the header icon, then touch presses) are next; every other candidate waits for a host ("Candidates", "Notes").
+None. M22, the header icon, is the next to open ("Next milestones"): its part A is its research, which settles its spec and tightens its checks.
 
 ---
 
@@ -100,7 +158,7 @@ Found by the code review of 2026-11-19 (after `find` closed), a nit; fixed in a 
 
 ### A long value's cell
 
-Found 2026-11-20, measuring the cell popover ([`perf/results/2026-11-20-m21-c.md`](perf/results/2026-11-20-m21-c.md)): with a column of 10,000-character values on screen, the wide shape's steady scroll read 5.75 ms a frame against the base's 4.67, and its fling's 10.05 against 4.89 (52.6 frames a second against 59.7). The cells' text copies each drawn cell's whole value (its line breaks replaced, `cell_text`) and shapes it before cutting it to the cell, every frame. A host with long text (Tycho's JSONL, a log's messages) meets it in the base. Shape: take only as much of the value as the widest cell could show (its width over the narrowest advance, and the "…") before replacing and shaping, keeping the drawn pixels (`just tall-table smoke --screens`) and `drawn_text`'s cut; then read the same scroll and fling again. Built when a host's long values reach it, or before Tycho adopts the popover.
+Found 2026-11-20, measuring the cell popover ([`perf/results/2026-11-20-m21-c.md`](perf/results/2026-11-20-m21-c.md)): with a column of 10,000-character values on screen, the wide shape's steady scroll read 5.75 ms a frame against the base's 4.67, and its fling's 10.05 against 4.89 (52.6 frames a second against 59.7). The cells' text copies each drawn cell's whole value (its line breaks replaced, `cell_text`) and shapes it before cutting it to the cell, every frame. A host with long text (Tycho's JSONL, a log's messages) meets it in the base. Shape: take only as much of the value as the widest cell could show (its width over the narrowest advance, and the "…") before replacing and shaping, keeping the drawn pixels (`just tall-table smoke --screens`) and `drawn_text`'s cut; then read the same scroll and fling again. Built as M23's part B ("Next milestones"), before Tycho adopts the popover.
 
 ### `custom-cells`
 
@@ -124,7 +182,106 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-None drafted: Tycho's asks ("Who's waiting") come first; every other candidate waits for a host ("Candidates", "Notes").
+Tycho's three asks for its first release (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK)), drafted 2026-11-21 while its design session goes on. Each is a draft, not a spec: its part A researches it (root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section each), settles the API with the owner, and rewrites the rules and checks here before anything is built. One is open at a time, in this order.
+
+**Why this order:** the header icon and the popover's narrowing are settled on the canvas; the frame at a phone is still being drawn, so touch presses come last, after the icon whose press a tap has to sit with. If the phone's design settles first and Tycho needs it sooner, M23 and M24 swap: neither builds on the other.
+
+### M22: the header icon, a column's icon the host sets, its press reported
+
+**What it adds** (*proposed:* a Cargo feature of its own, `header-icon`, off by default; part A decides between that and a part of `clicks`): an icon at the start of each column's header, set by the host, whose press the host is told of. Tycho's is the column's type icon and opens its column's menu, a DOM menu.
+
+- **Table's part:** the icon drawn first in the header, at the left whatever the kind's alignment, from a path in the host's asset source (as `sort`'s icons are) in a color the host gives; under the pointer, raised on a backdrop of its own (solid, with a shadow, not outlined), with the pointer cursor; its press reported through `clicks` (a new `ClickTarget`), selecting nothing; the room it takes from the name (the fit, the least width).
+- **Host's part:** which icon and color each column gets, and what its press opens.
+
+**For part A to answer:**
+
+- **The feature's edge:** a feature of its own or `clicks`' part; what a build with the icon and without `clicks` does (drawn, its press reporting nothing, or the feature turning `clicks` on).
+- **The built features:** `sort`'s arrow, which stays at the right edge, and a header too narrow for both; `resize`'s band, and the fit and least width with the icon's room; `reorder`, whose drag starts on a header's press (a press on the icon starts none); `select`, whose header press selects the column (the icon's selects nothing); `group-headers` (the leaf headers only, or a group's cell too); `pin`, `hide`, `density` (the icon's size through `sizes()`); a context press and a double press on the icon.
+- **Setting it:** the icon and its color on `TallTableColumn`, and whether a host changes one column's without `set_columns` (Tycho's menu button may show a state, as the column filtering note's "filtered" does).
+- **Where the host's menu opens:** `Clicked`'s position is the pointer's; a DOM menu anchored under the icon wants the icon's bounds. Weigh the bounds carried in the event against a public reader of a header cell's bounds (the column filtering note's advice, "Notes").
+- **Canvas gaps:** the icon is a button no keyboard or screen reader reaches; Tycho's way in is its columns panel's row, and the README says so.
+- **Frame-work risk:** an icon and a hover backdrop a header, on a wide sheet's sideways fling.
+
+**Parts,** one session each:
+
+- **A. Research and spec** (no shipped code): the research section, the decisions, the API and the tightened checks here.
+- **B. The feature, built and tested:** the column's icon, the drawing and the raised look, the press and its target, the fit, the probe, the window tests, the random test's step if it holds state, the bare host's switch and hooks, the docs, `pairs`.
+- **C. The cost and the close:** its size alone and with every feature; frame work; the smoke check in three browsers; the README; the close-out.
+
+**Done when** (drafted; part A tightens them):
+
+- [ ] **A1. The research and the spec:** the research section answers each question above; its decisions are in `docs/DECISIONS.md`; the API, the rules, and the checks are here.
+- [ ] **B1. Off by default, the base unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `size` shows none of the feature's symbols in the base, and `size --against <M22's parent>` reports the base unchanged; the fixtures pass untouched.
+- [ ] **B2. The feature, natively:** window tests for each rule part A writes: the icon at the left of a left- and a right-aligned header; the name's room and the least width with it; the raised look only under the pointer; its press reported with its column, by index after a move, selecting nothing and starting no drag; `sort`'s arrow and `resize`'s band still pressed where they were; a column with no icon drawn as today.
+- [ ] **B3. The host shows it:** the bare host's switch and hooks (an icon on every column, the press read back), so `size`, `perf`, and `smoke` reach it.
+- [ ] **C1. Its cost:** its bytes alone and with every feature, against the base, in a `perf/results/` note, and each app that builds the table in its own `perf/results/` (root `CLAUDE.md`, rule 1); frame work in the protocol's scroll and the wide shape's sideways fling with an icon on every header, against none, within the spread.
+- [ ] **C2. In the browsers:** `just tall-table smoke` draws the icons, hovers one, and presses it, in Chromium, Firefox, and WebKit, both shapes, alone and with `sort,resize,reorder,select,clicks,group-headers`.
+- [ ] **C3. The README and waiting apps:** the README's section, the Features row and cost, the `DataTable` and TanStack tables' rows, the Canvas tradeoffs; Tycho's "Waiting on" row flipped to *Ready*.
+
+### M23: the popover for cut text only, its cue a fade, and a long value's cell
+
+**What it adds:** `popover` narrowed, at the host's request, to a text that is cut: a cue that moves no text, and Enter left to the host everywhere else. Each is a setting of the host's, off by default, the popover as built unchanged without them. With it, the base's fix for a long value's cell ("Follow-ups to built features", "A long value's cell"), which Tycho's popover would meet first: both change the cells' text element, so they're built and measured together.
+
+- **Which cells:** the popover and its cue only on a text cut at its end or holding a line break, even with a button set, so a number or a text that fits is never cut short of the cue, and a rounded value keeps the tooltip alone.
+- **Enter:** on an active cell with no popover to open, Enter goes on to the host, as it does with no `Cells` selection.
+- **The cue's look:** the cell's "…" at rest; under the pointer and on the active cell the text drawn without it, washing out over its last stretch short of the cue's box, the mark at the cell's far right (turned up on the open popover's cell). Only the hovered and the active cell are drawn faded, the two cells the cue already cuts again.
+- **The button:** a host's own element may fill the popover's width (today it's laid out at its own size, from the left).
+- **Host's part:** which settings; the row view Enter opens.
+
+**For part A to answer:**
+
+- **The fade, first:** how the cells' text element fades a line (each glyph's alpha by its place, or a gradient) and what it costs. The row's background varies (stripes, `custom-cells`' fill, `select`'s tint, `live`'s flash, `find`'s tint), which ruled out a quad over the text for the mark. A spike in the bare host if it's unclear.
+- **The settings' shape:** one setting or several (which cells, the cue's look, the button's width), and their names beside `set_popover_cue` and `set_popover_button`.
+- **Which cells, exactly:** a NULL, a middle cut, a text cut by `format`'s fallback, a `custom-cells` cell, and `open_popover` from the host on a cell the setting excludes (refused, or the host's to decide).
+- **The mark turned up:** the same mark rotated, or a second path from the host's assets.
+- **Canvas gaps:** what the README's "Canvas tradeoffs" says of a cue that is only a fade and a mark.
+
+**Parts,** one session each:
+
+- **A. Research and spec** (no shipped code), the fade's spike with it if needed.
+- **B. A long value's cell** (the base): only as much of a value as the widest cell could show is replaced and shaped, the drawn pixels and `drawn_text`'s cut kept.
+- **C. The settings, built and tested:** which cells, Enter, the fade and the mark, the button's width, the probe, the window tests, the random test's step, the bare host's switches, the docs, `pairs`.
+- **D. The cost and the close.**
+
+**Done when** (drafted; part A tightens them):
+
+- [ ] **A1. The research and the spec:** the research section answers each question above, the fade's way chosen from a measured frame; its decisions are in `docs/DECISIONS.md`; the API, the rules, and the checks are here.
+- [ ] **B1. A long value's cell, the same pixels:** `just tall-table smoke --screens` matches the saved screens; the cell fixtures pass untouched, and `just observatory fixtures` after; Tycho's table checks (`just tycho table`, `cells`) pass.
+- [ ] **B2. Its frames:** the wide shape's steady scroll and fling with a column of 10,000-character values, read again against the base's (5.75 ms a frame against 4.67, and 10.05 against 4.89, on 2026-11-20), within the base's spread; the base's size change recorded for each app that builds the table.
+- [ ] **C1. Off by default, the popover unchanged:** `just tall-table test`, `lint`, and `pairs` pass; with no setting on, the popover's window tests and its smoke run pass untouched; `size --against <part B's commit>` reports the base unchanged.
+- [ ] **C2. The settings, natively:** window tests for each rule: no cue and no popover on a number, a rounded value, and a text that fits, with a button set; Enter on such a cell propagating, and opening the popover on a cut one; the "…" at rest, the fade and the mark on the hovered and the active cell only, no text moved; the mark turned up on the open cell; the button filling the width; the random test's step where the popover's has one.
+- [ ] **C3. The host sets them:** the bare host's switches for each setting, so `size`, `perf`, and `smoke` reach them.
+- [ ] **D1. Its cost:** the added bytes on `popover`, in a `perf/results/` note, and each app's; frame work in the protocol's scroll with the pointer over a cut cell and an active cell faded, against the popover as built, within the spread.
+- [ ] **D2. In the browsers:** `just tall-table smoke` in Chromium, Firefox, and WebKit, both shapes: the fade over a striped row and a filled cell, the mark's press, Enter on a cut cell and on one that fits.
+- [ ] **D3. The README and waiting apps:** "The cell popover" and its settings, the Features row's cost, the Canvas tradeoffs; the follow-up's section removed from this file; Tycho's "Waiting on" row flipped to *Ready*.
+
+### M24: touch presses, a header's tap as one press
+
+**What it adds** (*proposed:* a setting of `clicks`, no feature of its own): at a touch screen, a tap anywhere on a header reports the column's press, and `sort`'s arrow isn't a target of its own. At a phone a header's zones (the arrow's box, `resize`'s 9 px band) are too small for a finger and a stray sort reads as a mistake, so Tycho's menu holds every ability. A long press on a header or a cell is already `clicks`' context press (gpui's touch recognizer, 500 ms: the README's "Presses"); this milestone checks it on a touch screen and builds only what's missing.
+
+- **Table's part:** the host's setting, and what a header's tap reports under it.
+- **Host's part:** the menu it opens; when the setting is on.
+
+**For part A to answer:**
+
+- **What arrives, first:** what touch input GPUI's web platform delivers (a tap as a mouse press, a pan as a scroll, the long press) in Chromium, Firefox, and WebKit, on a real phone and under Playwright's touch emulation, and what the harness can drive (`.claude/rules/perf-harness.md`). If a tap or a long press doesn't arrive, the milestone closes with a decision and what gpui-kit would need.
+- **The setting's reach:** the host's for the whole table, or each press judged by its pointer's kind; whether `resize`'s band, `reorder`'s drag, and `select`'s column press stand down under it too, or only the arrow.
+- **The header icon (M22):** whether a tap on it reports the icon's target or the header's under the setting.
+- **A tap against a pan:** a finger that moves before lifting scrolls and reports nothing.
+- **A long press's place:** `Clicked`'s position at its start, enough for a menu at a phone.
+
+**Parts,** one session each:
+
+- **A. Research and spec** (no shipped code): what arrives, in each browser, the decisions, the API and the tightened checks here.
+- **B. The setting, built and tested,** with its cost and the close if part A finds it small; else a part C for those.
+
+**Done when** (drafted; part A tightens them):
+
+- [ ] **A1. The research and the spec:** the research section says what touch input arrives in each browser, with how it was read; its decisions are in `docs/DECISIONS.md`; the API, the rules, and the checks are here, or the milestone closes on a decision.
+- [ ] **B1. Off by default, the base and `clicks` unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `clicks`' window tests pass untouched with the setting off; `size --against <M24's parent>` reports the base unchanged.
+- [ ] **B2. The setting, natively:** window tests: with it on, a press anywhere on a header (the arrow's box included) reports the header's press once and sorts nothing; with it off, as today; a long press on a header and on a cell reported as a context press, with its target.
+- [ ] **B3. On touch, in the browsers:** the smoke check under touch emulation, as far as part A finds each browser can be driven: a header's tap, a cell's long press, a pan that reports nothing; and once by hand on a phone, noted.
+- [ ] **B4. Its cost and the README:** the added bytes on `clicks` in a `perf/results/` note, and each app's; the README's "Presses" and its Canvas tradeoffs; Tycho's "Waiting on" row flipped to *Ready*.
 
 ---
 
