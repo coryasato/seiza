@@ -72,7 +72,7 @@ What someone needs to check something in a large file, with no LLM anywhere:
 | A row detail view: one row opened and read in full, long text and nested values included | New, Tycho's; **decided** |
 | The view copied as SQL, to continue in another tool | New, Tycho's; **decided** |
 
-**Export's size, open:** an export is written inside DuckDB-Wasm before the browser saves it (to confirm how), so a large one could run out of memory. The choices: a cap with a clear message, which covers the common case of a small piece of a big file; or writing in pieces to a file the visitor picks (the save-file picker, Chromium only). It also needs a call the bridge doesn't have. Decided before export is built.
+**Export's size, decided 2026-11-21:** a cap with a clear message, in every browser, and a test of writing to the browser's own storage first, which would lift it (`apps/tycho/docs/DECISIONS.md`, "Scope"). What was open: an export is written inside DuckDB-Wasm before the browser saves it (to confirm how), so a large one could run out of memory. The choices: a cap with a clear message, which covers the common case of a small piece of a big file; or writing in pieces to a file the visitor picks (the save-file picker, Chromium only). It also needs a call the bridge doesn't have. Decided before export is built.
 
 ### 3. The catalog: formulas by type
 
