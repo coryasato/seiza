@@ -32,7 +32,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | M8 | Deploy to Cloudflare | Done 2026-10-10: https://tycho.seiza.io |
 | M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
 | M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Done 2026-11-01 |
-| — | Design session: the page, the thread, the profile, where answers show | Under way since 2026-11-20, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20): the frame, the command bar, grouping as a view tab, the first screen, the theme. Still to draw: the toolbar and its chips, the column menu and filter, find, the headers, the cell popover and the row detail view, export, phone widths |
+| — | Design session: the page, the thread, the profile, where answers show | Under way since 2026-11-20, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20): the frame, the command bar, grouping as a view tab, the first screen, the theme, the toolbar, find's bar, the views list and its names, keeping views, the Share menu. Still to draw: the column menu and the filter's editor, the headers, the cell popover and the row detail view, export, the rest of the frame at a phone |
 | — | Sample session: which data, under the static-asset limit | Before M11's sample check |
 | M11 | Reset: the old Tycho retired, the ground cleared | Next |
 | Later | The goals below, in order; the first release is everything through export | Each becomes a milestone when it's opened |
@@ -101,9 +101,9 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 
 1. Which sample or samples, chosen so a chart is waiting for one of them (the sample session).
 2. The command bar's grammar: the catalog's command names and each one's parts (the canvas's are drafts), and whether a pasted action waits for Enter, as drawn, or runs on paste.
-3. Views as tabs: how many may be open, whether they come back after a reload, and whether "Show rows" on a group should open a tab of its own rather than filter the base view (the design session).
-4. Where filter controls live: an icon in the column header, a column menu, or the thread. Only a header icon needs the tall table to build something (the design session).
-5. Where find's bar lives, and Ctrl+F: whether the table claims the key while it has focus, and whether a second press falls through to the browser for the thread's text (the design session).
+3. Views: whether "Show rows" on a group should open a view of its own rather than filter the base view; the caps on kept views (the 10 latest files and 20 views a file are proposed, from estimates); and where kept views are stored, given the origin is shared with Kirkwood (the design session, with "The connection policy").
+4. What the toolbar's Filter, Sort, and Columns controls open beyond the filters' list, and what a column header's menu offers; a header icon would need the tall table to build something (the design session).
+5. Ctrl+F: whether the table claims the key while it has focus, and whether a second press falls through to the browser for the DOM's text. Find's bar is settled: the toolbar's right side (the design session).
 6. Whether the headers carry a profile strip as well (a tall table feature, "Waiting on"): the profile's home is the columns panel, and the strip is drawn on the canvas's frames but not decided (the design session).
 7. Which part of the page owns each key (Ctrl+F, Cmd+C, Cmd+A, Escape) as focus moves between the thread's DOM and the canvas, written as one table. The tall table's README lists the keys it takes and which reach the host (the design session).
 8. Whether Tycho's bucket goes, given DuckDB-Wasm's two oversize bundles (M11).
@@ -116,8 +116,8 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 15. Whether the URL route takes dropped files.
 16. Where WebMCP and on-device models stand.
 17. How a visitor moves from a cell to the cell popover to the row detail view: what opens each (a click, Space, a double-click straight to the view), whether the view docks beside the table and follows the selection, and their keys in question 7's table (the design session). The view's place is settled: the Row tab of the right panel.
-18. How the toolbar's chips compress as filters grow, decided from the phone's width up: one "Filters · 3" chip that opens a list, an overflow chip, or icons with a count (the design session).
-19. The frame at a phone's width (the design session).
+18. The frame's other parts at a phone's width; the toolbar's and the views row's are drawn (the design session).
+19. How a link to a view finds its file again when the file was dropped: by name, by its columns, or by asking (the design session, with "The connection policy").
 20. The DOM's framework. The lean is React with shadcn's components on Base UI, copied into Tycho with its own tokens (nothing imported from `site/ui/`); `docs/DECISIONS.md`, "Scope", 2026-11-17, says it's measured before it's chosen.
 
 ---
