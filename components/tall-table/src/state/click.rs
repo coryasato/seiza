@@ -104,6 +104,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
+    /// Whether a left press on a header's icon is its header's, not the
+    /// icon's (`header-icon`): a Ctrl press that's a context press, or the
+    /// tap a lifted long press becomes, which [`Self::press`] drops (the
+    /// icon's listener runs ahead of the root's).
+    #[cfg(feature = "header-icon")]
+    pub(super) fn left_press_is_headers(&self, event: &MouseDownEvent) -> bool {
+        self.clicks_state.tap
+            || (event.modifiers.control && self.clicks_state.ctrl_press_is_context)
+    }
+
     /// A left press the table counts (the root's, and `resize`'s band's,
     /// whose double press fits): its count, from the last press's.
     pub(super) fn count_left(&mut self, click_count: usize) -> usize {

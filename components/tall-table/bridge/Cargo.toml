@@ -49,6 +49,9 @@ find = ["seiza-tall-table/find"]
 # The popover and the cue on the probe, and each press of its button
 # (`PopoverButton`) on a global.
 popover = ["seiza-tall-table/popover"]
+# Each press of a header's icon (`HeaderIconPressed`) on a global, and
+# `icon` on the layout's columns.
+header-icon = ["seiza-tall-table/header-icon"]
 
 # The JS values are web-only; the crate compiles natively, as no-ops, for
 # its hosts' clippy and tests.

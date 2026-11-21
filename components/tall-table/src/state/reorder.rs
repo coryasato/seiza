@@ -545,18 +545,37 @@ impl<D: TallTableDelegate> TallTableState<D> {
         {
             self.move_drawn.borrow_mut().names_top = f32::from(names_top);
         }
-        let cells = columns.iter().map(|column| {
-            let cell = div().absolute();
+        let cells = columns
+            .iter()
+            .zip(moving.block.clone())
+            .map(|(column, at)| {
+                let cell = div().absolute();
+                #[cfg(not(feature = "group-headers"))]
+                let cell = cell.top_0().h_full();
+                #[cfg(feature = "group-headers")]
+                let cell = cell.top(names_top).h(sizes.row());
+                let cell = padded(cell.left(px(column.x - first)).w(px(column.width)), sizes);
+                // Its name after its icon, as in the header (`header-icon`).
+                #[cfg(feature = "header-icon")]
+                let cell = cell.when_some(self.icon_room(at, column), |cell, room| {
+                    cell.pl(px(sizes.padding() / 2.0 + room))
+                });
+                #[cfg(not(feature = "header-icon"))]
+                let _ = at;
+                cell.line_height(sizes.row())
+                    .when(column.kind.numeric(), |cell| cell.text_right())
+                    .truncate()
+                    .child(column.name.clone())
+            });
+        // Each column's icon, at rest (`header-icon`).
+        #[cfg(feature = "header-icon")]
+        let cells = {
             #[cfg(not(feature = "group-headers"))]
-            let cell = cell.top_0().h_full();
+            let top = px(0.);
             #[cfg(feature = "group-headers")]
-            let cell = cell.top(names_top).h(sizes.row());
-            padded(cell.left(px(column.x - first)).w(px(column.width)), sizes)
-                .line_height(sizes.row())
-                .when(column.kind.numeric(), |cell| cell.text_right())
-                .truncate()
-                .child(column.name.clone())
-        });
+            let top = names_top;
+            cells.chain(self.preview_icons(moving.block.clone(), first, top, cx))
+        };
         #[cfg(feature = "group-headers")]
         let cells = cells.chain(self.preview_groups(moving.block.clone(), first, cx));
         Some(

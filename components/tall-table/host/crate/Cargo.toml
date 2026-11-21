@@ -70,6 +70,11 @@ find = ["seiza-tall-table/find", "tall-table-bridge/find"]
 # `__tallTablePopoverOpen(row, column)`, `__tallTablePopoverClose()`, and
 # `__tallTablePopoverEnter()`, and each button press published.
 popover = ["seiza-tall-table/popover", "tall-table-bridge/popover"]
+# An icon on every column, by its kind, with a fill, from gpui-kit's icons,
+# which the host bundles; `?icons=off` builds the feature with none. Each
+# press is published; with `?perf`, `__tallTableIcon(column, name)` sets
+# one column's (`text`, `number`, `time`) or clears it (`null`).
+header-icon = ["seiza-tall-table/header-icon", "tall-table-bridge/header-icon"]
 
 [dependencies]
 gpui-kit.workspace = true

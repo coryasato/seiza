@@ -99,6 +99,11 @@ mod find;
 #[cfg(feature = "popover")]
 mod popover;
 
+/// `header-icon`: no fixture; the icons drawn, raised, and pressed in a
+/// window, and each built feature's rule.
+#[cfg(feature = "header-icon")]
+mod header_icon;
+
 /// `replace_rows`, in every build: what it clears and keeps, the targets,
 /// the swap, and its meeting with each feature built.
 mod replace;

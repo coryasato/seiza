@@ -90,3 +90,8 @@ find = []
 # own view of the row (`TallTableState::open_popover`,
 # `TallTableEvent::Popover`, `TallTableEvent::PopoverButton`).
 popover = []
+# An icon at the start of a column's header, an SVG the host sets with its
+# colors, drawn raised under the pointer; its press is reported on release
+# with the icon's bounds, for the host's menu (`TallTableColumn::icon`,
+# `TallTableState::set_column_icon`, `TallTableEvent::HeaderIconPressed`).
+header-icon = []

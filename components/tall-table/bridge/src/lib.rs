@@ -9,7 +9,8 @@
 //! `sort` the order and its mark, with `pin` the columns pinned, with
 //! `reorder` the columns' order, with `clicks` each press, with `hide` the
 //! columns' hidden flags, with `find` each step's outcome, with `popover`
-//! each press of its button, and the probes (`TallTableProbe`,
+//! each press of its button, with `header-icon` each press of a header's
+//! icon, and the probes (`TallTableProbe`,
 //! `TallTableLayout`, `CellProbe`) as JS values on globals a host names.
 //!
 //! A host builds a [`Publish`] saying what it wants and hands it each event
@@ -119,6 +120,12 @@ pub struct Publish {
     /// count), replaced at each. Unset until the first.
     #[cfg(feature = "popover")]
     pub popover_button: Option<&'static str>,
+    /// The global holding the last press of a header's icon
+    /// (`header-icon`'s [`TallTableEvent::HeaderIconPressed`],
+    /// [`js::icon_press`]), replaced at each, its `count` the presses
+    /// published so far (the bridge's own count). Unset until the first.
+    #[cfg(feature = "header-icon")]
+    pub icon_press: Option<&'static str>,
 }
 
 impl Publish {
@@ -243,6 +250,15 @@ impl Publish {
                     static PUBLISHED: AtomicU32 = AtomicU32::new(0);
                     let count = PUBLISHED.fetch_add(1, Ordering::Relaxed) + 1;
                     js::set_global(name, &js::popover_press(*cell, count));
+                }
+            }
+            #[cfg(all(feature = "header-icon", target_family = "wasm"))]
+            TallTableEvent::HeaderIconPressed(press) => {
+                if let Some(name) = self.icon_press {
+                    use std::sync::atomic::{AtomicU32, Ordering};
+                    static PUBLISHED: AtomicU32 = AtomicU32::new(0);
+                    let count = PUBLISHED.fetch_add(1, Ordering::Relaxed) + 1;
+                    js::set_global(name, &js::icon_press(press, count));
                 }
             }
             #[cfg(all(feature = "group-headers", target_family = "wasm"))]
@@ -508,6 +524,7 @@ pub mod js {
     /// `[{name, x, width, kind, budget}]`: `budget` is the characters a
     /// float may take. With `sort`, also `arrow`: its box, `{x, width}` in
     /// CSS px from the column's left edge, or `null` where none is drawn.
+    /// With `header-icon`, also `icon`: its badge's box, the same shape.
     /// With `reorder`, also `index`: the column's index (the list is in
     /// drawn order, each at its place). With `hide`, also `hidden`: laid
     /// out at width 0 and drawn nowhere.
@@ -530,6 +547,17 @@ pub mod js {
                         set(&arrow, "x", number(x));
                         set(&arrow, "width", number(width));
                         arrow.into()
+                    }),
+                );
+                #[cfg(feature = "header-icon")]
+                set(
+                    &object,
+                    "icon",
+                    column.icon.map_or(JsValue::NULL, |(x, width)| {
+                        let icon = Object::new();
+                        set(&icon, "x", number(x));
+                        set(&icon, "width", number(width));
+                        icon.into()
                     }),
                 );
                 #[cfg(feature = "reorder")]
@@ -642,6 +670,41 @@ pub mod js {
         set(&object, "end", place(|group| group.2));
         set(&object, "x", number(f32::from(click.position.x)));
         set(&object, "y", number(f32::from(click.position.y)));
+        set(&object, "modifiers", modifiers.into());
+        set(&object, "count", number(count));
+        object.into()
+    }
+
+    /// `{column, bounds, modifiers, count}` (`header-icon`): a press of a
+    /// header's icon, `column` its index, `bounds` its badge's visible
+    /// part, `[x, y, width, height]` in CSS px of the window, `modifiers`
+    /// the names held at the release (`control`, `alt`, `shift`,
+    /// `platform`), `count` the presses published so far.
+    #[cfg(feature = "header-icon")]
+    pub fn icon_press(press: &seiza_tall_table::HeaderIconPress, count: u32) -> JsValue {
+        let bounds: Array = [
+            press.bounds.origin.x,
+            press.bounds.origin.y,
+            press.bounds.size.width,
+            press.bounds.size.height,
+        ]
+        .into_iter()
+        .map(|length| number(f32::from(length)))
+        .collect();
+        let held = press.modifiers;
+        let modifiers: Array = [
+            ("control", held.control),
+            ("alt", held.alt),
+            ("shift", held.shift),
+            ("platform", held.platform),
+        ]
+        .into_iter()
+        .filter(|(_, on)| *on)
+        .map(|(name, _)| JsValue::from_str(name))
+        .collect();
+        let object = Object::new();
+        set(&object, "column", number(press.column as f64));
+        set(&object, "bounds", bounds.into());
         set(&object, "modifiers", modifiers.into());
         set(&object, "count", number(count));
         object.into()

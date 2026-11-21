@@ -35,6 +35,8 @@ mod flash;
 mod format;
 #[cfg(feature = "group-headers")]
 mod groups;
+#[cfg(feature = "header-icon")]
+mod header_icon;
 mod pages;
 #[cfg(feature = "custom-cells")]
 mod paint;
@@ -66,6 +68,10 @@ pub use density::Density;
 pub use find::{FindLoad, FindOutcome, FindQuery, FoundCell};
 #[cfg(feature = "format")]
 pub use format::{NumberFormat, Sign};
+#[cfg(all(feature = "header-icon", not(feature = "custom-cells")))]
+pub use header_icon::Stop;
+#[cfg(feature = "header-icon")]
+pub use header_icon::{HeaderIcon, HeaderIconPress};
 #[cfg(feature = "custom-cells")]
 pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
 #[cfg(feature = "popover")]

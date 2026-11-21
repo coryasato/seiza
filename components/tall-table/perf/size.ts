@@ -75,6 +75,9 @@ const FEATURES: Record<string, string | string[]> = {
   find: ['seiza_tall_table4find', 'seiza_tall_table5state4find'],
   // The popover: its types' module and the state's `popover` module.
   popover: ['seiza_tall_table7popover', 'seiza_tall_table5state7popover'],
+  // The header icon: its types' and geometry's module and the state's
+  // `header_icon` module.
+  'header-icon': ['seiza_tall_table11header_icon', 'seiza_tall_table5state11header_icon'],
 };
 
 /** A feature that turns on another is measured against it too, and the

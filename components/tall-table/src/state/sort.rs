@@ -375,11 +375,17 @@ impl<D: TallTableDelegate> TallTableState<D> {
 
     /// The room the column at place `at` (laid out as `column`) leaves its
     /// arrow, if it draws one: sortable, and wide enough for its padding,
-    /// the gap, and the box.
+    /// the gap, and the box. With `header-icon`, for its icon's room too: a
+    /// header too narrow for the icon, the name, and the arrow loses the
+    /// arrow first.
     pub(super) fn arrow_room(&self, at: usize, column: &LaidOutColumn) -> Option<f32> {
         let sizes = self.sizes();
         let room = room(self.glyphs.arrow_px, sizes);
-        (self.column_info[column.index(at)].sortable && column.width >= sizes.padding() + room)
+        #[cfg(feature = "header-icon")]
+        let taken = sizes.padding() + self.icon_room(at, column).unwrap_or(0.0);
+        #[cfg(not(feature = "header-icon"))]
+        let taken = sizes.padding();
+        (self.column_info[column.index(at)].sortable && column.width >= taken + room)
             .then_some(room)
     }
 

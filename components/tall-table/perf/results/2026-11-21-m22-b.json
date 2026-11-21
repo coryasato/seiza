@@ -1,0 +1,384 @@
+{
+  "date": "2026-11-21",
+  "label": "m22-b",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.10.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13339.3,
+    "optKiB": 9848.3,
+    "brotliKiB": 2762.3
+  },
+  "homePaths": {
+    "host": 0,
+    "untrimmedControl": 995
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13351.1,
+      "optKiB": 9858.4,
+      "brotliKiB": 2766.1,
+      "moreOptKiB": 10.1,
+      "moreBrotliKiB": 3.8
+    },
+    "live": {
+      "rawKiB": 13355.8,
+      "optKiB": 9862.5,
+      "brotliKiB": 2768,
+      "moreOptKiB": 14.2,
+      "moreBrotliKiB": 5.7
+    },
+    "live,custom-cells": {
+      "rawKiB": 13382.6,
+      "optKiB": 9883.1,
+      "brotliKiB": 2774.8,
+      "moreOptKiB": 34.8,
+      "moreBrotliKiB": 12.5,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.6,
+          "moreBrotliKiB": 6.8
+        },
+        "custom-cells": {
+          "moreOptKiB": 24.7,
+          "moreBrotliKiB": 8.7
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13369,
+      "optKiB": 9873.7,
+      "brotliKiB": 2769.5,
+      "moreOptKiB": 25.4,
+      "moreBrotliKiB": 7.2,
+      "against": {
+        "live": {
+          "moreOptKiB": 11.2,
+          "moreBrotliKiB": 1.5
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13345.2,
+      "optKiB": 9853.3,
+      "brotliKiB": 2766.1,
+      "moreOptKiB": 5,
+      "moreBrotliKiB": 3.8
+    },
+    "select": {
+      "rawKiB": 13378.7,
+      "optKiB": 9870.6,
+      "brotliKiB": 2768.5,
+      "moreOptKiB": 22.3,
+      "moreBrotliKiB": 6.2
+    },
+    "copy": {
+      "rawKiB": 13421.2,
+      "optKiB": 9904.6,
+      "brotliKiB": 2779.5,
+      "moreOptKiB": 56.3,
+      "moreBrotliKiB": 17.2,
+      "against": {
+        "select": {
+          "moreOptKiB": 34,
+          "moreBrotliKiB": 11
+        }
+      }
+    },
+    "sort": {
+      "rawKiB": 13434.2,
+      "optKiB": 9932.7,
+      "brotliKiB": 2783.6,
+      "moreOptKiB": 84.4,
+      "moreBrotliKiB": 21.3
+    },
+    "pin": {
+      "rawKiB": 13351.1,
+      "optKiB": 9858.1,
+      "brotliKiB": 2768,
+      "moreOptKiB": 9.8,
+      "moreBrotliKiB": 5.7
+    },
+    "density": {
+      "rawKiB": 13346.3,
+      "optKiB": 9854,
+      "brotliKiB": 2764.6,
+      "moreOptKiB": 5.7,
+      "moreBrotliKiB": 2.3
+    },
+    "format": {
+      "rawKiB": 13350.6,
+      "optKiB": 9857,
+      "brotliKiB": 2767.4,
+      "moreOptKiB": 8.7,
+      "moreBrotliKiB": 5.1
+    },
+    "reorder": {
+      "rawKiB": 13363.2,
+      "optKiB": 9866.6,
+      "brotliKiB": 2767.6,
+      "moreOptKiB": 18.3,
+      "moreBrotliKiB": 5.3
+    },
+    "clicks": {
+      "rawKiB": 13353.7,
+      "optKiB": 9859.7,
+      "brotliKiB": 2766.1,
+      "moreOptKiB": 11.4,
+      "moreBrotliKiB": 3.8
+    },
+    "group-headers": {
+      "rawKiB": 13350,
+      "optKiB": 9856.2,
+      "brotliKiB": 2765.8,
+      "moreOptKiB": 7.9,
+      "moreBrotliKiB": 3.5
+    },
+    "hide": {
+      "rawKiB": 13346.2,
+      "optKiB": 9853.7,
+      "brotliKiB": 2764.6,
+      "moreOptKiB": 5.4,
+      "moreBrotliKiB": 2.3
+    },
+    "find": {
+      "rawKiB": 13368.8,
+      "optKiB": 9871.4,
+      "brotliKiB": 2770.3,
+      "moreOptKiB": 23.1,
+      "moreBrotliKiB": 8
+    },
+    "popover": {
+      "rawKiB": 13402.6,
+      "optKiB": 9898,
+      "brotliKiB": 2778.9,
+      "moreOptKiB": 49.7,
+      "moreBrotliKiB": 16.6
+    },
+    "header-icon": {
+      "rawKiB": 13405,
+      "optKiB": 9910.4,
+      "brotliKiB": 2779.2,
+      "moreOptKiB": 62.1,
+      "moreBrotliKiB": 16.9
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 27
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 29,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 25,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 11
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 205
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 2
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    },
+    "sort": {
+      "markers": {
+        "seiza_tall_table4sort": {
+          "base": 0,
+          "feature": 11
+        },
+        "seiza_tall_table5state4sort": {
+          "base": 0,
+          "feature": 14
+        }
+      }
+    },
+    "pin": {
+      "markers": {
+        "seiza_tall_table3pin": {
+          "base": 0,
+          "feature": 3
+        },
+        "seiza_tall_table5state3pin": {
+          "base": 0,
+          "feature": 8
+        }
+      }
+    },
+    "density": {
+      "markers": {
+        "seiza_tall_table7density": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state7density": {
+          "base": 0,
+          "feature": 4
+        }
+      }
+    },
+    "format": {
+      "base": 0,
+      "feature": 19
+    },
+    "reorder": {
+      "markers": {
+        "seiza_tall_table7reorder": {
+          "base": 0,
+          "feature": 12
+        },
+        "seiza_tall_table5state7reorder": {
+          "base": 0,
+          "feature": 32
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 1
+        }
+      }
+    },
+    "clicks": {
+      "markers": {
+        "seiza_tall_table5state5click": {
+          "base": 0,
+          "feature": 28
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 3
+        }
+      }
+    },
+    "group-headers": {
+      "markers": {
+        "seiza_tall_table6groups": {
+          "base": 0,
+          "feature": 16
+        },
+        "seiza_tall_table5state6groups": {
+          "base": 0,
+          "feature": 10
+        }
+      }
+    },
+    "hide": {
+      "base": 0,
+      "feature": 3
+    },
+    "find": {
+      "markers": {
+        "seiza_tall_table4find": {
+          "base": 0,
+          "feature": 19
+        },
+        "seiza_tall_table5state4find": {
+          "base": 0,
+          "feature": 19
+        }
+      }
+    },
+    "popover": {
+      "markers": {
+        "seiza_tall_table7popover": {
+          "base": 0,
+          "feature": 18
+        },
+        "seiza_tall_table5state7popover": {
+          "base": 0,
+          "feature": 86
+        }
+      }
+    },
+    "header-icon": {
+      "markers": {
+        "seiza_tall_table11header_icon": {
+          "base": 0,
+          "feature": 10
+        },
+        "seiza_tall_table5state11header_icon": {
+          "base": 0,
+          "feature": 18
+        }
+      }
+    }
+  },
+  "against": {
+    "commit": "85c0f0c",
+    "then": {
+      "rawKiB": 13339.3,
+      "optKiB": 9848.3,
+      "brotliKiB": 2763.7
+    },
+    "now": {
+      "rawKiB": 13339.3,
+      "optKiB": 9848.3,
+      "brotliKiB": 2762.3
+    },
+    "moreOptKiB": 0,
+    "moreBrotliKiB": -1.4
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-DrfrI5Tp.wasm",
+    "optKiB": 9902.9,
+    "brotliKiB": 2780.8,
+    "moreBrotliKiB": 18.5
+  },
+  "failures": []
+}

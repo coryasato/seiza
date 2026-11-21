@@ -10,6 +10,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 
 **Where everything else lives:**
 - [`../../docs/research/tycho-workbench.md`](../../docs/research/tycho-workbench.md): the research behind this plan: the security model, each piece, what was tested. Every goal below links to its section and never restates it.
+- [`../../docs/research/tycho-sample.md`](../../docs/research/tycho-sample.md): the sample: why GCAT, its columns, and the spec its build starts from.
 - [`docs/personas.md`](docs/personas.md): who Tycho is for and what each person needs.
 - [`docs/milestones.md`](docs/milestones.md): the specs, checks, and evidence of finished milestones (history; not edited).
 - [`docs/DECISIONS.md`](docs/DECISIONS.md): every decision, by area. Repo-wide ones: the root [`docs/DECISIONS.md`](../../docs/DECISIONS.md).
@@ -33,7 +34,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
 | M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Done 2026-11-01 |
 | — | Design session: the page, the thread, the profile, where answers show | Under way since 2026-11-20, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21): the frame, the command bar, grouping as a view tab, the first screen, the theme, the toolbar, find's bar, the views list and its names, keeping views, the Share menu, the column's and the cell's menus, the filter's and the sort's editors, the headers, the profile's stages, the cell popover, its cue, what Enter opens, the row detail view, export's items and its cap, and the frame at a phone. Everything planned is drawn; what the session left open is in "Open questions" |
-| — | Sample session: which data, under the static-asset limit | Before M11's sample check |
+| — | Sample session: which data, under the static-asset limit | Done 2026-11-21: GCAT, the catalog of every object launched to orbit, as one file ([the research](../../docs/research/tycho-sample.md); `docs/DECISIONS.md`, "Sample data") |
 | M11 | Reset: the old Tycho retired, the ground cleared | Next |
 | Later | The goals below, in order; the first release is everything through export | Each becomes a milestone when it's opened |
 
@@ -59,7 +60,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 
 ## Next milestone: M11, the reset
 
-Not opened yet. The design session and the sample session come first; the sample check below waits on the second.
+Not opened yet. The sample session is done; the design session comes first.
 
 **What it is:** Tycho stops being a measured demo of a scrolling table. Its measurements go, the Gaia sample goes, the new sample arrives, and every doc that describes the old app is rewritten for the new one. Nothing of the new app is built here.
 
@@ -71,8 +72,8 @@ Not opened yet. The design session and the sample session come first; the sample
 - [ ] **The root says what was decided:** Tycho's exemption from rules 1 and 3 and the measurement protocol, and the reworded claim (the canvas for the GPUI components, the heavy parts; the DOM where text lives), in the root `CLAUDE.md` and README.
 - [ ] **Gaia is out of Tycho's production R2 and its button is gone.** The Gaia fetch and prep aren't deleted here: Kirkwood's `data/stars.ts` reads the local file they build, and a Kirkwood session moves them or decides they stay ([its PLAN](../kirkwood/PLAN.md), "Open questions"). If that session hasn't run when this check is reached, stop and tell the owner. *The owner confirms the deletion in production.*
 - [ ] **The asteroid file stays a build input:** the observatory's `data/prep.ts` reads `data/asteroids.parquet` and its hash in `data/MANIFEST.json`, so the asteroid fetch, prep, and manifest entry stay here or move to the observatory with that script. `just observatory` data prep still passes.
-- [ ] **The new sample is built and served whole as a static asset,** under 25 MiB, read from memory (the sample session's choice).
-- [ ] **The bucket is decided:** it also holds DuckDB-Wasm's two wasm bundles, which are over the static-asset limit ([the research](../../docs/research/tycho-workbench.md), "Samples"). Either it stays for them alone, or they get a home under the limit and the bucket, its binding, and the Worker's data path go. *The owner confirms any deletion and the deploy.*
+- [ ] **The new sample, `gcat.parquet`, is built and served whole as a static asset,** under 25 MiB, read from memory. Its columns and its build's spec, which is reviewed here before it's written: [the sample's research](../../docs/research/tycho-sample.md), "The table" and "The build". Decided here: how the file reaches the build (committed, or built by `just tycho data`), since today's Parquet files are gitignored.
+- [ ] **The bucket holds DuckDB-Wasm's two wasm bundles and nothing else** (`docs/DECISIONS.md`, "Hosting", 2026-11-21): the samples are out of it, and the Worker's data path, the deploy's upload, and the local R2 that `just tycho data` fills are cut down to what the bundles need. *The owner confirms any deletion and the deploy.*
 - [ ] **The docs describe the new Tycho:** `README.md`, `CLAUDE.md` and each folder's, `docs/data.md`, `docs/hosting.md`. Tycho's rules are revisited with them: "keep the bridge narrow" against export and URL opening, and "scope grows through `PLAN.md`".
 - [ ] **`just tycho lint` passes,** its TypeScript step included (it fails today on `shared-web/perf/protocol.ts`: `Cannot find name 'ResizeObserverEntry'`).
 - [ ] *Proposed:* the burst script (a visitor's requests against the zone's rate limit) run once on the new build, then retired.
@@ -88,7 +89,7 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view, in the DOM, opened from the table's cell popover. *("The table's own tools".)*
 4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order, its `WHERE`, and its find are unbuilt engine work; the table's parts, `replace_rows` for filtering and `find`, are ready ("Waiting on"). *("The controller".)*
 5. **Profiles and the catalog,** grouping included, whose result is a new view. The profile comes in three stages, in the columns panel first. If it's too slow in use, a session of its own makes the sample faster before anything is cut; the header strip is asked of the tall table only after the panel's proves itself. *("The catalog"; "The column profile's cost", which holds the timings and that session's starting points.)*
-6. **Export,** and the view copied as SQL. Its size plan is a cap (`docs/DECISIONS.md`, "Scope", 2026-11-21); the cap is measured and the storage route tested first (question 12). *("The table's own tools".)*
+6. **Export,** and the view copied as SQL. Its size plan is a cap (`docs/DECISIONS.md`, "Scope", 2026-11-21); the cap is measured and the storage route tested first (question 11). *("The table's own tools".)*
 7. **The connection policy.** *Proposed* as part of the first release, since the input is drivable from the day it ships. *("Trust".)*
 8. **Open from a URL:** Parquet only, read by range, on a route of its own. *("Opening a file".)*
 9. **The instructions, and the clipboard and agent routes.** *("How an LLM reaches it".)*
@@ -98,30 +99,30 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 13. **Charts,** after a planning session of their own. *("Charts".)*
 14. **Checked SQL expressions,** after an ideation session of their own. *("Later: checked SQL expressions".)*
 15. **A SQL editor,** once the lockdown is proven. *("Later: a SQL editor".)*
+16. **More samples,** each with a job the others don't do. GCAT's is "readable, with stories"; the next is "too big for a spreadsheet, and still instant": over a million rows, with text and categories a visitor recognizes. Its data is its own research; the asteroids, cut to fit, are the fallback. No sample goes in R2: one Tycho serves stays under the static-asset limit, and a larger one is a Parquet file on someone else's host, read by range through "Open from a URL". A second sample reopens the first screen's one sample row. *([The sample's research](../../docs/research/tycho-sample.md).)*
 
 ---
 
 ## Open questions
 
-1. Which sample or samples, chosen so a chart is waiting for one of them (the sample session).
+1. Where the sample's credit shows. Its license (CC BY 4.0) needs the credit visible to a visitor, and the first screen and the frame have no place drawn for it (the design session).
 2. The command bar's grammar: the catalog's command names and each one's parts (the canvas's are drafts), and whether a pasted action waits for Enter, as drawn, or runs on paste.
 3. Views: whether "Show rows" on a group should open a view of its own rather than filter the base view; the caps on kept views (the 10 latest files and 20 views a file are proposed, from estimates); and where kept views are stored, given the origin is shared with Kirkwood (the design session, with "The connection policy").
 4. Ctrl+F: whether the table claims the key while it has focus, and whether a second press falls through to the browser for the DOM's text. Find's bar is settled: the toolbar's right side (the design session).
 5. The profile's speed: how the engine keeps page reads ahead of a profile query, and whether a smarter sample is needed, tried before the graphic is cut (the build, then a session of its own).
 6. Which part of the page owns each key (Ctrl+F, Cmd+C, Cmd+A, Escape) as focus moves between the thread's DOM and the canvas, written as one table. The tall table's README lists the keys it takes and which reach the host (the design session).
-7. Whether Tycho's bucket goes, given DuckDB-Wasm's two oversize bundles (M11).
-8. What an input or a link may do to the source and to export, so the grammar's boundary holds.
-9. How column names, which are the file's text, go out in the copied context and the capability schema.
-10. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and what sharing an origin with Kirkwood means for it and for anything saved in the browser.
-11. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
-12. Export: the cap's size, measured; whether a file can be written to the browser's own storage and saved from there, with the engine locked down, which would lift the cap (tested before export is built).
-13. JSONL's size limit, if it loads into memory as a CSV does, and what the engine's reader does with nested values today.
-14. Whether the URL route takes dropped files.
-15. Where WebMCP and on-device models stand.
-16. Whether a double-click on a cell goes straight to the row detail view, and the view's keys in question 6's table (the design session).
-17. At a phone: how tall the panels' sheet opens, and whether it drags taller (the build).
-18. How a link to a view finds its file again when the file was dropped: by name, by its columns, or by asking (the design session, with "The connection policy").
-19. The DOM's framework. The lean is React with shadcn's components on Base UI, copied into Tycho with its own tokens (nothing imported from `site/ui/`); `docs/DECISIONS.md`, "Scope", 2026-11-17, says it's measured before it's chosen.
+7. What an input or a link may do to the source and to export, so the grammar's boundary holds.
+8. How column names, which are the file's text, go out in the copied context and the capability schema.
+9. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and what sharing an origin with Kirkwood means for it and for anything saved in the browser.
+10. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
+11. Export: the cap's size, measured; whether a file can be written to the browser's own storage and saved from there, with the engine locked down, which would lift the cap (tested before export is built).
+12. JSONL's size limit, if it loads into memory as a CSV does, and what the engine's reader does with nested values today.
+13. Whether the URL route takes dropped files.
+14. Where WebMCP and on-device models stand.
+15. Whether a double-click on a cell goes straight to the row detail view, and the view's keys in question 6's table (the design session).
+16. At a phone: how tall the panels' sheet opens, and whether it drags taller (the build).
+17. How a link to a view finds its file again when the file was dropped: by name, by its columns, or by asking (the design session, with "The connection policy").
+18. The DOM's framework. The lean is React with shadcn's components on Base UI, copied into Tycho with its own tokens (nothing imported from `site/ui/`); `docs/DECISIONS.md`, "Scope", 2026-11-17, says it's measured before it's chosen.
 
 ---
 

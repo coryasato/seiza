@@ -280,6 +280,11 @@ impl<D: TallTableDelegate> TallTableState<D> {
         if info.sortable {
             widest += super::sort::room(self.glyphs.arrow_px, sizes);
         }
+        // Its icon's badge and gap before the name (`header-icon`).
+        #[cfg(feature = "header-icon")]
+        {
+            widest += self.icon_fit_room(column);
+        }
         for row in self.scroll.visible() {
             let RowState::Loaded(page, index) = self.cache.row(row) else {
                 continue;

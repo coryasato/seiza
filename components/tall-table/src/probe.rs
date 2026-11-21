@@ -191,6 +191,10 @@ pub struct ColumnProbe {
     /// its width; `None` for a column that draws none.
     #[cfg(feature = "sort")]
     pub arrow: Option<(f32, f32)>,
+    /// Its icon's badge (`header-icon`), its left from the column's left
+    /// edge and its width; `None` for a column that draws none.
+    #[cfg(feature = "header-icon")]
+    pub icon: Option<(f32, f32)>,
     /// Its index in [`TallTableState::columns`](crate::TallTableState::columns)
     /// (`reorder`): the layout's columns are in drawn order, each at its
     /// place.

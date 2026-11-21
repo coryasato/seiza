@@ -72,7 +72,8 @@ const ALL_ON: bool = cfg!(all(
     feature = "group-headers",
     feature = "hide",
     feature = "find",
-    feature = "popover"
+    feature = "popover",
+    feature = "header-icon"
 ));
 
 /// The most steps a case takes (a range from none, so its length shrinks).
@@ -522,6 +523,11 @@ enum Step {
     /// number ([`Run::popover`]).
     #[cfg(feature = "popover")]
     Popover(u64),
+    /// `set_column_icon` (`header-icon`), placed, never drawn
+    /// ([`with_icons`]): a column, and from the number an icon (one in
+    /// eight a path that doesn't load) or (one in four) none.
+    #[cfg(feature = "header-icon")]
+    Icon(u64),
     /// `replace_rows`, placed, never drawn ([`with_replaces`]): the source
     /// swapped for its rows permuted, every row's era new, and a count and
     /// a target from the number ([`Run::replace`]).
@@ -794,7 +800,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 26] = [
+const INVARIANTS: [&str; 28] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -821,6 +827,8 @@ const INVARIANTS: [&str; 26] = [
     "every match drawn is tinted, and only matches",
     "an open popover's cell is in view, and its text the page drawn's",
     "no popover open across a sort or set_columns",
+    "a press on an icon is the icon's alone",
+    "an icon pressed, held or reported, is a shown column's",
 ];
 
 /// A zone a press lands in.
@@ -832,6 +840,10 @@ enum Zone {
     Band,
     /// A drawn arrow (`sort`).
     Arrow,
+    /// A drawn icon (`header-icon`): never among [`zones`], which a
+    /// case's gestures draw from; its presses are placed ([`with_icons`]).
+    #[cfg_attr(not(feature = "header-icon"), expect(dead_code))]
+    Icon,
     Cell,
     /// A row's number.
     Gutter,
@@ -918,6 +930,26 @@ struct Heard {
     /// A `PopoverButton` for a cell the popover wasn't open on.
     #[cfg(feature = "popover")]
     popover_fault: Option<String>,
+    /// A `HeaderIconPressed` for a column that draws no icon
+    /// (`header-icon`).
+    #[cfg(feature = "header-icon")]
+    icon_fault: Option<String>,
+}
+
+/// The icons a `Step::Icon` sets (`header-icon`): every path but
+/// `missing.svg` loads.
+#[cfg(feature = "header-icon")]
+struct Icons;
+
+#[cfg(feature = "header-icon")]
+impl gpui_kit::AssetSource for Icons {
+    fn load(&self, path: &str) -> gpui_kit::Result<Option<std::borrow::Cow<'static, [u8]>>> {
+        Ok((path != "missing.svg").then_some(std::borrow::Cow::Borrowed(b"<svg/>".as_slice())))
+    }
+
+    fn list(&self, _: &str) -> gpui_kit::Result<Vec<gpui_kit::SharedString>> {
+        Ok(Vec::new())
+    }
 }
 
 /// Each column's set width, as `ColumnWidthsChanged` reports them.
@@ -984,6 +1016,9 @@ enum Control {
     /// decided again (with `live`) (`popover`).
     #[cfg(all(feature = "popover", any(feature = "sort", feature = "live")))]
     Popover(super::popover::Control),
+    /// An icon's press that isn't stopped (`header-icon`).
+    #[cfg(feature = "header-icon")]
+    Icon(super::header_icon::Control),
 }
 
 /// A case's table in a window, its source, and what the test knows.
@@ -1145,7 +1180,14 @@ impl Run {
                 Some(Control::FindRule(_)) => {}
                 #[cfg(all(feature = "popover", any(feature = "sort", feature = "live")))]
                 Some(Control::Popover(control)) => table.popover_state.control = control,
+                #[cfg(feature = "header-icon")]
+                Some(Control::Icon(control)) => table.icon_state.control = control,
                 None => {}
+            }
+            // The test app's asset source loads nothing (`header-icon`).
+            #[cfg(feature = "header-icon")]
+            {
+                table.icon_state.assets = Some(std::sync::Arc::new(Icons));
             }
             #[cfg(feature = "copy")]
             table.set_copy_options(options);
@@ -1180,15 +1222,32 @@ impl Run {
                 reset_open: false,
                 #[cfg(feature = "popover")]
                 popover_fault: None,
+                #[cfg(feature = "header-icon")]
+                icon_fault: None,
             }
         });
         #[cfg(feature = "find")]
         let books = self.books.clone();
         let heard = self.heard.clone();
         self.subscription = Some(self.cx.update(|_, cx| {
-            cx.subscribe(&table, move |_, event: &TallTableEvent, _| {
+            cx.subscribe(&table, move |_table, event: &TallTableEvent, _cx| {
                 let _ = &heard;
                 match event {
+                    // 28: its column draws an icon (`header-icon`).
+                    #[cfg(feature = "header-icon")]
+                    TallTableEvent::HeaderIconPressed(press) => {
+                        let table = _table.read(_cx);
+                        let shown = table.place_of(press.column).is_some_and(|place| {
+                            table.icon_box(place, &table.columns[place]).is_some()
+                        });
+                        if !shown {
+                            let fault = format!(
+                                "HeaderIconPressed for column {}, which draws no icon",
+                                press.column
+                            );
+                            heard.borrow_mut().icon_fault.get_or_insert(fault);
+                        }
+                    }
                     #[cfg(feature = "copy")]
                     TallTableEvent::Copy(copy) => events.borrow_mut().push(copy.clone()),
                     #[cfg(feature = "resize")]
@@ -1652,7 +1711,7 @@ impl Run {
     }
 
     /// A point of `zone` from `x` and `y`, in window pixels, and for a
-    /// band its column's index; `None` where the zone has nothing now.
+    /// band or an icon its column's index; `None` where the zone has nothing now.
     fn point_in(&self, zone: Zone, x: u16, y: u16) -> Option<(Point<Pixels>, Option<usize>)> {
         self.read(|table| {
             let origin = table.body.origin;
@@ -1705,7 +1764,33 @@ impl Run {
                     let target = arrows.get(usize::from(x) % arrows.len().max(1))?.target;
                     target.origin + point(target.size.width / 2.0, target.size.height / 2.0)
                 }
+                // One whose target's middle shows: not under `pin`'s run
+                // or past the cells' edges.
+                #[cfg(feature = "header-icon")]
+                Zone::Icon => {
+                    let place = table.place();
+                    let shown: Vec<_> = table
+                        .icon_state
+                        .drawn
+                        .iter()
+                        .filter(|icon| {
+                            let middle = f32::from(icon.target.center().x - origin.x) - gutter;
+                            let pinned = table
+                                .place_of(icon.column)
+                                .is_some_and(|at| place.holds(at));
+                            if pinned {
+                                (0.0..place.edge()).contains(&middle)
+                            } else {
+                                (place.edge()..width).contains(&middle)
+                            }
+                        })
+                        .collect();
+                    let icon = shown.get(usize::from(x) % shown.len().max(1))?;
+                    return Some((icon.target.center(), Some(icon.column)));
+                }
                 // Not among this build's zones.
+                #[cfg(not(feature = "header-icon"))]
+                Zone::Icon => return None,
                 #[cfg(not(feature = "resize"))]
                 Zone::Band => return None,
                 #[cfg(not(feature = "sort"))]
@@ -1787,6 +1872,9 @@ impl Run {
                 .as_ref()
                 .is_some_and(|hover| hover.tooltip.is_some())
         });
+        // What an icon's press must leave alone (`header-icon`).
+        #[cfg(feature = "header-icon")]
+        let untouched = (zone == Zone::Icon).then(|| self.icon_bystanders());
         self.pointer = at;
         self.cx.simulate_event(MouseDownEvent {
             position: at,
@@ -1799,10 +1887,32 @@ impl Run {
             self.left_down = true;
         }
         self.frame();
+        // 27: a left press on an icon is held by its column, starts no
+        // drag, and changes no selection. A popover open over the header
+        // takes its own presses.
+        #[cfg(feature = "header-icon")]
+        if let (Some((before, popover)), Some(column)) = (untouched, band)
+            && button == MouseButton::Left
+            && !covered
+            && !popover
+        {
+            let held = self.read(|table| table.icon_state.pressed);
+            let (after, _) = self.icon_bystanders();
+            if held != Some(column) || after != before {
+                return Err(Violation::new(
+                    27,
+                    format!(
+                        "a press on column {column}'s icon holds {held:?}; \
+                         the drags and the selection {before:?} became {after:?}"
+                    ),
+                ));
+            }
+        }
         #[cfg(feature = "resize")]
         {
             self.widths_written(&before)?;
             if let Some(column) = band
+                && zone == Zone::Band
                 && button == MouseButton::Left
                 && click_count == 1
                 && !covered
@@ -1818,6 +1928,70 @@ impl Run {
         }
         #[cfg(not(feature = "resize"))]
         let _ = (band, covered);
+        Ok(())
+    }
+
+    /// What an icon's press leaves as it was (`header-icon`): the drags
+    /// on, and with `select` the selection; and whether a popover is open.
+    #[cfg(feature = "header-icon")]
+    fn icon_bystanders(&self) -> ((Drags, String), bool) {
+        let drags = self.drags();
+        self.read(|table| {
+            #[cfg(feature = "select")]
+            let selection = format!("{:?}", table.selection());
+            #[cfg(not(feature = "select"))]
+            let selection = String::new();
+            #[cfg(feature = "popover")]
+            let popover = table.popover().is_some();
+            #[cfg(not(feature = "popover"))]
+            let popover = false;
+            let _ = table;
+            ((drags, selection), popover)
+        })
+    }
+
+    /// `Step::Icon`: `set_column_icon` on a column, an icon or none. 28:
+    /// no press is held on a column it left without one.
+    #[cfg(feature = "header-icon")]
+    fn icon(&mut self, pick: u64) -> Checked {
+        if self.columns == 0 {
+            return Ok(());
+        }
+        let index = pick as usize % self.columns;
+        let icon = match (pick >> 8) % 8 {
+            0 | 1 => None,
+            2 => Some(crate::HeaderIcon::new("missing.svg", |theme| {
+                theme.foreground
+            })),
+            kind => {
+                let icon = crate::HeaderIcon::new(
+                    if kind % 2 == 0 {
+                        "icon-a.svg"
+                    } else {
+                        "icon-b.svg"
+                    },
+                    |theme| theme.foreground,
+                );
+                Some(if (pick >> 16).is_multiple_of(2) {
+                    icon.fill(|theme| theme.muted)
+                } else {
+                    icon
+                })
+            }
+        };
+        self.update(|table, cx| table.set_column_icon(index, icon, cx));
+        let (held, has) = self.read(|table| {
+            (
+                table.icon_state.pressed,
+                table.column_info[index].has_icon(),
+            )
+        });
+        if held == Some(index) && !has {
+            return Err(Violation::new(
+                28,
+                format!("a press held on column {index} across its icon's removal"),
+            ));
+        }
         Ok(())
     }
 
@@ -2192,6 +2366,22 @@ impl Run {
                     ));
                 }
             }
+            #[cfg(feature = "header-icon")]
+            {
+                if let Some(fault) = &heard.icon_fault {
+                    return Err(Violation::new(28, fault.clone()));
+                }
+                if let Some(index) = table.icon_state.pressed
+                    && !table
+                        .place_of(index)
+                        .is_some_and(|place| table.icon_box(place, &table.columns[place]).is_some())
+                {
+                    return Err(Violation::new(
+                        28,
+                        format!("a press held on column {index}, which draws no icon"),
+                    ));
+                }
+            }
             #[cfg(feature = "follow")]
             if heard.following != table.is_following() {
                 return Err(Violation::new(
@@ -2497,6 +2687,14 @@ impl Run {
                         format!("the popover on {cell:?} open across set_columns"),
                     ));
                 }
+                // And an icon's press (`header-icon`).
+                #[cfg(feature = "header-icon")]
+                if let Some(index) = self.read(|table| table.icon_state.pressed) {
+                    return Err(Violation::new(
+                        28,
+                        format!("a press held on column {index}'s icon across set_columns"),
+                    ));
+                }
                 // The widths are the new columns', as the host set them.
                 #[cfg(feature = "resize")]
                 {
@@ -2651,6 +2849,8 @@ impl Run {
             Step::Find(pick) => self.find(pick),
             #[cfg(feature = "popover")]
             Step::Popover(pick) => self.popover(pick)?,
+            #[cfg(feature = "header-icon")]
+            Step::Icon(pick) => self.icon(pick)?,
             Step::Close => {
                 if self.closed_at.is_none() {
                     self.closed_at = Some(sent);
@@ -3755,6 +3955,41 @@ fn with_popovers(seed: u64, steps: &mut Vec<Step>) {
     }
 }
 
+/// `header-icon`'s steps, from the scheduler seed by streams of their own,
+/// placed after `popover`'s, so every other step's place stays what it
+/// was: up to 16 `set_column_icon`s (two streams of up to eight, placed as
+/// `pin`'s are, [`with_pins`]), then up to eight presses on a drawn icon
+/// (the left button's, a first press, no modifier), each with its release
+/// up to four steps after, so a setter falls between them. No case draws
+/// the zone or the step: a case with none placed is the one without the
+/// feature. Its constants are SHA-256's fifth and eighth words, and its
+/// first turned 23 bits.
+#[cfg(feature = "header-icon")]
+fn with_icons(seed: u64, steps: &mut Vec<Step>) {
+    for stream in [0x510e_527f_ade6_82d1, 0x5be0_cd19_9b05_688c] {
+        place_steps(seed ^ stream, steps, Step::Icon);
+    }
+    let mut next = split_mix(seed ^ 0x6a09_e667_f3bc_c908_u64.rotate_left(23));
+    for _ in 0..next() % 9 {
+        let pick = next();
+        let at = next() as usize % (steps.len() + 1);
+        steps.insert(
+            at,
+            Step::Down {
+                zone: Zone::Icon,
+                x: (pick >> 8) as u16,
+                y: 0,
+                // The left button, a first press, no modifier.
+                button: 1,
+                count: 2,
+                modifiers: 2,
+            },
+        );
+        let up = (at + 1 + next() as usize % 5).min(steps.len());
+        steps.insert(up, Step::Up { right: false });
+    }
+}
+
 /// `density`'s steps' row heights and text sizes: the default, the bare
 /// host's dense setting, shorter, taller, and the clamp's least.
 #[cfg(feature = "density")]
@@ -3919,6 +4154,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 with_finds(seed, &mut case.steps);
                 #[cfg(feature = "popover")]
                 with_popovers(seed, &mut case.steps);
+                #[cfg(feature = "header-icon")]
+                with_icons(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
@@ -4599,6 +4836,16 @@ mod controls {
         fails(
             Control::Popover(crate::state::popover::Control::StalePopoverText),
             &[25],
+        );
+    }
+
+    /// 27: an icon's press that goes on to its header.
+    #[cfg(feature = "header-icon")]
+    #[test]
+    fn an_icons_press_not_stopped() {
+        fails(
+            Control::Icon(crate::state::header_icon::Control::Unstopped),
+            &[27],
         );
     }
 

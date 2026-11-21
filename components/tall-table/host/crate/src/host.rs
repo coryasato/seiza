@@ -89,6 +89,12 @@ pub const FOUND_GLOBAL: &str = "__tallTableFound";
 #[cfg(feature = "popover")]
 pub const POPOVER_BUTTON_GLOBAL: &str = "__tallTablePopoverButton";
 
+/// The last press of a header's icon, `{column, bounds, modifiers,
+/// count}`, replaced at each (`header-icon`'s `HeaderIconPressed`); unset
+/// until the first.
+#[cfg(feature = "header-icon")]
+pub const ICON_PRESS_GLOBAL: &str = "__tallTableIconPress";
+
 /// The group cells drawn, `[{level, label, start, end, pinned, left,
 /// width, labelX}]`, replaced as they change (`group-headers`' `Groups`),
 /// with `?perf`.
@@ -160,6 +166,10 @@ pub const COPY_WRITTEN_MARK: &str = "tall-table:copy-written";
 /// `__tallTablePopoverClose()`, its `close_popover`; and
 /// `__tallTablePopoverEnter()`, Enter dispatched to the table, focused
 /// first: on an open popover its button's press (or its close with none).
+/// With `header-icon`: `__tallTableIcon(column, name)`, the table's
+/// `set_column_icon` on a column's index: `text`, `number`, or `time`
+/// (the host's three, each with its fill), or `null` to clear it; `false`,
+/// sending nothing, for a column out of range or another name.
 #[cfg(all(
     any(feature = "copy", feature = "sort", feature = "reorder"),
     target_family = "wasm"
@@ -197,6 +207,8 @@ const FIND_HOOK: &str = "__tallTableFind";
 const FIND_NEXT_HOOK: &str = "__tallTableFindNext";
 #[cfg(all(feature = "find", target_family = "wasm"))]
 const FIND_PREVIOUS_HOOK: &str = "__tallTableFindPrevious";
+#[cfg(all(feature = "header-icon", target_family = "wasm"))]
+const ICON_HOOK: &str = "__tallTableIcon";
 #[cfg(all(feature = "popover", target_family = "wasm"))]
 const POPOVER_OPEN_HOOK: &str = "__tallTablePopoverOpen";
 #[cfg(all(feature = "popover", target_family = "wasm"))]
@@ -215,11 +227,60 @@ const REPLACE_HOOK: &str = "__tallTableReplace";
 #[cfg(all(feature = "clicks", target_family = "wasm"))]
 const CTRL_CONTEXT_GLOBAL: &str = "__tallTableCtrlContextOn";
 
-// gpui-kit's sort icons (`sort`), embedded in the wasm (`seiza::Bootstrap`'s
-// `assets`), for `?sort-icons`: bundled whichever the page draws, so the
-// `sort` build holds the icons' code either way.
-#[cfg(feature = "sort")]
-gpui_kit::assets::icon_assets!(pub SortIconAssets, [SortAscending, SortDescending, ChevronsUpDown]);
+// gpui-kit's icons the host draws, embedded in the wasm
+// (`seiza::Bootstrap`'s `assets`): `sort`'s three for `?sort-icons`, and
+// `header-icon`'s three, a kind each. Bundled whichever the page draws, so
+// a build holds its icons' code either way.
+#[cfg(all(feature = "sort", not(feature = "header-icon")))]
+gpui_kit::assets::icon_assets!(pub IconAssets, [SortAscending, SortDescending, ChevronsUpDown]);
+#[cfg(all(feature = "header-icon", not(feature = "sort")))]
+gpui_kit::assets::icon_assets!(pub IconAssets, [ALargeSmall, Hash, Clock]);
+#[cfg(all(feature = "sort", feature = "header-icon"))]
+gpui_kit::assets::icon_assets!(
+    pub IconAssets,
+    [SortAscending, SortDescending, ChevronsUpDown, ALargeSmall, Hash, Clock]
+);
+
+/// One of the host's three header icons (`header-icon`), by its name
+/// (`text`, `number`, `time`): gpui-kit's icon in the header's muted
+/// color, on a fill.
+#[cfg(feature = "header-icon")]
+fn header_icon(name: &str) -> Option<seiza_tall_table::HeaderIcon> {
+    use gpui_kit::assets::IconName;
+    use gpui_kit::component::Theme;
+    let icon = match name {
+        "text" => IconName::ALargeSmall,
+        "number" => IconName::Hash,
+        "time" => IconName::Clock,
+        _ => return None,
+    };
+    Some(
+        seiza_tall_table::HeaderIcon::new(icon.path(), |theme: &Theme| theme.muted_foreground)
+            .fill(|theme: &Theme| theme.muted),
+    )
+}
+
+/// `columns`, each with its kind's icon (`header-icon`).
+#[cfg(feature = "header-icon")]
+fn with_icons(
+    columns: Vec<seiza_tall_table::TallTableColumn>,
+) -> Vec<seiza_tall_table::TallTableColumn> {
+    use seiza_tall_table::ColumnKind;
+    columns
+        .into_iter()
+        .map(|column| {
+            let name = match column.kind() {
+                ColumnKind::Integer { .. } | ColumnKind::Float | ColumnKind::Decimal => "number",
+                ColumnKind::Date | ColumnKind::Timestamp => "time",
+                _ => "text",
+            };
+            match header_icon(name) {
+                Some(icon) => column.icon(icon),
+                None => column,
+            }
+        })
+        .collect()
+}
 
 /// gpui-kit's three sort icons' paths (`sort`, `?sort-icons`).
 #[cfg(all(feature = "sort", target_family = "wasm"))]
@@ -425,6 +486,16 @@ impl Host {
                 None => (rows, columns),
             }
         };
+        // An icon on every column, by its kind (`header-icon`);
+        // `?icons=off` builds the feature with none.
+        #[cfg(feature = "header-icon")]
+        let columns = {
+            #[cfg(target_family = "wasm")]
+            let off = seiza::url::param("icons").as_deref() == Some("off");
+            #[cfg(not(target_family = "wasm"))]
+            let off = false;
+            if off { columns } else { with_icons(columns) }
+        };
         // The rows a find searches (`find`).
         #[cfg(feature = "find")]
         rows.hold(count);
@@ -472,6 +543,8 @@ impl Host {
             found: Some(FOUND_GLOBAL),
             #[cfg(feature = "popover")]
             popover_button: Some(POPOVER_BUTTON_GLOBAL),
+            #[cfg(feature = "header-icon")]
+            icon_press: Some(ICON_PRESS_GLOBAL),
             #[cfg(feature = "reorder")]
             column_order: Some(COLUMN_ORDER_GLOBAL),
             #[cfg(feature = "clicks")]
@@ -520,7 +593,8 @@ impl Host {
                 feature = "clicks",
                 feature = "hide",
                 feature = "find",
-                feature = "popover"
+                feature = "popover",
+                feature = "header-icon"
             ),
             target_family = "wasm"
         ))]
@@ -532,7 +606,12 @@ impl Host {
                 exact: Box::new(rows.exact()),
                 #[cfg(feature = "sort")]
                 source_row: Box::new(rows.source_row()),
-                #[cfg(any(feature = "sort", feature = "reorder", feature = "hide"))]
+                #[cfg(any(
+                    feature = "sort",
+                    feature = "reorder",
+                    feature = "hide",
+                    feature = "header-icon"
+                ))]
                 columns: table.read(cx).columns().len(),
                 #[cfg(feature = "sort")]
                 drained: Box::new(rows.drained_reads()),
@@ -879,7 +958,8 @@ fn replace_hook(window: &mut Window, cx: &mut Context<Host>) {
         feature = "clicks",
         feature = "hide",
         feature = "find",
-        feature = "popover"
+        feature = "popover",
+        feature = "header-icon"
     ),
     target_family = "wasm"
 ))]
@@ -888,8 +968,14 @@ struct Source {
     exact: Box<dyn Fn(u64, usize) -> Option<String>>,
     #[cfg(feature = "sort")]
     source_row: Box<dyn Fn(u64) -> u64>,
-    /// The table's columns (`sort`: every one sortable; `reorder`; `hide`).
-    #[cfg(any(feature = "sort", feature = "reorder", feature = "hide"))]
+    /// The table's columns (`sort`: every one sortable; `reorder`; `hide`;
+    /// `header-icon`).
+    #[cfg(any(
+        feature = "sort",
+        feature = "reorder",
+        feature = "hide",
+        feature = "header-icon"
+    ))]
     columns: usize,
     #[cfg(feature = "sort")]
     drained: Box<dyn Fn() -> u64>,
@@ -903,7 +989,8 @@ struct Source {
 /// `density` [`DENSITY_HOOK`], with `follow` [`LET_GO_HOOK`], with
 /// `reorder` [`MOVE_HOOK`] and [`ORDER_HOOK`], with `clicks`
 /// [`CTRL_CONTEXT_HOOK`], with `hide` [`HIDE_HOOK`], with `find`
-/// [`FIND_HOOK`], [`FIND_NEXT_HOOK`], and [`FIND_PREVIOUS_HOOK`].
+/// [`FIND_HOOK`], [`FIND_NEXT_HOOK`], and [`FIND_PREVIOUS_HOOK`], with
+/// `header-icon` [`ICON_HOOK`].
 /// Those that change the table enter GPUI through its foreground executor,
 /// so they've happened by the next turn.
 #[cfg(all(
@@ -917,7 +1004,8 @@ struct Source {
         feature = "clicks",
         feature = "hide",
         feature = "find",
-        feature = "popover"
+        feature = "popover",
+        feature = "header-icon"
     ),
     target_family = "wasm"
 ))]
@@ -930,7 +1018,12 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
         exact,
         #[cfg(feature = "sort")]
         source_row,
-        #[cfg(any(feature = "sort", feature = "reorder", feature = "hide"))]
+        #[cfg(any(
+            feature = "sort",
+            feature = "reorder",
+            feature = "hide",
+            feature = "header-icon"
+        ))]
         columns,
         #[cfg(feature = "sort")]
         drained,
@@ -1225,6 +1318,35 @@ fn script_hooks(source: Source, window: &mut Window, cx: &mut Context<Host>) {
                     }
                 }));
             })
+            .into_js_value(),
+        );
+    }
+    #[cfg(feature = "header-icon")]
+    {
+        let on_icon = enter.clone();
+        set(
+            ICON_HOOK,
+            Closure::<dyn Fn(f64, wasm_bindgen::JsValue) -> bool>::new(
+                move |column: f64, name: wasm_bindgen::JsValue| {
+                    if column.fract() != 0.0 || !(0.0..columns as f64).contains(&column) {
+                        return false;
+                    }
+                    let icon = match name.as_string() {
+                        Some(name) => match header_icon(&name) {
+                            Some(icon) => Some(icon),
+                            None => return false,
+                        },
+                        None if name.is_null() || name.is_undefined() => None,
+                        None => return false,
+                    };
+                    on_icon(Box::new(move |host, _, cx| {
+                        host.table.update(cx, |table, cx| {
+                            table.set_column_icon(column as usize, icon, cx)
+                        });
+                    }));
+                    true
+                },
+            )
             .into_js_value(),
         );
     }

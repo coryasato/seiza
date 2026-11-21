@@ -81,7 +81,12 @@
 //! one place on); each press of the button is
 //! published (`__tallTablePopoverButton`), the probe carries the popover
 //! and the cue, and with `?perf` the scripts get the table's
-//! `open_popover` and `close_popover`, and Enter.
+//! `open_popover` and `close_popover`, and Enter. With `header-icon`,
+//! every column has an icon by its kind (gpui-kit's, which the host
+//! bundles: text, number, time), each with a fill; `?icons=off` builds the
+//! feature with none; each press is published (`__tallTableIconPress`),
+//! the layout probe carries each badge's box, and with `?perf` the scripts
+//! get the table's `set_column_icon` (`__tallTableIcon(column, name)`).
 //!
 //! The script hooks enter GPUI through its foreground executor; one that
 //! sends a column, a count, a density, or an order answers `false`, sending
@@ -131,9 +136,10 @@ pub fn start(ui_font: Vec<u8>) {
         .and_then(|name| rows::Cells::from_name(&name))
         .unwrap_or(rows::Cells::Text);
     let bootstrap = seiza::Bootstrap::new(host::TITLE, ui_font);
-    // gpui-kit's sort icons, for `?sort-icons` (`sort`).
-    #[cfg(feature = "sort")]
-    let bootstrap = bootstrap.assets(host::SortIconAssets);
+    // gpui-kit's icons the host draws: `sort`'s for `?sort-icons`, and
+    // `header-icon`'s.
+    #[cfg(any(feature = "sort", feature = "header-icon"))]
+    let bootstrap = bootstrap.assets(host::IconAssets);
     bootstrap.run(move |window, cx| {
         seiza_tall_table::init(cx);
         #[cfg(feature = "copy")]

@@ -32,7 +32,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
     ///
     /// A change cancels a held `reorder` drag, ends a held `resize` drag as
     /// its release would (`ColumnWidthsChanged` if its width changed), and
-    /// forgets `sort`'s pressed and hovered arrow on a column now hidden.
+    /// forgets `sort`'s pressed and hovered arrow, and `header-icon`'s
+    /// pressed and hovered icon, on a column now hidden.
     /// With `pin`, `Pinned` if the run in effect changed. With `select`, a
     /// `Columns` or `Cells` selection left with no shown column clears
     /// (`Selected(None)`, after `ColumnsHidden`); a show doesn't bring it
@@ -126,6 +127,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         // An arrow on a column now hidden can't be released on (`sort`).
         #[cfg(feature = "sort")]
         self.forget_hidden_arrows();
+        // Nor an icon (`header-icon`).
+        #[cfg(feature = "header-icon")]
+        self.forget_hidden_icons();
         // Its columns are stale; the current match is kept (`find`).
         #[cfg(feature = "find")]
         self.cancel_find(cx);

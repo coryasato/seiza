@@ -469,7 +469,12 @@ impl Place {
     }
 
     /// Whether column `index` is pinned: none is.
-    #[cfg(any(feature = "resize", feature = "select", feature = "sort"))]
+    #[cfg(any(
+        feature = "resize",
+        feature = "select",
+        feature = "sort",
+        feature = "header-icon"
+    ))]
     #[inline(always)]
     fn holds(self, _: usize) -> bool {
         false
@@ -662,6 +667,12 @@ pub enum TallTableEvent {
     /// The popover closes (`Popover(None)` follows).
     #[cfg(feature = "popover")]
     PopoverButton(crate::PopoverCell),
+    /// A column's icon was pressed (`header-icon`): the left button
+    /// released on the icon it went down on. The host opens its menu under
+    /// the icon's bounds. Not a `Clicked`: `clicks` neither reports nor
+    /// counts the press.
+    #[cfg(feature = "header-icon")]
+    HeaderIconPressed(crate::HeaderIconPress),
 }
 
 /// The table's paging and scrolling, for a host's stats.
@@ -803,6 +814,9 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// (`popover`).
     #[cfg(feature = "popover")]
     popover_state: popover::PopoverState<D>,
+    /// The icon hovered and the one pressed (`header-icon`).
+    #[cfg(feature = "header-icon")]
+    pub(crate) icon_state: header_icon::IconState,
     /// The paint fixture's negative controls.
     #[cfg(all(test, feature = "custom-cells"))]
     pub(crate) paint_control: paint::Control,
@@ -838,6 +852,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx: &mut Context<Self>,
     ) -> Self {
         let glyphs = Glyphs::estimate();
+        // Each icon's path checked once (`header-icon`).
+        #[cfg(feature = "header-icon")]
+        let columns = {
+            let mut columns = columns;
+            header_icon::load_icons(&mut columns, cx.asset_source());
+            columns
+        };
         #[cfg(feature = "reorder")]
         let order: Vec<usize> = (0..columns.len()).collect();
         // The default's (`density`), set before the first frame.
@@ -921,6 +942,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             find_state: find::FindState::new(cx.weak_entity()),
             #[cfg(feature = "popover")]
             popover_state: popover::PopoverState::new(cx.weak_entity()),
+            #[cfg(feature = "header-icon")]
+            icon_state: header_icon::IconState::default(),
             #[cfg(all(test, feature = "custom-cells"))]
             paint_control: paint::Control::None,
             #[cfg(all(test, feature = "follow"))]
@@ -1187,6 +1210,15 @@ impl<D: TallTableDelegate> TallTableState<D> {
             self.order = (0..columns.len()).collect();
             self.cancel_drag(cx);
             reordered
+        };
+        // Each icon's path checked once, and the pressed icon forgotten:
+        // its index is another column now (`header-icon`).
+        #[cfg(feature = "header-icon")]
+        let columns = {
+            let mut columns = columns;
+            header_icon::load_icons(&mut columns, &self.icon_source(cx));
+            self.forget_pressed_icon();
+            columns
         };
         self.column_info = columns;
         // A suffix the glyphs didn't shape: read them again at the next
@@ -1872,8 +1904,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    /// The place column `index` is drawn at (`find`, `popover`).
-    #[cfg(any(feature = "find", feature = "popover"))]
+    /// The place column `index` is drawn at (`find`, `popover`,
+    /// `header-icon`).
+    #[cfg(any(feature = "find", feature = "popover", feature = "header-icon"))]
     pub(super) fn place_of(&self, index: usize) -> Option<usize> {
         (0..self.columns.len()).find(|&place| self.columns[place].index(place) == index)
     }
@@ -2274,6 +2307,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         #[cfg(all(test, feature = "sort"))]
         let header_padding = std::cell::RefCell::new(Vec::new());
+        #[cfg(all(test, feature = "header-icon"))]
+        let header_names = std::cell::RefCell::new(Vec::new());
         let place = self.place();
         let cells = self.visible_columns().map(|(index, column)| {
             let cell = div();
@@ -2293,6 +2328,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     .w(px(column.width)),
                 sizes,
             );
+            // A name starts after its icon's badge and gap (`header-icon`):
+            // after the padding, which sets both sides.
+            #[cfg(feature = "header-icon")]
+            let cell = cell.when_some(self.icon_room(index, column), |cell, room| {
+                cell.pl(px(sizes.padding() / 2.0 + room))
+            });
             // A sortable name ends at its arrow's gap (`sort`): after
             // the padding, which sets both sides.
             #[cfg(feature = "sort")]
@@ -2315,6 +2356,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .when(column.kind.numeric(), |cell| cell.text_right())
                 .truncate()
                 .child(column.name.clone());
+            // Where the name starts and how it's aligned, for the tests.
+            #[cfg(all(test, feature = "header-icon"))]
+            let cell = {
+                let mut cell = cell;
+                let style = cell.style();
+                header_names.borrow_mut().push((
+                    column.index(index),
+                    style.padding.left,
+                    style.text.text_align,
+                ));
+                cell
+            };
             #[cfg(feature = "pin")]
             let cell = (place.holds(index), cell);
             cell
@@ -2355,6 +2408,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
         #[cfg(all(test, feature = "sort"))]
         {
             self.sort_state.header_padding = header_padding.into_inner();
+        }
+        #[cfg(all(test, feature = "header-icon"))]
+        {
+            self.icon_state.header_names = header_names.into_inner();
         }
         header
     }
@@ -2834,7 +2891,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     columns: self
                         .columns
                         .iter()
-                        // The place is `sort`'s and `reorder`'s alone
+                        // The place is `sort`'s, `reorder`'s, and
+                        // `header-icon`'s alone
                         // (clippy's `unused_enumerate_index` without them).
                         .zip(0..)
                         .map(|(column, _place)| ColumnProbe {
@@ -2845,6 +2903,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             budget: column.budget,
                             #[cfg(feature = "sort")]
                             arrow: self.arrow_box(_place, column),
+                            #[cfg(feature = "header-icon")]
+                            icon: self.icon_box(_place, column),
                             #[cfg(feature = "reorder")]
                             index: column.index(_place),
                             #[cfg(feature = "hide")]
@@ -3001,6 +3061,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                     // and every drag that's on ends, not
                                     // only the first found.
                                     if event.pressed_button != Some(MouseButton::Left) {
+                                        #[cfg(feature = "header-icon")]
+                                        this.icon_release_unseen(cx);
                                         #[cfg(feature = "reorder")]
                                         if this.moving.is_some() {
                                             this.release_unseen(cx);
@@ -3352,6 +3414,15 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
             self.selection_state.focused = self.focus_handle.is_focused(window);
         }
         let header = self.render_header(cx);
+        // The icons over the names, under the arrows and the bands; in the
+        // names' row (`group-headers`).
+        #[cfg(all(feature = "header-icon", not(feature = "group-headers")))]
+        let header = header.children(self.render_icons(cx));
+        #[cfg(all(feature = "header-icon", feature = "group-headers"))]
+        let header = {
+            let icons = self.render_icons(cx);
+            header.children(icons.map(|icons| self.in_names_row(icons)))
+        };
         // Under the bands, which stay the edge's.
         #[cfg(all(feature = "sort", not(feature = "group-headers")))]
         let header = header.children(self.render_arrows(cx));
@@ -3505,6 +3576,10 @@ pub(crate) mod find;
 /// placing and the drawing.
 #[cfg(feature = "popover")]
 pub(crate) mod popover;
+
+/// `header-icon`: the icons, their hover and press, and the setter.
+#[cfg(feature = "header-icon")]
+pub(crate) mod header_icon;
 
 #[cfg(test)]
 mod tests {

@@ -58,6 +58,9 @@ pub struct TallTableColumn {
     /// Laid out at no width, drawn and hit nowhere (`hide`).
     #[cfg(feature = "hide")]
     pub(crate) hidden: bool,
+    /// The icon at its header's start (`header-icon`).
+    #[cfg(feature = "header-icon")]
+    pub(crate) icon: Option<crate::HeaderIcon>,
 }
 
 /// A set width's least and most, unless a column sets its own (`resize`):
@@ -102,7 +105,33 @@ impl TallTableColumn {
             group: Vec::new(),
             #[cfg(feature = "hide")]
             hidden: false,
+            #[cfg(feature = "header-icon")]
+            icon: None,
         }
+    }
+
+    /// The icon at its header's start (`header-icon`): none unless set.
+    /// One whose path doesn't load from the asset source draws nothing and
+    /// takes no room. `TallTableState::set_column_icon` changes it later.
+    #[cfg(feature = "header-icon")]
+    pub fn icon(self, icon: crate::HeaderIcon) -> Self {
+        Self {
+            icon: Some(icon),
+            ..self
+        }
+    }
+
+    /// Its icon, as set (`header-icon`), whether or not its path loaded.
+    #[cfg(feature = "header-icon")]
+    pub fn header_icon(&self) -> Option<&crate::HeaderIcon> {
+        self.icon.as_ref()
+    }
+
+    /// Whether its header has an icon to draw (`header-icon`): one set,
+    /// its path loaded.
+    #[cfg(feature = "header-icon")]
+    pub(crate) fn has_icon(&self) -> bool {
+        self.icon.as_ref().is_some_and(|icon| icon.loaded)
     }
 
     /// Hidden (`hide`): laid out at no width, drawn and hit nowhere, its
@@ -472,7 +501,8 @@ pub(crate) fn digits_width(chars: f32, number_px: f32, padding: f32) -> f32 {
 /// Width and cell kind. An integer column fits its widest value at
 /// `number_px` a character. The name's width is estimated at the UI font's
 /// average advance; a longer name is cut. With `sort`, a sortable column's
-/// name has `sort_room` more beside it, for its arrow. With `resize` (or
+/// name has `sort_room` more beside it, for its arrow; with `header-icon`,
+/// a column with an icon has the badge and its gap more. With `resize` (or
 /// `density`), a set width replaces all that, clamped. With `density`, the
 /// kinds' widths, the padding, and the name's estimate follow `sizes`.
 fn column_layout(
@@ -499,6 +529,12 @@ fn column_layout(
     #[cfg(feature = "sort")]
     let name = if column.sortable {
         name + sort_room
+    } else {
+        name
+    };
+    #[cfg(feature = "header-icon")]
+    let name = if column.has_icon() {
+        name + crate::header_icon::room(sizes)
     } else {
         name
     };
@@ -604,6 +640,35 @@ mod tests {
         };
         assert_eq!(width("f"), 120.0);
         assert_eq!(width("a long column name"), 159.0);
+    }
+
+    /// A column with an icon counts its badge and gap in its name's
+    /// estimate; one whose path didn't load is laid out as with none.
+    #[cfg(feature = "header-icon")]
+    #[test]
+    fn a_name_counts_its_icon() {
+        let width = |column: TallTableColumn| {
+            layout_columns(
+                &[column],
+                8.4,
+                #[cfg(feature = "sort")]
+                18.0,
+                Sizes::base(),
+            )
+            .0[0]
+                .width
+        };
+        let name = "a long column name";
+        let icon = crate::HeaderIcon::new("text.svg", |theme| theme.foreground);
+        let unloaded = TallTableColumn::new(name, ColumnKind::Float).icon(icon.clone());
+        assert_eq!(width(unloaded), 159.0);
+        let mut loaded = TallTableColumn::new(name, ColumnKind::Float).icon(icon);
+        loaded.icon.as_mut().expect("an icon").loaded = true;
+        assert_eq!(width(loaded.clone()), 183.0);
+        // A kind's width past the name's leaves it as it was.
+        let mut short = TallTableColumn::new("f", ColumnKind::Float);
+        short.icon = loaded.icon;
+        assert_eq!(width(short), 120.0);
     }
 
     /// A sortable column's name estimate counts its arrow's room; one that

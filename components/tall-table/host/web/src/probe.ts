@@ -69,11 +69,12 @@ export interface Layout {
    *  `left + x - scrollX`, clipped at the run's edge. */
   pinned?: number;
   /** With `sort`, each column's `arrow`: its box in CSS px from the
-   *  column's left edge, `null` where none is drawn. With `reorder`, each
+   *  column's left edge, `null` where none is drawn. With `header-icon`,
+   *  each one's `icon`: its badge's box, the same shape. With `reorder`, each
    *  one's `index` among the table's columns: the list is in drawn order,
    *  each at its place. With `hide`, each one's `hidden`: laid out at
    *  width 0, drawn nowhere. */
-  columns: { name: string; x: number; width: number; kind: string; budget: number; arrow?: { x: number; width: number } | null; index?: number; hidden?: boolean }[];
+  columns: { name: string; x: number; width: number; kind: string; budget: number; arrow?: { x: number; width: number } | null; icon?: { x: number; width: number } | null; index?: number; hidden?: boolean }[];
   /** With `format`: each character a format writes, its advance in CSS
    *  px in the cells' font at the text in effect (what a formatted text's
    *  fit sums). */
@@ -115,6 +116,18 @@ export interface Click {
   end: number | null;
   x: number;
   y: number;
+  modifiers: ('control' | 'alt' | 'shift' | 'platform')[];
+  count: number;
+}
+
+/** With `header-icon`, the last press of a header's icon, as
+ *  `tall-table-bridge`'s `js::icon_press` writes it
+ *  (`__tallTableIconPress`): `column` its index; `bounds` its badge's
+ *  visible part, `[x, y, width, height]` in CSS px of the window;
+ *  `modifiers` the names held at the release; `count` one more at each. */
+export interface IconPress {
+  column: number;
+  bounds: [number, number, number, number];
   modifiers: ('control' | 'alt' | 'shift' | 'platform')[];
   count: number;
 }
