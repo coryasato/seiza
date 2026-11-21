@@ -1593,3 +1593,93 @@ A `Popover` step (open on a drawn cell, close, press its button), placed from a 
 - **A long form for nested values:** with Tycho's JSONL work (above).
 - **Cell actions in the popover** (EuiDataGrid's footer: filter by this value, copy): one host button now; more when a host asks.
 - **Opening on a cell out of view or not loaded:** refused; a host jumps first.
+
+---
+
+## Header icon (`header-icon`)
+
+Researched 2026-11-21, from the header's drawing (`src/state.rs`'s `render_header`, the order its layers are added in `render`), `sort`'s arrow (`src/state/sort.rs`: `arrow_room`, `arrow_box`, `render_arrows`, `set_sort_icons`; `src/sort.rs`'s `SortIcons`), `clicks`' press listener and its stops (`src/state/click.rs`: `press`, `clicks_canvas`, `stops_context`), the header's hit tests (`src/state/hit.rs`), `reorder`'s and `select`'s header presses (`press_move`, `press_select_at`), the layout's name estimate and `resize`'s fit (`src/column.rs`'s `column_layout`, `src/state/resize.rs`'s `fit_column`), `hide`'s setter (`set_column_hidden`), the popover's cue (the last button the table drew), Tycho's decision (its `docs/DECISIONS.md`, "Scope", 2026-11-20, "A header's type icon is its column's menu button") and its design canvas's header (the "Columns and filters" page: "Headers A", "Columns 1"). No spike: every piece is one `sort`'s arrow already has (an SVG from the host's assets, a hover, a press held by index, a target of its own in each of `pin`'s regions), and its frame cost is read at the close.
+
+### What asks for it
+
+- **Tycho:** its "Waiting on" table (the header icon). Every header starts with its column's type icon, the column's menu button: always in sight, so it works with no hover; raised under the pointer. The menu is Tycho's DOM.
+- **The column filtering note** (the table's PLAN, "Notes") asked for the same shape: a control in a header with a state the host sets and its press reported. An icon whose path and colors the host changes covers it.
+- **No observatory scenario** asks for it, so no feature level compares it. `DataTable` has no header icon (its header cell is the delegate's element, `render_th`); TanStack's header is the app's renderer.
+
+### A feature of its own, its press its own event
+
+**The owner chose a Cargo feature `header-icon` that needs no `clicks`, and an event of its own on release.** The PLAN's draft had the press as a new `ClickTarget`. Weighed:
+
+- **`clicks` reports at press-down**, and a button that opens a host's menu acts on release: `sort`'s arrow sorts when the left button comes up on the arrow it went down on. (The popover's cue opens at press-down, but what it opens is the table's own, drawn on the canvas.) A host's menu opened at press-down opens under a held button, and the same click's release lands on the menu (a DOM menu over the canvas takes it as a press on its first item, or as a press outside). On release, the click is over before the menu exists.
+- **The table's other buttons don't go through `clicks`:** the arrow's press and the cue's are stopped, counted by nothing, and reported by their own events (`Sorted`, `Popover`). A third button stopped and reported the same way is one rule; when each acts is its own (the arrow on release, the cue at press-down).
+- **No code gated on two features for the press,** and a host that wants only the icon pays for no root listener.
+- **Rejected:** `ClickTarget::HeaderIcon` drawn without `clicks` and silent (a button that does nothing in a build that draws it); `header-icon = ["clicks"]` (every icon host pays for `clicks`).
+
+The event is `HeaderIconPressed`, with the column by index (as `find`'s and the popover's cells: it names the same column after a move), the icon's bounds, and the modifiers held.
+
+### A right press and a long press go on to the header
+
+**The owner chose: the icon stops only its left press.** A right press, a long press, and (when the host says so) a Ctrl+left press on the icon are the header's: `clicks` reports `Context` on `Column`, and `select` follows its rule. Tycho opens the same menu on a header's right-click, so a right-click on the menu button opens it too. The bands and arrows stop theirs (`click_stops`) because a host's menu over a resize band means nothing; a menu over the menu button means the menu.
+
+What that asks of the build: the icon's target doesn't `occlude` (the long press is found by the root canvas's hitbox, which an occluding child hides: `clicks_canvas`), and with `clicks` its left-down listener lets two presses through: a Ctrl press when `set_ctrl_press_is_context` is on, and the tap gpui makes of a lifted long press. `clicks` drops that tap in the root's `press` (`clicks_state.tap`), which the icon's listener, a child's, would run ahead of: the long press would open the host's menu as the header's context press, and the lifted finger would then press the icon. Both sites are gated on both features, so `pairs` runs.
+
+### What the host gives
+
+**The owner chose an SVG path, a color, and an optional fill at rest.** `HeaderIcon::new(path, color)`, with `.fill(color)` for the badge's tint; the colors are `Stop`s (`fn(&Theme) -> Hsla`, resolved each frame, the table's rule for a theme color), so `Stop` is exported with either `custom-cells` or `header-icon`. The path is loaded from the host's asset source once when it's set, as `set_sort_icons` checks its three: one that doesn't load draws no icon and takes no room (a debug assertion names it).
+
+- **Tycho's "Aa"** (its text type's badge) is an SVG of its own, its letters outlined as paths: an SVG `<text>` element needs a font the renderer may not have (a wasm build has no system fonts), so it would draw nothing or another face.
+- **Rejected:** a short text the table shapes (`HeaderIcon::text("Aa", …)`: a second drawing path, and the canvas's weight and spacing only as far as the header's face allows); the host's own element (`custom`, as `PopoverCue`'s: an element built a visible header a frame, where the cue builds one or two).
+- **Setting it:** `TallTableColumn::icon(HeaderIcon)`, and `set_column_icon(index, Option<HeaderIcon>)` for one column's without `set_columns` (which resets what's kept by column): a "filtered" state is another path or color. No event: the host set it. A change to the icon's room lays the columns out again (an icon added or removed, or swapped between a path that loads and one that doesn't; a column at its kind's width may widen for its name's room); any other swap only redraws. A hover or press held on an icon the call removes is forgotten (a setter cancels the press it points away from), so no release reports a column with no icon. The reader gives back the icon as set, loaded or not.
+
+### Where it's drawn, and its room
+
+- **At rest:** a badge at the header's left, after the cell's padding, whatever the kind's alignment: at Tycho's density 18 × 16 px, corners of 4, the host's fill if it gave one, the glyph 10 px in the host's color, centered. The name starts 6 px after it and keeps its alignment in what's left (a number's name still ends at the right).
+- **Under the pointer, and while pressed:** the raised look in place of the badge (the canvas draws the one, not the badge inside it): a solid backdrop 26 × 24, corners of 6, a 1 px border and a shadow, the glyph at 12 px, the pointer cursor. **The owner chose the border, as the canvas draws it;** Tycho's decision said "not outlined" and is revised. The backdrop reaches 4 px past the badge on each side, into the cell's padding on the left and the name's gap on the right, and stays inside its column. Its fill and border are theme tokens, settled against the canvas in the build.
+- **Its target** is the raised look's box, the header's height tall, ending short of `resize`'s band: the hover that raises it and the press are found there, so a press on the raised backdrop's ring is the icon's, not the header's. The event's bounds and the probe's box are the badge's, what a menu hangs under.
+- **Every length through `sizes()`**, scaled with `density`'s text as the arrow's box is. A density's row height is set apart from its text (`row = max(row height, text)`), so the badge and the raised look are also held inside the row (the row less an inset, as the cue's side is): in a short row both shrink rather than spill into the body or a group's row.
+- **Its room:** a column with an icon gives its name the badge and the gap less; the layout's name estimate and `resize`'s fit count it, as they count the arrow's. The badge needs the padding and its own width, which is under the table's least width at every density (16 + 18 against 40, both scaled). A host's own `min_width` or `max_width` (`resize`) can be under it: a column narrower than the padding and the badge draws no icon and takes no press, as a column too narrow for its arrow draws none.
+- **A header too narrow for the icon, the name, and the arrow: the arrow goes first.** `arrow_room` asks for the padding, the icon's room, and its own; under that the arrow isn't drawn (as today under its own room) and the name is cut. The icon stays: its menu is where a host puts the sort, and Tycho's does.
+- **Cut at a region's left edge** (a scrolled column part under the gutter or `pin`'s run): drawn cut, as the name is, and pressed on what shows. The arrow isn't drawn when its target is cut, but it's at the right, where a cut means the column is nearly gone; an icon at the left is cut on the first scrolled column most of the time, and a header whose button comes and goes with the scroll reads as broken.
+
+### The built features
+
+- **`sort`:** the arrow stays at the right; the narrow rule above. The arrow's and the icon's targets never meet (the name's gap is between them at any width that draws both).
+- **`resize`:** the band is the edge's 9 px, over everything; the raised backdrop ends at the band's reach in the column before. The fit and the least width as above.
+- **`reorder`:** the icon's left press is stopped, so it holds no header and starts no drag. While a column is carried no icon is drawn raised (the arrow's rule), and the lifted column's icon dims with its name; the carried preview draws the icon.
+- **`select`:** the icon's left press selects nothing. A context press on it follows `select`'s rule for its header.
+- **`clicks`:** the icon's left press isn't reported and isn't counted (every press in the window resets the count in the capture phase, so the next left press is a first). Context presses as above.
+- **`group-headers`:** the leaf headers only, in the names' row; a group's cell has no icon (it names no one column).
+- **`pin`:** an icon in each region, as the arrows are split.
+- **`hide`:** a hidden column draws none; a hover or press held on it is forgotten when it hides.
+- **`density`:** every length scaled.
+- **`popover`:** a press on an icon is a press outside the popover, so it closes; then the icon's release reports.
+- **`set_columns`:** the hovered and pressed icons forgotten, as the arrow's. A press is held by index, so a move between the press and the release keeps it on its column.
+- **A double press:** two presses, two events; the host's menu decides what the second does.
+
+### Where the host's menu opens
+
+**The icon's bounds ride in the event** (window pixels, the badge's box, its visible part when cut), so a host anchors its menu under the button with no second call. Weighed: a public reader of a header cell's bounds (the column filtering note's advice). Nothing asks for bounds outside a press yet: Tycho's other ways into the menu are a right-click (`Clicked`'s position, the pointer's, where a context menu opens anyway) and its columns panel's row (anchored there). A reader is added when a host needs a header's place with no press.
+
+### Frame-work risk
+
+A visible header gains an SVG element and a target with a hover. The arrows are the same shape, and with a band and an arrow on every header, each carrying `clicks`' stop, the wide sheet's segments read within the base's spread (the table's `docs/DECISIONS.md`, "Features", 2026-11-16). The SVG is rasterized once a path and size, and tinted at paint, so a color a column doesn't add a raster. The raised look is one header's. Read at the close: the protocol's scroll and the wide shape's sideways fling with an icon on every header, against none.
+
+### Canvas gaps
+
+- **Keyboard and screen reader:** the icon is a button neither reaches (the canvas's gap, README). A host gives its action another way in; Tycho's is its columns panel's row. The README says so.
+- **Color alone:** a host that tells types apart by the badge's color alone widens the color-alone tradeoff; a glyph a type carries the meaning. The README says it of the host's icons.
+
+### What a DOM contender does
+
+No observatory level. No fixture: the layout probe gains the icon's box on each column (`ColumnProbe::icon`, its left from the column's left edge and its width, as `arrow`), which the window tests and the smoke check read.
+
+### What the random test gains
+
+A `Zone` for a header's icon (a press down on it, a release on or off it, with the case's other steps between), and a step that sets or clears a column's icon, placed from a stream of its own after `with_popovers`, so no case's draw changes. Invariants: a press on an icon starts no drag and changes no selection; a `HeaderIconPressed` names a column that has an icon, is shown, and was drawn at the press; no icon is held pressed across `set_columns`, a hide of its column, or a `set_column_icon` that removes it. Its control: a press that isn't stopped (the header's drag starts under it). The icon reads no page, so the soak isn't needed unless the build touches the paging.
+
+### What it leaves out
+
+- **A label for the icon** (a short name shown as a tooltip after a rest: "Text", "Filtered"): the table has no header tooltip, only a cell's, and Tycho's canvas draws none. It adds without breaking (`HeaderIcon` is non-exhaustive, built by its methods); built when a host asks.
+- **An icon on a group's cell,** and **a second icon in a header** (a filter control beside the menu button): when a host asks.
+- **A header cell's bounds without a press:** above.
+- **Touch:** whether a tap on the icon is the icon's or the header's under the touch setting is that milestone's question.

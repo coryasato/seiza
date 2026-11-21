@@ -853,3 +853,12 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - Telling the landing's selection from the reader's by value was the flaw under three findings; recording which was set last fixed them together. The design had turned down a record because it counts the table's own selection changes as the reader's, but each of those leaves the selection on the match's cell or clears it.
 - The smoke check's empty term, set before any term, passed with or without the harness fix: the probe was already null. A check of a "clear" has to clear something.
 - The scan's windows wait ~10 ms each, not `FIND_YIELD`'s 1 ms: ~60% of a scan's wall time in the bare host is waiting, in both builds.
+
+## M22: the header icon (part A, 2026-11-21)
+
+**Results:** no measurement; the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "Header icon (`header-icon`)".
+
+**Surprises:**
+- The draft put the press through `clicks`, and the code said otherwise: `clicks` reports at press-down, while `sort`'s arrow acts on release, and both of the table's buttons (the arrow, the popover's cue) report through events of their own. A draft's "reported through `clicks`" was a guess at the shape; reading how the nearest built thing reports settled it before the owner was asked.
+- Letting a long press through to the header isn't only "don't stop it": the long press is found by a hitbox under everything, which an occluding child hides. The arrow occludes, so an icon copied from it would have swallowed the long press with no listener of its own. And the code review found the other half: gpui turns the lifted long press into a left tap, which `clicks` drops in the root's listener, behind the icon's, so the icon would have reported a second time. Passing an event through means following it to its last listener.
+- The canvas and the decision written from it disagreed (a border drawn, "not outlined" written), and the text type's "icon" was the letters "Aa". Both showed only in the board's generator, not in the decision's text: for a look, read what the board draws.
