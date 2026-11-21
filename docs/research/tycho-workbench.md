@@ -88,10 +88,41 @@ What someone needs to check something in a large file, with no LLM anywhere:
 | The table | duplicate rows, whether a column is a unique key |
 
 - **Proposed:** one catalog, three readers: the column menus, the command grammar, and the instructions an LLM is given. An LLM can ask only for what the catalog holds, which is the security boundary.
-- **Proposed:** the first profile is cheap: DuckDB's `SUMMARIZE` profiles every column in one statement, and a Parquet footer already holds each column's min, max, and null count.
+- **Proposed:** the first profile is cheap: DuckDB's `SUMMARIZE` profiles every column in one statement, and a Parquet footer already holds each column's min, max, and null count. Measured 2026-11-20 ("The column profile's cost", below): `SUMMARIZE` is not cheap on a large file, 90 s on 42 million rows.
 - An entry returns either a new view of the rows or a small answer (a number, a short table). Small answers show in the thread.
 - **Decided (2026-11-20):** a grouped result opens as a view tab. Grouping is more than one entry: every person in `personas.md` needs it, and a grouped result isn't a view of the file's rows but a new table, which can itself run to a million rows and so needs the table, not the thread. The tab keeps the filters it was made with, and "Show rows" on a group goes back to the base rows with a filter on its key (`apps/tycho/docs/DECISIONS.md`, "Scope", 2026-11-20).
 - **Proposed:** an action has two spellings. An agent's is JSON, which models write reliably and which validates against the capability schema (`{"filter": {"column": "mass", "op": ">", "value": 10}}`). A person's is a short typed command (`filter mass > 10`) that parses to the same action. The thread shows what was typed and the action it became.
+
+#### The column profile's cost
+
+Timed 2026-11-20 to decide whether the table's headers carry a profile of every column (the design session; the decision is Tycho's `docs/DECISIONS.md`, "Scope"). DuckDB-Wasm 1.32.0, the pinned build, under Node 26 on an Apple M1, reading local files; one run each, so sizes, not medians, and a browser tab reading a dropped file is unlikely to be faster. The 1 GB file is the asteroid data 27 times over, which may flatter it.
+
+| What | Asteroids, 38 MB, 1.6 M rows, 18 columns | Asteroids ×27, 1 GB, 42 M rows | Gaia, 1.6 GB, 25 M rows, 11 columns |
+|---|---|---|---|
+| `SUMMARIZE`, every column | 3.4 s | 89.7 s | 53.5 s |
+| Min, max, nulls of every column, by a scan | 0.55 s | 14.9 s | 6.3 s |
+| A 20-bin histogram of every number column, one pass | 0.94 s | 25.9 s | 23.3 s |
+| The top 5 values of every text column, a pass each | 0.61 s | 12.1 s | none |
+| The same three after a filter keeping 2% | 0.7 s in all | 19.7 s in all | not run |
+| One number column's histogram | not run | 2.5 s | not run |
+| Min, max, nulls of every column, from the Parquet footer (`parquet_metadata`) | not run | 0.24 s | not run |
+| Every number column's histogram from a 1% sample (`TABLESAMPLE SYSTEM`) | not run | 3.1 s, against 30.0 s for every row | not run |
+
+What follows from it:
+
+- **Decided (2026-11-20):** an exact profile of every column is ruled out for the files Tycho exists for: half a minute or more on open, about 20 s after each filter.
+- **Decided (2026-11-20):** the profile is drawn in three stages, each replacing the last in place: at once, the range and null count from the footer over placeholder bars; soon, the shape from a sample, muted and marked as sampled; then every row, for a column the visitor opens (2.5 s on 1 GB) or a small file. A filter change waits for a pause, cancels what's in flight, and starts again from the sample. Only columns in sight are profiled.
+- **Decided (2026-11-20):** it is built in the columns panel first. The strip under the headers is the same numbers drawn smaller, and is asked of the tall table only once the panel's profile proves fast enough in use.
+- **Decided (2026-11-20):** before the graphic is given up as too slow, a session of its own tries to make the sample faster and smarter; only if that fails does the graphic leave the panel, the figures staying. The profile is closer to an infographic than a measurement, so an estimate that is quick beats an exact shape that is late.
+- **Open, for that session.** Starting points, none tested:
+  - Parquet's row-group statistics: each group records its range and row count, so spreading each group's count across its range gives a rough histogram with no scan.
+  - Timestamps: files are often written in time order, so the row groups' ranges alone may give a near-exact histogram over time.
+  - Text with few values: Parquet stores these as a dictionary, so the distinct values can be read from the dictionary pages, not the rows.
+  - Distinct counts: DuckDB's approximate counter, far cheaper than an exact one.
+  - A time budget for each profile query, as Datasette gives its facets: one that runs over is dropped, and what the sample gave stays.
+  - A CSV held in memory has no footer and no row groups: what its first stage shows.
+- **Open, for the build:** a profile query and the table's page reads share one engine. If a 3 s sample holds up page reads, scrolling stalls while a profile fills: page reads go first, or the profile runs in pieces that yield. How the engine queues today wasn't checked.
+- How others do it (from memory, 2026-11-20, not checked): Hugging Face's dataset viewer and Kaggle profile on a server when a dataset is uploaded; Observable's table summarizes rows already in memory; Quak, Mosaic, Positron's data explorer, and Rill push a binned query per column to a database as columns come into view. Tycho, with no server, is in the last group.
 
 ### 4. The thread
 

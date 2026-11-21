@@ -32,7 +32,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | M8 | Deploy to Cloudflare | Done 2026-10-10: https://tycho.seiza.io |
 | M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
 | M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Done 2026-11-01 |
-| — | Design session: the page, the thread, the profile, where answers show | Under way since 2026-11-20, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20): the frame, the command bar, grouping as a view tab, the first screen, the theme, the toolbar, find's bar, the views list and its names, keeping views, the Share menu. Still to draw: the column menu and the filter's editor, the headers, the cell popover and the row detail view, export, the rest of the frame at a phone |
+| — | Design session: the page, the thread, the profile, where answers show | Under way since 2026-11-20, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20): the frame, the command bar, grouping as a view tab, the first screen, the theme, the toolbar, find's bar, the views list and its names, keeping views, the Share menu, the column's and the cell's menus, the filter's and the sort's editors, the headers, the profile's stages. Still to draw: the cell popover and the row detail view, export, the rest of the frame at a phone |
 | — | Sample session: which data, under the static-asset limit | Before M11's sample check |
 | M11 | Reset: the old Tycho retired, the ground cleared | Next |
 | Later | The goals below, in order; the first release is everything through export | Each becomes a milestone when it's opened |
@@ -46,7 +46,10 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | The tall table's `replace_rows`, then column filtering and global filtering ([its PLAN](../../components/tall-table/PLAN.md)) | "Sort and filter", below | *Ready* (2026-11-18, tall-table M18) |
 | The tall table's find | Search that keeps every row | *Ready* (2026-11-19, tall-table M20) |
 | The tall table's column visibility | Hide and show columns | *Ready* (2026-11-18, tall-table M19) |
-| The tall table's column summaries in the header | The column profile, only if the design session puts it under the headers | *Not ready* |
+| The tall table's column summaries in the header | The column profile's strip, drawn by the table from numbers Tycho gives it. Asked for only once the panel's profile proves fast enough ("Profiles and the catalog", below) | *Not ready*, and not yet asked |
+| The tall table's header icon: an icon the host gives each column, first in its header, its press reported; drawn raised under the pointer | The column's menu button (`docs/DECISIONS.md`, "Scope", 2026-11-20) | *Not ready* |
+| The tall table on touch: a tap on a header reported as one press, the sort arrow not a target of its own; a long press reported as a right-click is | The column's and the cell's menus at a phone | *Not ready* |
+| The tall table's sort by several columns | The sort's editor as a list; after the first release | *Not ready* |
 | The tall table's cell popover (a cell's full value, with a button that reports an event) | The quick look before the row detail view, which its button opens ("Table basics", below); nested values shown in it ("JSONL") | *Ready* (2026-11-20, tall-table M21): a cell's exact text; a nested value's long form apart from its cell's text waits for the JSONL work (the table's `docs/DECISIONS.md`, "Features", 2026-11-19) |
 | The tall table's row marks | The investigator's bookmarks and tags ([`docs/personas.md`](docs/personas.md)); no goal holds them yet | *Not ready* |
 | The tall table's built features | "Table basics", below | *Ready:* `custom-cells`, `live`, `follow`, `resize`, `select`, `copy`, `sort`, `pin`, `density`, `format`, `reorder`, `clicks`, `group-headers` (their dates: the table's `docs/milestones.md`) |
@@ -83,7 +86,7 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 2. **The command bar and the log, minimal,** in the DOM, so every later goal has somewhere to show its commands and answers. Their form: `docs/DECISIONS.md`, "Scope", 2026-11-20. *("The thread".)*
 3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view, in the DOM, opened from the table's cell popover. *("The table's own tools".)*
 4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order, its `WHERE`, and its find are unbuilt engine work; the table's parts, `replace_rows` for filtering and `find`, are ready ("Waiting on"). *("The controller".)*
-5. **Profiles and the catalog,** grouping included, whose result is a new table. *("The catalog".)*
+5. **Profiles and the catalog,** grouping included, whose result is a new view. The profile comes in three stages, in the columns panel first. If it's too slow in use, a session of its own makes the sample faster before anything is cut; the header strip is asked of the tall table only after the panel's proves itself. *("The catalog"; "The column profile's cost", which holds the timings and that session's starting points.)*
 6. **Export,** and the view copied as SQL. Its size plan is settled first. *("The table's own tools".)*
 7. **The connection policy.** *Proposed* as part of the first release, since the input is drivable from the day it ships. *("Trust".)*
 8. **Open from a URL:** Parquet only, read by range, on a route of its own. *("Opening a file".)*
@@ -102,9 +105,9 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 1. Which sample or samples, chosen so a chart is waiting for one of them (the sample session).
 2. The command bar's grammar: the catalog's command names and each one's parts (the canvas's are drafts), and whether a pasted action waits for Enter, as drawn, or runs on paste.
 3. Views: whether "Show rows" on a group should open a view of its own rather than filter the base view; the caps on kept views (the 10 latest files and 20 views a file are proposed, from estimates); and where kept views are stored, given the origin is shared with Kirkwood (the design session, with "The connection policy").
-4. What the toolbar's Filter, Sort, and Columns controls open beyond the filters' list, and what a column header's menu offers; a header icon would need the tall table to build something (the design session).
+4. Whether a cell's two filter actions (keep, leave out) also sit in the cell popover, with question 17 (the design session).
 5. Ctrl+F: whether the table claims the key while it has focus, and whether a second press falls through to the browser for the DOM's text. Find's bar is settled: the toolbar's right side (the design session).
-6. Whether the headers carry a profile strip as well (a tall table feature, "Waiting on"): the profile's home is the columns panel, and the strip is drawn on the canvas's frames but not decided (the design session).
+6. The profile's speed: how the engine keeps page reads ahead of a profile query, and whether a smarter sample is needed, tried before the graphic is cut (the build, then a session of its own).
 7. Which part of the page owns each key (Ctrl+F, Cmd+C, Cmd+A, Escape) as focus moves between the thread's DOM and the canvas, written as one table. The tall table's README lists the keys it takes and which reach the host (the design session).
 8. Whether Tycho's bucket goes, given DuckDB-Wasm's two oversize bundles (M11).
 9. What an input or a link may do to the source and to export, so the grammar's boundary holds.

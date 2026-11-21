@@ -14,7 +14,7 @@ M1–M21, the two hardenings (between M7 and M8, and after M17), and the public 
 
 | Milestone | Title | Status |
 |---|---|---|
-| — | None active: every candidate waits for a host ("Candidates", "Notes") | — |
+| — | None active. Tycho asked for the header icon and touch presses on 2026-11-20 ("Who's waiting"); neither is opened | — |
 
 A *Planned* row's spec is its row under "Candidates"; its spec and checks are written into "Next milestones" when the one before it closes, after its research.
 
@@ -35,7 +35,7 @@ A *Planned* row's spec is its row under "Candidates"; its spec and checks are wr
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None drafted: every candidate waits for a host ("Notes").
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). None drafted: Tycho's asks ("Who's waiting") are the next to research; every other candidate waits for a host ("Notes").
 
 ### Notes
 
@@ -52,7 +52,9 @@ Not planned; each waits for a host to ask, and is researched as any candidate is
 | Footer row | A row under the body, a cell per column | The row drawn under the body, outside the f64 index, its cells formatted as their columns' (`format`) | Its values (totals, averages: an aggregate query, run again as the rows change) | TanStack's column `footer` is a render slot with no access to the rows: the app computes what it shows. Suggested as row pinning's stand-in; whether it is one is part of the research, since the two answer different asks (a summary, against a row kept in view) |
 | **Tree rows** | A flattened list in which expanding a row inserts its children below it, with an indent and a disclosure arrow, at the fixed row height | The indent, the arrow, and its press; a row's depth and whether it's open, from the page; an insert of *k* rows after row *r* (every index past *r* shifts: the pages after it are re-read or moved, what's kept by index past it moved) | Which rows exist, open or closed, in order (`GROUP BY`, a parent's children); a group's sums | Merges TanStack's grouping and aggregation and expanding. Its gap is the insert mid-list, which `set_rows` (the tail) and `replace_rows` (everything) don't cover. **Ruled out:** detail panels of variable height: they break the uniform f64 row index every scroll, jump, and page is built on (a cell's full value is the cell popover's, the active milestone). Tycho's grouping starts as a new table (`replace_rows` with `set_columns`: the root's research, "`replace_rows`"); tree rows only if it asks for groups expanded in place |
 | Row marks | Bookmarks or tags on rows, drawn in the row-number gutter | The mark drawn in the gutter, and its press through `clicks` | Which rows are marked, held by an identity the source gives, and what a mark means (a tag, a note) | Tycho's ask, after its first release. The same gap as row pinning: the table knows only indices, and `sort` or `replace_rows` changes what an index means. Researched with row pinning, so row identity is settled once for both |
-| Column summaries in the header | A strip under each column's header: a small histogram, a null share | The strip drawn under the header, at the header's widths, from values the host gives (bins, shares), and its press through `clicks` | The profile's query (`SUMMARIZE`, a histogram); when it reruns as the rows change | Only if Tycho's design puts its column profile in the header; in a menu or its thread, the table has no part. Advice for that research: it's the footer row's sibling (a row outside the body's index, drawn from the host's values), so if both are asked for, research them together; a column's type label is the simplest thing the strip could show |
+| Column summaries in the header | A strip under each column's header: a small histogram, a null share | The strip drawn under the header, at the header's widths, from values the host gives (bins, shares), and its press through `clicks` | The profile's query (`SUMMARIZE`, a histogram); when it reruns as the rows change | Not asked yet (2026-11-20): Tycho's design puts the profile in its columns panel first, and asks for the strip only once that proves fast enough ([its research](../../docs/research/tycho-workbench.md), "The column profile's cost": the queries are the cost, not the drawing). If asked, the table draws from the host's numbers, with a placeholder and a muted look for a summary still being read. Advice for that research: it's the footer row's sibling (a row outside the body's index, drawn from the host's values), so if both are asked for, research them together; a column's type label is the simplest thing the strip could show |
+| Header icon | An icon at the start of each column's header, set by the host, whose press the host is told of | The icon drawn first in the header, at the left whatever the kind's alignment, from a path in the host's asset source (as `sort`'s icons are) in a color the host gives; under the pointer, raised on a backdrop of its own, with the pointer cursor; its press through `clicks` (a new `ClickTarget`), selecting nothing; the room it takes from the name (the fit, the least width) | Which icon and color each column gets, and what its press opens | Tycho's ask (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK#page-columns)): the icon is the column's type and opens the column's menu, a DOM menu. For its research: how it sits with `sort`'s arrow, `resize`'s band, `reorder`'s drag, and `group-headers`; `sort`'s arrow stays at the right edge |
+| Touch presses | At a touch screen, a header's tap is one press and a long press is a context press | A host's setting under which a tap anywhere on a header reports the column's press and `sort`'s arrow isn't a target of its own; a long press on a header or a cell reported as `clicks`' context press is | The menu it opens; the setting | Tycho's ask (2026-11-20, as above): at a phone a header's zones (the arrow's box, `resize`'s 9 px band) are too small for a finger and a stray sort reads as a mistake, so its menu holds every ability. The research's first question: what touch input GPUI's web platform delivers at all |
 
 ### Not the table's, not listed, and editing
 
@@ -70,7 +72,10 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Column summaries in the header | Its column profile, if its design puts it in the header | Not planned ("Notes"): waits on Tycho's design | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Header icon | Its column's menu button, the column's type icon | Not planned ("Notes") | *Not ready* |
+| Tycho | Touch presses | Its column's and cell's menus at a phone | Not planned ("Notes") | *Not ready* |
+| Tycho | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Candidates") | *Not ready* |
+| Tycho | Column summaries in the header | Its column profile's strip, only once its panel's profile proves fast enough | Not planned ("Notes"): not asked yet | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
 
 Every earlier ask is built and *Ready* in its app's PLAN.
@@ -79,7 +84,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-None: every candidate waits for a host ("Candidates", "Notes").
+None. Tycho's asks ("Who's waiting": the header icon, then touch presses) are next; every other candidate waits for a host ("Candidates", "Notes").
 
 ---
 
@@ -117,7 +122,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-None drafted: every candidate waits for a host ("Candidates", "Notes").
+None drafted: Tycho's asks ("Who's waiting") come first; every other candidate waits for a host ("Candidates", "Notes").
 
 ---
 
