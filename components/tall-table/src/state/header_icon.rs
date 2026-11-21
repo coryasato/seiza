@@ -272,7 +272,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let bounds = Bounds::new(
             point(
                 self.body.origin.x + px(self.gutter_width() + from + start),
-                self.body.origin.y - px(row) + px(((row - look.badge.1) / 2.0).floor()),
+                self.icon_row_top() + px(((row - look.badge.1) / 2.0).floor()),
             ),
             size(px(end - start), px(look.badge.1)),
         );
@@ -281,6 +281,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
             bounds,
             modifiers,
         }));
+    }
+
+    /// The top of the row the icons are drawn in, in window pixels: the
+    /// row above the body, and under group rows (`group-headers`) a pixel
+    /// higher, where `in_names_row` hangs their layer: from the header's
+    /// bottom, inside its 1 px border.
+    fn icon_row_top(&self) -> Pixels {
+        let top = self.body.origin.y - self.sizes().row();
+        #[cfg(feature = "group-headers")]
+        if self.group_rows() > 0 {
+            return top - px(1.);
+        }
+        top
     }
 
     /// An icon's glyph in a box `width` by `height`, its top left at
@@ -389,7 +402,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 let origin = point(
                     self.body.origin.x
                         + px(gutter + left + if place.holds(at) { 0.0 } else { place.edge() }),
-                    self.body.origin.y - sizes.row(),
+                    self.icon_row_top(),
                 );
                 let height = if raised { look.raised } else { look.badge.1 };
                 self.icon_state.drawn.push(DrawnIcon {
@@ -419,6 +432,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 });
             }
             let mark = self.icon_look(&icon, look_left, look_width, raised, look, cx);
+            // Where it's painted, for the tests: `DrawnIcon::look` is
+            // worked out, and must be this.
+            #[cfg(test)]
+            let mark = mark.debug_selector(|| format!("tall-table-icon-look-{index}"));
             #[cfg(feature = "reorder")]
             let mark = mark.when(dimmed, |mark| mark.opacity(LIFTED_OPACITY));
             icons.push((

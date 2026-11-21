@@ -10,11 +10,10 @@ What's next for the tall table: the candidates for its next features, the active
 
 ## Status
 
-M1–M21, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-20: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, and `popover`, a cell's full value with a button to the host's view of its row ([`docs/milestones.md`](docs/milestones.md)).
+M1–M22, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-21: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, `popover`, a cell's full value with a button to the host's view of its row, and `header-icon`, a column's icon the host sets, its press reported ([`docs/milestones.md`](docs/milestones.md)).
 
 | Milestone | Title | Status |
 |---|---|---|
-| M22 | The header icon, a column's icon the host sets, its press reported | Active: parts A and B done 2026-11-21, part C next |
 | M23 | The popover for cut text only, its cue a fade, and a long value's cell | Planned |
 | M24 | Touch presses, a header's tap as one press | Planned |
 
@@ -37,11 +36,11 @@ A *Planned* row's draft is under "Next milestones": what it adds, its research q
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are milestones: M22 is open ("Active milestone"), and M23 and M24 are drafted under "Next milestones", each with its research questions; no other row is drafted, and every other candidate waits for a host ("Notes").
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are milestones: the header icon is built (M22), and M23 and M24 are drafted under "Next milestones", each with its research questions; no other row is drafted, and every other candidate waits for a host ("Notes").
 
 ### Notes
 
-Not planned; each waits for a host to ask, and is researched as any candidate is. None is built past what its note says: a candidate leaves this list when its milestone opens (Tycho's header icon is M22, "Active milestone"; its popover for cut text and touch presses are M23 and M24, "Next milestones"). Global filtering left it built: its table's part was `replace_rows` alone (M18), and the README's "TanStack Table's features" has its row.
+Not planned; each waits for a host to ask, and is researched as any candidate is. None is built past what its note says: a candidate leaves this list when its milestone opens (Tycho's header icon was M22, built; its popover for cut text and touch presses are M23 and M24, "Next milestones"). Global filtering left it built: its table's part was `replace_rows` alone (M18), and the README's "TanStack Table's features" has its row.
 
 #### Reading the shown columns only
 
@@ -55,7 +54,7 @@ A source told which columns are shown reads fewer.
 
 A predicate per column; the row count follows.
 
-- **Table's part:** Built: `replace_rows` (M18, closed 2026-11-18), which is all a filter needs of the table. Still open, only if a host asks: a filter control drawn in a header, which `header-icon` (M22, "Active milestone") may already be: an icon whose path or color the host changes, its press an event of its own
+- **Table's part:** Built: `replace_rows` (M18, closed 2026-11-18), which is all a filter needs of the table. Still open, only if a host asks: a filter control drawn in a header, which `header-icon` (M22, closed 2026-11-21) may already be: an icon whose path or color the host changes, its press an event of its own
 - **Engine's or host's part:** The `WHERE`, the new `count(*)`, pages over the filtered rows; the filter's UI and its state
 - **Notes:** Like `sort`, a source paging by row-group range can't page a filtered result; how it does is the source's (the DuckDB engine's research, as `sort`'s was). Tycho's ask is met (M18, closed 2026-11-18); the header control is built only if it asks for one. Advice for that research: start from `header-icon`'s decisions ([`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-11-21): a "filtered" state is another path or color (`set_column_icon`), the press is reported on release with the icon's bounds for a host's popover, and a new `ClickTarget` was weighed and rejected there. What's left to weigh is a second icon in one header, and a public reader of a header cell's bounds if a host needs one with no press
 
@@ -131,8 +130,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Header icon | Its column's menu button, the column's type icon | M22, active | *Not ready* |
-| Tycho | The popover for cut text only, its cue a fade | Its cell popover: a glimpse of overflowing text, a cue that moves no text, Enter opening its row view everywhere else | M23, planned | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | The popover for cut text only, its cue a fade | Its cell popover: a glimpse of overflowing text, a cue that moves no text, Enter opening its row view everywhere else | M23, planned | *Not ready* |
 | Tycho | Touch presses | Its column's and cell's menus at a phone | M24, planned | *Not ready* |
 | Tycho | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Notes") | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile's strip, only once its panel's profile proves fast enough | Not planned ("Notes"): not asked yet | *Not ready* |
@@ -144,88 +142,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-### M22: the header icon, a column's icon the host sets, its press reported
-
-**What it adds** (Cargo feature `header-icon`, off by default, needing no other): an icon at the start of a column's header, set by the host, drawn raised under the pointer, whose press the host is told of on release, with the icon's bounds to anchor a menu. Tycho waits on it: its column's type icon, which opens its column's menu ([its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope", 2026-11-20; [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK), "Columns and filters"). The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "Header icon (`header-icon`)"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-21, M22 part A; four with the owner).
-
-```rust
-/// A column's icon (`header-icon`): an SVG from the host's asset source,
-/// its color, and the badge's fill at rest, if any. Non-exhaustive.
-impl HeaderIcon {
-    pub fn new(path: impl Into<SharedString>, color: Stop) -> Self;
-    /// The badge's tint at rest; none by default.
-    pub fn fill(self, fill: Stop) -> Self;
-}
-
-impl TallTableColumn {
-    pub fn icon(self, icon: HeaderIcon) -> Self;
-    pub fn header_icon(&self) -> Option<&HeaderIcon>;
-}
-
-impl<D: TallTableDelegate> TallTableState<D> {
-    /// One column's icon, by index, set, changed, or removed (`None`)
-    /// without `set_columns`. No event of its own (`pin`: `Pinned` if
-    /// the layout changed the run in effect).
-    pub fn set_column_icon(&mut self, index: usize, icon: Option<HeaderIcon>, cx: &mut Context<Self>);
-}
-
-// TallTableEvent:
-/// A column's icon was pressed (`header-icon`): the left button released
-/// on the icon it went down on.
-HeaderIconPressed(HeaderIconPress),
-
-/// Non-exhaustive.
-pub struct HeaderIconPress {
-    /// The column's index in `set_columns`' list.
-    pub column: usize,
-    /// The icon's badge in window pixels, its visible part when cut.
-    pub bounds: Bounds<Pixels>,
-    /// The keys held at the release.
-    pub modifiers: Modifiers,
-}
-
-// `Stop` is exported with `custom-cells` or `header-icon`.
-// ColumnProbe: `icon: Option<(f32, f32)>`, the badge's left from the
-// column's left edge and its width, as `arrow`.
-```
-
-Names and the probe's shape may be settled further in part B, each change a decision.
-
-**The rules:**
-- **Setting it:** a path is loaded from the asset source once, when it's set; one that doesn't load draws no icon and takes no room, quietly (`header_icon` still gives it back, and the layout probe's `icon` says none is drawn). `set_column_icon` lays the columns out again only when the icon's room changes (one added or removed, a path that fails counted as none); any other new path or color only redraws. `header_icon` gives back the icon as set, loaded or not. A column with no icon is drawn as today.
-- **At rest:** a badge at the header's left, after the cell's padding, whatever the kind's alignment: the host's fill if it gave one, the glyph in the host's color, centered. The name starts a gap after it and keeps its alignment in what's left. At Tycho's density the badge is 18 × 16 px with corners of 4, the glyph 10 px, the gap 6; every length through `sizes()`, and the badge and the raised look held inside the row's height (a density's row may be shorter than its text's scale gives them).
-- **Raised:** under the pointer and while pressed, the badge is replaced by a solid backdrop with a 1 px border and a shadow (26 × 24, corners of 6, the glyph 12 px, at Tycho's density), and the cursor is the pointer. Its fill and border are theme tokens, matched to the canvas in the build. Not raised by the pointer during a drag of the table's: a carried column (`reorder`), a resize, a selection, a scrollbar.
-- **Its target:** the raised look's box, the header's height tall, ending short of `resize`'s band: the hover and the press are found there. The event's bounds and the probe's box are the badge's.
-- **Its room:** the layout's name estimate and `resize`'s fit count the badge and its gap. A column with an icon draws it at every width down to the table's least; one a host's `min_width` or `max_width` (`resize`) leaves narrower than the padding and the badge draws none and takes no press. A header too narrow for the icon, the name, and `sort`'s arrow loses the arrow first.
-- **Cut:** an icon cut at the scrolled columns' left edge is drawn cut, as the name is, and pressed on what shows.
-- **The press:** a left press on the icon is stopped: it selects nothing, starts no drag, is neither reported nor counted by `clicks`, hides the tooltip, focuses the table, and is a press outside an open popover. Its release on the same icon emits `HeaderIconPressed`, by index; a release elsewhere emits nothing. A double press is two.
-- **A context press:** a right press, a long press, and (with `clicks`' `set_ctrl_press_is_context` on) a Ctrl+left press on the icon aren't the icon's: they go on as its header's. With `clicks`, the tap a lifted long press becomes is dropped on the icon as it is everywhere, so a long press reports once.
-- **What's held:** the hovered and the pressed icon are held by index, kept across a move, and forgotten at a hide of their column, at a `set_column_icon` that removes theirs, and when no longer drawn; the pressed one at `set_columns` too (the hovered one stays: the icon at its index is still under the pointer, and GPUI tells a hover only when it changes).
-- **The built features:** `group-headers`: the leaf headers only, in the names' row. `pin`: an icon in each region. `hide`: a hidden column draws none. `reorder`: the lifted column's icon dims with its name, and the carried preview draws it. The rest as the research's "The built features".
-
-**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part C.
-
-- **A. Research and spec** (no shipped code). *Done 2026-11-21.* The research section, the decisions, this spec.
-- **B. The feature, built and tested.** *Done 2026-11-21.* The column's icon and its setter, the room in the layout and the fit, the badge and the raised look, the press and its event, the probe, the window tests, the random test's zone and step, the bare host's switch and hooks, the docs, `pairs` (the Ctrl press's and the long press's tap's sites name two features). Checks B1–B4.
-- **C. The cost and the close.** Its size alone and with every feature, and on each app that builds the table; frame work; the smoke check in three browsers; the README; the close-out ("Closing a milestone", above). Checks C1–C3.
-
-**Done when:**
-
-- [x] **A1. The research and the spec:** the research section answers each of the draft's questions (the feature's edge, the built features, setting it, where the host's menu opens, the canvas gaps, the frame-work risk); its decisions are in `docs/DECISIONS.md`; the API, the rules, and the checks are here. *Evidence:* root `docs/research/tall-table-features.md`, "Header icon (`header-icon`)"; `docs/DECISIONS.md`, "Features", five entries tagged M22 part A, four decided with the owner (2026-11-21); Tycho's decision on the raised look revised to the border its canvas draws.
-- [x] **B1. Off by default, the base unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `size` shows none of the feature's symbols in the base, and `size --against <the commit part B starts from>` reports the base unchanged; the fixtures pass untouched. *Evidence:* `test` (2,452 tests, none failed), `lint`, and `pairs` (17 features, 136 pairs) pass; `size --against 85c0f0c`: the base 9848.3 KiB after wasm-opt at both, none of the feature's symbols in it (0 and 0, against 10 and 18 in its build); no fixture file changed. [`perf/results/2026-11-21-m22-b.md`](perf/results/2026-11-21-m22-b.md).
-- [x] **B2. The feature, natively:** window tests for each rule above:
-  - the badge at the left of a left-aligned and a right-aligned header, the name's alignment kept; a column with no icon, and one whose path doesn't load, drawn as today;
-  - the name's room, the estimate and the fit with it, and the icon drawn at the least width, and not drawn or pressed in a column a `min_width` leaves narrower than its room; the badge and the raised look inside a row shorter than their scaled height; the arrow dropped before the icon in a narrow header, and each still pressed where it's drawn; `resize`'s band still pressed at the edge;
-  - the raised look only on the hovered or pressed icon, and on none while a column is carried; a press on the raised look's ring, outside the badge, the icon's;
-  - `HeaderIconPressed` on a release on the pressed icon and none on a release off it; its column by index after a move, one made between the press and the release too; its bounds the badge's, and the visible part of one cut at the scrolled columns' edge and at `pin`'s run;
-  - the press selecting nothing, starting no drag, and not reported or counted by `clicks` (the next left press a first); a right press on it reported as its header's `Context`, a Ctrl+left press too with the setting on, a long press too, its lifted tap reporting no `HeaderIconPressed`;
-  - `set_column_icon` adding, changing, and removing one, the layout redone only when its room changes (a swap to a path that doesn't load among them); the held icon forgotten at `set_columns`, at a hide of its column, and at a `set_column_icon(index, None)` made between the press and the release (inside one update), which reports nothing; no icon on a group's cell or a hidden column.
-  *Evidence:* `src/state/fixtures/header_icon.rs`, 21 window tests (9 with the feature alone, 12 with the feature each names), and `src/header_icon.rs`'s and `src/column.rs`'s pure ones; `just tall-table test` passes whole (2,452 tests over its 22 builds, 2026-11-21). One rule read more exactly in the build: after a move between the press and the release, the release reports on the icon where it is now (`docs/DECISIONS.md`, "Features", 2026-11-21).
-- [x] **B3. The random test:** a zone for a header's icon and a step that sets or clears one, placed from a stream of its own after `with_popovers`, with no existing case's draw changed; its invariants (a press on an icon starts no drag and changes no selection; a `HeaderIconPressed` names a shown column with an icon; none held across `set_columns`, a hide, or its removal); its control, a press that isn't stopped, fails them. The soak only if the build touches the paging. *Evidence:* `with_icons` (`Step::Icon`, `Zone::Icon`, never among `zones()`), invariants 27 and 28, and the control `Unstopped`, which fails at 27 in the all-on run's 48 cases; every earlier control still fails at its invariant there (`docs/DECISIONS.md`, "Fixtures", 2026-11-21). No soak: the paging is untouched.
-- [x] **B4. The host shows it:** the bare host's switch (an icon on every column, with a fill, from its assets) and hooks (set and clear one column's, the last press read back through the bridge), so `size`, `perf`, and `smoke` reach it. *Evidence:* the host's `header-icon` (an icon a column by its kind, `?icons=off` for none), `__tallTableIcon(column, name)`, and `__tallTableIconPress` through the bridge's `Publish::icon_press`; checked in Chromium in both shapes (the layout's boxes, a press's column and bounds on the badge, Shift at the release, the hook's set, clear, and refusals): [`perf/results/2026-11-21-m22-b.md`](perf/results/2026-11-21-m22-b.md).
-- [ ] **C1. Its cost:** its bytes alone and with every feature, against the base, in a `perf/results/` note, and each app that builds the table in its own `perf/results/` (root `CLAUDE.md`, rule 1); frame work in the protocol's scroll and the wide shape's sideways fling with an icon on every header, against none, within the spread.
-- [ ] **C2. In the browsers:** `just tall-table smoke` draws the icons, hovers one (the raised look), presses one (the event, its bounds over the drawn badge within a pixel), and right-presses one (the header's context press, on a `clicks` build), in Chromium, Firefox, and WebKit, both shapes, alone and with `sort,resize,reorder,select,clicks,group-headers,pin`.
-- [ ] **C3. The README and waiting apps:** the README's section and its API lines, the Features row and cost, the `DataTable` and TanStack tables' rows, the Canvas tradeoffs (no keyboard or screen reader reaches the icon, so a host gives its action another way in; a type told by color alone) and its note that an icon's letters are outlined paths; Tycho's "Waiting on" row flipped to *Ready*.
+None. Next: M23 ("Next milestones").
 
 ---
 
@@ -263,7 +180,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-Tycho's asks for its first release (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK)), drafted 2026-11-21 while its design session goes on; the first of the three, the header icon, is M22 ("Active milestone"). Each is a draft, not a spec: its part A researches it (root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section each), settles the API with the owner, and rewrites the rules and checks here before anything is built. One is open at a time, in this order, after M22.
+Tycho's asks for its first release (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK)), drafted 2026-11-21 while its design session goes on; the first of the three, the header icon, is built (M22, [`docs/milestones.md`](docs/milestones.md)). Each is a draft, not a spec: its part A researches it (root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section each), settles the API with the owner, and rewrites the rules and checks here before anything is built. One is open at a time, in this order.
 
 **Why this order:** the popover's narrowing is settled on the canvas, as the header icon was; the frame at a phone is still being drawn, so touch presses come last, after the icon whose press a tap has to sit with. If the phone's design settles first and Tycho needs it sooner, M23 and M24 swap: neither builds on the other.
 

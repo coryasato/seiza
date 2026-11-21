@@ -71,13 +71,14 @@ size *args:
 # text of that many characters in the third column and two segments last:
 # the same wheels over one point with no popover open (the table scrolls)
 # and with one open on that text (its text scrolls); unset, none opened
-# (the control),
+# (the control), and with `header-icon` built every segment with the
+# host's icon on every column (or none: --icons off, the control),
 # reference + throttled, cold, median of 10. Per-frame work from
 # Chromium's trace, cross-checked by `workRecorder`; late frames and the
 # presented frames; frame intervals; visible cells; a throttled segment
 # that doesn't rest reported, not failed. --runs, --shape, --profile,
 # --cells, --pin, --density, --format, --order, --groups, --hidden,
-# --find, --popover, --label
+# --find, --popover, --icons, --label
 # (writes perf/results/<date>-<label>.json). Run `just tall-table build`
 # first.
 perf *args:
@@ -190,7 +191,12 @@ late *args:
 # wheel scrolling its text and not the table, a part of its text selected
 # and copied, its button's press published, flipped above at the window's
 # bottom, Escape and a press outside closing it, and with `select` Enter
-# opening it and pressing its button).
+# opening it and pressing its button; with `header-icon`, every run with
+# the host's icons, and in both a badge on screen where the layout puts
+# it, the raised look under the pointer, its press published at the
+# release with its bounds over the drawn badge, a press on its ring, a
+# release off it, and a right press, with `clicks` its header's context
+# press).
 # --browsers. `--screens save` runs only the reference screens and keeps
 # them under this tree's commit; `--screens <commit>` compares them with
 # that commit's, pixel for pixel (smoke.ts's header). Run `just

@@ -96,6 +96,13 @@
 // The table's cue for the hovered cell is decided once (the pointer is
 // still) in either.
 //
+// Built with `header-icon`, every column draws the host's icon (one a
+// column, by its kind, with a fill), so the header draws a badge a
+// visible column every frame, and the sideways fling brings new ones in;
+// or with `--icons off` none (`?icons=off`: the control that splits the
+// code's cost from the drawing's), checked at open against the layout
+// probe. The pointer rests over the cells, so none is raised.
+//
 // Each segment is traced on its own: per-frame work is the trace's
 // `ProxyMain::BeginMainFrame` (`frameWork`), cross-checked by
 // `workRecorder` (each rAF that drew); late frames and intervals come from
@@ -129,7 +136,7 @@
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
 //          [--density <row>,<text>[,<width>]] [--format off] [--order reverse]
 //          [--groups 0] [--hidden <n>] [--find <term>] [--popover <chars>]
-//          [--label <name>]
+//          [--icons off] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -199,7 +206,11 @@ const POPOVER = features.includes('popover');
 const POPOVER_OPTION = option('popover');
 if (POPOVER_OPTION !== undefined && !POPOVER) throw new Error('--popover needs the host built with popover: `just tall-table build popover`');
 if (POPOVER_OPTION !== undefined && !(/^\d+$/.test(POPOVER_OPTION) && Number(POPOVER_OPTION) > 0)) throw new Error(`--popover ${POPOVER_OPTION}: not a positive count of characters`);
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}${FIND ? `, find: ${FIND_OPTION === undefined ? 'none' : JSON.stringify(FIND_OPTION)}` : ''}${POPOVER ? `, popover: ${POPOVER_OPTION === undefined ? 'none opened' : `${POPOVER_OPTION} characters`}` : ''}`);
+const ICONS = features.includes('header-icon');
+const ICONS_OPTION = option('icons');
+if (ICONS_OPTION !== undefined && !ICONS) throw new Error('--icons needs the host built with header-icon: `just tall-table build header-icon`');
+if (ICONS_OPTION !== undefined && ICONS_OPTION !== 'off') throw new Error(`--icons ${ICONS_OPTION}: only \`off\` (the control)`);
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}${FIND ? `, find: ${FIND_OPTION === undefined ? 'none' : JSON.stringify(FIND_OPTION)}` : ''}${POPOVER ? `, popover: ${POPOVER_OPTION === undefined ? 'none opened' : `${POPOVER_OPTION} characters`}` : ''}${ICONS ? `, icons: ${ICONS_OPTION ?? 'on'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -428,6 +439,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (HIDDEN_OPTION !== undefined) params.hidden = HIDDEN_OPTION;
     if (FIND_OPTION !== undefined) params.find = FIND_OPTION;
     if (POPOVER_OPTION !== undefined) params['popover-long'] = POPOVER_OPTION;
+    if (ICONS_OPTION !== undefined) params.icons = ICONS_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
     const browser = session.context.browser()!;
@@ -441,6 +453,11 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (HIDE) {
       const wrong = layout.columns.findIndex((column, place) => Boolean(column.hidden) !== hiddenAtOpen(order[place]!) || (column.hidden ? column.width !== 0 : column.width === 0));
       if (wrong >= 0) throw new Error(`column ${order[wrong]} ${layout.columns[wrong]!.hidden ? 'hidden' : 'shown'} at open, width ${layout.columns[wrong]!.width}, not ${hiddenAtOpen(order[wrong]!) ? 'hidden' : 'shown'} (--hidden ${HIDDEN_OPTION ?? 'unset'})`);
+    }
+    if (ICONS) {
+      // Every shown column's badge on the layout, or none (`--icons off`).
+      const wrong = layout.columns.findIndex((column) => !column.hidden && Boolean(column.icon) !== (ICONS_OPTION !== 'off'));
+      if (wrong >= 0) throw new Error(`column ${order[wrong]} ${layout.columns[wrong]!.icon ? 'has' : 'has no'} icon at open (--icons ${ICONS_OPTION ?? 'unset'})`);
     }
     if (FIND && (start.find?.term ?? null) !== (FIND_OPTION ?? null)) throw new Error(`the term ${JSON.stringify(start.find?.term)} at open, not ${JSON.stringify(FIND_OPTION ?? null)}`);
     if (REORDER && JSON.stringify(order) !== JSON.stringify(ORDER_OPTION === 'reverse' ? order.map((_, place) => order.length - 1 - place) : order.map((_, place) => place))) throw new Error(`the columns at open in the order ${JSON.stringify(order.slice(0, 12))}…, not ${ORDER_OPTION ?? "the list's own"}`);
@@ -696,7 +713,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), ...(FIND ? { find: FIND_OPTION ?? null } : {}), ...(POPOVER ? { popoverLong: POPOVER_OPTION === undefined ? null : Number(POPOVER_OPTION), ...(POPOVER_OPTION === undefined ? {} : { popoverWheels: { ...popoverWheels, px: POPOVER_WHEEL_PX, everyMs: SCROLL_EVERY_MS } }) } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), ...(FIND ? { find: FIND_OPTION ?? null } : {}), ...(POPOVER ? { popoverLong: POPOVER_OPTION === undefined ? null : Number(POPOVER_OPTION), ...(POPOVER_OPTION === undefined ? {} : { popoverWheels: { ...popoverWheels, px: POPOVER_WHEEL_PX, everyMs: SCROLL_EVERY_MS } }) } : {}), ...(ICONS ? { icons: ICONS_OPTION ?? 'on' } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

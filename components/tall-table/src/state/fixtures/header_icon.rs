@@ -257,6 +257,14 @@ impl<'a> Sheet<'a> {
         self.read(|table| table.body.origin + point(px(table.gutter_width()), -table.sizes().row()))
     }
 
+    /// Where the frame painted the look of column `column`'s icon (its
+    /// badge, or its raised box), in window pixels.
+    fn painted(&mut self, column: usize) -> Bounds<Pixels> {
+        let selector: &'static str =
+            Box::leak(format!("tall-table-icon-look-{column}").into_boxed_str());
+        self.cx.debug_bounds(selector).expect("a painted icon")
+    }
+
     /// The left edge of the column at `place`, in window pixels.
     fn left(&mut self, place: usize) -> Pixels {
         let left = self.read(|table| {
@@ -733,6 +741,7 @@ fn no_icon_is_raised_while_a_column_is_carried(cx: &mut TestAppContext) {
 fn a_release_on_the_pressed_icon_reports(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, vec![text("a"), text("b"), text("c")], 900.0);
     let badge = sheet.badge(1);
+    assert_eq!(sheet.painted(1), badge, "the badge as painted");
     let at = sheet.icon_at(1);
     sheet.press(at);
     assert_eq!(sheet.presses(), [], "nothing at the press");
@@ -1122,7 +1131,9 @@ fn a_hidden_column_draws_none_and_forgets_its_press(cx: &mut TestAppContext) {
 }
 
 /// The icons are in the names' row, under the groups' rows, whose cells
-/// have none.
+/// have none. The names' row hangs from the header's bottom inside its
+/// border there, a pixel higher: the press's bounds are the badge as
+/// painted, at rest and raised.
 #[cfg(feature = "group-headers")]
 #[gpui_kit::test]
 fn a_groups_cell_has_no_icon(cx: &mut TestAppContext) {
@@ -1130,8 +1141,15 @@ fn a_groups_cell_has_no_icon(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, columns, 900.0);
     assert_eq!(sheet.read(|table| table.group_rows()), 1);
     assert_eq!(sheet.read(|table| table.icon_state.drawn.len()), 3);
-    let badge = sheet.badge(0);
+    let mut badge = sheet.badge(0);
+    badge.origin.y -= px(1.);
+    assert_eq!(sheet.painted(0), badge, "the badge as painted");
+    assert_eq!(sheet.drawn(0).expect("an icon").look, badge);
     let at = sheet.icon_at(0);
+    sheet.hover(at);
+    let raised = sheet.drawn(0).expect("an icon");
+    assert!(raised.raised);
+    assert_eq!(sheet.painted(0), raised.look, "the raised look as painted");
     sheet.click(at);
     assert_eq!(sheet.presses(), [press_of(0, badge)]);
     // The same x in the group's row: the group's cell.

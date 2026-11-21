@@ -466,8 +466,8 @@ export function buildName(features: string[]): string {
   return features.length ? features.join('+') : 'base';
 }
 
-export type { Cell, Click, CopyState, GroupCell, Layout, Popover, Selection, Shown, Sort } from '../host/web/src/probe.ts';
-import type { Cell, Click, CopyState, GroupCell, Layout, Popover, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+export type { Cell, Click, CopyState, GroupCell, IconPress, Layout, Popover, Selection, Shown, Sort } from '../host/web/src/probe.ts';
+import type { Cell, Click, CopyState, GroupCell, IconPress, Layout, Popover, Selection, Shown, Sort } from '../host/web/src/probe.ts';
 
 type Global = {
   __tallTable?: Shown;
@@ -699,7 +699,106 @@ export function gutterAt(layout: Layout, view: Shown, row: number): { x: number;
   return { x: layout.left - 6, y: layout.top + (row - view.top + 0.5) * layout.rowHeight };
 }
 export function headerAt(layout: Layout, view: Shown, column: number): { x: number; y: number } {
-  return { ...cellAt(layout, view, 0, column), y: layout.top - layout.rowHeight / 2 };
+  // Clear of the column's icon (`header-icon`), whose press is its own: a
+  // narrow column's middle can lie in its target.
+  const { width } = layout.columns[column]!;
+  const x = layout.left + screenLeft(layout, column, view.scrollX) + Math.max(width / 2, Math.min(iconEnd(layout, column) + ICON_CLEAR_PX, width - ICON_CLEAR_PX));
+  return { x, y: layout.top - layout.rowHeight / 2 };
+}
+
+/** With `header-icon`: how far right of an icon's badge a press is surely
+ *  its header's: past the raised look's reach (4 px at the base's text),
+ *  where the hover and the press are the icon's. */
+export const ICON_CLEAR_PX = 8;
+
+/** With `header-icon`: the right edge of the badge of the column at
+ *  `place`, in CSS px from the column's left; 0 where none is drawn (or
+ *  without the feature). */
+export function iconEnd(layout: Layout, place: number): number {
+  const { icon } = layout.columns[place]!;
+  return icon ? icon.x + icon.width : 0;
+}
+
+/** With `header-icon`: the last press of a header's icon, its `count` one
+ *  more at each (`host/crate/src/host.rs`'s `ICON_PRESS_GLOBAL`), and the
+ *  host's hook that sets or clears one column's (`ICON_HOOK`). */
+export const ICON_PRESS_GLOBAL = '__tallTableIconPress';
+export const ICON_HOOK = '__tallTableIcon';
+
+/** With `header-icon`: how many icon presses the host has published (0
+ *  before the first). */
+export async function iconPressCount(page: Page): Promise<number> {
+  return (await global<IconPress>(page, ICON_PRESS_GLOBAL))?.count ?? 0;
+}
+
+/** With `header-icon`: the first icon press published after `count`, or
+ *  null if none comes in `timeout` ms. */
+export async function iconPressAfter(page: Page, count: number, timeout = 5_000): Promise<IconPress | null> {
+  const handle = await page
+    .waitForFunction(({ name, count }) => {
+      const press = (globalThis as Record<string, unknown>)[name] as IconPress | undefined;
+      return press && press.count > count ? press : false;
+    }, { name: ICON_PRESS_GLOBAL, count }, { timeout, polling: 10 })
+    .catch(() => null);
+  return handle ? ((await handle.jsonValue()) as IconPress) : null;
+}
+
+/** With `header-icon` and `?perf`: the icon of the column at `index` set
+ *  to one of the host's (`text`, `number`, `time`) or cleared (`null`),
+ *  through the host's hook, then the layout once that column draws one or
+ *  none. */
+export async function iconThrough(page: Page, index: number, name: 'text' | 'number' | 'time' | null, timeout = 10_000): Promise<Layout> {
+  const sent = await page.evaluate(({ hook, index, name }) => (globalThis as unknown as Record<string, (column: number, name: string | null) => boolean>)[hook]!(index, name), { hook: ICON_HOOK, index, name });
+  if (!sent) throw new Error(`the host's icon hook refused (${index}, ${JSON.stringify(name)})`);
+  const handle = await page.waitForFunction(
+    ({ index, drawn }) => {
+      const layout = (globalThis as Global).__tallTableLayout;
+      const column = layout?.columns.find((column, place) => (column.index ?? place) === index);
+      return column && Boolean(column.icon) === drawn ? layout : false;
+    },
+    { index, drawn: name !== null },
+    { timeout, polling: 10 },
+  );
+  return (await handle.jsonValue()) as Layout;
+}
+
+/** The box, `[x, y, width, height]` in CSS px of the page, around every
+ *  pixel two screenshots of `clip` (`screenshot`'s) draw more than
+ *  `within` apart in a color channel; null if none does. Read in the
+ *  page. */
+export async function differingBox(page: Page, a: string, b: string, clip: { x: number; y: number; width: number; height: number }, within: number): Promise<[number, number, number, number] | null> {
+  return page.evaluate(
+    async ({ pngs, within, clip }) => {
+      const [a, b] = await Promise.all(
+        pngs.map(async (png) => {
+          const image = new Image();
+          image.src = `data:image/png;base64,${png}`;
+          await image.decode();
+          const canvas = new OffscreenCanvas(image.width, image.height);
+          const context = canvas.getContext('2d')!;
+          context.drawImage(image, 0, 0);
+          return context.getImageData(0, 0, image.width, image.height);
+        }),
+      );
+      if (!a || !b || a.width !== b.width || a.height !== b.height) return null;
+      let [left, top, right, bottom] = [a.width, a.height, -1, -1];
+      for (let y = 0; y < a.height; y++) {
+        for (let x = 0; x < a.width; x++) {
+          const at = (y * a.width + x) * 4;
+          if (Math.abs(a.data[at]! - b.data[at]!) > within || Math.abs(a.data[at + 1]! - b.data[at + 1]!) > within || Math.abs(a.data[at + 2]! - b.data[at + 2]!) > within) {
+            left = Math.min(left, x);
+            right = Math.max(right, x);
+            top = Math.min(top, y);
+            bottom = Math.max(bottom, y);
+          }
+        }
+      }
+      if (right < 0) return null;
+      const scale = a.width / clip.width;
+      return [clip.x + left / scale, clip.y + top / scale, (right + 1 - left) / scale, (bottom + 1 - top) / scale] as [number, number, number, number];
+    },
+    { pngs: [a, b], within, clip },
+  );
 }
 export function cornerAt(layout: Layout): { x: number; y: number } {
   return { x: layout.left - 6, y: layout.top - layout.rowHeight / 2 };
@@ -1141,10 +1240,14 @@ export const SELECT_OFFSET_PX = 8;
 
 /** With `reorder`: where to press column `place`'s header for a drag, CSS
  *  px: a quarter of the way in (at most 12 px), clear of `resize`'s band
- *  and `sort`'s arrow at its right. */
+ *  and `sort`'s arrow at its right, and of `header-icon`'s icon at its
+ *  left. */
 export function moveGripAt(layout: Layout, place: number, scrollX: number): { x: number; y: number } {
   const { width } = layout.columns[place]!;
-  return { x: layout.left + screenLeft(layout, place, scrollX) + Math.min(12, width / 4), y: layout.top - layout.rowHeight / 2 };
+  // With an icon (`header-icon`), past it: a press on it is the icon's.
+  const icon = iconEnd(layout, place);
+  const x = icon ? Math.min(icon + ICON_CLEAR_PX, width / 2) : Math.min(12, width / 4);
+  return { x: layout.left + screenLeft(layout, place, scrollX) + x, y: layout.top - layout.rowHeight / 2 };
 }
 
 /** With `reorder`: an x (CSS px) that puts the drag's gap after place

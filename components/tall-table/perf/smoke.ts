@@ -160,6 +160,21 @@
 // flipped above; Escape and a press outside closing it (with `select`,
 // the press selecting its cell); and with `select`, Enter on the active
 // cell opening it and Enter again pressing its button.
+// Built with `header-icon`, every run draws the host's icons (one a
+// column, by its kind, with a fill), so each feature's header presses
+// above land clear of them; and it runs both shapes again: every column's
+// badge on the layout; a number column's badge on screen (the screen
+// against the same header with its icon cleared through the host's hook)
+// where the layout puts it, and the screen as it was with the icon set
+// again; the pointer over it drawing the raised look, past the badge on
+// every side, the next icon's header unchanged, and the cursor the
+// pointer; nothing published at its press, and at its release the press
+// (`__tallTableIconPress`): its column by index, its bounds over the drawn
+// badge within 0.75 px; a press on the raised look's ring, outside the
+// badge, the icon's too; a press released off the icon nothing; none of
+// them selecting (`select`), sorting (`sort`), or reported (`clicks`); a
+// right press no icon press, and with `clicks` its header's context
+// press; and the pointer away, the screen as at rest.
 // Chromium is granted
 // `clipboard-read` and
 // `clipboard-write` (a real Chrome grants a focused page the write);
@@ -185,7 +200,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, findThrough, stepThrough, tintsIn, type Found, LONG_AT, POPOVER_BUTTON_GLOBAL, popoverThrough, popoverWhere, type Popover, type PopoverPress, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { ICON_CLEAR_PX, iconEnd, differingBox, iconPressAfter, iconPressCount, iconThrough, type IconPress, GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, findThrough, stepThrough, tintsIn, type Found, LONG_AT, POPOVER_BUTTON_GLOBAL, popoverThrough, popoverWhere, type Popover, type PopoverPress, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -217,6 +232,7 @@ const groupHeaders = builtFeatures().includes('group-headers');
 const hide = builtFeatures().includes('hide');
 const find = builtFeatures().includes('find');
 const popover = builtFeatures().includes('popover');
+const headerIcon = builtFeatures().includes('header-icon');
 /** The popover runs' button label and long text (`?popover=`,
  *  `?popover-long=`): under the cap, longer than the popover shows. */
 const POPOVER_LABEL = 'Open row';
@@ -947,7 +963,9 @@ async function checkSort(page: Page, label: string, layout: Layout, shape: strin
     if (other.glyphs && other.glyphs === other.icons) failed(`${label}: column ${column}'s arrow drew the same with the icons as with the glyphs`);
     if (select) {
       // A press beside the arrow selects the column; one on it, nothing.
-      await pressAt(page, { x: layout.left + screenLeft(layout, column, 0) + 8, y: arrow.y });
+      // Past the column's icon (`header-icon`), whose press is its own.
+      const icon = iconEnd(layout, column);
+      await pressAt(page, { x: layout.left + screenLeft(layout, column, 0) + (icon ? icon + ICON_CLEAR_PX : 8), y: arrow.y });
       await selected(page, { kind: 'columns', anchor: [0, column], head: [0, column] }).catch(() => failed(`${label}: a press beside column ${column}'s arrow didn't select the column`));
       await page.keyboard.press('Escape');
       await selected(page, null).catch(() => failed(`${label}: Escape kept the selection`));
@@ -1482,6 +1500,201 @@ async function checkPopover(page: Page, label: string, start: Layout): Promise<s
     }
   }
   return `, ${notes.join('; ')}`;
+}
+
+
+/** How long an icon press that reports nothing is waited on. */
+const ICON_QUIET_MS = 400;
+/** The raised look's reach past the badge at the base's text (the
+ *  table's `REACH`), scaled with `density`'s text as the badge's width is
+ *  (18 px at the base's). */
+const ICON_BADGE_PX = 18;
+/** A press's bounds may sit this far from the badge on screen: GPUI
+ *  paints in whole device pixels, half a CSS px at Chromium's DPR 2 and
+ *  one at the others' 1, where a badge at an x of .5 is painted half a px
+ *  off. Under a pixel, so bounds a row off the badge fail. */
+const ICON_DRAWN_PX = 0.75;
+const ICON_REACH_PX = 4;
+
+/** With `header-icon`: the icons on the layout; one number column's badge
+ *  drawn where the layout puts it (against its header with the icon
+ *  cleared), raised under the pointer, pressed (the press published at
+ *  the release, its bounds over the drawn badge), pressed on its ring,
+ *  released off it, and right-pressed (its header's context press, with
+ *  `clicks`), none of it selecting, sorting, or a `clicks` press. */
+async function checkIcons(page: Page, label: string, opened: Layout, view: Shown): Promise<string> {
+  const notes: string[] = [];
+  const shownColumns = opened.columns.filter((column) => !column.hidden);
+  const without = shownColumns.filter((column) => !column.icon);
+  if (without.length) return failed(`${label}: ${without.length} of ${shownColumns.length} columns have no icon on the layout (${without.slice(0, 3).map((column) => column.name).join(', ')}…)`) ?? '';
+  notes.push(`${shownColumns.length} columns' badges on the layout`);
+  // A right-aligned column wholly in view, not the first: clearing its
+  // icon moves nothing in its header's left half, where its name isn't.
+  const numbers = ['integer', 'float', 'decimal'];
+  const inView = (place: number) => {
+    const left = screenLeft(opened, place, view.scrollX);
+    const column = opened.columns[place]!;
+    return !column.hidden && column.icon && left >= pinEdgeOr0(opened, place) && left + column.width <= opened.cellsWidth;
+  };
+  const place = opened.columns.findIndex((column, at) => at > 0 && numbers.includes(column.kind) && inView(at));
+  const other = opened.columns.findIndex((_, at) => at !== place && at !== place - 1 && at !== place + 1 && inView(at));
+  if (place < 0 || other < 0) return failed(`${label}: no number column with an icon wholly in view, and another apart from it`) ?? '';
+  const column = opened.columns[place]!;
+  const index = column.index ?? place;
+  const icon = column.icon!;
+  const scale = icon.width / ICON_BADGE_PX;
+  const reach = ICON_REACH_PX * scale;
+  const headerTop = opened.top - opened.rowHeight;
+  const columnLeft = opened.left + screenLeft(opened, place, view.scrollX);
+  /** The badge by the layout: its left and width; its middle the names'
+   *  row's. Its height is the table's to say (a short row shrinks it). */
+  const badge = { x: columnLeft + icon.x, width: icon.width, middle: opened.top - opened.rowHeight / 2 };
+  const center = { x: badge.x + badge.width / 2, y: badge.middle };
+  const away = { x: opened.left + 300, y: opened.top + 300 };
+  /** The header's left part: the badge and the raised look's reach, short
+   *  of the name. Whole px, so a screenshot's pixels are the clip's. */
+  const clipOf = (at: number) => {
+    const left = opened.left + screenLeft(opened, at, view.scrollX);
+    const end = opened.columns[at]!.icon!.x + opened.columns[at]!.icon!.width + reach + 1;
+    return { x: Math.floor(left), y: Math.floor(headerTop), width: Math.ceil(end) + 1, height: Math.floor(opened.rowHeight) };
+  };
+  const clip = clipOf(place);
+  /** A screen of `clip` once `done` holds for it, or after 1 s, whatever
+   *  it is then (`settled`'s reason: Firefox's screenshot can run a frame
+   *  behind). */
+  const screenWhen = async (clip: { x: number; y: number; width: number; height: number }, done: (png: string) => Promise<boolean>): Promise<string> => {
+    let png = await screenshot(page, clip);
+    for (let waited = 0; waited < 1_000 && !(await done(png)); waited += 50) {
+      await page.waitForTimeout(50);
+      png = await screenshot(page, clip);
+    }
+    return png;
+  };
+  const same = (a: string) => async (b: string) => (await differingPixels(page, a, b, 0)) === 0;
+  const differs = (a: string) => async (b: string) => (await differingPixels(page, a, b, 0)) > 0;
+
+  // At rest, then cleared: what differs is the badge.
+  await page.mouse.move(away.x, away.y);
+  await page.waitForTimeout(100);
+  const rest = await screenshot(page, clip);
+  const otherRest = await screenshot(page, clipOf(other));
+  const clearedLayout = await iconThrough(page, index, null);
+  if (clearedLayout.columns[place]!.icon) failed(`${label}: column ${index}'s icon cleared, the layout still has its badge`);
+  const cleared = await screenWhen(clip, differs(rest));
+  const drawn = await differingBox(page, rest, cleared, clip, 0);
+  await iconThrough(page, index, 'number');
+  const again = await screenWhen(clip, same(rest));
+  if ((await differingPixels(page, rest, again, 0)) > 0) failed(`${label}: column ${index}'s icon set again doesn't draw as at open`);
+  if (!drawn) return failed(`${label}: column ${index}'s header draws the same with its icon cleared: no badge on screen`) ?? '';
+  const drawnMiddle = drawn[1] + drawn[3] / 2;
+  if (Math.abs(drawn[0] - badge.x) > 1 || Math.abs(drawn[2] - badge.width) > 1 || Math.abs(drawnMiddle - badge.middle) > 1 || drawn[3] > opened.rowHeight - 1)
+    failed(`${label}: column ${index}'s badge drawn at ${JSON.stringify(drawn.map((value) => Number(value.toFixed(2))))}, the layout's at x ${badge.x.toFixed(2)}, ${badge.width} wide, its middle ${badge.middle.toFixed(2)}`);
+  notes.push(`column ${index}'s badge drawn at [${drawn.map((value) => value.toFixed(1)).join(', ')}], where the layout puts it, and again after a clear and a set`);
+
+  // Under the pointer: the raised look, past the badge on every side;
+  // the other icon's header as it was.
+  await page.mouse.move(center.x, center.y);
+  await page.waitForTimeout(50);
+  const raised = await screenWhen(clip, differs(rest));
+  const lifted = await differingBox(page, rest, raised, clip, 0);
+  if (!lifted) failed(`${label}: the pointer over column ${index}'s icon drew nothing new: no raised look`);
+  else if (lifted[0] > drawn[0] - 1 || lifted[0] + lifted[2] < drawn[0] + drawn[2] + 1 || lifted[1] > drawn[1] - 1 || lifted[1] + lifted[3] < drawn[1] + drawn[3] + 1)
+    failed(`${label}: the raised look redrew ${JSON.stringify(lifted.map((value) => Number(value.toFixed(2))))}, not past the badge ${JSON.stringify(drawn.map((value) => Number(value.toFixed(2))))} on every side`);
+  if ((await differingPixels(page, otherRest, await screenshot(page, clipOf(other)), 0)) > 0) failed(`${label}: the pointer over column ${index}'s icon redrew column ${opened.columns[other]!.index ?? other}'s`);
+  const cursor = await page.evaluate(() => getComputedStyle(document.querySelector('canvas')!).cursor);
+  if (cursor !== 'pointer') failed(`${label}: the cursor over an icon is ${cursor}, not the pointer`);
+  if (lifted) notes.push(`raised under the pointer (redrawn [${lifted.map((value) => value.toFixed(1)).join(', ')}]), the cursor the pointer, column ${opened.columns[other]!.index ?? other}'s as it was`);
+
+  // What its presses must leave alone.
+  const before = (await shown(page)).shown;
+  const clicksBefore = clicks ? await clickCount(page) : 0;
+  const untouched = async (what: string) => {
+    const now = (await shown(page)).shown;
+    if (select && JSON.stringify(now.selection ?? null) !== JSON.stringify(before.selection ?? null)) failed(`${label}: ${what} selected ${JSON.stringify(now.selection)}`);
+    if (sort && JSON.stringify(now.sort ?? null) !== JSON.stringify(before.sort ?? null)) failed(`${label}: ${what} sorted ${JSON.stringify(now.sort)}`);
+  };
+  /** The press published after `count`, checked: its column, its bounds
+   *  over the layout's badge and the drawn one within a pixel, no key. */
+  const expect = async (what: string, count: number): Promise<IconPress | null> => {
+    const press = await iconPressAfter(page, count);
+    if (!press) return failed(`${label}: ${what}: no icon press published`);
+    const [x, y, width, height] = press.bounds;
+    const offLayout = Math.max(Math.abs(x - badge.x), Math.abs(width - badge.width), Math.abs(y + height / 2 - badge.middle));
+    const offDrawn = Math.max(...press.bounds.map((value, at) => Math.abs(value - drawn[at]!)));
+    if (press.count !== count + 1 || press.column !== index || offLayout > 1 || offDrawn > ICON_DRAWN_PX || press.modifiers.length)
+      return failed(`${label}: ${what}: published ${JSON.stringify(press)}, not column ${index} over the drawn badge ${JSON.stringify(drawn.map((value) => Number(value.toFixed(2))))} with no key, count ${count + 1}`);
+    return press;
+  };
+  const silent = async (what: string, count: number): Promise<boolean> => {
+    const press = await iconPressAfter(page, count, ICON_QUIET_MS);
+    if (press) failed(`${label}: ${what}: published ${JSON.stringify(press)}`);
+    return !press;
+  };
+
+  // The press: nothing at the button's going down, the press at its release.
+  let count = await iconPressCount(page);
+  await page.mouse.down({ clickCount: 1 });
+  const held = await silent("an icon's press, the button down", count);
+  await page.mouse.up({ clickCount: 1 });
+  const pressed = await expect("an icon's press", count);
+  await untouched("an icon's press");
+  if (held && pressed) notes.push(`pressed: nothing at the press, column ${pressed.column} at the release, its bounds [${pressed.bounds.map((value) => value.toFixed(1)).join(', ')}] over the drawn badge within ${ICON_DRAWN_PX} px`);
+  if (pressed) count++;
+  await page.waitForTimeout(APART_MS);
+
+  // On the raised look's ring, outside the badge: the icon's too.
+  const ring = { x: badge.x - reach / 2, y: badge.middle };
+  await pressAt(page, ring);
+  const ringed = await expect("a press on the raised look's ring", count);
+  await untouched("a press on the raised look's ring");
+  if (ringed) {
+    count++;
+    notes.push(`a press on its ring (${(reach / 2).toFixed(1)} px left of the badge) the icon's`);
+  }
+  await page.waitForTimeout(APART_MS);
+
+  // Pressed on the icon, released off it: nothing.
+  await page.mouse.move(center.x, center.y);
+  await page.waitForTimeout(50);
+  await page.mouse.down({ clickCount: 1 });
+  await page.mouse.move(away.x, away.y, { steps: 4 });
+  await page.mouse.up({ clickCount: 1 });
+  const off = await silent('a press released off the icon', count);
+  await untouched('a press released off the icon');
+  if (off) notes.push('released off it, nothing');
+  await page.waitForTimeout(APART_MS);
+  if (clicks && (await clickCount(page)) !== clicksBefore) failed(`${label}: the icon's left presses were reported as ${(await clickCount(page)) - clicksBefore} presses of \`clicks\``);
+
+  // A right press: not the icon's; with `clicks`, its header's context press.
+  await page.mouse.move(center.x, center.y);
+  await page.waitForTimeout(50);
+  await page.mouse.down({ button: 'right', clickCount: 1 });
+  await page.mouse.up({ button: 'right', clickCount: 1 });
+  const notIcon = await silent('a right press on an icon', count);
+  if (clicks) {
+    const click = await clickAfter(page, clicksBefore);
+    if (!click || click.kind !== 'context' || click.target !== 'column' || click.column !== place || click.count !== clicksBefore + 1) failed(`${label}: a right press on an icon: reported ${JSON.stringify(click)}, not a context press on the column at place ${place}`);
+    else if (notIcon) notes.push("a right press its header's context press, no icon press");
+  } else if (notIcon) notes.push('a right press no icon press');
+  if (select) {
+    // A context press selects its header's column (`clicks`' rule, or
+    // nothing without it): cleared for the rest check.
+    await page.keyboard.press('Escape');
+  }
+
+  // The pointer away: at rest again.
+  await page.mouse.move(away.x, away.y);
+  const settledRest = await screenWhen(clip, same(rest));
+  if ((await differingPixels(page, rest, settledRest, 0)) > 0) failed(`${label}: with the pointer away, column ${index}'s header doesn't draw as at rest`);
+  else notes.push('at rest again with the pointer away');
+  return `, ${notes.join('; ')}`;
+}
+
+/** The left edge a scrolled column must clear to be wholly in view, CSS px
+ *  from the cells' left: `pin`'s run's edge for a scrolled column, 0 for a
+ *  pinned one (or without `pin`). */
+function pinEdgeOr0(layout: Layout, place: number): number {
+  return place < (layout.pinned ?? 0) ? 0 : pinEdge(layout);
 }
 
 /** With `pin`: the pinned and scrolled regions' screen under a sideways
@@ -2699,7 +2912,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false, popping: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false, popping: false, iconing: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -2726,10 +2939,11 @@ try {
     if (hide) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, hiding: true })));
     if (find) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, finding: true })));
     if (popover) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, popping: true })));
+    if (headerIcon) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, iconing: true })));
     // In every build: the base's `replace_rows`.
     runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, replacing: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding, popping } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}${popping ? ' popover' : ''}`;
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding, popping, iconing } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}${popping ? ' popover' : ''}${iconing ? ' icons' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -2775,6 +2989,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The icon runs check their own, from the first screen.
+        if (iconing) {
+          const iconed = await checkIcons(page, label, layout, start);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${iconed}`);
+          continue;
         }
         // The popover runs check their own, from the first screen.
         if (popping) {

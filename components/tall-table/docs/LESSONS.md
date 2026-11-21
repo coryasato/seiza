@@ -873,3 +873,14 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - A new zone couldn't join `zones()`: the gestures draw their zone from that list, so adding one would have changed every existing case's draw. The icon's presses are placed from a stream instead, and no column has an icon until a placed step sets one, so a case with none placed runs exactly as before.
 - The test app's asset source loads nothing, so an icon given at `new` is checked, fails to load, and is never drawn, silently (the assertion that names it is off in the table's own tests). The window tests open with no columns, hand the state their source, then set the columns: "a path that doesn't load draws none" only means something beside paths that do.
 - `seiza::Bootstrap` takes one asset source, and the bare host already gave it `sort`'s. A second feature with icons meant one source listing what the features built need, by `cfg`, rather than a source a feature.
+
+## M22: the header icon (part C, 2026-11-21)
+
+**Results:** [`perf/results/2026-11-21-m22-c.md`](../perf/results/2026-11-21-m22-c.md) (the bytes, the apps', frame work, the smoke check in three browsers, the fix).
+
+**Surprises:**
+- The press's bounds were a pixel off the badge under group rows, and the window test under groups agreed with them: its expected box was worked out by the same arithmetic as the bounds, so both were wrong together. The smoke check found it because it read the badge off the screen (the header against itself with the icon cleared) instead of off the layout. A test of where something is drawn needs one side that comes from the paint (`debug_bounds` natively, pixels in a browser).
+- It nearly didn't: the check's tolerance was the spec's "within a pixel", and the error was exactly a pixel, so the run passed. The numbers in the passing line (83 drawn, 84 reported, the same in three browsers) gave it away. A tolerance sized to rounding (half a device pixel) would have failed; a round one hides the bug it was written for.
+- With the feature built, every other feature's smoke run draws icons too, and the start of a header stopped being the header's: `sort`'s "press beside the arrow" and the reorder grip pressed 8 and 12 px in, on the icon. A feature that takes over part of a target changes the other features' scripts, not only its own.
+- Alone the feature reads +62 KiB, and with every other feature on +12.7: it's the first feature to draw an SVG, and most of its bytes alone are GPUI's SVG path, which `sort`'s icons link as well. A feature's cost alone can be mostly a dependency the next feature shares; the size with everything else on says what its own code is.
+
