@@ -937,3 +937,14 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - "Enter goes on to the host" has a reading on the web that needs no host: gpui-pre-web cancels a keydown only when something handled it, so `defaultPrevented` on the page's own listener says whether the table took the key. It read true on a cut text and false on a number's cell in the three browsers.
 - The as-built popover run's copy pasted nothing three times in Chromium while eighteen release builds ran beside it, its selection drawn each time, and passed in every browser once they finished. The smoke check was being debugged on a machine the same session had loaded; a failure in a check the change didn't touch is read against the load first.
 
+## M24: touch presses, researched and specced (part A, 2026-11-22)
+
+**Results:** [`perf/results/2026-11-22-m24-a-spike.md`](../perf/results/2026-11-22-m24-a-spike.md) (what each browser delivers, by three ways of sending a touch).
+
+**Surprises:**
+- Most of the draft was already built. A tap, a pan that reports nothing, and a long press with its position all worked in the three browsers before a line was written; the draft's five questions came down to one branch in the arrow's and the band's listeners. The draft was written from what a phone would need, not from what the table did under a finger; ten minutes of sending touches first would have drafted a smaller milestone.
+- The draft asked whether the setting is "the host's for the whole table, or each press judged by its pointer's kind" as if the second might not be possible. GPUI's window keeps the last input's kind and a tap's press is handled while it still says touch, so the table can judge each press and the host detects nothing. The question to ask first of a setting a host would switch by device is whether GPUI already knows.
+- "Only Chromium can be driven to a long press" was the harness's rule since `clicks`, and true of real touches. A `PointerEvent` the page's own script makes with type `touch` is enough for gpui-pre-web in every browser: it reads the type and the position and ignores a failed pointer capture. The rule was about what Playwright sends, and had been read as what the table can be tested with.
+- The spike's last step failed in three browsers for a reason that had nothing to do with it: the step before was a pan whose momentum was still running, and a touch that lands on a fling catches it and can never be a long press. Three browsers agreeing made it look like a finding.
+- A finger can't resize, move a column, or drag a selection, with or without this milestone: a moving finger is a pan unless something claims the touch at its landing. Nobody had written that down because nobody had held a finger on a band.
+

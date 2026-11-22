@@ -1787,3 +1787,96 @@ Two steps from a stream of their own, placed after `with_icons` so no case's dra
 - **A per-column or per-cell rule from the host** (a callback deciding which cells): one enum now; a host that needs its own rule asks.
 - **The fade at rest** on every cut cell, and **a fade on numbers:** Tycho drew the first and dropped it; the second washes out the digits that matter.
 - **A cached decision for Enter:** one cell shaped a key.
+
+---
+
+## Touch presses (`clicks`' header tap)
+
+Researched 2026-11-22, from gpui-pre-web 0.3.12's pointer events (`src/events.rs`: the touch branch of `register_pointer_down`, `register_pointer_up`, `register_pointer_move`, `register_pointer_cancel`; `src/window.rs`'s `touch-action: none` on the canvas), gpui-pre 0.3.12's recognizer (`src/gestures.rs`: `GestureTuning`, the tap at `TouchPhase::Ended`, `offer_long_press`, `offer_touch_drag`) and its window (`src/window.rs`: `InputModality`, `last_input_was_touch`, `dispatch_recognized_touch_gesture`, the long press's timer), the table's presses (`src/state/click.rs`: `press`, `clicks_canvas`, `stops_context`; `sort`'s arrow, `resize`'s band, `header-icon`'s target), and a spike in the bare host built with `clicks`, `sort`, `resize`, `select`, and `header-icon`, in Chromium, Firefox, and WebKit ([its note](../../components/tall-table/perf/results/2026-11-22-m24-a-spike.md)). Not read on a phone: that's the build's check, by hand.
+
+### What asks for it
+
+- **Tycho:** its "Waiting on" table (touch presses). At a phone its column's menu holds every ability (sort, hide, pin), so a tap anywhere on a header opens it, and a stray sort from a finger on the arrow's box reads as a mistake. The menu is Tycho's DOM.
+- **No observatory scenario** asks for it. `DataTable` has no touch setting (its header's click sorts on any pointer); TanStack's header is the app's.
+
+### What arrives
+
+The canvas has `touch-action: none`, so the browser pans and zooms nothing over it and every finger reaches gpui-pre-web as pointer events of type `touch`. It sends each to GPUI as a raw touch (started, moved, ended, canceled), never as a mouse press, and GPUI's portable recognizer (the web platform has no native one) makes the gestures:
+
+- **A tap** (a finger lifted within 8 px of where it landed, before a long press is claimed): a left press and its release, both dispatched at the lift, at the lift's position, with no modifiers. A second tap within 400 ms and 16 px carries `click_count` 2. Nothing is dispatched at the finger's landing, so nothing is pressed or held while a finger is down.
+- **A pan** (a finger that moves past 8 px): scroll events locked to the axis it started on, with momentum after a fast lift. No press, no release.
+- **A long press** (500 ms within the 8 px): a `LongPressEvent` at its start. A listener that prevents its default claims the touch, and its later phases follow; unclaimed, the same touch can still become a pan if it moves, or a tap when it lifts.
+- **A touch drag** is offered at the landing (`TouchDragEvent`) to a listener that claims it before the touch becomes anything else. The table claims none, so no finger starts a drag of its own.
+- **Which pointer it was:** the window keeps the last input's kind, and `Window::last_input_was_touch()` is true while a tap's press is handled (the raw touch set it; the press the recognizer makes doesn't go back through the platform's dispatch). A mouse's press or move turns it back. So a listener can judge each press by its pointer, and a laptop with both keeps both.
+
+### What the table does with it today
+
+Read in the spike, the same in the three browsers:
+
+| A finger's | Reports | Does |
+|---|---|---|
+| Tap on a cell | `Clicked` (`Press`, `Cell`) | Selects the cell (`select`) |
+| Double tap on a cell | `Press`, then `Double` | As a mouse's |
+| Tap on a header | `Clicked` (`Press`, `Column`) | Selects the column |
+| Tap on `sort`'s arrow | Nothing from `clicks`; `Sorted` | Sorts |
+| Tap on `resize`'s band | Nothing | Nothing (a double tap fits the column) |
+| Tap on a header's icon | `HeaderIconPressed` | Nothing else |
+| Long press on a cell or a header | `Clicked` (`Context`) at its start; the lifted finger's tap dropped | Selects by `select`'s context rule |
+| Long press on the arrow | Nothing (stopped) | Nothing |
+| Pan in the body, either way | Nothing | Scrolls, with momentum |
+| Pan that starts on the header | Nothing | Nothing: the table's wheel is the body's |
+| A finger dragged along a band, a header, or the cells | Nothing | Pans (the body) or nothing (the header): no resize, no move, no drag-select |
+| Long press, then a move | `Context` at the start | Pans under the host's menu, unless the host claimed the long press |
+
+So the draft's two asks about a pan and a long press are already met: a finger that moves before lifting scrolls and reports nothing, and `Context` carries the long press's start position. What's missing is the header: the arrow sorts under a finger, and the band is a 9 px strip between headers where a tap does nothing.
+
+### The setting
+
+**The owner chose a setting of `clicks`, applied to a finger's presses alone:** `set_header_tap_is_press(bool)` (its reader `header_tap_is_press()`), off by default. No Cargo feature of its own: it's a rule about what `clicks` reports. With it on, a press that came from a touch (`last_input_was_touch()`) on `sort`'s arrow or `resize`'s band is its header's: the arrow sorts nothing, the band fits nothing, and the press goes through the root's `press` as a press on the header under it, counted and reported (`Press`, or `Double` on a second tap) with the column `target_at` finds.
+
+- **Why each press by its pointer, not the whole table:** the host turns it on once and detects nothing (the table's `CLAUDE.md`, rule 1 covers what only a host knows; here GPUI knows). On a laptop with a touch screen the mouse still sorts on the arrow and drags the band. Weighed: a mode for every press, which a host would switch by its own guess at the device, and which takes the arrow from a mouse on a hybrid.
+- **Why a setting at all, not always:** a host with `sort` and no menu has only the arrow; a finger must still sort there.
+- **A long press on the arrow or the band is its header's too** under the setting: they stop a long press today so a host's menu doesn't open over a control, and under the setting they're no controls for a finger. Every long press is a touch's, so this half needs no test of the pointer.
+- **`select`:** the tap selects its column, as any header press does (**the owner's choice**), so the host's menu acts on what's selected. Weighed: a touch tap that selects nothing.
+- **`reorder`:** a tap inside a selected `Columns` range selects its column at the release, as a mouse press that didn't drag; nothing changes.
+- **The band's double tap** is a `Double` on the header, not a fit: a finger has no way to fit a column under the setting, and the table has no public fit for a host's menu to call (`set_columns` with a width is what a host has). A public fit is added when a host asks.
+
+### The header's icon
+
+**The owner chose: a tap on the icon stays the icon's.** `HeaderIconPressed` with the badge's bounds, as today, so a host anchors its menu under the button; the rest of the header reports `Clicked` at the finger. A tap delivers its press and release together, so the icon's release rule holds as it is. Nothing gated on `clicks` and `header-icon` changes. Weighed: one event for the whole header under the setting, the icon drawn but no target on touch.
+
+### How it's built
+
+- **The arrow and the band occlude,** so the root's listener never sees a press on them; under the setting each one's own left-press listener hands a touch press to the root's `press` and does nothing of its own (no arrow held, no resize started). The band's count already goes through `count_left`; `press` counts it instead. Both sites are gated on two features (`clicks` with `sort`, `clicks` with `resize`), so `pairs` runs.
+- **Their long-press stop** (`stops_context`) reports instead while the setting is on. The root's canvas can't find a long press there (its hitbox is under theirs, and an occluding hitbox hides it, which is why a header's icon doesn't occlude), so the stop's own listener hands the long press to the state as the root's does: a context press on the header, its tap dropped.
+- **No drag to cancel:** a tap's press and release arrive in one task, and no finger starts a drag.
+- **Nothing is drawn and nothing runs a frame.** No frame-work risk; the bytes are a branch in two listeners and a flag.
+
+### What a test can send
+
+- **Natively:** GPUI's test window takes a raw `TouchEvent` (started, then ended), so the recognizer makes the tap and the window's kind is touch; a mouse press simulated after a mouse move is the control.
+- **In a browser, three ways,** read in the spike:
+  - Playwright's `touchscreen.tap` (a context with `hasTouch`) sends real touch pointer events in Chromium, Firefox, and WebKit. A tap only.
+  - Chromium's CDP `Input.dispatchTouchEvent`: a tap, a hold, a pan, with no emulation switched on.
+  - Pointer events the page's script makes (`new PointerEvent('pointerdown', { pointerType: 'touch', … })` dispatched on the canvas, then moves and an up): a tap, a hold, and a pan in all three browsers. gpui-pre-web reads the type and the position and nothing that needs a trusted event (its pointer capture fails for a made-up pointer and is ignored). Not a finger: what it proves is the table's handling, not the browser's delivery, which the real tap and the phone cover.
+
+### Canvas gaps
+
+- **No resize, move, or drag-select by a finger,** with the setting or without: a moving finger pans. A host's menu is the way to a move or a hide (`move_columns`, `hide`'s setters) and to a width (`set_columns`). The README says so.
+- **A pan that starts on the header scrolls nothing.** At a phone that reads as stuck. The base's scroll, not `clicks`': a follow-up (the table's PLAN), built if a host's phone layout needs it.
+- **A long press a host doesn't claim pans if the finger then moves,** under the host's open menu. `ContextMenuExt` claims it; a host with a menu of its own (Tycho's DOM) closes it on a scroll or lives with it. The README says so.
+- **No hover on touch:** the tooltip and `popover`'s cue under a finger stay as the README has them.
+
+### What a DOM contender does
+
+Nothing: no observatory level, no fixture.
+
+### What the random test gains
+
+Nothing: the setting reaches no paging, no cache, and no state a step keeps, and the random test's pointer is a mouse. No soak (the table's `CLAUDE.md`, rule 5).
+
+### What it leaves out
+
+- **A sideways scroll over the header** (wheel or pan): the follow-up above.
+- **A finger's drags** (a touch drag claimed on a band or a header): when a host asks, each with its own answer to a pan that starts there.
+- **A tap that opens the popover** (`popover`'s cue under a finger): the host's, through `open_popover` from the `Clicked` it hears.

@@ -14,9 +14,9 @@ M1–M23, the two hardenings (between M7 and M8, and after M17), and the public 
 
 | Milestone | Title | Status |
 |---|---|---|
-| M24 | Touch presses, a header's tap as one press | Planned |
+| M24 | Touch presses, a header's tap as one press | Active: part A (the research and the spec) done 2026-11-22, part B next, after M23's follow-up ("Follow-ups to built features") |
 
-A *Planned* row's draft is under "Next milestones": what it adds, its research questions, its parts, and its checks. Its part A (the research) settles the spec and tightens the checks when it opens.
+Its spec and checks are under "Active milestone".
 
 **Closing a milestone:** every "done when" check passes; a milestone that changed the paging has passed `just tall-table soak` on its final build (`CLAUDE.md`, rule 5); the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost, and its comparison tables the feature's row; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. For a feature, also flip its row in each app's "Waiting on" table (listed under "Who's waiting", below) to *Ready* (the date and the milestone); each app adopts it in a milestone of its own.
 
@@ -35,11 +35,11 @@ A *Planned* row's draft is under "Next milestones": what it adds, its research q
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are milestones: the header icon (M22) and the popover for cut text (M23) are built, and M24 is drafted under "Next milestones", with its research questions; no other row is drafted, and every other candidate waits for a host ("Notes").
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are milestones: the header icon (M22) and the popover for cut text (M23) are built, and M24 is active ("Active milestone"); no other row is drafted, and every other candidate waits for a host ("Notes").
 
 ### Notes
 
-Not planned; each waits for a host to ask, and is researched as any candidate is. None is built past what its note says: a candidate leaves this list when its milestone opens (Tycho's header icon was M22 and its popover for cut text M23, both built; touch presses are M24, "Next milestones"). Global filtering left it built: its table's part was `replace_rows` alone (M18), and the README's "TanStack Table's features" has its row.
+Not planned; each waits for a host to ask, and is researched as any candidate is. None is built past what its note says: a candidate leaves this list when its milestone opens (Tycho's header icon was M22 and its popover for cut text M23, both built; touch presses are M24, "Active milestone"). Global filtering left it built: its table's part was `replace_rows` alone (M18), and the README's "TanStack Table's features" has its row.
 
 #### Reading the shown columns only
 
@@ -129,7 +129,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Touch presses | Its column's and cell's menus at a phone | M24, planned | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Touch presses | Its column's and cell's menus at a phone | M24, active | *Not ready* |
 | Tycho | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Notes") | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile's strip, only once its panel's profile proves fast enough | Not planned ("Notes"): not asked yet | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
@@ -140,7 +140,51 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-None. Next: M24 ("Next milestones").
+### M24: touch presses, a header's tap as one press
+
+Tycho's third ask for its first release (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; its "Waiting on" row). Researched 2026-11-22: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "Touch presses"; the spike, [`perf/results/2026-11-22-m24-a-spike.md`](perf/results/2026-11-22-m24-a-spike.md); the decisions, [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features", 2026-11-22.
+
+**What it adds:** a setting of `clicks`, no feature of its own. With it on, a finger's tap anywhere on a header reports the header's press: `sort`'s arrow and `resize`'s band are no targets of their own for a touch. A mouse's press on them works as before. A header's icon keeps its tap.
+
+**What the research found already built** (so nothing here builds it): a tap arrives as a left press and its release together at the lift, in the three browsers; a finger that moves pans and reports nothing; a long press is `Context` at its start, with its position; a tap on a header's icon is `HeaderIconPressed`.
+
+**The API** (with `clicks`):
+
+- `set_header_tap_is_press(&mut self, on: bool)` and `header_tap_is_press(&self) -> bool`, off by default. No event: the host set it. Nothing is redrawn.
+
+**The rules,** with the setting on:
+
+1. **Which press:** one GPUI says came from a touch (`Window::last_input_was_touch()` while the press is handled). Every other press, and every press with the setting off, is as today.
+2. **On `sort`'s arrow:** the arrow isn't pressed or held and nothing sorts. The press goes through the root's `press` as a press on the header under it: counted, `select`'s and `reorder`'s rules applied, `Clicked` reported (`Press`, or `Double` at a second tap) on `Column`, at the tap's position.
+3. **On `resize`'s band:** no resize starts and a second tap fits nothing. The press goes through the root's `press` the same way, on the header `target_at` finds at the tap (a band straddles two).
+4. **A long press on the arrow or the band:** a context press on its header (`Context` on `Column`, `select`'s context rule, the lifted finger's tap dropped), in place of today's stop. During a drag it's still nothing, and stopped.
+5. **A header's icon** (`header-icon`): unchanged. Its tap reports `HeaderIconPressed`; a long press on it is its header's, as today.
+6. **Everything else** (a cell, a row's number, the corner, a blank, the scrollbars; `group-headers`' cells): unchanged.
+
+**How it's built:** the arrow and the band occlude, so the root's listener doesn't see their presses: each one's own left-press listener hands a touch press to `press` and does nothing of its own, and `stops_context`'s long-press listener reports where it stopped. Two sites gated on two features (`clicks` with `sort`, `clicks` with `resize`): `pairs` runs before the code review. The paging isn't touched: no soak.
+
+**Host's part:** the menu it opens from `Clicked` and `HeaderIconPressed`; when the setting is on (always, for a host whose menu holds the sort).
+
+**Parts,** one session each:
+
+- **A. Research and spec** (no shipped code). Done 2026-11-22.
+- **B. The setting, built and tested, with its cost and the close:** the setting, its window tests, the bare host's switch (`?header-tap`, with `clicks`), the smoke check's touch run, the size reading, the README, and the close. The research found it small (a flag and a branch in three listeners), so there's no part C unless the build finds one.
+
+**Done when:**
+
+- [x] **A1. The research and the spec:** the research section says what arrives in each browser and how it was read (the pinned sources, and a spike in Chromium, Firefox, and WebKit by three ways of sending a touch: [its note](perf/results/2026-11-22-m24-a-spike.md)); four decisions are in `docs/DECISIONS.md` ("Features", 2026-11-22), the reach, the icon, the band and `select`, and the header's pan each settled with the owner; the API, the rules, and the checks are here. Not read on a phone: B3's.
+- [ ] **B1. Off by default, the base and `clicks` unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `clicks`', `sort`'s, `resize`'s, and `header-icon`'s window tests pass untouched; `size --against <M24's parent>` reports the base's wasm byte for byte the same, and no symbol of the setting in a build without `clicks`.
+- [ ] **B2. The setting, natively:** window tests that send a raw touch (started, then ended), so GPUI's recognizer makes the tap, with `clicks`, `sort`, `resize`, `select`, and `header-icon` built:
+  - on: a tap on an arrow reports `Press` on its `Column` once, sorts nothing (no `Sorted`, the delegate's `sort` never called), and selects the column; a second tap at once reports `Double`;
+  - on: a tap on a band reports `Press` on the header at the tap, starts no resize, and two taps emit no `ColumnWidthsChanged`;
+  - on: a long press on an arrow and on a band reports `Context` on its `Column`, and the lifted finger's tap reports nothing;
+  - on: a mouse's press on the arrow sorts and on the band starts a resize, after a touch and before one (the pointer's kind is read a press at a time);
+  - on: a tap on an icon reports `HeaderIconPressed` and no `Clicked`;
+  - off: each tap above as today (the arrow sorts, the band reports nothing, a double tap fits, a long press on either reports nothing);
+  - a long press on a header and on a cell reports `Context` with its target and its start position, on and off;
+  - a control: the arrow's listener made to ignore the setting fails the first test.
+- [ ] **B3. On touch, in the browsers:** the smoke check's touch run, with the bare host's setting on: a header's tap on its arrow (`press` on the column, the sort unchanged), a tap on a band (`press`, the widths unchanged), an icon's tap (the icon's count, no `Clicked`), a cell's long press (`context`, its tap dropped), an arrow's long press (`context` on its column), and a pan in the body (the view moved, nothing reported), each sent as script-made touch pointer events in Chromium, Firefox, and WebKit; the arrow's tap also by Playwright's real tap in all three, and the long press and the pan by CDP in Chromium; with the setting off, the arrow's tap sorts. And once by hand on a phone (Safari on iOS or Chrome on Android, named in the note): each of those gestures, and a mouse's press on the arrow still sorting where a mouse is at hand.
+- [ ] **B4. Its cost and the README:** the bytes the setting adds to `clicks` alone and to `clicks,sort,resize` in a `perf/results/` note (no frame reading: nothing is drawn and no listener is added); the README's "Presses" (the setting, what a finger's gestures report, with and without it), its Features table's `clicks` row, and its Canvas tradeoffs (no resize, move, or drag-select by a finger; a pan from the header scrolls nothing; an unclaimed long press pans if the finger moves; the touch gap's "To close it" for the header); Tycho's "Waiting on" row flipped to *Ready*.
 
 ---
 
@@ -151,6 +195,20 @@ None. Next: M24 ("Next milestones").
 Found by the code review of 2026-11-19 (after `find` closed), a nit; fixed in a session of its own, with a check that fails before its fix. (The review's `find` and harness findings are fixed: [`docs/milestones.md`](docs/milestones.md), "M20 follow-up".)
 
 - **Docs: milestone IDs in the bodies of `docs/DECISIONS.md` entries** ("part A's draft", "Revises check C1's remedy", and others since 2026-10-24), where the root `CLAUDE.md` allows them only in the *[source]* tags. Fix: name the thing in each; and `check-terms` made to read `DECISIONS.md`'s bodies (outside its tags), so it can't drift again.
+
+### M23 follow-up: the popover's settings' review findings
+
+Found by the code review of 2026-11-22 (after M23 closed), none verified against the code yet: the session that fixes them reads each first, and a finding that doesn't hold is dropped with a line saying why. Fixed in a session of its own before M24's part B, each with a check that fails before its fix; a fix that touches no paging needs no soak, and one that adds or moves a `cfg` naming two features runs `pairs`.
+
+- **Important. An open mark never appears for a host whose assets load asynchronously** (`src/state/popover.rs`, `set_popover_cue`, about line 267). `open_icon`'s path is loaded once, at the setter, and `loaded: false` is kept for good if that one call isn't `Ok(Some(_))`. gpui-kit 0.10.0's default wasm `Assets` (icons from its CDN) answers the first call for any icon with an error while it downloads, so the open popover's cell shows no open mark and keeps no cue until the host calls `set_popover_cue` again, with nothing reported. The hosts here embed their icons (`Bootstrap::assets`) and don't meet it. `header-icon`'s `set_column_icon` and `sort`'s `set_sort_icons` check the same way, once. **To decide with the owner first:** say in each setter's doc and the README that a path must come from an embedded source (the smaller fix, and what the decision of 2026-11-22, "An open mark whose path doesn't load is no open mark", already implies), or test the path again while it's unloaded (when the open cell's cue is decided), for all three.
+- **Nit. A `--cue` run's results file records a protocol it didn't run** (`perf/perf.ts`, about line 820). With `--cue` the select-all and the select drag are skipped (`SELECT && !CUE_OPTION`), but `protocol` still writes `selectAllStanding: true` and a `selectDrag` entry whenever `select` is built. Fix: both keys gated as the segments are, and the four committed `perf/results/2026-11-22-m23-d-frames-cue-*.json` corrected by hand, the correction named in M23 part D's note (results are append-only: a line added, nothing rewritten in the note).
+- **Nit. The wide shape's "has no fill" check can't fail** (`perf/smoke.ts`, about line 1577). The settings run compares the long cell's padding pixel with one 4 px left of it, in column 1's cell, which under `?cells=heat` is a heat-filled float itself: a long cell that lost its fill still differs from it and passes, and two fills within `FILL_STEPS` of each other fail falsely. Fix: compare with a surface that's never filled (the row's gutter, or the same pixel in the `stripe` run) or with the color the probe's `paint.fill` gives; its control, the host's `note` column drawn with no fill.
+- **Nit. A cue decided under `PopoverCells::CutText` can go stale when the window's scale factor changes** (`src/state/popover.rs`, `decide_cues`, about line 701). `is_cut_text` reads the paint's box snapped to device pixels (`content_width`, by `window.scale_factor()`), and the answer is kept a cell until a layout change, a landed page, or a setter. A text within a fraction of a pixel of its box (the 201 px column at scale 1.5: 184.67 px against 185) decided not cut at scale 1 keeps no cue after a zoom to 150% draws its "…", while Enter, decided fresh, opens the popover. First check whether a browser zoom or a move between monitors already goes through `lay_out` (then nothing to fix, and a test pins it); else keep the scale the decisions were made at and clear them when it differs.
+- **Nit. "cancelled" in the settings check** (`perf/smoke.ts`, a comment about line 1639, a variable and a failure message at 1661 and 1662): American spelling, `canceled`. The same word at lines 837 and 840 is older; fixed with them.
+
+### A sideways scroll over the header
+
+Found by M24's research (2026-11-22): a wheel or a finger's pan that starts on the header scrolls nothing, since the table's wheel is the body's. With a mouse nobody noticed; at a phone a finger that lands on the header to pan the columns reads as stuck. The base's scroll, not `clicks`'. Built if a host's phone layout needs it (Tycho's hasn't asked): a sideways delta over the header scrolls the columns, a vertical one still nothing, with its size reading on the base.
 
 ### `custom-cells`
 
@@ -174,37 +232,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-Tycho's asks for its first release (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK)), drafted 2026-11-21 while its design session goes on; the first of the three, the header icon, is built (M22, [`docs/milestones.md`](docs/milestones.md)), and the second, the popover for cut text, too (M23). What's left here is a draft, not a spec: its part A researches it (root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section of its own), settles the API with the owner, and rewrites the rules and checks here before anything is built.
-
-**Why last:** the popover's narrowing was settled on the canvas, as the header icon was; the frame at a phone was still being drawn when these were ordered, so touch presses come after the icon whose press a tap has to sit with.
-
-### M24: touch presses, a header's tap as one press
-
-**What it adds** (*proposed:* a setting of `clicks`, no feature of its own): at a touch screen, a tap anywhere on a header reports the column's press, and `sort`'s arrow isn't a target of its own. At a phone a header's zones (the arrow's box, `resize`'s 9 px band) are too small for a finger and a stray sort reads as a mistake, so Tycho's menu holds every ability. A long press on a header or a cell is already `clicks`' context press (gpui's touch recognizer, 500 ms: the README's "Presses"); this milestone checks it on a touch screen and builds only what's missing.
-
-- **Table's part:** the host's setting, and what a header's tap reports under it.
-- **Host's part:** the menu it opens; when the setting is on.
-
-**For part A to answer:**
-
-- **What arrives, first:** what touch input GPUI's web platform delivers (a tap as a mouse press, a pan as a scroll, the long press) in Chromium, Firefox, and WebKit, on a real phone and under Playwright's touch emulation, and what the harness can drive (`.claude/rules/perf-harness.md`). If a tap or a long press doesn't arrive, the milestone closes with a decision and what gpui-kit would need.
-- **The setting's reach:** the host's for the whole table, or each press judged by its pointer's kind; whether `resize`'s band, `reorder`'s drag, and `select`'s column press stand down under it too, or only the arrow.
-- **The header icon (M22):** whether a tap on it is the icon's (`HeaderIconPressed`) or the header's press under the setting.
-- **A tap against a pan:** a finger that moves before lifting scrolls and reports nothing.
-- **A long press's place:** `Clicked`'s position at its start, enough for a menu at a phone.
-
-**Parts,** one session each:
-
-- **A. Research and spec** (no shipped code): what arrives, in each browser, the decisions, the API and the tightened checks here.
-- **B. The setting, built and tested,** with its cost and the close if part A finds it small; else a part C for those.
-
-**Done when** (drafted; part A tightens them):
-
-- [ ] **A1. The research and the spec:** the research section says what touch input arrives in each browser, with how it was read; its decisions are in `docs/DECISIONS.md`; the API, the rules, and the checks are here, or the milestone closes on a decision.
-- [ ] **B1. Off by default, the base and `clicks` unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `clicks`' window tests pass untouched with the setting off; `size --against <M24's parent>` reports the base unchanged.
-- [ ] **B2. The setting, natively:** window tests: with it on, a press anywhere on a header (the arrow's box included) reports the header's press once and sorts nothing; with it off, as today; a long press on a header and on a cell reported as a context press, with its target.
-- [ ] **B3. On touch, in the browsers:** the smoke check under touch emulation, as far as part A finds each browser can be driven: a header's tap, a cell's long press, a pan that reports nothing; and once by hand on a phone, noted.
-- [ ] **B4. Its cost and the README:** the added bytes on `clicks` in a `perf/results/` note, and each app's; the README's "Presses" and its Canvas tradeoffs; Tycho's "Waiting on" row flipped to *Ready*.
+None drafted. Tycho's three asks for its first release are the header icon (M22) and the popover for cut text (M23), built ([`docs/milestones.md`](docs/milestones.md)), and touch presses (M24, "Active milestone").
 
 ---
 
