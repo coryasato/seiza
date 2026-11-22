@@ -21,8 +21,10 @@ export interface Shown {
   find?: { term: string | null; current: { row: number; column: number } | null; out: boolean };
   /** With `popover`: the open popover, or null. */
   popover?: Popover | null;
-  /** With `popover`: the drawn cue (its cell and its box), or null. */
-  cue?: { cell: { row: number; column: number }; bounds: [number, number, number, number] } | null;
+  /** With `popover`: the drawn cue (its cell and its box, whether its
+   *  cell's text is drawn faded toward it, and whether its mark is the
+   *  open popover's), or null. */
+  cue?: { cell: { row: number; column: number }; bounds: [number, number, number, number]; faded: boolean; open: boolean } | null;
 }
 
 /** With `popover`, as `tall-table-bridge`'s `js::probe` writes it: its

@@ -44,8 +44,8 @@ pub struct TallTableProbe {
     /// size every event takes.
     #[cfg(feature = "popover")]
     pub popover: Option<Box<PopoverProbe>>,
-    /// The cue drawn on the hovered cell, else on the active one
-    /// (`popover`).
+    /// The cue drawn on the hovered cell, else on the active one, else
+    /// (with an open mark) on the open popover's (`popover`).
     #[cfg(feature = "popover")]
     pub cue: Option<Box<CueProbe>>,
 }
@@ -84,6 +84,12 @@ pub struct CueProbe {
     pub cell: crate::PopoverCell,
     /// Its box, `[x, y, width, height]` in window pixels.
     pub bounds: [f32; 4],
+    /// Its cell's text is drawn faded toward the mark (`PopoverCue::fade`,
+    /// on left-aligned text), not cut for it.
+    pub faded: bool,
+    /// Its mark is the open one (`PopoverCue::open_icon`, on the open
+    /// popover's cell).
+    pub open: bool,
 }
 
 /// The find in effect (`find`), on [`TallTableProbe`].

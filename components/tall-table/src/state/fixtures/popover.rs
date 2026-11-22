@@ -11,7 +11,15 @@
 //! and Enter, a press outside selecting, `clicks` not told of the cue,
 //! `copy` stepping aside for a part of its text selected, `sort`, `hide`,
 //! `reorder`'s move kept by index, `pin`'s run, `live`'s re-read, `follow`
-//! let go, `find`'s tints).
+//! let go, `find`'s tints). Then its three settings, over the same rows
+//! and a column a kind more ([`Sheet::open_kinds`]): under
+//! `PopoverCells::CutText`, which cells draw a cue and which Enter opens
+//! (the others' reaching the host), `open_popover` on any, the decision
+//! made again at a new width and a landed page; the cue's fade (nothing at
+//! rest, the glyphs' alphas by their place and none moved, a number left
+//! alone, the view's edge, a narrow cell, another density, `find`'s tints);
+//! its open mark kept on the open popover's cell; and the filled button's
+//! width.
 
 use std::cell::{Cell as Counter, RefCell};
 use std::ops::Range;
@@ -42,7 +50,14 @@ actions!(popover_test, [HostEnter, HostEscape, HostCopy]);
 struct Source {
     version: Rc<Counter<u64>>,
     huge: Option<Rc<str>>,
+    /// The settings' columns after the fifth ([`kinds_columns`]).
+    kinds: bool,
 }
+
+/// A timestamp too long for its column, cut at its end.
+const STAMP: &str = "2026-11-21 12:34:56.123456789 +00:00";
+/// A text cut at a text column's 200 px and whole at 300.
+const MIDDLING: &str = "exactly thirty characters long";
 
 const LONG: &str = "lorem ipsum dolor sit amet ";
 const LONG_REPEAT: usize = 120;
@@ -54,6 +69,7 @@ struct Rows {
     version: u64,
     huge: Option<Rc<str>>,
     long: Rc<str>,
+    kinds: bool,
 }
 
 impl TallTablePage for Rows {
@@ -66,6 +82,14 @@ impl TallTablePage for Rows {
             3 => CellValue::Text("first\r\nsecond".into()),
             4 if row.is_multiple_of(2) => CellValue::Null,
             4 => CellValue::Text("odd".into()),
+            // The settings' columns: an integer, a timestamp, a text that
+            // grows with the source's version, one over a fill, and one a
+            // wider column shows whole.
+            5 if self.kinds => CellValue::Text((row * 7).to_string().into()),
+            6 if self.kinds => CellValue::Text(STAMP.into()),
+            7 if self.kinds && self.version == 0 => CellValue::Text("small".into()),
+            7 | 8 if self.kinds => CellValue::Text(self.long.as_ref().into()),
+            9 if self.kinds => CellValue::Text(MIDDLING.into()),
             5 => CellValue::Text(self.huge.as_deref()?.into()),
             _ => return None,
         })
@@ -73,6 +97,15 @@ impl TallTablePage for Rows {
 
     fn heap_bytes(&self) -> usize {
         1024
+    }
+
+    #[cfg(feature = "custom-cells")]
+    fn paint(&self, _: usize, column: usize) -> crate::CellPaint {
+        let mut paint = crate::CellPaint::default();
+        if self.kinds && column == 8 {
+            paint.fill = Some(0.5);
+        }
+        paint
     }
 }
 
@@ -86,6 +119,7 @@ impl TallTableDelegate for Memory {
             version: self.0.version.get(),
             huge: self.0.huge.clone(),
             long: LONG.repeat(LONG_REPEAT).into(),
+            kinds: self.0.kinds,
         };
         (rows.start, Box::pin(std::future::ready(Ok(page))))
     }
@@ -191,6 +225,21 @@ impl<'a> Sheet<'a> {
         huge: bool,
         host_text: bool,
     ) -> Self {
+        Self::open_over(cx, cells_width, huge, false, host_text)
+    }
+
+    /// The settings' table: [`kinds_columns`], every one in view.
+    fn open_kinds(cx: &'a mut TestAppContext) -> Self {
+        Self::open_over(cx, KINDS_WIDTH, false, true, false)
+    }
+
+    fn open_over(
+        cx: &'a mut TestAppContext,
+        cells_width: f32,
+        huge: bool,
+        kinds: bool,
+        host_text: bool,
+    ) -> Self {
         cx.update(|cx| {
             gpui_kit::component::init(cx);
             crate::init(cx);
@@ -203,13 +252,19 @@ impl<'a> Sheet<'a> {
         let source = Source {
             version: Rc::default(),
             huge: huge.then(|| "a".repeat(POPOVER_CHARS + 10).into()),
+            kinds,
         };
         let heard: Rc<RefCell<Vec<&'static str>>> = Rc::default();
         let (shell, cx) = cx.add_window_view({
             let (source, heard) = (source.clone(), heard.clone());
             move |_, cx| {
                 let table = cx.new(|cx| {
-                    TallTableState::new(Memory(source), columns(huge), ROWS, Default::default(), cx)
+                    let columns = if kinds {
+                        kinds_columns(None)
+                    } else {
+                        columns(huge)
+                    };
+                    TallTableState::new(Memory(source), columns, ROWS, Default::default(), cx)
                         .probe_frames(true)
                 });
                 Shell {
@@ -1233,4 +1288,687 @@ fn a_selection_in_the_host_s_text_isn_t_the_popover_s(cx: &mut TestAppContext) {
     );
     #[cfg(not(feature = "copy"))]
     assert_eq!(sheet.heard(), ["copy"]);
+}
+
+// The three settings.
+
+/// [`columns`] and the settings' five: `n` (an integer), `at` (a
+/// timestamp), `grow` (a text, short until the source's version moves),
+/// `fill` (a long text, with `custom-cells` over a fill), and `mid` (a text
+/// cut at its kind's 200 px, or `mid` wide).
+fn kinds_columns(mid: Option<f32>) -> Vec<TallTableColumn> {
+    let mut all = columns(false);
+    all.push(TallTableColumn::new(
+        "n",
+        ColumnKind::Integer { max_chars: 6 },
+    ));
+    all.push(TallTableColumn::new("at", ColumnKind::Timestamp));
+    all.push(TallTableColumn::new("grow", ColumnKind::Text));
+    let fill = TallTableColumn::new("fill", ColumnKind::Text);
+    #[cfg(feature = "custom-cells")]
+    let fill = fill.fill(crate::Ramp::new(&[
+        |theme: &gpui_kit::component::Theme| theme.background,
+        |theme: &gpui_kit::component::Theme| theme.primary,
+    ]));
+    all.push(fill);
+    let middling = TallTableColumn::new("mid", ColumnKind::Text);
+    #[cfg(any(feature = "resize", feature = "density"))]
+    let middling = match mid {
+        Some(width) => middling.width(px(width)),
+        None => middling,
+    };
+    #[cfg(not(any(feature = "resize", feature = "density")))]
+    let _ = mid;
+    all.push(middling);
+    all
+}
+
+/// Wide enough for every one of [`kinds_columns`], `mid` at 300 px too.
+const KINDS_WIDTH: f32 = 2000.0;
+
+/// The settings' columns, by index.
+const N: usize = 5;
+const AT: usize = 6;
+#[cfg(feature = "live")]
+const GROW: usize = 7;
+#[cfg(feature = "custom-cells")]
+const FILL: usize = 8;
+#[cfg(any(feature = "resize", feature = "density"))]
+const MID: usize = 9;
+
+/// The test text system's advance at the cells' 14 px: 0.6 em.
+const ADVANCE: f32 = 8.4;
+
+/// An asset source with the open mark's path alone.
+struct Marks;
+
+const OPEN_MARK: &str = "marks/open.svg";
+
+impl gpui_kit::AssetSource for Marks {
+    fn load(&self, path: &str) -> gpui_kit::Result<Option<std::borrow::Cow<'static, [u8]>>> {
+        Ok((path == OPEN_MARK).then(|| std::borrow::Cow::Borrowed(&b"<svg/>"[..])))
+    }
+
+    fn list(&self, _: &str) -> gpui_kit::Result<Vec<gpui_kit::SharedString>> {
+        Ok(Vec::new())
+    }
+}
+
+impl Sheet<'_> {
+    fn cut_text(&mut self) {
+        self.update(|table, cx| {
+            table.set_popover_button(Some(PopoverButton::label("Open row")), cx);
+            table.set_popover_cells(crate::PopoverCells::CutText, cx);
+        });
+    }
+
+    /// The pointer over the table's corner, on no cell.
+    fn hover_none(&mut self) {
+        self.hover(point(px(1.0), px(1.0)));
+    }
+
+    #[cfg(feature = "select")]
+    fn activate(&mut self, row: u64, place: usize) {
+        self.update(|table, cx| {
+            table.set_selection(
+                Some(crate::selection::TallTableSelection::Cells {
+                    anchor: (row, place),
+                    head: (row, place),
+                }),
+                cx,
+            )
+        });
+    }
+
+    /// Everything the last frame's text elements drew.
+    fn all_drawn(&mut self) -> Vec<crate::cells_text::DrawnText> {
+        self.read(|table| table.drawn_text.borrow().clone())
+    }
+
+    fn drawn(&mut self, row: u64, column: usize) -> crate::cells_text::DrawnText {
+        self.all_drawn()
+            .into_iter()
+            .find(|cell| (cell.row, cell.column) == (row, column))
+            .expect("drawn")
+    }
+
+    fn cue_box(&mut self, cell: PopoverCell) -> gpui_kit::Bounds<Pixels> {
+        self.read(|table| {
+            table
+                .popover_state_cues()
+                .into_iter()
+                .find(|(at, _)| *at == cell)
+                .map(|(_, bounds)| bounds)
+                .expect("a cue on the cell")
+        })
+    }
+}
+
+/// The cells `CutText` leaves out: a number, a rounded float, a timestamp
+/// cut at its end, a NULL, and a text that fits; and the two it takes: a
+/// cut text and a fitting text with a line break. Row and place.
+const LEFT_OUT: [(u64, usize); 5] = [(1, N), (1, 0), (1, AT), (2, 4), (1, 1)];
+const TAKEN: [(u64, usize); 2] = [(1, 2), (1, 3)];
+
+#[gpui_kit::test]
+fn cut_text_cues_a_cut_text_alone(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    // As built, with a button: every loaded cell.
+    sheet.update(|table, cx| table.set_popover_button(Some(PopoverButton::label("Open")), cx));
+    for (row, place) in LEFT_OUT.into_iter().chain(TAKEN) {
+        let at = sheet.at(row as f32, place);
+        sheet.hover(at);
+        assert_eq!(sheet.cues(), [PopoverCell::new(row, place)]);
+    }
+    sheet.cut_text();
+    assert_eq!(
+        sheet.read(|table| table.popover_cells()),
+        crate::PopoverCells::CutText
+    );
+    for (row, place) in LEFT_OUT {
+        let at = sheet.at(row as f32, place);
+        sheet.hover(at);
+        assert_eq!(sheet.cues(), [], "({row}, {place})");
+    }
+    for (row, place) in TAKEN {
+        let at = sheet.at(row as f32, place);
+        sheet.hover(at);
+        assert_eq!(sheet.cues(), [PopoverCell::new(row, place)]);
+    }
+    // With no button the same: a button changes no cue.
+    sheet.update(|table, cx| table.set_popover_button(None, cx));
+    assert_eq!(sheet.cues(), [PopoverCell::new(1, 3)]);
+    let at = sheet.at(1.0, 0);
+    sheet.hover(at);
+    assert_eq!(sheet.cues(), [], "the rounded float, cued as built");
+    // `open_popover` opens a number's cell all the same, which draws no
+    // cue.
+    assert!(sheet.open_on(1, N));
+    let at = sheet.at(1.0, N);
+    sheet.hover(at);
+    assert_eq!(sheet.popover(), Some(PopoverCell::new(1, N)));
+    assert_eq!(sheet.cues(), []);
+    // Back to every cell.
+    sheet.update(|table, cx| table.set_popover_cells(crate::PopoverCells::Every, cx));
+    assert_eq!(
+        sheet.popover(),
+        Some(PopoverCell::new(1, N)),
+        "the setting closes none"
+    );
+    let at = sheet.at(1.0, 0);
+    sheet.hover(at);
+    assert_eq!(sheet.cues(), [PopoverCell::new(1, 0)]);
+}
+
+#[cfg(feature = "select")]
+#[gpui_kit::test]
+fn enter_under_cut_text_opens_a_cut_text_and_goes_on_elsewhere(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.cut_text();
+    for (row, place) in LEFT_OUT {
+        sheet.activate(row, place);
+        assert_eq!(sheet.cues(), [], "the active ({row}, {place})");
+        sheet.heard();
+        sheet.key("enter");
+        assert_eq!(sheet.popover(), None, "({row}, {place})");
+        assert_eq!(sheet.heard(), ["enter"], "({row}, {place})");
+    }
+    for (row, place) in TAKEN {
+        let cell = PopoverCell::new(row, place);
+        sheet.activate(row, place);
+        assert_eq!(sheet.cues(), [cell]);
+        sheet.popover_events();
+        sheet.key("enter");
+        assert_eq!(sheet.popover(), Some(cell));
+        // On the open one: its button.
+        sheet.key("enter");
+        assert_eq!(
+            sheet.popover_events(),
+            [
+                ("popover", Some(cell)),
+                ("button", Some(cell)),
+                ("popover", None)
+            ]
+        );
+        assert_eq!(sheet.heard(), Vec::<&str>::new());
+    }
+    // Under `Every` again, a number's cell opens.
+    sheet.update(|table, cx| table.set_popover_cells(crate::PopoverCells::Every, cx));
+    sheet.activate(1, N);
+    sheet.key("enter");
+    assert_eq!(sheet.popover(), Some(PopoverCell::new(1, N)));
+}
+
+/// Enter right after a new text size, with no frame asked for between:
+/// GPUI draws a dirty window before it dispatches a key, so the rule is
+/// decided by the new size's glyphs and layout, not by none.
+#[cfg(all(feature = "select", feature = "density"))]
+#[gpui_kit::test]
+fn enter_under_cut_text_right_after_a_new_text_size(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.cut_text();
+    sheet.activate(1, 2);
+    // No frame between the setter and the key.
+    sheet.table.update(sheet.cx, |table, cx| {
+        table.set_density(crate::Density::new(px(24.), px(12.)), cx);
+    });
+    sheet.cx.simulate_keystrokes("enter");
+    sheet.draw();
+    assert_eq!(sheet.popover(), Some(PopoverCell::new(1, 2)));
+    assert_eq!(sheet.heard(), Vec::<&str>::new());
+    // And a text that fits at the new size still goes on.
+    sheet.key("escape");
+    sheet.activate(1, 1);
+    sheet.table.update(sheet.cx, |table, cx| {
+        table.set_density(crate::Density::new(px(30.), px(14.)), cx);
+    });
+    sheet.cx.simulate_keystrokes("enter");
+    sheet.draw();
+    assert_eq!(sheet.popover(), None);
+    assert_eq!(sheet.heard(), ["enter"]);
+}
+
+/// A long text is proven cut from its start alone: the rule counts one
+/// more text taken from its start, and shapes no whole value; with the
+/// bound off it gives the same answer the long way.
+#[gpui_kit::test]
+fn cut_text_decides_a_long_text_from_its_start(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.cut_text();
+    let table = sheet.table.clone();
+    let decide = |sheet: &mut Sheet, place: usize| {
+        sheet.cx.update(|window, cx| {
+            table.update(cx, |table, cx| {
+                let before = table.bounded.get();
+                let cut = table.is_cut_text(1, place, window, cx);
+                (cut, table.bounded.get() - before)
+            })
+        })
+    };
+    assert_eq!(
+        decide(&mut sheet, 2),
+        (true, 1),
+        "the long text, by its start"
+    );
+    assert_eq!(decide(&mut sheet, 1), (false, 0), "a short one, shaped");
+    sheet.update(|table, _| table.unbounded_text = true);
+    assert_eq!(decide(&mut sheet, 2), (true, 0), "the long way");
+}
+
+/// A `custom-cells` cell follows the rule on its text: its fill doesn't
+/// count.
+#[cfg(feature = "custom-cells")]
+#[gpui_kit::test]
+fn cut_text_reads_a_painted_cell_s_text(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.cut_text();
+    let at = sheet.at(1.0, FILL);
+    sheet.hover(at);
+    assert_eq!(sheet.cues(), [PopoverCell::new(1, FILL)]);
+}
+
+/// The decision is made again at a new width: a text cut at 200 px and
+/// whole at 300.
+#[cfg(any(feature = "resize", feature = "density"))]
+#[gpui_kit::test]
+fn cut_text_decides_again_at_a_new_width(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.cut_text();
+    let at = sheet.at(1.0, MID);
+    sheet.hover(at);
+    assert_eq!(sheet.cues(), [PopoverCell::new(1, MID)]);
+    sheet.update(|table, cx| table.set_columns(kinds_columns(Some(300.0)), cx));
+    sheet.cut_text();
+    let at = sheet.at(1.0, MID);
+    sheet.hover_none();
+    sheet.hover(at);
+    assert_eq!(sheet.cues(), [], "whole at 300 px");
+    #[cfg(feature = "select")]
+    {
+        sheet.activate(1, MID);
+        sheet.heard();
+        sheet.key("enter");
+        assert_eq!(sheet.popover(), None);
+        assert_eq!(sheet.heard(), ["enter"]);
+    }
+}
+
+/// And after a page landing on its row: a text that grew past its column.
+#[cfg(feature = "live")]
+#[gpui_kit::test]
+fn cut_text_decides_again_when_a_page_lands(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.cut_text();
+    let at = sheet.at(1.0, GROW);
+    sheet.hover(at);
+    assert_eq!(sheet.cues(), [], "short");
+    sheet.source.version.set(1);
+    sheet.update(|table, cx| {
+        table.invalidate_rows(1..2, cx);
+    });
+    assert_eq!(sheet.cues(), [PopoverCell::new(1, GROW)], "grown");
+}
+
+/// At rest a cue that fades draws every cell as one that doesn't.
+#[gpui_kit::test]
+fn a_fading_cue_changes_nothing_at_rest(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.hover_none();
+    let plain = sheet.all_drawn();
+    assert!(plain.iter().any(|cell| cell.text.ends_with('…')));
+    sheet.update(|table, cx| table.set_popover_cue(Some(PopoverCue::expand().fade()), cx));
+    assert_eq!(sheet.all_drawn(), plain);
+}
+
+/// The fade's checks on a drawn cell: no "…", from the cell's content
+/// box's left, each glyph an advance on, whole up to `start` px short of
+/// `right`, falling to nothing by `clear` px short of it.
+fn assert_faded(drawn: &crate::cells_text::DrawnText, right: f32, start: f32, clear: f32) {
+    assert!(!drawn.text.contains('…'), "{:?}", drawn.text);
+    assert_eq!(drawn.glyphs.len(), drawn.text.chars().count());
+    let advance = drawn.glyphs[1].0 - drawn.glyphs[0].0;
+    let mut before = 1.0_f32;
+    for (x, alpha) in &drawn.glyphs {
+        let middle = x + advance / 2.0;
+        if middle <= right - start {
+            assert_eq!(*alpha, 1.0, "whole at {middle}");
+        } else {
+            assert!(
+                *alpha < before,
+                "falling at {middle}: {alpha} after {before}"
+            );
+        }
+        assert!(
+            *alpha > 0.0 && middle < right - clear,
+            "painted at {middle}"
+        );
+        let expected = ((right - clear - middle) / (start - clear)).min(1.0);
+        assert!((alpha - expected).abs() < 1e-3, "{alpha} at {middle}");
+        before = *alpha;
+    }
+    // The next glyph would have been past the clear point.
+    let (last, _) = drawn.glyphs.last().unwrap();
+    assert!(
+        last + advance * 1.5 >= right - clear,
+        "it stops at the clear point"
+    );
+    assert!(before < 0.5, "its last glyph nearly clear: {before}");
+}
+
+#[gpui_kit::test]
+fn the_cued_cut_text_fades_to_the_mark_and_moves_nothing(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.update(|table, cx| table.set_popover_cue(Some(PopoverCue::expand().fade()), cx));
+    sheet.hover_none();
+    let rest = sheet.all_drawn();
+    let at = sheet.at(1.0, 2);
+    sheet.hover(at);
+    let cell = PopoverCell::new(1, 2);
+    let drawn = sheet.drawn(1, 2);
+    let at_rest = rest
+        .iter()
+        .find(|cell| (cell.row, cell.column) == (1, 2))
+        .unwrap();
+    assert!(at_rest.text.ends_with('…'));
+    // Its first glyph where it is at rest, and every glyph it shares.
+    assert_eq!(drawn.x, at_rest.x);
+    let shared = at_rest.glyphs.len() - 1;
+    for (faded, rest) in drawn.glyphs.iter().zip(&at_rest.glyphs[..shared]) {
+        assert_eq!(faded.0, rest.0, "no glyph moved");
+    }
+    assert!(at_rest.text.starts_with(&drawn.text) || drawn.text.starts_with(&at_rest.text[..8]));
+    // The content box: the cell less 8 px a side.
+    let right = f32::from(drawn.cell.right()) - 8.0;
+    assert_faded(&drawn, right, 64.0, 16.0);
+    // The mark in the cue's box, at the cell's far right.
+    let press = sheet.cue_box(cell);
+    let mark = drawn.mark.expect("the mark painted");
+    assert_eq!(mark.center(), press.center());
+    assert_eq!(press.right(), drawn.cell.right() - px(2.0));
+    let (last, _) = drawn.glyphs.last().unwrap();
+    assert!(
+        last + ADVANCE / 2.0 < f32::from(mark.left()),
+        "short of the mark"
+    );
+    // No other cell changed.
+    for (now, rest) in sheet.all_drawn().iter().zip(&rest) {
+        if (now.row, now.column) != (1, 2) {
+            assert_eq!(now, rest);
+        }
+    }
+    let probe = sheet.read(|table| table.cue_probe()).expect("a cue");
+    assert!(probe.faded && !probe.open);
+    // The active cell's the same, the pointer still on the other.
+    #[cfg(feature = "select")]
+    {
+        sheet.activate(3, 2);
+        assert_eq!(sheet.cues(), [cell, PopoverCell::new(3, 2)]);
+        let active = sheet.drawn(3, 2);
+        assert_faded(&active, right, 64.0, 16.0);
+        assert_eq!(active.glyphs, sheet.drawn(1, 2).glyphs);
+    }
+}
+
+/// A text ending before the fade starts is drawn as at rest; a number
+/// keeps the cue as built, cut short of it.
+#[gpui_kit::test]
+fn a_short_text_and_a_number_are_left_alone_by_the_fade(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    let button = Some(PopoverButton::label("Open"));
+    sheet.update(|table, cx| table.set_popover_button(button, cx));
+    // As built, for the number.
+    let at = sheet.at(1.0, 0);
+    sheet.hover(at);
+    let built = sheet.drawn(1, 0);
+    sheet.update(|table, cx| table.set_popover_cue(Some(PopoverCue::expand().fade()), cx));
+    assert_eq!(sheet.drawn(1, 0), built, "the float, as built");
+    let probe = sheet.read(|table| table.cue_probe()).expect("a cue");
+    assert!(!probe.faded);
+    // The short text: its glyphs whole, where they were.
+    sheet.hover_none();
+    let rest = sheet.drawn(1, 1);
+    let at = sheet.at(1.0, 1);
+    sheet.hover(at);
+    let cued = sheet.drawn(1, 1);
+    assert!(cued.mark.is_some());
+    assert_eq!(
+        (&cued.text, cued.x, &cued.glyphs),
+        (&rest.text, rest.x, &rest.glyphs)
+    );
+    assert!(cued.glyphs.iter().all(|(_, alpha)| *alpha == 1.0));
+}
+
+/// A cell cut by the view's right edge fades toward its visible end, short
+/// of the mark there; one too narrow for a cue isn't faded.
+#[gpui_kit::test]
+fn the_fade_runs_to_the_visible_end_and_needs_a_cue(cx: &mut TestAppContext) {
+    // `long` runs 320..520, the view 400 wide.
+    let mut sheet = Sheet::open(cx, 400.0);
+    sheet.update(|table, cx| table.set_popover_cue(Some(PopoverCue::expand().fade()), cx));
+    let (origin, gutter) = sheet.read(|table| (table.body.origin, table.gutter_width()));
+    let at = origin + point(px(gutter + 360.0), row_height() * 1.5);
+    sheet.hover(at);
+    let drawn = sheet.drawn(1, 2);
+    let press = sheet.cue_box(PopoverCell::new(1, 2));
+    let mark = drawn.mark.expect("the mark painted");
+    assert_eq!(mark.center(), press.center());
+    let view_right = f32::from(origin.x) + gutter + 400.0;
+    assert!(f32::from(press.right()) <= view_right);
+    // The content box's visible end: the view's edge less the padding.
+    assert_faded(&drawn, view_right - 8.0, 64.0, 16.0);
+    // 20 px of it in view: no cue, so the "…" it has at rest.
+    let mut sheet = Sheet::open(cx, 340.0);
+    sheet.update(|table, cx| table.set_popover_cue(Some(PopoverCue::expand().fade()), cx));
+    sheet.hover_none();
+    let rest = sheet.drawn(1, 2);
+    let (origin, gutter) = sheet.read(|table| (table.body.origin, table.gutter_width()));
+    sheet.hover(origin + point(px(gutter + 330.0), row_height() * 1.5));
+    assert_eq!(sheet.cues(), []);
+    assert_eq!(sheet.drawn(1, 2), rest);
+}
+
+/// The fade's lengths follow the text size, and it's never clear later
+/// than the mark's room: rows much taller than their text.
+#[cfg(feature = "density")]
+#[gpui_kit::test]
+fn the_fade_is_scaled_with_the_text(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.update(|table, cx| table.set_popover_cue(Some(PopoverCue::expand().fade()), cx));
+    let at = |sheet: &mut Sheet, row_h: f32| {
+        sheet.update(|table, cx| {
+            table.set_density(crate::Density::new(px(row_h), px(7.)), cx);
+        });
+        let (left, width, pad, origin) = sheet.read(|table| {
+            let column = &table.columns[2];
+            (
+                f32::from(table.body.origin.x) + table.gutter_width() + column.x,
+                column.width,
+                table.sizes().padding() / 2.0,
+                table.body.origin,
+            )
+        });
+        sheet.hover_none();
+        sheet.hover(point(px(left + width / 2.0), origin.y + px(row_h * 1.5)));
+        assert_eq!(sheet.cues(), [PopoverCell::new(1, 2)]);
+        (sheet.drawn(1, 2), left + width - pad, pad)
+    };
+    // Half the default's lengths at half its text size.
+    let (drawn, right, _) = at(&mut sheet, 14.0);
+    assert_faded(&drawn, right, 32.0, 8.0);
+    // 30 px rows: the cue's room, past the padding, is more than 8 px, and
+    // the text is clear by it.
+    let (drawn, right, pad) = at(&mut sheet, 30.0);
+    let room = 2.0 + (26.0 + 14.0) / 2.0 + 2.0 - pad;
+    assert!(room > 8.0);
+    assert_faded(&drawn, right, room + 24.0, room);
+    let mark = drawn.mark.expect("the mark painted");
+    let (last, _) = drawn.glyphs.last().unwrap();
+    assert!(last + 4.2 / 2.0 < f32::from(mark.left()));
+}
+
+/// `find`'s tints on a faded cell are its drawn line's: none past the
+/// clear point, and the probe's ranges the same.
+#[cfg(feature = "find")]
+#[gpui_kit::test]
+fn a_faded_cell_s_tints_are_its_drawn_line_s(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.update(|table, cx| {
+        table.set_popover_cue(Some(PopoverCue::expand().fade()), cx);
+        table.set_find(Some("o".into()), cx);
+        table.probe_cells = true;
+    });
+    let at = sheet.at(1.0, 2);
+    sheet.hover(at);
+    sheet.events.borrow_mut().clear();
+    sheet.draw();
+    let drawn = sheet.drawn(1, 2);
+    let ranges: Vec<Range<usize>> = drawn
+        .text
+        .match_indices('o')
+        .map(|(at, _)| at..at + 1)
+        .collect();
+    assert!(ranges.len() >= 3, "{:?}", drawn.text);
+    assert_eq!(drawn.tints.len(), ranges.len());
+    let clear = f32::from(drawn.cell.right()) - 8.0 - 16.0;
+    for ((tint, _), range) in drawn.tints.iter().zip(&ranges) {
+        assert_eq!(
+            f32::from(tint.left()),
+            drawn.x + range.start as f32 * ADVANCE
+        );
+        assert!(f32::from(tint.right()) <= clear + 0.01, "{tint:?}");
+    }
+    // At rest the same cell's line ends in "…", and holds as many or more.
+    let probed = sheet
+        .events
+        .borrow()
+        .iter()
+        .rev()
+        .find_map(|event| match event {
+            TallTableEvent::Cells(cells) => cells
+                .iter()
+                .find(|cell| (cell.row, cell.column) == (1, 2))
+                .cloned(),
+            _ => None,
+        })
+        .expect("probed");
+    assert_eq!(probed.found, Some(crate::FoundProbe::Ranges(ranges)));
+}
+
+/// The open mark: the host's second path, in `foreground`, on the open
+/// popover's cell, which keeps its cue with the pointer elsewhere and no
+/// active cell; its press closes the popover.
+#[gpui_kit::test]
+fn the_open_mark_stays_on_the_open_popover_s_cell(cx: &mut TestAppContext) {
+    use gpui_kit::component::ActiveTheme as _;
+    let mut sheet = Sheet::open_kinds(cx);
+    let (foreground, muted) = sheet
+        .cx
+        .update(|_, cx| (cx.theme().foreground, cx.theme().muted_foreground));
+    sheet.hover_none();
+    let cell = PopoverCell::new(1, 2);
+    // Without one, as built: no cue on the open cell the pointer left.
+    assert!(sheet.open_on(1, 2));
+    assert_eq!(sheet.cues(), []);
+    sheet.update(|table, cx| table.close_popover(cx));
+    // A path that doesn't load is none.
+    sheet.update(|table, cx| {
+        table.popover_state.assets = Some(std::sync::Arc::new(Marks));
+        table.set_popover_cue(Some(PopoverCue::expand().open_icon("marks/none.svg")), cx);
+    });
+    assert!(sheet.open_on(1, 2));
+    assert_eq!(sheet.cues(), []);
+    let at = sheet.at(1.0, 2);
+    sheet.hover(at);
+    assert_eq!(sheet.drawn(1, 2).mark_look, Some((None, muted)));
+    sheet.hover_none();
+    sheet.update(|table, cx| table.close_popover(cx));
+    // With one.
+    sheet.update(|table, cx| {
+        table.set_popover_cue(Some(PopoverCue::expand().open_icon(OPEN_MARK)), cx)
+    });
+    let at = sheet.at(1.0, 2);
+    sheet.hover(at);
+    assert_eq!(sheet.drawn(1, 2).mark_look, Some((None, muted)), "closed");
+    sheet.hover_none();
+    assert!(sheet.open_on(1, 2));
+    assert_eq!(sheet.cues(), [cell]);
+    assert_eq!(
+        sheet.drawn(1, 2).mark_look,
+        Some((Some(OPEN_MARK.into()), foreground))
+    );
+    let probe = sheet.read(|table| table.cue_probe()).expect("a cue");
+    assert!(probe.open && probe.cell == cell);
+    // Another cell hovered (above: the popover covers the rows below):
+    // its cue the closed mark, the open cell's kept.
+    let at = sheet.at(0.0, 2);
+    sheet.hover(at);
+    assert_eq!(sheet.cues(), [PopoverCell::new(0, 2), cell]);
+    assert_eq!(sheet.drawn(0, 2).mark_look, Some((None, muted)));
+    sheet.hover_none();
+    // Its press closes it.
+    let cue = sheet.cue_center(cell);
+    sheet.popover_events();
+    sheet.press(cue);
+    assert_eq!(sheet.popover(), None);
+    assert_eq!(sheet.popover_events(), [("popover", None)]);
+    sheet.hover_none();
+    assert_eq!(sheet.cues(), []);
+    // A cell the rule in effect gives no cue has none, opened by the host:
+    // a short text with no button, and under `CutText` a number.
+    assert!(sheet.open_on(1, 1));
+    assert_eq!(sheet.cues(), []);
+    sheet.cut_text();
+    assert!(sheet.open_on(1, N));
+    assert_eq!(sheet.cues(), []);
+    // Nothing on a host's own cue.
+    sheet.update(|table, cx| {
+        table.set_popover_cells(crate::PopoverCells::Every, cx);
+        let custom = PopoverCue::custom(|_, _| div().size_full().into_any_element());
+        table.set_popover_cue(Some(custom.open_icon(OPEN_MARK)), cx)
+    });
+    assert!(sheet.open_on(1, 2));
+    assert_eq!(sheet.cues(), []);
+}
+
+/// A filled button is the popover's whole inner width, at its foot, the
+/// label's and a host's element; pressed as any.
+#[gpui_kit::test]
+fn a_filled_button_is_the_popover_s_width(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    let filled = |sheet: &mut Sheet| {
+        let probe = sheet.probe().expect("placed");
+        let [x, y, width, height] = probe.button.expect("drawn");
+        assert_eq!((x, width), (probe.bounds[0], probe.bounds[2]), "{probe:?}");
+        assert!((y + height - (probe.bounds[1] + probe.bounds[3])).abs() < 0.01);
+        [x, y, width, height]
+    };
+    // As built: its own size, inside the foot's padding.
+    sheet.update(|table, cx| table.set_popover_button(Some(PopoverButton::label("Open row")), cx));
+    assert!(sheet.open_on(1, 2));
+    let probe = sheet.probe().unwrap();
+    let built = probe.button.unwrap();
+    assert!(built[0] > probe.bounds[0] && built[2] < probe.bounds[2] / 2.0);
+    sheet.update(|table, cx| {
+        table.set_popover_button(Some(PopoverButton::label("Open row").fill()), cx)
+    });
+    let [x, y, width, height] = filled(&mut sheet);
+    sheet.popover_events();
+    sheet.press(point(px(x + width - 4.0), px(y + height / 2.0)));
+    assert_eq!(
+        sheet.popover_events(),
+        [("button", Some(PopoverCell::new(1, 2))), ("popover", None)]
+    );
+    // A host's element, in a block that wide.
+    sheet.update(|table, cx| {
+        table.set_popover_button(
+            Some(
+                PopoverButton::custom(|_, _| div().h(px(24.)).child("Mine").into_any_element())
+                    .fill(),
+            ),
+            cx,
+        )
+    });
+    assert!(sheet.open_on(2, 2));
+    let [_, _, _, height] = filled(&mut sheet);
+    assert_eq!(height, 24.0);
 }

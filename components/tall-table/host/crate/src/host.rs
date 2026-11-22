@@ -228,18 +228,52 @@ const REPLACE_HOOK: &str = "__tallTableReplace";
 const CTRL_CONTEXT_GLOBAL: &str = "__tallTableCtrlContextOn";
 
 // gpui-kit's icons the host draws, embedded in the wasm
-// (`seiza::Bootstrap`'s `assets`): `sort`'s three for `?sort-icons`, and
-// `header-icon`'s three, a kind each. Bundled whichever the page draws, so
-// a build holds its icons' code either way.
-#[cfg(all(feature = "sort", not(feature = "header-icon")))]
-gpui_kit::assets::icon_assets!(pub IconAssets, [SortAscending, SortDescending, ChevronsUpDown]);
-#[cfg(all(feature = "header-icon", not(feature = "sort")))]
-gpui_kit::assets::icon_assets!(pub IconAssets, [ALargeSmall, Hash, Clock]);
-#[cfg(all(feature = "sort", feature = "header-icon"))]
-gpui_kit::assets::icon_assets!(
-    pub IconAssets,
-    [SortAscending, SortDescending, ChevronsUpDown, ALargeSmall, Hash, Clock]
-);
+// (`seiza::Bootstrap`'s `assets`): `sort`'s three for `?sort-icons`,
+// `header-icon`'s three, a kind each, and `popover`'s two for
+// `?popover-icons`. Bundled whichever the page draws, so a build holds its
+// icons' code either way.
+#[cfg(feature = "sort")]
+gpui_kit::assets::icon_assets!(SortAssets, [SortAscending, SortDescending, ChevronsUpDown]);
+#[cfg(feature = "header-icon")]
+gpui_kit::assets::icon_assets!(HeaderAssets, [ALargeSmall, Hash, Clock]);
+#[cfg(feature = "popover")]
+gpui_kit::assets::icon_assets!(PopoverAssets, [ChevronDown, ChevronUp]);
+
+/// Every icon the build's features draw: each feature's set asked in turn.
+#[cfg(any(feature = "sort", feature = "header-icon", feature = "popover"))]
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(not(target_family = "wasm"), expect(dead_code))]
+pub struct IconAssets;
+
+#[cfg(any(feature = "sort", feature = "header-icon", feature = "popover"))]
+impl gpui_kit::AssetSource for IconAssets {
+    fn load(&self, path: &str) -> gpui_kit::Result<Option<std::borrow::Cow<'static, [u8]>>> {
+        #[cfg(feature = "sort")]
+        if let Some(icon) = SortAssets.load(path)? {
+            return Ok(Some(icon));
+        }
+        #[cfg(feature = "header-icon")]
+        if let Some(icon) = HeaderAssets.load(path)? {
+            return Ok(Some(icon));
+        }
+        #[cfg(feature = "popover")]
+        if let Some(icon) = PopoverAssets.load(path)? {
+            return Ok(Some(icon));
+        }
+        Ok(None)
+    }
+
+    fn list(&self, path: &str) -> gpui_kit::Result<Vec<gpui_kit::SharedString>> {
+        let mut paths = Vec::new();
+        #[cfg(feature = "sort")]
+        paths.extend(SortAssets.list(path)?);
+        #[cfg(feature = "header-icon")]
+        paths.extend(HeaderAssets.list(path)?);
+        #[cfg(feature = "popover")]
+        paths.extend(PopoverAssets.list(path)?);
+        Ok(paths)
+    }
+}
 
 /// One of the host's three header icons (`header-icon`), by its name
 /// (`text`, `number`, `time`): gpui-kit's icon in the header's muted
@@ -673,18 +707,45 @@ impl Host {
             table.update(cx, |table, cx| table.set_find(Some(term.into()), cx));
         }
         // The popover's button, labeled (`popover`, `?popover=<label>`;
-        // `?popover` alone: none), and its cue opted out with
-        // `?popover-cue=off`.
+        // `?popover` alone: none) and with `?popover-fill` laid out the
+        // popover's width; its cue opted out with `?popover-cue=off`, else
+        // with `?popover-icons` gpui-kit's chevrons (down, and up on the
+        // open popover's cell) and with `?popover-fade` fading its cell's
+        // text; and with `?popover-cells=cut` the cue and Enter on a cut
+        // text alone.
         #[cfg(all(feature = "popover", target_family = "wasm"))]
         {
+            use gpui_kit::assets::IconName;
+            use seiza_tall_table::{PopoverButton, PopoverCells, PopoverCue};
             if let Some(label) = seiza::url::param("popover").filter(|label| !label.is_empty()) {
-                table.update(cx, |table, cx| {
-                    table
-                        .set_popover_button(Some(seiza_tall_table::PopoverButton::label(label)), cx)
-                });
+                let button = PopoverButton::label(label);
+                let button = if seiza::url::has_param("popover-fill") {
+                    button.fill()
+                } else {
+                    button
+                };
+                table.update(cx, |table, cx| table.set_popover_button(Some(button), cx));
             }
+            let (icons, fade) = (
+                seiza::url::has_param("popover-icons"),
+                seiza::url::has_param("popover-fade"),
+            );
             if seiza::url::param("popover-cue").as_deref() == Some("off") {
                 table.update(cx, |table, cx| table.set_popover_cue(None, cx));
+            } else if icons || fade {
+                let cue = if icons {
+                    PopoverCue::icon(IconName::ChevronDown.path())
+                        .open_icon(IconName::ChevronUp.path())
+                } else {
+                    PopoverCue::expand()
+                };
+                let cue = if fade { cue.fade() } else { cue };
+                table.update(cx, |table, cx| table.set_popover_cue(Some(cue), cx));
+            }
+            if seiza::url::param("popover-cells").as_deref() == Some("cut") {
+                table.update(cx, |table, cx| {
+                    table.set_popover_cells(PopoverCells::CutText, cx)
+                });
             }
         }
         // Every `n`th column hidden before the first frame (`hide`,

@@ -15,7 +15,8 @@ target_dir := root / "target/wasm32-unknown-unknown"
 # `?density=<row>,<text>[,<width>]`; `format`: `?format=off`; `reorder`:
 # `?order=reverse`; `group-headers`: `?groups=<outer>,<inner>`; `hide`:
 # `?hidden=<n>`; `find`: `?find=<term>`; `popover`: `?popover=<label>`,
-# `?popover-cue=off`, `?popover-long=<chars>`; `header-icon`: `?icons=off`;
+# `?popover-fill`, `?popover-cue=off`, `?popover-icons`, `?popover-fade`,
+# `?popover-cells=cut`, `?popover-long=<chars>`; `header-icon`: `?icons=off`;
 # the rest:
 # host/crate/src/lib.rs).
 dev features="": (wasm "debug" features)

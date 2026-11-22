@@ -75,7 +75,7 @@ pub use header_icon::{HeaderIcon, HeaderIconPress};
 #[cfg(feature = "custom-cells")]
 pub use paint::{Bar, CellPaint, Domain, Ramp, Stop};
 #[cfg(feature = "popover")]
-pub use popover::{PopoverButton, PopoverCell, PopoverCue};
+pub use popover::{PopoverButton, PopoverCell, PopoverCells, PopoverCue};
 #[cfg(feature = "group-headers")]
 pub use probe::GroupProbe;
 #[cfg(feature = "custom-cells")]

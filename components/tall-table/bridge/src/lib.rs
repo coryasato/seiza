@@ -338,7 +338,7 @@ pub mod js {
     /// ([`sort`]); with `find`, `find`: `{term, current, out}`, the term
     /// or null, the current match `{row, column}` (its index) or null,
     /// and whether a step is out; with `popover`, `popover` ([`popover`])
-    /// and `cue` (`{cell, bounds}`, or null).
+    /// and `cue` (`{cell, bounds, faded, open}`, or null).
     pub fn probe(probe: &TallTableProbe) -> JsValue {
         let object = Object::new();
         set(&object, "rows", number(probe.rows as f64));
@@ -375,6 +375,8 @@ pub mod js {
                 let object = Object::new();
                 set(&object, "cell", popover_cell(cue.cell));
                 set(&object, "bounds", rect(cue.bounds));
+                set(&object, "faded", cue.faded.into());
+                set(&object, "open", cue.open.into());
                 object.into()
             });
             set(&object, "cue", cue);

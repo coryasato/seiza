@@ -75,7 +75,11 @@
 //! and with `?perf` the scripts get the table's `set_find`, `find_next`,
 //! and `find_previous`; `?probe-cells` publishes each drawn cell's find.
 //! With `popover`, `?popover=<label>` labels its button (`?popover`
-//! alone: none), `?popover-cue=off` opts the cue out, and
+//! alone: none) and `?popover-fill` lays it out the popover's width,
+//! `?popover-cue=off` opts the cue out, `?popover-icons` draws it with
+//! gpui-kit's chevrons (down, and up on the open popover's cell, which the
+//! host bundles), `?popover-fade` fades its cell's text to it,
+//! `?popover-cells=cut` narrows the cue and Enter to a cut text, and
 //! `?popover-long=<chars>` puts a third column, `note`, whose every value
 //! is one text that long (the cap's frame; the shape's columns after it
 //! one place on); each press of the button is
@@ -136,9 +140,9 @@ pub fn start(ui_font: Vec<u8>) {
         .and_then(|name| rows::Cells::from_name(&name))
         .unwrap_or(rows::Cells::Text);
     let bootstrap = seiza::Bootstrap::new(host::TITLE, ui_font);
-    // gpui-kit's icons the host draws: `sort`'s for `?sort-icons`, and
-    // `header-icon`'s.
-    #[cfg(any(feature = "sort", feature = "header-icon"))]
+    // gpui-kit's icons the host draws: `sort`'s for `?sort-icons`,
+    // `header-icon`'s, and `popover`'s for `?popover-icons`.
+    #[cfg(any(feature = "sort", feature = "header-icon", feature = "popover"))]
     let bootstrap = bootstrap.assets(host::IconAssets);
     bootstrap.run(move |window, cx| {
         seiza_tall_table::init(cx);

@@ -523,6 +523,12 @@ enum Step {
     /// number ([`Run::popover`]).
     #[cfg(feature = "popover")]
     Popover(u64),
+    /// The popover's cells (`popover`), placed, never drawn
+    /// ([`with_popover_rules`]): `set_popover_cells` toggled (one in
+    /// three), else Enter on the active cell, with `select` a visible cell
+    /// made active first, from the number ([`Run::popover_rule`]).
+    #[cfg(feature = "popover")]
+    PopoverRule(u64),
     /// `set_column_icon` (`header-icon`), placed, never drawn
     /// ([`with_icons`]): a column, and from the number an icon (one in
     /// eight a path that doesn't load) or (one in four) none.
@@ -800,7 +806,7 @@ impl Violation {
     }
 }
 
-const INVARIANTS: [&str; 28] = [
+const INVARIANTS: [&str; 29] = [
     "places",
     "one read a page",
     "nothing after close",
@@ -829,6 +835,7 @@ const INVARIANTS: [&str; 28] = [
     "no popover open across a sort or set_columns",
     "a press on an icon is the icon's alone",
     "an icon pressed, held or reported, is a shown column's",
+    "Enter opens a popover on the active cell, under CutText a cut text's alone",
 ];
 
 /// A zone a press lands in.
@@ -1012,9 +1019,13 @@ enum Control {
     /// The match rule's (`find`): set for the thread while the cases run.
     #[cfg(feature = "find")]
     FindRule(crate::find::Control),
-    /// A popover kept across a reset (with `sort`), or its text not
-    /// decided again (with `live`) (`popover`).
-    #[cfg(all(feature = "popover", any(feature = "sort", feature = "live")))]
+    /// A popover kept across a reset (with `sort`), its text not decided
+    /// again (with `live`), or Enter opening on any cell under `CutText`
+    /// (with `select`) (`popover`).
+    #[cfg(all(
+        feature = "popover",
+        any(feature = "sort", feature = "live", feature = "select")
+    ))]
     Popover(super::popover::Control),
     /// An icon's press that isn't stopped (`header-icon`).
     #[cfg(feature = "header-icon")]
@@ -1178,7 +1189,10 @@ impl Run {
                 Some(Control::Find(control)) => table.find_state.control = control,
                 #[cfg(feature = "find")]
                 Some(Control::FindRule(_)) => {}
-                #[cfg(all(feature = "popover", any(feature = "sort", feature = "live")))]
+                #[cfg(all(
+                    feature = "popover",
+                    any(feature = "sort", feature = "live", feature = "select")
+                ))]
                 Some(Control::Popover(control)) => table.popover_state.control = control,
                 #[cfg(feature = "header-icon")]
                 Some(Control::Icon(control)) => table.icon_state.control = control,
@@ -2849,6 +2863,8 @@ impl Run {
             Step::Find(pick) => self.find(pick),
             #[cfg(feature = "popover")]
             Step::Popover(pick) => self.popover(pick)?,
+            #[cfg(feature = "popover")]
+            Step::PopoverRule(pick) => self.popover_rule(pick)?,
             #[cfg(feature = "header-icon")]
             Step::Icon(pick) => self.icon(pick)?,
             Step::Close => {
@@ -2980,6 +2996,88 @@ impl Run {
             _ => {
                 self.cx.simulate_keystrokes("enter");
                 self.park();
+            }
+        }
+        if self.read(|table| table.popover().is_some()) {
+            self.draw();
+            self.framed()?;
+            self.park();
+        }
+        Ok(())
+    }
+
+    /// `Step::PopoverRule`: one in three, `set_popover_cells` toggled;
+    /// else Enter, with `select` on a visible cell made the active one (a
+    /// row and a place from the number), and its check. 29: a popover it
+    /// opened is on the active cell, and under `CutText` on a cell the rule
+    /// holds for, worked out apart from the table's ([`cut_text_apart`]).
+    /// Then, with one open, a frame and its checks, as `Step::Popover`'s.
+    #[cfg(feature = "popover")]
+    fn popover_rule(&mut self, pick: u64) -> Checked {
+        use crate::PopoverCells;
+        if pick.is_multiple_of(3) {
+            self.update(|table, cx| {
+                let cells = match table.popover_cells() {
+                    PopoverCells::CutText => PopoverCells::Every,
+                    _ => PopoverCells::CutText,
+                };
+                table.set_popover_cells(cells, cx)
+            });
+            return Ok(());
+        }
+        #[cfg(feature = "select")]
+        {
+            let pick = pick >> 2;
+            let active = self.read(|table| {
+                let visible = table.visible_rows();
+                let places = table.columns.len() as u64;
+                (!visible.is_empty() && places > 0).then(|| {
+                    (
+                        visible.start + pick % (visible.end - visible.start),
+                        ((pick >> 20) % places) as usize,
+                    )
+                })
+            });
+            if let Some(active) = active {
+                let selection = TallTableSelection::new(Kind::Cells, active, active);
+                self.update(|table, cx| table.set_selection(Some(selection), cx));
+            }
+        }
+        let before = self.read(|table| table.popover());
+        self.cx.simulate_keystrokes("enter");
+        self.park();
+        let opened = self.read(|table| {
+            let cell = table.popover().filter(|_| before.is_none())?;
+            #[cfg(feature = "select")]
+            let active = table
+                .selection()
+                .filter(|selection| selection.kind() == Kind::Cells)
+                .map(|selection| selection.anchor())
+                .and_then(|(row, place)| {
+                    let column = table.columns.get(place)?.index(place);
+                    Some(crate::PopoverCell::new(row, column))
+                });
+            #[cfg(not(feature = "select"))]
+            let active = None;
+            Some((
+                cell,
+                active,
+                table.popover_cells(),
+                cut_text_apart(table, cell),
+            ))
+        });
+        if let Some((cell, active, cells, cut)) = opened {
+            if active != Some(cell) {
+                return Err(Violation::new(
+                    29,
+                    format!("Enter opened a popover on {cell:?}, the active cell {active:?}"),
+                ));
+            }
+            if cells == PopoverCells::CutText && cut == Some(false) {
+                return Err(Violation::new(
+                    29,
+                    format!("Enter under CutText opened a popover on {cell:?}, no cut text"),
+                ));
             }
         }
         if self.read(|table| table.popover().is_some()) {
@@ -3454,6 +3552,32 @@ fn landed_fault(books: &Books, cell: crate::FoundCell) -> Option<String> {
         ));
     }
     None
+}
+
+/// `PopoverCells::CutText`'s rule for `cell`, apart from the table's
+/// (`popover`): a `ColumnKind::Text` column's cell whose page is loaded and
+/// whose text holds a line break or is wider than its column's content box
+/// by the test font's advances, 0.6 em a character. `None` within a
+/// twentieth of a pixel of the box: the table's shaping sums floats.
+#[cfg(feature = "popover")]
+fn cut_text_apart(table: &TallTableState<Source>, cell: crate::PopoverCell) -> Option<bool> {
+    let place = table.place_of(cell.column)?;
+    if table.columns()[cell.column].kind() != ColumnKind::Text {
+        return Some(false);
+    }
+    let RowState::Loaded(page, index) = table.cache.row(cell.row) else {
+        return Some(false);
+    };
+    let text = match page.value(index, cell.column) {
+        None | Some(CellValue::Null) => return Some(false),
+        Some(value) => value.to_string(),
+    };
+    if text.contains(['\n', '\r']) {
+        return Some(true);
+    }
+    let width = text.chars().count() as f32 * 0.6 * f32::from(table.glyphs.font_size);
+    let content = table.columns[place].width - table.sizes().padding();
+    ((width - content).abs() > 0.05).then_some(width > content)
 }
 
 /// 25, at a frame: an open popover's cell in view (its row visible, its
@@ -3955,6 +4079,15 @@ fn with_popovers(seed: u64, steps: &mut Vec<Step>) {
     }
 }
 
+/// `popover`'s cells' steps, up to eight (`set_popover_cells` and Enter on
+/// the active cell, [`Step::PopoverRule`]), placed as `pin`'s are
+/// ([`with_pins`]), after `header-icon`'s, so every other step's place
+/// stays what it was. Its constant is SHA-512's sixth word.
+#[cfg(feature = "popover")]
+fn with_popover_rules(seed: u64, steps: &mut Vec<Step>) {
+    place_steps(seed ^ 0x9b05_688c_2b3e_6c1f, steps, Step::PopoverRule);
+}
+
 /// `header-icon`'s steps, from the scheduler seed by streams of their own,
 /// placed after `popover`'s, so every other step's place stays what it
 /// was: up to 16 `set_column_icon`s (two streams of up to eight, placed as
@@ -4156,6 +4289,8 @@ fn run(control: Option<Control>) -> Result<(), String> {
                 with_popovers(seed, &mut case.steps);
                 #[cfg(feature = "header-icon")]
                 with_icons(seed, &mut case.steps);
+                #[cfg(feature = "popover")]
+                with_popover_rules(seed, &mut case.steps);
                 case
             };
             run_case(seed, &case, control).map_err(|failure| {
@@ -4836,6 +4971,16 @@ mod controls {
         fails(
             Control::Popover(crate::state::popover::Control::StalePopoverText),
             &[25],
+        );
+    }
+
+    /// 29: under `CutText`, Enter opening on any active cell.
+    #[cfg(all(feature = "popover", feature = "select"))]
+    #[test]
+    fn enter_on_any_cell_under_cut_text() {
+        fails(
+            Control::Popover(crate::state::popover::Control::EnterOnAny),
+            &[29],
         );
     }
 

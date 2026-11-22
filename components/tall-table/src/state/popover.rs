@@ -13,8 +13,16 @@
 //! (its row visible, its column shown and not behind `pin`'s run), else it
 //! closes; its text decided again after a page landed on its row
 //! (`undecide_popover`, the tooltip's sites); `find`'s tints for the term
-//! in effect; and the cues, each decided once for its cell by the
-//! tooltip's rule.
+//! in effect; and the cues, each decided once for its cell by the rule in
+//! effect (`PopoverCells`: the tooltip's, or a cut text alone).
+//!
+//! Its three settings (`docs/DECISIONS.md`, "Features", 2026-11-21):
+//! `set_popover_cells` narrows the cue and Enter to a cut text
+//! (`is_cut_text`); a cue's `fade()` has the cued cell's text drawn from
+//! its start, washing out short of the mark (`cue_in_cell`'s `Fade`, painted
+//! by `cells_text`), and its `open_icon` keeps a cue, its mark the host's
+//! second path, on the open popover's cell (`cue_cells`); a button's
+//! `fill()` lays it out the popover's whole width (`render_popover`).
 
 use std::cell::RefCell;
 use std::ops::Range;
@@ -26,13 +34,14 @@ use gpui_kit::component::{ActiveTheme as _, Sizable as _};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use super::{CONTEXT, TallTableEvent, TallTableState, click_stops};
-use crate::delegate::{TallTableDelegate, TallTablePage as _};
+use super::{CONTEXT, TallTableEvent, TallTableState, cell_pad, cell_text, click_stops};
+use crate::column::ColumnKind;
+use crate::delegate::{CellValue, TallTableDelegate, TallTablePage as _};
 use crate::pages::RowState;
 use crate::popover::{
-    ButtonLook, CUE_GAP, CUE_INSET, CueInCell, CueLook, CueMark, MARGIN, POPOVER_CHARS,
-    PopoverButton, PopoverCell, PopoverCue, PopoverText, cue_mark, max_height, max_width,
-    popover_text,
+    ButtonLook, CUE_GAP, CUE_INSET, CueInCell, CueLook, CueMark, FADE_CLEAR, FADE_RAMP, Fade,
+    MARGIN, POPOVER_CHARS, PopoverButton, PopoverCell, PopoverCells, PopoverCue, PopoverText,
+    cue_mark, max_height, max_width, popover_text,
 };
 use crate::probe::{CueProbe, PopoverProbe};
 
@@ -63,6 +72,9 @@ pub(crate) enum Control {
     KeepPopoverOnSort,
     /// A page landing on its row doesn't decide its text again.
     StalePopoverText,
+    /// Under `PopoverCells::CutText`, Enter opens on any active cell.
+    #[cfg_attr(not(feature = "select"), expect(dead_code))]
+    EnterOnAny,
 }
 
 /// A cue drawn: its cell and its box, in window pixels.
@@ -74,6 +86,8 @@ pub(super) struct PopoverState<D: TallTableDelegate> {
     pub(super) open: Option<Open>,
     button: Option<PopoverButton>,
     pub(super) cue: Option<PopoverCue>,
+    /// Which cells the cue and Enter work on.
+    cells: PopoverCells,
     /// Each cue cell's decision, by row and place: whether it shows. Kept
     /// only for the cells a frame would cue (the hovered and the active).
     decided: Vec<((u64, usize), bool)>,
@@ -84,6 +98,10 @@ pub(super) struct PopoverState<D: TallTableDelegate> {
     placed: Rc<RefCell<Placed>>,
     /// The table, for `close`'s event, which `close` can't emit.
     this: WeakEntity<TallTableState<D>>,
+    /// The asset source the open mark's path is checked against, for the
+    /// tests (the test app's loads nothing).
+    #[cfg(test)]
+    pub(crate) assets: Option<std::sync::Arc<dyn AssetSource>>,
     #[cfg(test)]
     pub(crate) control: Control,
 }
@@ -124,10 +142,13 @@ impl<D: TallTableDelegate> PopoverState<D> {
             open: None,
             button: None,
             cue: Some(PopoverCue::default()),
+            cells: PopoverCells::default(),
             decided: Vec::new(),
             cues: Default::default(),
             placed: Default::default(),
             this,
+            #[cfg(test)]
+            assets: None,
             #[cfg(test)]
             control: Control::None,
         }
@@ -206,7 +227,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// ([`PopoverButton::custom`]); `None` (the default): no button. Its
     /// press, or Enter on the open popover, emits
     /// `TallTableEvent::PopoverButton` and closes it. With one set, the cue
-    /// shows on every loaded cell, so each reaches the host's view.
+    /// shows on every loaded cell, so each reaches the host's view (under
+    /// `PopoverCells::Every`; under `CutText` a button changes no cue).
+    /// [`PopoverButton::fill`] lays it out the popover's whole width.
     pub fn set_popover_button(&mut self, button: Option<PopoverButton>, cx: &mut Context<Self>) {
         self.popover_state.button = button;
         // Its place is recorded again when it draws, if it does.
@@ -225,11 +248,123 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// rounded, a text cut or with line breaks) or a button is set: the
     /// table's look ([`PopoverCue::expand`], the default, or
     /// [`PopoverCue::icon`]) or the host's element ([`PopoverCue::custom`]);
-    /// `None` draws none (Enter and `open_popover` still open it).
+    /// `None` draws none (Enter and `open_popover` still open it). Which
+    /// cells: [`TallTableState::set_popover_cells`]. A cue's
+    /// [`PopoverCue::fade`] fades its cell's text to the mark, and its
+    /// [`PopoverCue::open_icon`], loaded from the asset source here, marks
+    /// the open popover's cell.
     pub fn set_popover_cue(&mut self, cue: Option<PopoverCue>, cx: &mut Context<Self>) {
-        self.popover_state.cue = cue;
+        #[cfg(test)]
+        let source = self
+            .popover_state
+            .assets
+            .clone()
+            .unwrap_or_else(|| cx.asset_source().clone());
+        #[cfg(not(test))]
+        let source = cx.asset_source().clone();
+        self.popover_state.cue = cue.map(|mut cue| {
+            if let Some(open) = &mut cue.open {
+                open.loaded = matches!(source.load(&open.path), Ok(Some(_)));
+            }
+            cue
+        });
         self.popover_state.decided.clear();
         cx.notify();
+    }
+
+    /// Which cells the table's own openers, the cue and Enter, work on:
+    /// every cell (the default), or a cut text alone
+    /// ([`PopoverCells::CutText`]: a `ColumnKind::Text` column's cell, not
+    /// NULL, cut at its end or holding a line break; Enter on any other
+    /// active cell goes on to the host). [`TallTableState::open_popover`]
+    /// opens any cell under either, and an open popover stays open. No
+    /// event.
+    pub fn set_popover_cells(&mut self, cells: PopoverCells, cx: &mut Context<Self>) {
+        self.popover_state.cells = cells;
+        self.popover_state.decided.clear();
+        cx.notify();
+    }
+
+    /// Which cells the cue and Enter work on.
+    pub fn popover_cells(&self) -> PopoverCells {
+        self.popover_state.cells
+    }
+
+    /// `PopoverCells::CutText`'s rule for the cell at `row` and `place`,
+    /// its page loaded: a `ColumnKind::Text` column's, not NULL, holding a
+    /// line break or its shown text wider than the box the paint cuts it to
+    /// (the cell's content box, snapped as the paint snaps it, so the rule
+    /// holds exactly where a "…" is drawn), by shaping this one cell. A
+    /// long text is proven cut from its start alone (`bounded_text`), its
+    /// whole value never copied or shaped.
+    pub(super) fn is_cut_text(&self, row: u64, place: usize, window: &Window, cx: &App) -> bool {
+        let RowState::Loaded(page, index) = self.cache.row(row) else {
+            return false;
+        };
+        let Some(laid_out) = self.columns.get(place) else {
+            return false;
+        };
+        // A page reads a column by its index (`reorder`).
+        let column = laid_out.index(place);
+        if !self
+            .column_info
+            .get(column)
+            .is_some_and(|info| info.kind() == ColumnKind::Text)
+        {
+            return false;
+        }
+        match page.value(index, column) {
+            None | Some(CellValue::Null) => false,
+            Some(CellValue::Text(text)) if text.contains(['\n', '\r']) => true,
+            Some(value) => {
+                if self.bounded_text(laid_out, &value, window, cx).is_some() {
+                    return true;
+                }
+                let shown = cell_text(laid_out, value);
+                let content = crate::cells_text::content_width(
+                    laid_out.width,
+                    cell_pad(self.sizes()),
+                    window,
+                );
+                px(self.text_width(shown.into(), window)) > content
+            }
+        }
+    }
+
+    /// Whether the cell at `row` and `place`, its page loaded, draws a cue
+    /// by the rule in effect: under `Every`, with a button set or where the
+    /// popover shows more than the cell (the tooltip's rule); under
+    /// `CutText`, a cut text alone.
+    fn cue_shows(&self, row: u64, place: usize, window: &Window, cx: &App) -> bool {
+        match self.popover_state.cells {
+            PopoverCells::Every => {
+                self.popover_state.button.is_some()
+                    || self.tooltip_text(row, place, window).is_some()
+            }
+            PopoverCells::CutText => self.is_cut_text(row, place, window, cx),
+        }
+    }
+
+    /// The open mark's path: the cue's `open_icon`, loaded, on a look the
+    /// table draws.
+    fn open_mark(&self) -> Option<&SharedString> {
+        let cue = self.popover_state.cue.as_ref()?;
+        if matches!(cue.look, CueLook::Custom(_)) {
+            return None;
+        }
+        cue.open
+            .as_ref()
+            .filter(|open| open.loaded)
+            .map(|open| &open.path)
+    }
+
+    /// Whether the cue on column index `column`'s cells fades their text:
+    /// the cue's `fade()`, on left-aligned text (not a number's column).
+    fn cue_fades(&self, column: usize) -> bool {
+        self.popover_state.cue.as_ref().is_some_and(|cue| cue.fade)
+            && self
+                .place_of(column)
+                .is_some_and(|place| !self.columns[place].kind.numeric())
     }
 
     /// The cue, if drawn.
@@ -380,8 +515,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// Enter: on an open popover, presses its button, or with none closes
-    /// it; else opens it on `select`'s active cell (a `Cells` selection);
-    /// else goes on to the host.
+    /// it; else opens it on `select`'s active cell (a `Cells` selection;
+    /// under `PopoverCells::CutText`, only one the rule holds for, decided
+    /// here); else goes on to the host.
     pub(crate) fn popover_enter(
         &mut self,
         _: &PopoverEnter,
@@ -401,7 +537,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
             && selection.kind() == crate::selection::Kind::Cells
         {
             let (row, place) = selection.anchor();
-            if let Some(column) = self.columns.get(place).map(|column| column.index(place))
+            #[cfg(test)]
+            let any = self.popover_state.control == Control::EnterOnAny;
+            #[cfg(not(test))]
+            let any = false;
+            let opens = match self.popover_state.cells {
+                PopoverCells::Every => true,
+                // A key follows a frame (GPUI draws a dirty window before
+                // it dispatches one), so the glyphs and the layout are read.
+                PopoverCells::CutText => any || self.is_cut_text(row, place, window, cx),
+            };
+            if opens
+                && let Some(column) = self.columns.get(place).map(|column| column.index(place))
                 && self.open_popover(PopoverCell::new(row, column), cx)
             {
                 return;
@@ -482,7 +629,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
         #[cfg(feature = "find")]
         self.tint_popover();
-        self.decide_cues(window);
+        self.decide_cues(window, cx);
         self.place_cues();
     }
 
@@ -524,9 +671,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The cells a frame cues: the hovered one, then `select`'s active
-    /// cell, by row and place.
+    /// cell, then, with an open mark, the open popover's, by row and place.
     fn cue_cells(&self) -> Vec<(u64, usize)> {
-        let mut cells = Vec::with_capacity(2);
+        let mut cells = Vec::with_capacity(3);
         if let Some(hover) = self.hover.as_ref() {
             cells.push((hover.row, hover.column));
         }
@@ -537,14 +684,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
         {
             cells.push(selection.anchor());
         }
+        if self.open_mark().is_some()
+            && let Some(open) = self.popover()
+            && let Some(place) = self.place_of(open.column)
+            && !cells.contains(&(open.row, place))
+        {
+            cells.push((open.row, place));
+        }
         cells
     }
 
-    /// Each cue cell decided once (until a page lands on it or the layout
-    /// changes): it shows with a button set, or where the popover shows
-    /// more than the cell (the tooltip's rule, by shaping the cell), its
-    /// page loaded either way.
-    fn decide_cues(&mut self, window: &Window) {
+    /// Each cue cell decided once (until a page lands on it, the layout
+    /// changes, or a setting does): it shows by the rule in effect
+    /// ([`TallTableState::cue_shows`], by shaping the cell), its page
+    /// loaded either way.
+    fn decide_cues(&mut self, window: &Window, cx: &App) {
         if self.popover_state.cue.is_none() {
             self.popover_state.decided.clear();
             return;
@@ -560,8 +714,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             if !matches!(self.cache.row(cell.0), RowState::Loaded(..)) {
                 continue;
             }
-            let shows = self.popover_state.button.is_some()
-                || self.tooltip_text(cell.0, cell.1, window).is_some();
+            let shows = self.cue_shows(cell.0, cell.1, window, cx);
             self.popover_state.decided.push((cell, shows));
         }
     }
@@ -574,8 +727,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         let mut placed = Vec::new();
         if self.popover_state.cue.is_some() {
             let side = self.cue_side();
-            // The hovered cell's first, then the active cell's: the probe's
-            // `cue` is the first.
+            // The hovered cell's first, then the active cell's, then the
+            // open popover's: the probe's `cue` is the first.
             for (row, place) in self.cue_cells() {
                 let shows = self
                     .popover_state
@@ -664,8 +817,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// mark (none for the host's element, which draws itself), and the room
     /// it keeps past the padding where the text has no "…" to give it: up to
     /// the mark, or the host's whole box, and a gap, from the cue's box at
-    /// the cell's visible right end.
-    pub(super) fn cue_in_cell(&self, row: u64, column: usize, color: Hsla) -> Option<CueInCell> {
+    /// the cell's visible right end. The mark is `color`'s, or on the open
+    /// popover's cell the open mark, in `open_color`. With the cue's
+    /// `fade()`, on left-aligned text, the fade: clear from 16 px short of
+    /// the content box's visible end, and never past that room (a density
+    /// whose cue is wider than its text is tall), whole 48 px before.
+    pub(super) fn cue_in_cell(
+        &self,
+        row: u64,
+        column: usize,
+        color: Hsla,
+        open_color: Hsla,
+    ) -> Option<CueInCell> {
         let cue = self.popover_state.cue.as_ref()?;
         let cell = PopoverCell::new(row, column);
         let cue_right = self
@@ -694,11 +857,26 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 Some(CueMark::Icon(path.clone(), color)),
             ),
         };
+        // The open popover's cell's mark.
+        let mark = match self.open_mark().filter(|_| self.popover() == Some(cell)) {
+            Some(path) => Some(CueMark::Icon(path.clone(), open_color)),
+            None => mark,
+        };
+        let sizes = self.sizes();
+        let room = (offset + CUE_INSET + covered + CUE_GAP - sizes.padding() / 2.0).max(0.0);
+        let fade = self.cue_fades(column).then(|| {
+            let clear = (offset + sizes.scaled(FADE_CLEAR)).max(room);
+            Fade {
+                start: clear + sizes.scaled(FADE_RAMP),
+                clear,
+            }
+        });
         Some(CueInCell {
-            room: (offset + CUE_INSET + covered + CUE_GAP - self.sizes().padding() / 2.0).max(0.0),
+            room,
             side,
             offset,
             mark,
+            fade,
         })
     }
 
@@ -765,17 +943,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
             let press = cx.listener(move |this, _: &ClickEvent, window, cx| {
                 this.press_popover_button(cell, window, cx);
             });
+            // Filled: the popover's whole width, no padding around it.
+            let fill = button.fill;
             let target = match &button.look {
                 ButtonLook::Label(label) => Button::new("tall-table-popover-button")
                     .label(label.clone())
                     .ghost()
                     .small()
                     .tab_stop(false)
+                    .when(fill, |button| button.w_full())
                     .on_click(press)
                     .into_any_element(),
                 ButtonLook::Custom(build) => div()
                     .id("tall-table-popover-button")
                     .cursor_pointer()
+                    .when(fill, |button| button.w_full())
                     .on_click(press)
                     .child(build(window, cx))
                     .into_any_element(),
@@ -784,19 +966,22 @@ impl<D: TallTableDelegate> TallTableState<D> {
                 .relative()
                 .flex_shrink_0()
                 .flex()
-                .px(px(pad / 2.0))
-                .pb(px(pad / 2.0))
+                .when(!fill, |foot| foot.px(px(pad / 2.0)).pb(px(pad / 2.0)))
                 .child(
-                    div().relative().child(target).child(
-                        canvas(
-                            move |bounds, _, _| recorded.borrow_mut().button = Some(bounds),
-                            |_, _, _, _| {},
-                        )
-                        .absolute()
-                        .top_0()
-                        .left_0()
-                        .size_full(),
-                    ),
+                    div()
+                        .relative()
+                        .when(fill, |row| row.w_full())
+                        .child(target)
+                        .child(
+                            canvas(
+                                move |bounds, _, _| recorded.borrow_mut().button = Some(bounds),
+                                |_, _, _, _| {},
+                            )
+                            .absolute()
+                            .top_0()
+                            .left_0()
+                            .size_full(),
+                        ),
                 )
         });
         let surface = div()
@@ -899,7 +1084,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.popover_state.cues.borrow().clone()
     }
 
-    /// The probe's `cue`: the hovered cell's, else the active cell's.
+    /// The probe's `cue`: the hovered cell's, else the active cell's, else
+    /// (with an open mark) the open popover's.
     pub(super) fn cue_probe(&self) -> Option<CueProbe> {
         self.popover_state
             .cues
@@ -908,6 +1094,8 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .map(|(cell, bounds)| CueProbe {
                 cell: *cell,
                 bounds: corners(*bounds),
+                faded: self.cue_fades(cell.column),
+                open: self.popover() == Some(*cell) && self.open_mark().is_some(),
             })
     }
 }

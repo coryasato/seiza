@@ -62,12 +62,32 @@ pub(crate) struct DrawnText {
     /// The cue's mark it painted (`popover`), in window pixels.
     #[cfg(feature = "popover")]
     pub(crate) mark: Option<Bounds<Pixels>>,
+    /// That mark's look: the host's SVG's path (none: the table's expand
+    /// mark) and its color.
+    #[cfg(feature = "popover")]
+    pub(crate) mark_look: Option<(Option<SharedString>, Hsla)>,
+    /// Each glyph it painted (`popover`): its origin's x and its alpha (1
+    /// but on a faded cell).
+    #[cfg(feature = "popover")]
+    pub(crate) glyphs: Vec<(f32, f32)>,
     /// What the find tinted (`find`): each tint's bounds and color, in
     /// window pixels, and the current match's edge.
     #[cfg(feature = "find")]
     pub(crate) tints: Vec<(Bounds<Pixels>, Hsla)>,
     #[cfg(feature = "find")]
     pub(crate) edge: Option<Hsla>,
+}
+
+/// The width of the box `paint` cuts a cell's text to, for a cell `width`
+/// wide with `pad` on each side: its lengths snapped to device pixels as
+/// `paint` snaps them, so a test of "is it cut" agrees with the "…" drawn
+/// at any scale factor (`popover`).
+#[cfg(feature = "popover")]
+pub(crate) fn content_width(width: f32, pad: AbsoluteLength, window: &Window) -> Pixels {
+    let scale = window.scale_factor();
+    let snap = |value: f32| round_half_toward_zero(value * scale);
+    let pad = snap(f32::from(pad.to_pixels(window.rem_size())));
+    px((snap(width) - 2.0 * pad).max(0.0) / scale)
 }
 
 /// The find's colors and term, for the cells it marks (`find`): every
@@ -239,11 +259,25 @@ fn paint(
             if !cell.whole && line.width > text_width {
                 cut!();
             }
-            // The cue on the cell (`popover`): a text cut at its end keeps
-            // its cut, its "…" given to the mark; any other is cut and
-            // aligned short of the cue's room.
+            // The cue on the cell (`popover`): a faded text is drawn from
+            // its start, uncut; else one cut at its end keeps its cut, its
+            // "…" given to the mark, and any other is cut and aligned short
+            // of the cue's room.
+            #[cfg(feature = "popover")]
+            let fade = cell.cue.as_ref().and_then(|cue| cue.fade);
             #[cfg(feature = "popover")]
             let (text_width, prefix) = match &cell.cue {
+                Some(_) if fade.is_some() => {
+                    if line.text != cell.text {
+                        line = window.text_system().shape_line(
+                            cell.text.clone(),
+                            font_size,
+                            std::slice::from_ref(&run),
+                            None,
+                        );
+                    }
+                    (text_width, None)
+                }
                 Some(cue) => {
                     #[cfg(feature = "format")]
                     let whole = cell.whole;
@@ -298,17 +332,40 @@ fn paint(
             });
             #[cfg(feature = "popover")]
             let line = prefix.unwrap_or(line);
+            // A faded line's alphas, a glyph each, and where its drawn text
+            // ends (`popover`).
+            #[cfg(feature = "popover")]
+            let faded = fade.map(|fade| crate::popover::faded(&line, text_width, fade));
             let padding_top = (line_height - line.ascent - line.descent) / 2.;
             let baseline_offset = point(px(0.), padding_top + line.ascent);
             // The find's tints, from the shaped line's offsets in the text
             // drawn (after the cut), and its current match's edge (`find`).
-            #[cfg(feature = "find")]
-            let (tints, edge) = find_quads(cell, &line, origin.x, clip, find);
+            // A faded cell's are its drawn line's, the text up to its last
+            // painted glyph, clipped where the fade clears (`popover`).
+            #[cfg(all(feature = "find", feature = "popover"))]
+            let (tints, edge) = find_quads(
+                cell,
+                &line,
+                faded
+                    .as_ref()
+                    .zip(fade)
+                    .map(|((_, end), fade)| (*end, origin.x + text_width - px(fade.clear))),
+                origin.x,
+                clip,
+                find,
+            );
+            #[cfg(all(feature = "find", not(feature = "popover")))]
+            let (tints, edge) = find_quads(cell, &line, None, origin.x, clip, find);
+            #[cfg(all(test, feature = "popover"))]
+            let drawn_len = faded.as_ref().map_or(line.text.len(), |(_, end)| *end);
+            #[cfg(all(test, not(feature = "popover")))]
+            let drawn_len = line.text.len();
             #[cfg(test)]
-            drawn.borrow_mut().push(DrawnText {
+            #[cfg_attr(not(feature = "popover"), expect(unused_mut))]
+            let mut record = DrawnText {
                 row: cell.row,
                 column: cell.column,
-                text: line.text.to_string(),
+                text: line.text[..drawn_len].to_string(),
                 x: f32::from(origin.x),
                 baseline: f32::from(origin.y + baseline_offset.y),
                 color: cell.color,
@@ -316,6 +373,13 @@ fn paint(
                 visible: clip.intersect(&window.content_mask().bounds),
                 #[cfg(feature = "popover")]
                 mark: mark.as_ref().map(|(_, bounds)| *bounds),
+                #[cfg(feature = "popover")]
+                mark_look: mark.as_ref().map(|(look, _)| match look {
+                    crate::popover::CueMark::Expand(color) => (None, *color),
+                    crate::popover::CueMark::Icon(path, color) => (Some(path.clone()), *color),
+                }),
+                #[cfg(feature = "popover")]
+                glyphs: Vec::new(),
                 #[cfg(feature = "find")]
                 tints: tints
                     .iter()
@@ -325,7 +389,7 @@ fn paint(
                 edge: edge
                     .as_ref()
                     .map(|_| find.map_or(gpui_kit::transparent_black(), |find| find.ring)),
-            });
+            };
             window.with_content_mask(Some(ContentMask { bounds: clip }), |window| {
                 let mask = window.content_mask().bounds;
                 // Over the cell's paint and the selection, under its text.
@@ -337,11 +401,33 @@ fn paint(
                 // between positions, so its floats are the same.
                 let mut glyph_origin = origin;
                 let mut previous = Point::<Pixels>::default();
+                #[cfg(feature = "popover")]
+                let mut nth = 0;
                 for glyph_run in &line.runs {
                     let glyph_size = text_system.bounding_box(glyph_run.font_id, font_size).size;
                     for glyph in &glyph_run.glyphs {
                         glyph_origin.x += glyph.position.x - previous.x;
                         previous = glyph.position;
+                        // A faded glyph is the same sprite at its place's
+                        // alpha, and none where the fade is clear
+                        // (`popover`).
+                        #[cfg(feature = "popover")]
+                        let alpha = faded.as_ref().map_or(1.0, |(alphas, _)| alphas[nth]);
+                        #[cfg(feature = "popover")]
+                        {
+                            nth += 1;
+                            if alpha <= 0.0 {
+                                continue;
+                            }
+                        }
+                        #[cfg(feature = "popover")]
+                        let color = if alpha < 1.0 {
+                            cell.color.opacity(alpha)
+                        } else {
+                            cell.color
+                        };
+                        #[cfg(not(feature = "popover"))]
+                        let color = cell.color;
                         if !(Bounds {
                             origin: glyph_origin,
                             size: glyph_size,
@@ -350,17 +436,13 @@ fn paint(
                         {
                             continue;
                         }
+                        #[cfg(all(test, feature = "popover"))]
+                        record.glyphs.push((f32::from(glyph_origin.x), alpha));
                         let at = glyph_origin + baseline_offset + point(px(0.), glyph.position.y);
                         let _ = if glyph.is_emoji {
                             window.paint_emoji(at, glyph_run.font_id, glyph.id, font_size)
                         } else {
-                            window.paint_glyph(
-                                at,
-                                glyph_run.font_id,
-                                glyph.id,
-                                font_size,
-                                cell.color,
-                            )
+                            window.paint_glyph(at, glyph_run.font_id, glyph.id, font_size, color)
                         };
                     }
                 }
@@ -375,6 +457,8 @@ fn paint(
                     window.paint_quad(edge);
                 }
             });
+            #[cfg(test)]
+            drawn.borrow_mut().push(record);
         }
     });
 }
@@ -382,11 +466,14 @@ fn paint(
 /// A marked cell's tints and edge (`find`), in window pixels: its drawn
 /// text's ranges of the term (or its box, where the text doesn't show it)
 /// in the match's color or the current match's, and the current match's
-/// edge; none for a cell not marked.
+/// edge; none for a cell not marked. `faded`: a faded cell's drawn text's
+/// end in `line` and where its fade is clear (`popover`), its ranges cut
+/// there.
 #[cfg(feature = "find")]
 fn find_quads(
     cell: &CellText,
     line: &ShapedLine,
+    faded: Option<(usize, Pixels)>,
     origin_x: Pixels,
     clip: Bounds<Pixels>,
     find: Option<&FindPaint>,
@@ -397,7 +484,11 @@ fn find_quads(
     };
     let current = cell.mark == Mark::Current;
     let color = if current { find.current } else { find.matched };
-    let tints = match found(cell.mark, &line.text, &find.folded) {
+    let (text, clear) = match faded {
+        Some((end, clear)) => (&line.text[..end], Some(clear)),
+        None => (&line.text[..], None),
+    };
+    let tints = match found(cell.mark, text, &find.folded) {
         None => Vec::new(),
         Some(Found::Cell) => vec![(clip, color)],
         Some(Found::Ranges(ranges)) => ranges
@@ -405,6 +496,7 @@ fn find_quads(
             .map(|range| {
                 let left = origin_x + line.x_for_index(range.start);
                 let right = origin_x + line.x_for_index(range.end);
+                let right = clear.map_or(right, |clear| right.min(clear).max(left));
                 (
                     Bounds::new(
                         point(left, clip.origin.y),
@@ -446,6 +538,27 @@ pub(crate) fn drawn_text(
     let pad = snap(f32::from(pad.to_pixels(window.rem_size())));
     let content = (snap(width) - 2.0 * pad).max(0.0);
     let text_width = px(content / scale);
+    // A faded cell's drawn line, as `paint` draws it (`popover`): its text
+    // from its start, up to its last painted glyph.
+    #[cfg(feature = "popover")]
+    if let Some(fade) = cue.and_then(|cue| cue.fade) {
+        let run = TextRun {
+            len: text.len(),
+            font: font.clone(),
+            color: gpui_kit::black(),
+            background_color: None,
+            underline: None,
+            strikethrough: None,
+        };
+        let line = window.text_system().shape_line(
+            text.clone(),
+            font_size,
+            std::slice::from_ref(&run),
+            None,
+        );
+        let (_, end) = crate::popover::faded(&line, text_width, fade);
+        return text[..end].to_string().into();
+    }
     // As `paint` cuts for the cue (`popover`): its "…" given up, or the
     // text cut short of its room.
     #[cfg(feature = "popover")]

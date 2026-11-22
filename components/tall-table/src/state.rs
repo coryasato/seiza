@@ -2679,7 +2679,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             // The cue on the cell it's drawn on, painted with
                             // its text (`popover`).
                             #[cfg(feature = "popover")]
-                            let cue = self.cue_in_cell(row, source, theme.muted_foreground);
+                            let cue = self.cue_in_cell(
+                                row,
+                                source,
+                                theme.muted_foreground,
+                                theme.foreground,
+                            );
                             // A match of the term, or the current match
                             // (`find`).
                             #[cfg(feature = "find")]

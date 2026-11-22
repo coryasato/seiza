@@ -1,7 +1,10 @@
 //! `popover`'s public types and its pure half: the cell it's open on, the
 //! button and the cue a host may style, the text a value shows in it, and
 //! its size limits (`docs/DECISIONS.md`, "Features", 2026-11-19 and
-//! 2026-11-20, `popover`).
+//! 2026-11-20, `popover`); and its three settings, each off by default:
+//! which cells the table's own openers work on ([`PopoverCells`]), the
+//! cue's fade and its open mark, and the button laid out the popover's
+//! width (2026-11-21).
 
 use std::rc::Rc;
 
@@ -27,6 +30,21 @@ impl PopoverCell {
     }
 }
 
+/// Which cells the table's own openers, the cue and Enter, work on
+/// (`popover`). `TallTableState::open_popover` opens any cell under either.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum PopoverCells {
+    /// Enter on any active cell; the cue where the popover shows more than
+    /// the cell, or on every loaded cell with a button set.
+    #[default]
+    Every,
+    /// A `ColumnKind::Text` column's cell, not NULL, cut at its end or
+    /// holding a line break, a button set or not: no cue on any other, and
+    /// Enter there goes on to the host.
+    CutText,
+}
+
 /// A host's element, built each frame it's drawn.
 pub(crate) type Build = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 
@@ -37,6 +55,8 @@ pub(crate) type Build = Rc<dyn Fn(&mut Window, &mut App) -> AnyElement>;
 #[derive(Clone)]
 pub struct PopoverButton {
     pub(crate) look: ButtonLook,
+    /// Laid out the popover's whole width ([`PopoverButton::fill`]).
+    pub(crate) fill: bool,
 }
 
 #[derive(Clone)]
@@ -51,6 +71,7 @@ impl PopoverButton {
     pub fn label(label: impl Into<SharedString>) -> Self {
         Self {
             look: ButtonLook::Label(label.into()),
+            fill: false,
         }
     }
 
@@ -62,29 +83,58 @@ impl PopoverButton {
     pub fn custom(build: impl Fn(&mut Window, &mut App) -> AnyElement + 'static) -> Self {
         Self {
             look: ButtonLook::Custom(Rc::new(build)),
+            fill: false,
         }
+    }
+
+    /// Laid out the popover's whole width, with no padding around it: the
+    /// label's button stretched, or the host's element in a block that
+    /// wide (a foot the host draws edge to edge). Without it the button is
+    /// laid out at its own size, from the left, inside the foot's padding.
+    pub fn fill(self) -> Self {
+        Self { fill: true, ..self }
     }
 }
 
 impl std::fmt::Debug for PopoverButton {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.look {
-            ButtonLook::Label(label) => f.debug_tuple("PopoverButton::label").field(label).finish(),
-            ButtonLook::Custom(_) => f.write_str("PopoverButton::custom(..)"),
+            ButtonLook::Label(label) => f
+                .debug_tuple("PopoverButton::label")
+                .field(label)
+                .finish()?,
+            ButtonLook::Custom(_) => f.write_str("PopoverButton::custom(..)")?,
         }
+        if self.fill {
+            f.write_str(".fill()")?;
+        }
+        Ok(())
     }
 }
 
 /// The cue (`popover`): a small button inside the right end of the hovered
 /// cell, and of `select`'s active cell, whose press opens the popover
 /// there, drawn when the popover shows more than the cell or a button is
-/// set; its mark takes the place of the cell's "…" (or, with none to
-/// give, the cell's text ends short of it). On by default
-/// ([`PopoverCue::expand`]); a host opts out with
-/// `TallTableState::set_popover_cue(None)`.
+/// set (or, under [`PopoverCells::CutText`], on a cut text alone); its mark
+/// takes the place of the cell's "…" (or, with none to give, the cell's
+/// text ends short of it), unless the text fades to it
+/// ([`PopoverCue::fade`]). On by default ([`PopoverCue::expand`]); a host
+/// opts out with `TallTableState::set_popover_cue(None)`.
 #[derive(Clone)]
 pub struct PopoverCue {
     pub(crate) look: CueLook,
+    /// The cued cell's text fades toward the mark ([`PopoverCue::fade`]).
+    pub(crate) fade: bool,
+    /// The mark on the open popover's cell ([`PopoverCue::open_icon`]).
+    pub(crate) open: Option<OpenIcon>,
+}
+
+/// The open popover's cell's mark: its path, and whether it loaded when the
+/// cue was set (one that didn't is no open mark).
+#[derive(Clone)]
+pub(crate) struct OpenIcon {
+    pub(crate) path: SharedString,
+    pub(crate) loaded: bool,
 }
 
 #[derive(Clone)]
@@ -101,6 +151,8 @@ impl PopoverCue {
     pub fn expand() -> Self {
         Self {
             look: CueLook::Expand,
+            fade: false,
+            open: None,
         }
     }
 
@@ -110,6 +162,8 @@ impl PopoverCue {
     pub fn icon(path: impl Into<SharedString>) -> Self {
         Self {
             look: CueLook::Icon(path.into()),
+            fade: false,
+            open: None,
         }
     }
 
@@ -121,6 +175,38 @@ impl PopoverCue {
     pub fn custom(build: impl Fn(&mut Window, &mut App) -> AnyElement + 'static) -> Self {
         Self {
             look: CueLook::Custom(Rc::new(build)),
+            fade: false,
+            open: None,
+        }
+    }
+}
+
+impl PopoverCue {
+    /// The cued cell's text drawn without its "…", from its start, washing
+    /// out short of the mark at the cell's far right: each glyph's alpha by
+    /// its place, whole up to 64 px short of the cell's content box's right
+    /// end and clear from 16 px short of it (at the default text size), so
+    /// no text moves when the cue shows. On left-aligned text only: a
+    /// number, right-aligned, keeps its cut short of the cue. At rest every
+    /// cell is drawn as without it.
+    pub fn fade(self) -> Self {
+        Self { fade: true, ..self }
+    }
+
+    /// The mark on the open popover's cell: an SVG from the host's assets,
+    /// by its path, drawn in place of the mark in the theme's `foreground`.
+    /// The cue then stays on that cell while the popover is open, hovered
+    /// or active or not, where the rule in effect gives that cell a cue,
+    /// and its press closes the popover. A path that doesn't load is no
+    /// open mark: the cue's cells and its mark are as without one. Nothing
+    /// on [`PopoverCue::custom`], which draws itself.
+    pub fn open_icon(self, path: impl Into<SharedString>) -> Self {
+        Self {
+            open: Some(OpenIcon {
+                path: path.into(),
+                loaded: false,
+            }),
+            ..self
         }
     }
 }
@@ -135,10 +221,17 @@ impl Default for PopoverCue {
 impl std::fmt::Debug for PopoverCue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.look {
-            CueLook::Expand => f.write_str("PopoverCue::expand()"),
-            CueLook::Icon(path) => f.debug_tuple("PopoverCue::icon").field(path).finish(),
-            CueLook::Custom(_) => f.write_str("PopoverCue::custom(..)"),
+            CueLook::Expand => f.write_str("PopoverCue::expand()")?,
+            CueLook::Icon(path) => f.debug_tuple("PopoverCue::icon").field(path).finish()?,
+            CueLook::Custom(_) => f.write_str("PopoverCue::custom(..)")?,
         }
+        if self.fade {
+            f.write_str(".fade()")?;
+        }
+        if let Some(open) = &self.open {
+            write!(f, ".open_icon({:?})", open.path)?;
+        }
+        Ok(())
     }
 }
 
@@ -148,6 +241,76 @@ pub(crate) const CUE_INSET: f32 = 2.0;
 
 /// The gap between a cued cell's text and its cue's mark.
 pub(crate) const CUE_GAP: f32 = 2.0;
+
+/// A faded text is clear from this far short of its content box's right
+/// end, at the default text size ([`PopoverCue::fade`]).
+pub(crate) const FADE_CLEAR: f32 = 16.0;
+/// A faded text's ramp, whole to clear, at the default text size.
+pub(crate) const FADE_RAMP: f32 = 48.0;
+
+/// A cued cell's fade ([`PopoverCue::fade`]): where its text starts to
+/// wash out and where it's clear, each in px short of the content box's
+/// right end.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Fade {
+    pub(crate) start: f32,
+    pub(crate) clear: f32,
+}
+
+impl Fade {
+    /// The alpha of a glyph whose middle is `middle` px from the left of a
+    /// content box `width` wide: 1 up to the fade's start, 0 from where
+    /// it's clear.
+    pub(crate) fn alpha(self, middle: f32, width: f32) -> f32 {
+        let (start, clear) = (width - self.start, width - self.clear);
+        if middle >= clear {
+            0.0
+        } else if middle <= start {
+            1.0
+        } else {
+            (clear - middle) / (clear - start)
+        }
+    }
+}
+
+/// A faded line: each glyph's alpha, in the line's order (0: not painted),
+/// and where its drawn text ends, the byte after the characters of its
+/// painted glyph furthest into the text. `line` is the cell's text, uncut,
+/// drawn from the left of a content box `width` wide. An emoji has no color
+/// to tint: it's whole at half or more, and not painted under it (one
+/// skipped before a painted glyph stays inside the drawn text). Glyphs out
+/// of byte order (right-to-left text) are painted by their place all the
+/// same, and the drawn text then runs to the furthest byte painted, the
+/// clear part before it included.
+pub(crate) fn faded(line: &ShapedLine, width: Pixels, fade: Fade) -> (Vec<f32>, usize) {
+    let glyphs: Vec<&ShapedGlyph> = line.runs.iter().flat_map(|run| &run.glyphs).collect();
+    // Where each glyph's characters end: the next index up, in byte order.
+    let mut starts: Vec<usize> = glyphs.iter().map(|glyph| glyph.index).collect();
+    starts.sort_unstable();
+    let cluster_end = |index: usize| {
+        let after = starts.partition_point(|start| *start <= index);
+        starts.get(after).copied().unwrap_or(line.text.len())
+    };
+    let width = f32::from(width);
+    let mut alphas = Vec::with_capacity(glyphs.len());
+    let mut end = 0;
+    for (at, glyph) in glyphs.iter().enumerate() {
+        let left = f32::from(glyph.position.x);
+        let next = glyphs.get(at + 1);
+        let right = next.map_or(f32::from(line.width), |next| f32::from(next.position.x));
+        let alpha = fade.alpha((left + right) / 2.0, width);
+        let alpha = match glyph.is_emoji {
+            true if alpha >= 0.5 => 1.0,
+            true => 0.0,
+            false => alpha,
+        };
+        if alpha > 0.0 {
+            end = end.max(cluster_end(glyph.index));
+        }
+        alphas.push(alpha);
+    }
+    (alphas, end.min(line.text.len()))
+}
 
 /// The mark's side in a cue `side` wide, at its cell's right end (where
 /// the cell's text has no "…" to give it): the table's expand mark, or
@@ -223,6 +386,9 @@ pub(crate) struct CueInCell {
     /// The mark the text element paints; `None` for the host's element,
     /// which draws itself (always `room`'s way).
     pub(crate) mark: Option<CueMark>,
+    /// The cell's text fades toward the mark, uncut and unmoved
+    /// ([`PopoverCue::fade`]): left-aligned text only.
+    pub(crate) fade: Option<Fade>,
 }
 
 /// The mark a cell's text element paints (`popover`).
@@ -310,7 +476,20 @@ pub(crate) fn max_height(window: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
-    use super::{CellValue, max_width, popover_text};
+    use super::{CellValue, Fade, max_width, popover_text};
+
+    #[test]
+    fn a_fade_is_whole_then_falls_to_clear() {
+        let fade = Fade {
+            start: 64.0,
+            clear: 16.0,
+        };
+        assert_eq!(fade.alpha(0.0, 184.0), 1.0);
+        assert_eq!(fade.alpha(120.0, 184.0), 1.0);
+        assert_eq!(fade.alpha(144.0, 184.0), 0.5);
+        assert_eq!(fade.alpha(168.0, 184.0), 0.0);
+        assert_eq!(fade.alpha(180.0, 184.0), 0.0);
+    }
 
     #[test]
     fn text_is_the_exact_text_with_its_lines() {

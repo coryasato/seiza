@@ -57,7 +57,7 @@ A page (`TallTablePage`) answers `value(row, column)` with a `CellValue` (`Null`
 - `set_ctrl_press_is_context(on)`, `ctrl_press_is_context()` (`clicks`): below.
 - `set_column_hidden(index, hidden, cx)`, `set_hidden(hidden, cx)` (`hide`; a column's flag read back from `columns()`, `is_hidden()`): below.
 - `set_find(term, cx)`, `find_next(cx)`, `find_previous(cx)`, `find_term()`, `current_match()` (`find`): below.
-- `open_popover(cell, cx)`, `close_popover(cx)`, `popover()`, `set_popover_button(button, cx)`, `popover_button()`, `set_popover_cue(cue, cx)`, `popover_cue()` (`popover`): below.
+- `open_popover(cell, cx)`, `close_popover(cx)`, `popover()`, `set_popover_button(button, cx)`, `popover_button()`, `set_popover_cue(cue, cx)`, `popover_cue()`, `set_popover_cells(cells, cx)`, `popover_cells()` (`popover`): below.
 - `set_column_icon(index, icon, cx)` (`header-icon`; a column's icon read back from `columns()`, `header_icon()`): below.
 - `retry_failed(cx)`: loads failed pages again, after the host repaired the source.
 - `close(cx)`: cancels its reads (a copy's too, with no event) and starts no more (a table being replaced); after it, nothing reads or cancels again (a second `close`, `set_rows`, which only moves the scrollbar).
@@ -511,6 +511,13 @@ state.update(cx, |table, cx| table.set_popover_button(Some(PopoverButton::label(
 // From the host's own gesture (a double press, say):
 state.update(cx, |table, cx| table.open_popover(PopoverCell::new(row, column), cx));
 
+// Its three settings, each its own and off by default ("Its settings", below):
+state.update(cx, |table, cx| {
+    table.set_popover_cells(PopoverCells::CutText, cx);
+    table.set_popover_cue(Some(PopoverCue::icon(down).open_icon(up).fade()), cx);
+    table.set_popover_button(Some(PopoverButton::label("Open row").fill()), cx);
+});
+
 // From the subscription:
 TallTableEvent::Popover(cell) => { /* opened on a cell, moved, or closed (None) */ }
 TallTableEvent::PopoverButton(cell) => { /* the host's view of cell.row */ }
@@ -522,8 +529,12 @@ TallTableEvent::PopoverButton(cell) => { /* the host's view of cell.row */ }
 - **Closing:** Escape (before `select`'s and `reorder`'s, going on with none open); Enter with no button; a press outside it, which goes on to do what it does (a cue's press on another cell moves it there); `close_popover`; `select`'s keys moving the active cell; its cell leaving the view (scrolled out, sideways, or behind `pin`'s run); a sort, `replace_rows`, `set_columns`, a `set_rows` cutting its row, a hide of its column, and `close`. A move (`reorder`) keeps it. `live`'s re-read of its row changes its text when the page lands, its scroll kept.
 - **The button:** `set_popover_button`: `PopoverButton::label(text)` (gpui-kit's small ghost button, the host's words: the table holds no app string), `PopoverButton::custom(build)` (the host's element, the table its press target), or `None` (the default: no button). A press, or Enter on the open popover, emits `PopoverButton(cell)` and closes it.
 - **Placed and drawn:** below its cell, left edges aligned, flipped above at the window's bottom and kept 8 px inside its sides (gpui-base's `Positioner`), from the cell's bounds each frame, so it follows its cell through a scroll until the cell leaves; at most the cell's width or 400 px, whichever is wider, and 75% of the window wide, 50% of it tall, its text scrolled inside past that (a wheel over it scrolls it, not the table). The popover surface's colors (gpui-kit's `popover`, `popover_foreground`, `border`) and `shadow_lg`, at `POPUP_PRIORITY`; no tooltip shows while it's open. It doesn't take focus: the keys stay the table's.
+- **Its settings,** three, each off by default and independent; with none set the popover is as above:
+  - **Which cells:** `set_popover_cells(PopoverCells::CutText)` keeps the table's own openers, the cue and Enter, to a cut text: a `ColumnKind::Text` column's cell, not NULL, whose shown text is wider than the box its cell cuts it to (so exactly where the cell draws a "…") or whose value holds a line break, a button set or not. A number, a date, a timestamp, a boolean, and a NULL get no cue, cut or not, and Enter on one goes on to the host, which reads the active cell from the selection it already hears; the tooltip is unchanged. `open_popover` opens any cell all the same. `PopoverCells::Every` (the default) is the popover as above.
+  - **The cue's look, its fade:** `PopoverCue::fade()`, on any cue. The cued cell's text is drawn without its "…", from its start, each glyph's alpha by its place: whole up to 64 px short of the cell's content box's right end and clear from 16 px short of it (at the default text size, scaled with `density`'s; never clear later than the mark's room), the mark at the cell's far right. No glyph moves, and at rest every cell is drawn as without it. Left-aligned text only: a number keeps the cue as above, cut short of it, since a fade would wash out its last digits. An emoji, which has no color to tint, is drawn whole at half alpha or more and not under it. With `find`, a faded cell's tints are its drawn line's (its text up to its last painted glyph), cut where the fade clears; in right-to-left text, whose glyphs aren't in the text's order, the glyphs fade by their place all the same, and that line runs to the furthest character painted. **And its open mark:** `PopoverCue::open_icon(path)`, an SVG from the host's assets drawn in place of the mark on the open popover's cell, in `foreground`. The cue then stays on that cell while the popover is open, hovered or active or not, where the rule in effect gives that cell a cue; its press closes the popover. A path that doesn't load is no open mark, and it does nothing on `PopoverCue::custom`, which draws itself.
+  - **The button's width:** `PopoverButton::fill()`, on either look: the foot has no padding and the button is laid out the popover's whole width (the label's button stretched; the host's element in a block that wide, for a foot the host draws edge to edge).
 - **With `find`:** the term's matches tinted in its text, by the same rule and fold (`selection` at saturation 0.1).
-- **Probed:** the probe's `popover` (its cell, its bounds inside its 1 px border, below or above, its text's characters and whether it was cut, its scroll and its text's height, its button's bounds) and `cue` (its cell and box). `tall-table-bridge` publishes each press of the button on a global the host names.
+- **Probed:** the probe's `popover` (its cell, its bounds inside its 1 px border, below or above, its text's characters and whether it was cut, its scroll and its text's height, its button's bounds) and `cue` (its cell and box, whether its cell's text is faded, and whether its mark is the open one; the hovered cell's, else the active one's, else the open popover's). `tall-table-bridge` publishes each press of the button on a global the host names.
 - **The host's:** the view of the row the button opens, and any gesture of its own that opens it (`open_popover`).
 - **Its cost:** the Features table. Nothing a frame until one is open; an open popover lays out and draws its text each frame, ~0.3 ms with 10,000 characters (the cap).
 
