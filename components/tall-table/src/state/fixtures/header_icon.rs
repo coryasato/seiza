@@ -1131,9 +1131,10 @@ fn a_hidden_column_draws_none_and_forgets_its_press(cx: &mut TestAppContext) {
 }
 
 /// The icons are in the names' row, under the groups' rows, whose cells
-/// have none. The names' row hangs from the header's bottom inside its
-/// border there, a pixel higher: the press's bounds are the badge as
-/// painted, at rest and raised.
+/// have none. The row is the one a lone header has, a row above the body:
+/// the press's bounds are the badge as painted, at rest and raised, and
+/// the icon's target ends where the hit tests end the row, at its first
+/// and last pixel.
 #[cfg(feature = "group-headers")]
 #[gpui_kit::test]
 fn a_groups_cell_has_no_icon(cx: &mut TestAppContext) {
@@ -1141,8 +1142,7 @@ fn a_groups_cell_has_no_icon(cx: &mut TestAppContext) {
     let mut sheet = Sheet::open(cx, columns, 900.0);
     assert_eq!(sheet.read(|table| table.group_rows()), 1);
     assert_eq!(sheet.read(|table| table.icon_state.drawn.len()), 3);
-    let mut badge = sheet.badge(0);
-    badge.origin.y -= px(1.);
+    let badge = sheet.badge(0);
     assert_eq!(sheet.painted(0), badge, "the badge as painted");
     assert_eq!(sheet.drawn(0).expect("an icon").look, badge);
     let at = sheet.icon_at(0);
@@ -1157,5 +1157,23 @@ fn a_groups_cell_has_no_icon(cx: &mut TestAppContext) {
     sheet.press(above);
     assert_eq!(sheet.pressed(), None);
     sheet.release(above);
+    assert_eq!(sheet.presses(), []);
+    // The row's edges, where the layer and the hit tests must agree: its
+    // first pixel the icon's, and its last over the header's 1 px border
+    // (the border itself is the header's, as under a lone header), the
+    // pixel over the row the group's.
+    let body = sheet.read(|table| table.body.origin.y);
+    let first = point(at.x, body - row_height() + px(0.5));
+    let last = point(at.x, body - px(1.5));
+    for edge in [first, last] {
+        sheet.hover(edge);
+        sheet.click(edge);
+        assert_eq!(sheet.presses(), [press_of(0, badge)], "at {edge:?}");
+    }
+    let over = point(at.x, body - row_height() - px(0.5));
+    sheet.hover(over);
+    sheet.press(over);
+    assert_eq!(sheet.pressed(), None);
+    sheet.release(over);
     assert_eq!(sheet.presses(), []);
 }

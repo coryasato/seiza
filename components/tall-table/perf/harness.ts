@@ -764,8 +764,9 @@ export async function iconThrough(page: Page, index: number, name: 'text' | 'num
 
 /** The box, `[x, y, width, height]` in CSS px of the page, around every
  *  pixel two screenshots of `clip` (`screenshot`'s) draw more than
- *  `within` apart in a color channel; null if none does. Read in the
- *  page. */
+ *  `within` apart in a color channel; null if none does. Throws on
+ *  screenshots of different sizes: they aren't two draws of one clip.
+ *  Read in the page. */
 export async function differingBox(page: Page, a: string, b: string, clip: { x: number; y: number; width: number; height: number }, within: number): Promise<[number, number, number, number] | null> {
   return page.evaluate(
     async ({ pngs, within, clip }) => {
@@ -780,7 +781,7 @@ export async function differingBox(page: Page, a: string, b: string, clip: { x: 
           return context.getImageData(0, 0, image.width, image.height);
         }),
       );
-      if (!a || !b || a.width !== b.width || a.height !== b.height) return null;
+      if (!a || !b || a.width !== b.width || a.height !== b.height) throw new Error(`differingBox: screenshots of different sizes, ${a?.width}×${a?.height} and ${b?.width}×${b?.height}`);
       let [left, top, right, bottom] = [a.width, a.height, -1, -1];
       for (let y = 0; y < a.height; y++) {
         for (let x = 0; x < a.width; x++) {
@@ -1240,13 +1241,15 @@ export const SELECT_OFFSET_PX = 8;
 
 /** With `reorder`: where to press column `place`'s header for a drag, CSS
  *  px: a quarter of the way in (at most 12 px), clear of `resize`'s band
- *  and `sort`'s arrow at its right, and of `header-icon`'s icon at its
- *  left. */
+ *  and `sort`'s arrow at its right; with `header-icon`'s icon at its
+ *  left, just past the icon's reach instead, however narrow the column
+ *  (short of its right end by the same clearance). */
 export function moveGripAt(layout: Layout, place: number, scrollX: number): { x: number; y: number } {
   const { width } = layout.columns[place]!;
   // With an icon (`header-icon`), past it: a press on it is the icon's.
   const icon = iconEnd(layout, place);
-  const x = icon ? Math.min(icon + ICON_CLEAR_PX, width / 2) : Math.min(12, width / 4);
+  // As `headerAt`: past the icon's reach, short of the right end's band.
+  const x = icon ? Math.min(Math.max(icon + ICON_CLEAR_PX, Math.min(12, width / 4)), width - ICON_CLEAR_PX) : Math.min(12, width / 4);
   return { x: layout.left + screenLeft(layout, place, scrollX) + x, y: layout.top - layout.rowHeight / 2 };
 }
 

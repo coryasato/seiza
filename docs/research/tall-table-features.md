@@ -1683,3 +1683,107 @@ A `Zone` for a header's icon (a press down on it, a release on or off it, with t
 - **An icon on a group's cell,** and **a second icon in a header** (a filter control beside the menu button): when a host asks.
 - **A header cell's bounds without a press:** above.
 - **Touch:** whether a tap on the icon is the icon's or the header's under the touch setting is that milestone's question.
+
+---
+
+## The popover for cut text, its cue a fade (`popover`'s settings)
+
+Researched 2026-11-21, from the popover as built (`src/popover.rs`, `src/state/popover.rs`: `cue_cells`, `decide_cues`, `place_cues`, `cue_in_cell`, `popover_enter`, `render_popover`'s button), the cells' text element (`src/cells_text.rs`: `paint`, `cue_cut`, `drawn_text`), the tooltip's rule (`src/state.rs`'s `tooltip_text`), gpui-pre 0.3.12's `Window::paint_glyph`, `paint_emoji`, `paint_svg`, and `LineWrapper::truncate_line`, Tycho's two decisions (its `docs/DECISIONS.md`, "Scope", 2026-11-20: the cue a fade and a chevron, the popover a glimpse of overflowing text) and its design canvas's "Cell and row" page ("Cue C", "The fade, close up", "Popover, text"), read from the boards' generator. One spike, in the bare host, for the fade (below); thrown away.
+
+### What asks for it
+
+- **Tycho:** its "Waiting on" table. As built, a host that sets a button gets the cue on every loaded cell, and a value with no "…" steps aside for it under the pointer (about 18 px in a 28 px row); Enter opens a popover on every cell, a NULL included. Tycho wants the popover to be a glimpse of text the cell cuts and nothing else, a cue that moves no text, and Enter to open its row view everywhere else.
+- **No observatory scenario** asks for it; no feature level compares it.
+
+### Settings of `popover`, three, each its own
+
+**The owner chose three settings, each off by default and independent,** over one preset that turns all on: a host can take the fade without the narrowing, or the wide button without either, and the popover as built is unchanged with none set.
+
+- **Which cells:** `set_popover_cells(PopoverCells::CutText)`; the default, `PopoverCells::Every`, is the popover as built.
+- **The cue's look:** `PopoverCue::fade()`, a builder on any cue, and `PopoverCue::open_icon(path)`, the mark on the open popover's cell.
+- **The button's width:** `PopoverButton::fill()`, a builder on either look.
+
+### Which cells
+
+**The owner chose text columns only.** With `CutText`, the cue and Enter work on a cell that is all of: in a `ColumnKind::Text` column; not a NULL; and either cut at its end (its shown text shaped wider than the cell's content box, the tooltip's test) or holding a line break (drawn as `¶`, cut or not). A button set changes nothing: it no longer puts the cue on every cell.
+
+- **A number, a date, a timestamp, a boolean:** none, cut or not; a rounded float or a cut timestamp keeps the tooltip, which this setting doesn't touch. Weighed: any non-NULL value cut at its end, whatever its column's kind (a timestamp in a narrow column would get the popover); Tycho's decision names the timestamp among the cells with none.
+- **A NULL:** none.
+- **A middle cut** (integers, decimals) and **a text cut by `format`'s fallback:** numbers' columns, so none.
+- **A `custom-cells` cell:** by the same rule, on its text; its fill or bar doesn't count.
+- **A cell cut by the view's right edge, its text fitting its column:** not cut by the rule, which reads the column's width, as the tooltip's does.
+- **A row not loaded:** nothing to decide; no cue, and Enter goes on.
+
+**The owner chose: `open_popover` opens any cell, as built.** The setting narrows the table's own openers, the cue and Enter; a host that calls `open_popover` has decided. Weighed: refusing an excluded cell (the host couldn't override it without turning the setting off, and the API would need a second reason for `false`).
+
+### Enter
+
+On an open popover, as built (its button's press, or with none its close). Else, with `select`'s active cell: under `Every`, as built; under `CutText`, the popover opens only on a cell the rule holds for, decided at the key by shaping that one cell, and on any other Enter propagates to the host, as it does with no `Cells` selection. The host reads the active cell from the selection it already hears (`SelectionChanged`) and opens its view; nothing new is reported.
+
+### The fade
+
+**At rest the cell is drawn as now, its "…" included.** On a cell that draws a cue (the hovered and the active one, as built), with `fade()`:
+
+- **A text cut at its end or left-aligned and uncut** (every kind but the numbers'): drawn without its "…", from its start, each glyph's alpha by its place: whole up to 64 px short of the content box's right end, clear from 16 px short of it (Tycho's canvas; scaled with the text, through `sizes()`), the mark at the cell's far right in the cue's box. No glyph moves. A text that ends before the fade starts is drawn as at rest. On a cell cut by the view's right edge the fade runs to the cue's box at its visible end.
+- **A right-aligned or middle-cut text** (a number, which only `Every` cues): as built, cut and aligned short of the cue's room. Its last digits are the ones that matter, and a fade would wash them out.
+- **The mark** is where the cue's box puts it today when the text has no "…" to give (the box's center); it never takes the "…"'s place.
+
+**How a line fades: each glyph's alpha, from a spike.** `paint_glyph` takes a color a glyph, so a glyph painted at `color.opacity(alpha at its middle)` is the same sprite with another tint: no new primitive, no mask, no second pass. Weighed, in a spike in the bare host (the popover's build, a text column of 300-character values, the hovered cell faded each way and screenshotted at DPR 1 and 2; then every cut cell in view faded, about 28 a frame, under 180 wheels, the page's work samples, median a frame, three rounds):
+
+| The way | Work a frame, every cut cell faded | Against none |
+|---|---|---|
+| None (the "…") | 6.93, 6.98, 6.81 ms | |
+| A glyph's alpha | 7.09, 7.01, 6.84 ms | +0.03 to +0.16 |
+| Strips 4 px wide, each under its own content mask | 7.69, 7.89, 8.34 ms | +0.8 to +1.5 |
+| Strips a device pixel wide | 11.37, 10.91, 10.61 ms | +3.8 to +4.4 |
+
+At reading size the three looked the same in the screenshots: a glyph is about 7 px of a 48 px ramp, so a glyph's alpha gives seven steps, each a letter. The strips are a smoother ramp nobody sees, at 28 to 140 times the cost a cell. A frame fades two cells at most, so the strips' share would have been about 0.1 ms a frame at 4 px and 0.3 ms at a device pixel; the glyph's alpha is chosen because it's free and adds the least code. Ruled out before the spike: a gradient quad over the text (the row's background varies: stripes, `custom-cells`' fill, `select`'s tint, `live`'s flash, `find`'s tint), and GPUI's element opacity (crate-private in gpui-pre 0.3.12, and one value an element).
+
+- **An emoji** has no color to tint (`paint_emoji`): one whose alpha would be half or more is drawn whole, one under half isn't drawn.
+- **`find`:** the tints are the drawn line's ranges; a faded cell's drawn line is its text up to the last glyph painted, so `drawn_text` cuts there and a probe's ranges agree. A tint is painted at full strength and clipped where the fade clears.
+- **A long value:** the faded line is the uncut text, shaped; the base's fix for a long value's cell bounds what's shaped to what the widest cell could show, and the faded line takes the same bound.
+
+### The mark turned up
+
+**The owner chose a second path:** `PopoverCue::open_icon(path)`, an SVG from the host's assets drawn in place of the mark on the open popover's cell, in the theme's `foreground` (the canvas's: the closed mark is muted). With none given the mark is the same open or closed, as built. Weighed: the table rotating the mark 180° (one asset, but right only for a mark that reads as its opposite upside down, and a builder all the same, since today's hosts must not change).
+
+- **A cue with an open mark stays on the open popover's cell** while it's open, hovered or active or not (opened by `open_popover`, or the pointer gone): a mark that says "open" has to be there to say it, and its press closes the popover. Without `open_icon` the cue's cells are the hovered and the active one, as built. It's drawn only on a cell the rule in effect gives a cue (an excluded cell a host opened has none).
+- **`PopoverCue::custom`** draws itself; `open_icon` on it does nothing, and its doc says so.
+
+### The button's width
+
+`PopoverButton::fill()`: the foot has no padding and the button is laid out the popover's whole width (the label's `Button` stretched; a host's element in a block that wide), so a host draws the canvas's foot, a row with its own top border and background, "Open row" at the left and the key's name at the right. As built (no `fill`), the button is laid out at its own size, from the left, inside the foot's padding. The probe's `button` is the whole row.
+
+### The built features
+
+- **`select`:** the active cell's cue and Enter follow the rule in effect. A press on the mark is the cue's, as built.
+- **`find`:** above. **`custom-cells`:** the fade is of the text; a fill or bar under it is untouched, which is why it's the glyphs that fade.
+- **`live`:** a flash under a faded text shows through it, as under any text; a page landing on the row decides the cue again (as built).
+- **`pin`, `reorder`, `hide`, `density`:** as the cue is built: by index, at the visible end, every length scaled.
+- **`format`:** numbers only; never faded.
+- **The tooltip:** unchanged, and still none while a popover is open.
+
+### Frame-work risk
+
+None from the fade (the spike). `CutText` decides a cue as `Every` does, by shaping one cell once a hover change. Enter under `CutText` shapes one cell a key. Read at the close: the protocol's scroll with the pointer over a cut cell and an active cell faded, against the popover as built.
+
+### Canvas gaps
+
+- **The cue is a fade and a mark under the pointer, and the "…" at rest:** a reader without a pointer has the "…" and, with `select`, Enter on the active cell; one with neither `select` nor a pointer has no way in, as built.
+- **A fade is contrast lost on purpose** over the cell's last 48 px, on two cells at most, and never at rest; the popover holds the text it washes out.
+- **Touch:** no hover, so the cue shows on the active cell alone; whether a tap opens it is the touch milestone's.
+- **A screen reader** is told nothing of the cue or the popover (the canvas's gap, README).
+
+### What a DOM contender does
+
+No observatory level. No fixture: the cell fixture pins the text at rest, which doesn't change.
+
+### What the random test gains
+
+Two steps from a stream of their own, placed after `with_icons` so no case's draw changes: `set_popover_cells` toggled, and Enter on the active cell. Invariant: under `CutText`, a popover Enter opened is on a `Text` column's cell, not NULL, whose value holds a line break or whose text is wider than its column's content box by the test font's advances (worked out apart from the table's rule); under either, Enter that opened none left none open. Its control: Enter opening on any cell under `CutText`. The settings read no page, so the soak isn't needed unless the build touches the paging (the fix for a long value's cell changes the cells' text, not the paging).
+
+### What it leaves out
+
+- **A per-column or per-cell rule from the host** (a callback deciding which cells): one enum now; a host that needs its own rule asks.
+- **The fade at rest** on every cut cell, and **a fade on numbers:** Tycho drew the first and dropped it; the second washes out the digits that matter.
+- **A cached decision for Enter:** one cell shaped a key.

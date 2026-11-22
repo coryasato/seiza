@@ -284,16 +284,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The top of the row the icons are drawn in, in window pixels: the
-    /// row above the body, and under group rows (`group-headers`) a pixel
-    /// higher, where `in_names_row` hangs their layer: from the header's
-    /// bottom, inside its 1 px border.
+    /// row above the body, under group rows too (`in_names_row`).
     fn icon_row_top(&self) -> Pixels {
-        let top = self.body.origin.y - self.sizes().row();
-        #[cfg(feature = "group-headers")]
-        if self.group_rows() > 0 {
-            return top - px(1.);
-        }
-        top
+        self.body.origin.y - self.sizes().row()
     }
 
     /// An icon's glyph in a box `width` by `height`, its top left at

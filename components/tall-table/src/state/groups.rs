@@ -231,17 +231,21 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// `layer` (over the columns, the header's height) put in the names'
-    /// row, the bottom one, while there are group rows.
+    /// row, the bottom one, while there are group rows: from the row's top,
+    /// a row above the body, to the header's bottom inside its 1 px border,
+    /// the box a lone header gives a layer, and the row the hit tests read
+    /// (`header_place_at`, `group_row_at`).
     pub(super) fn in_names_row(&self, layer: Div) -> Div {
-        if self.group_rows() == 0 {
+        let rows = self.group_rows();
+        if rows == 0 {
             return layer;
         }
         div()
             .absolute()
             .left_0()
             .right_0()
+            .top(self.sizes().row() * rows as f32)
             .bottom_0()
-            .h(self.sizes().row())
             .child(layer)
     }
 

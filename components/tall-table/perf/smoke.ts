@@ -1505,15 +1505,16 @@ async function checkPopover(page: Page, label: string, start: Layout): Promise<s
 
 /** How long an icon press that reports nothing is waited on. */
 const ICON_QUIET_MS = 400;
-/** The raised look's reach past the badge at the base's text (the
- *  table's `REACH`), scaled with `density`'s text as the badge's width is
- *  (18 px at the base's). */
+/** The badge's width at the base's text; `density`'s text scales it. */
 const ICON_BADGE_PX = 18;
 /** A press's bounds may sit this far from the badge on screen: GPUI
  *  paints in whole device pixels, half a CSS px at Chromium's DPR 2 and
  *  one at the others' 1, where a badge at an x of .5 is painted half a px
  *  off. Under a pixel, so bounds a row off the badge fail. */
 const ICON_DRAWN_PX = 0.75;
+/** The raised look's reach past the badge at the base's text (the
+ *  table's `REACH`), scaled with `density`'s text as the badge's width
+ *  is. */
 const ICON_REACH_PX = 4;
 
 /** With `header-icon`: the icons on the layout; one number column's badge
@@ -1546,9 +1547,11 @@ async function checkIcons(page: Page, label: string, opened: Layout, view: Shown
   const reach = ICON_REACH_PX * scale;
   const headerTop = opened.top - opened.rowHeight;
   const columnLeft = opened.left + screenLeft(opened, place, view.scrollX);
-  /** The badge by the layout: its left and width; its middle the names'
-   *  row's. Its height is the table's to say (a short row shrinks it). */
-  const badge = { x: columnLeft + icon.x, width: icon.width, middle: opened.top - opened.rowHeight / 2 };
+  /** The badge by the layout: its left and width, and the top of one
+   *  `height` tall: centered in the names' row, floored to a whole px as
+   *  the table floors it. Its height is the table's to say (a short row
+   *  shrinks it). */
+  const badge = { x: columnLeft + icon.x, width: icon.width, top: (height: number) => headerTop + Math.floor((opened.rowHeight - height) / 2), middle: opened.top - opened.rowHeight / 2 };
   const center = { x: badge.x + badge.width / 2, y: badge.middle };
   const away = { x: opened.left + 300, y: opened.top + 300 };
   /** The header's left part: the badge and the raised look's reach, short
@@ -1586,9 +1589,8 @@ async function checkIcons(page: Page, label: string, opened: Layout, view: Shown
   const again = await screenWhen(clip, same(rest));
   if ((await differingPixels(page, rest, again, 0)) > 0) failed(`${label}: column ${index}'s icon set again doesn't draw as at open`);
   if (!drawn) return failed(`${label}: column ${index}'s header draws the same with its icon cleared: no badge on screen`) ?? '';
-  const drawnMiddle = drawn[1] + drawn[3] / 2;
-  if (Math.abs(drawn[0] - badge.x) > 1 || Math.abs(drawn[2] - badge.width) > 1 || Math.abs(drawnMiddle - badge.middle) > 1 || drawn[3] > opened.rowHeight - 1)
-    failed(`${label}: column ${index}'s badge drawn at ${JSON.stringify(drawn.map((value) => Number(value.toFixed(2))))}, the layout's at x ${badge.x.toFixed(2)}, ${badge.width} wide, its middle ${badge.middle.toFixed(2)}`);
+  if (Math.abs(drawn[0] - badge.x) > ICON_DRAWN_PX || Math.abs(drawn[2] - badge.width) > ICON_DRAWN_PX || Math.abs(drawn[1] - badge.top(drawn[3])) > ICON_DRAWN_PX || drawn[3] > opened.rowHeight - 1)
+    failed(`${label}: column ${index}'s badge drawn at ${JSON.stringify(drawn.map((value) => Number(value.toFixed(2))))}, the layout's at x ${badge.x.toFixed(2)}, ${badge.width} wide, its top ${badge.top(drawn[3]).toFixed(2)}`);
   notes.push(`column ${index}'s badge drawn at [${drawn.map((value) => value.toFixed(1)).join(', ')}], where the layout puts it, and again after a clear and a set`);
 
   // Under the pointer: the raised look, past the badge on every side;
@@ -1614,14 +1616,15 @@ async function checkIcons(page: Page, label: string, opened: Layout, view: Shown
     if (sort && JSON.stringify(now.sort ?? null) !== JSON.stringify(before.sort ?? null)) failed(`${label}: ${what} sorted ${JSON.stringify(now.sort)}`);
   };
   /** The press published after `count`, checked: its column, its bounds
-   *  over the layout's badge and the drawn one within a pixel, no key. */
+   *  over the layout's badge and over the drawn one, each within
+   *  `ICON_DRAWN_PX`, no key. */
   const expect = async (what: string, count: number): Promise<IconPress | null> => {
     const press = await iconPressAfter(page, count);
     if (!press) return failed(`${label}: ${what}: no icon press published`);
     const [x, y, width, height] = press.bounds;
-    const offLayout = Math.max(Math.abs(x - badge.x), Math.abs(width - badge.width), Math.abs(y + height / 2 - badge.middle));
+    const offLayout = Math.max(Math.abs(x - badge.x), Math.abs(width - badge.width), Math.abs(y - badge.top(height)));
     const offDrawn = Math.max(...press.bounds.map((value, at) => Math.abs(value - drawn[at]!)));
-    if (press.count !== count + 1 || press.column !== index || offLayout > 1 || offDrawn > ICON_DRAWN_PX || press.modifiers.length)
+    if (press.count !== count + 1 || press.column !== index || offLayout > ICON_DRAWN_PX || offDrawn > ICON_DRAWN_PX || press.modifiers.length)
       return failed(`${label}: ${what}: published ${JSON.stringify(press)}, not column ${index} over the drawn badge ${JSON.stringify(drawn.map((value) => Number(value.toFixed(2))))} with no key, count ${count + 1}`);
     return press;
   };
@@ -1639,7 +1642,9 @@ async function checkIcons(page: Page, label: string, opened: Layout, view: Shown
   const pressed = await expect("an icon's press", count);
   await untouched("an icon's press");
   if (held && pressed) notes.push(`pressed: nothing at the press, column ${pressed.column} at the release, its bounds [${pressed.bounds.map((value) => value.toFixed(1)).join(', ')}] over the drawn badge within ${ICON_DRAWN_PX} px`);
-  if (pressed) count++;
+  // The host's count, not this script's: a press published and failed
+  // above still counted there.
+  count = await iconPressCount(page);
   await page.waitForTimeout(APART_MS);
 
   // On the raised look's ring, outside the badge: the icon's too.
@@ -1647,8 +1652,8 @@ async function checkIcons(page: Page, label: string, opened: Layout, view: Shown
   await pressAt(page, ring);
   const ringed = await expect("a press on the raised look's ring", count);
   await untouched("a press on the raised look's ring");
+  count = await iconPressCount(page);
   if (ringed) {
-    count++;
     notes.push(`a press on its ring (${(reach / 2).toFixed(1)} px left of the badge) the icon's`);
   }
   await page.waitForTimeout(APART_MS);

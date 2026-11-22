@@ -884,3 +884,21 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - With the feature built, every other feature's smoke run draws icons too, and the start of a header stopped being the header's: `sort`'s "press beside the arrow" and the reorder grip pressed 8 and 12 px in, on the icon. A feature that takes over part of a target changes the other features' scripts, not only its own.
 - Alone the feature reads +62 KiB, and with every other feature on +12.7: it's the first feature to draw an SVG, and most of its bytes alone are GPUI's SVG path, which `sort`'s icons link as well. A feature's cost alone can be mostly a dependency the next feature shares; the size with everything else on says what its own code is.
 
+## M23: the popover for cut text, its cue a fade (part A, 2026-11-21)
+
+**Results:** [`perf/results/2026-11-21-m23-a.md`](../perf/results/2026-11-21-m23-a.md) (the fade's spike); the research is in the root's [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "The popover for cut text, its cue a fade".
+
+**Surprises:**
+- The draft asked what a fade costs, and the cheapest way cost nothing: the cells' text element already paints a glyph at a time with a color each, so a fade is the same sprites at other alphas. The spike was worth its hour for the look, not the number: the smoother ways (strips under content masks) couldn't be told from it in a screenshot, which no reasoning about seven steps over 48 px would have settled with the owner.
+- The spike's first screenshots showed the wrong cells and its second run hung: a script written beside the harness, without its DPR shim and its `open`, met both traps `.claude/rules/perf-harness.md` names. A throwaway script still goes through the harness's helpers.
+- "The mark turned up" hid a rule the draft didn't have: a cue is drawn on the hovered and the active cell only, so a popover opened by the host, or left by the pointer, had no cell to draw an open mark on. The canvas drew one state; the code had three ways into it.
+- A fade "on a text that is cut" was too narrow a rule: a fitting text with a line break gets a cue too, and under the built cue it's cut short to make room. Fading by place, whatever the text's length, covers both and is one rule; the numbers are what it must leave alone.
+
+## M22 follow-up: the header icon's review findings (2026-11-21)
+
+**Results:** no measurement; the checks are in [`milestones.md`](milestones.md), "M22 follow-up".
+
+**Surprises:**
+- The pixel the icon's bounds were corrected by was the layer's mistake, not the bounds': the names' cells and the hit tests already agreed on the row, and only the layers hung over it sat a pixel high. Correcting the one reading that showed it left the arrows' and bands' layers off, added a site gated on two features, and needed a rule in a `CLAUDE.md` to warn the next reader. When a position needs a correction in one place, look for who else reads it before adding the term.
+- The smoke check passed at exactly its tolerance in both builds it was run on, and failed by half a pixel in a third. A check that passes at the limit hasn't passed; the numbers in its passing line are worth one more build with different sizes.
+
