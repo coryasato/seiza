@@ -33,12 +33,60 @@ fn columns() -> Vec<TallTableColumn> {
 }
 
 fn value(row: u64, column: usize) -> CellValue<'static> {
+    if row >= LONG_ROWS {
+        return long_value(row - LONG_ROWS, column);
+    }
     match column {
         // Short on even rows, cut on odd ones.
         0 if row.is_multiple_of(2) => CellValue::Text(format!("r{row}").into()),
         0 => CellValue::Text(format!("{row} {}", "long text ".repeat(8)).into()),
         1 => CellValue::Text((20_000_000 + row).to_string().into()),
         2 => CellValue::Float(row as f64 + 0.5),
+        _ => CellValue::Null,
+    }
+}
+
+/// The first of the rows with long texts (`long_value`), far from the
+/// rows the other tests draw.
+const LONG_ROWS: u64 = 9_000;
+
+thread_local! {
+    /// The characters a long text is bounded to in the first column, set by
+    /// the test once the table is laid out.
+    static BOUND: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// `pattern` repeated to `chars` characters.
+fn repeated(pattern: &str, chars: usize) -> CellValue<'static> {
+    CellValue::Text(
+        pattern
+            .chars()
+            .cycle()
+            .take(chars)
+            .collect::<String>()
+            .into(),
+    )
+}
+
+/// Row `LONG_ROWS + row`'s values: in the first column, texts around the
+/// bound (a character under it, at it, and over it), far past it (with
+/// spaces and punctuation at the cut, with line breaks, and in characters
+/// of more than a byte), and one of more bytes than the bound but no more
+/// characters; in the second (cut in the middle), a number far past it.
+fn long_value(row: u64, column: usize) -> CellValue<'static> {
+    let bound = BOUND.get();
+    match (column, row) {
+        (0, 0) => repeated("ab, cd. ", bound.saturating_sub(1)),
+        (0, 1) => repeated("ab, cd. ", bound),
+        (0, 2) => repeated("ab, cd. ", bound + 1),
+        (0, 3) => repeated("ab, cd. ", 10_000),
+        (0, 4) => repeated("ab\r\ncd\nef\r", 10_000),
+        (0, 5) => repeated("é¶ü… ", 10_000),
+        (0, 6) => repeated("é", bound),
+        (0, _) => CellValue::Text(format!("r{row}").into()),
+        (1, 3) => repeated("1234567890", 10_000),
+        (1, _) => CellValue::Text((20_000_000 + row).to_string().into()),
+        (2, _) => CellValue::Float(row as f64 + 0.5),
         _ => CellValue::Null,
     }
 }
@@ -368,6 +416,100 @@ fn the_cells_text_at_a_fractional_scroll(cx: &mut TestAppContext) {
             cell.column
         );
     }
+}
+
+/// A text longer than its cell could show at the narrowest advance is
+/// drawn from its start alone, and draws what the whole value does (the
+/// control: every cell from its whole value): the same text after the cut,
+/// at the same place, a character under the bound, at it, over it, and far
+/// past it, with line breaks and with characters of more than a byte. A
+/// text cut in the middle is drawn from its whole value.
+#[gpui_kit::test]
+fn a_long_text_is_drawn_from_its_start(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx);
+    // The bound, worked out here: the content box and an em, at an eighth
+    // of the text size a character.
+    let bound = sheet.table.read_with(sheet.cx, |table, _| {
+        let font_size = f32::from(table.glyphs.font_size);
+        assert_eq!(font_size, 14.0);
+        let room = table.columns[0].width - table.sizes().padding() + font_size;
+        (room / 1.75) as usize + 1
+    });
+    BOUND.set(bound);
+    sheet.update(|table, cx| table.jump_to(LONG_ROWS, cx));
+    let long = |sheet: &mut Sheet| -> Vec<DrawnText> {
+        let mut cells: Vec<DrawnText> = sheet
+            .drawn()
+            .into_iter()
+            .filter(|cell| (LONG_ROWS..LONG_ROWS + 8).contains(&cell.row) && cell.column < 2)
+            .collect();
+        cells.sort_by_key(|cell| (cell.row, cell.column));
+        cells
+    };
+    let bounded = |sheet: &mut Sheet| {
+        sheet
+            .table
+            .read_with(sheet.cx, |table, _| table.bounded.get())
+    };
+    let drawn = long(&mut sheet);
+    assert_eq!(drawn.len(), 16, "the long rows' cells drawn");
+    // Over the bound, far past it, with breaks, and in wider characters;
+    // not the two at and under it, the one of fewer characters than bytes,
+    // or the number cut in the middle.
+    assert_eq!(bounded(&mut sheet), 4, "the cells drawn from their start");
+
+    sheet.update(|table, cx| {
+        table.unbounded_text = true;
+        cx.notify();
+    });
+    assert_eq!(bounded(&mut sheet), 0, "the control bounds none");
+    let control = long(&mut sheet);
+    assert_eq!(drawn, control, "a bounded text drawn as its whole value is");
+
+    // A start that doesn't prove its cut: at an em a character the bound's
+    // characters fit the box (0.6 em each here), as glyphs with no advance
+    // would, so every cell is drawn from its whole value, and the same.
+    sheet.update(|table, cx| {
+        table.unbounded_text = false;
+        table.bound_advance_ems = 1.0;
+        cx.notify();
+    });
+    assert_eq!(bounded(&mut sheet), 0, "a start that fits bounds none");
+    assert_eq!(long(&mut sheet), control, "drawn from its whole value");
+
+    for cell in &drawn {
+        let at = format!("row {}, column {}", cell.row, cell.column);
+        let full = match value(cell.row, cell.column) {
+            CellValue::Text(text) => text.replace("\r\n", "¶").replace(['\n', '\r'], "¶"),
+            value => value.to_string(),
+        };
+        if cell.column == 1 || cell.row == LONG_ROWS + 7 {
+            continue;
+        }
+        // Every long text is cut at its end, to its value's start.
+        let front = cell
+            .text
+            .strip_suffix('…')
+            .unwrap_or_else(|| panic!("{at}: not cut at its end: {:?}", cell.text));
+        assert!(
+            !front.is_empty() && full.starts_with(front),
+            "{at}: {:?} isn't its value's start",
+            cell.text
+        );
+        assert!(
+            !cell.text.contains(['\n', '\r']),
+            "{at}: a line break drawn"
+        );
+    }
+    // The number far past the bound, cut in the middle: its end drawn too.
+    let number = &drawn[7].text;
+    let (front, back) = number.split_once('…').expect("the number cut");
+    assert!(
+        (drawn[7].row, drawn[7].column) == (LONG_ROWS + 3, 1)
+            && !front.is_empty()
+            && back.ends_with('0'),
+        "{number:?}"
+    );
 }
 
 /// The visible columns' indices.

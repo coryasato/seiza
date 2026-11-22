@@ -218,8 +218,9 @@ pub struct CellProbe {
     pub column: usize,
     /// The value's exact text (a float's shortest round-trip text).
     pub exact: String,
-    /// The text handed to GPUI: rounded or formatted, before any cut to
-    /// its column.
+    /// The cell's whole text: rounded or formatted, its line breaks as
+    /// `¶`, before any cut to its column. (A long text's cell shapes only
+    /// the start of it; what it draws is the same.)
     pub shown: String,
     /// Its paint as drawn (`custom-cells`).
     #[cfg(feature = "custom-cells")]

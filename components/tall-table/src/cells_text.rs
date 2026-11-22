@@ -11,7 +11,7 @@ use gpui_kit::*;
 /// How a cell's text is cut when it doesn't fit: "…" at the end (text and
 /// floats, the `div`s' `truncate`) or in the middle (integers and decimals,
 /// their `text_ellipsis_middle`).
-const ELLIPSIS: &str = "…";
+pub(crate) const ELLIPSIS: &str = "…";
 
 /// One loaded cell's text, in its region's coordinates.
 pub(crate) struct CellText {

@@ -378,6 +378,12 @@ fn shown_text(column: &LaidOutColumn, value: CellValue<'_>) -> String {
     }
 }
 
+/// The narrowest advance a long text's bound counts on, as a share of the
+/// text size: 1.75 px at the default 14 px, under every glyph a cell's
+/// text is usually written with. An estimate only: `bounded_text` checks
+/// what it gives, and a text it's wrong about is drawn from its whole value.
+const BOUND_ADVANCE_EMS: f32 = 0.125;
+
 /// A shown tooltip's text is at most this many characters, so a long text
 /// value doesn't build a wall.
 const TOOLTIP_CHARS: usize = 2000;
@@ -835,6 +841,16 @@ pub struct TallTableState<D: TallTableDelegate> {
     /// The random test's negative control: a shrink keeps the jump's mark.
     #[cfg(test)]
     pub(crate) keep_mark: bool,
+    /// The long text's control: every cell drawn from its whole value
+    /// (`bounded_text`), and the cells the last frame drew from their start.
+    #[cfg(test)]
+    pub(crate) unbounded_text: bool,
+    #[cfg(test)]
+    pub(crate) bounded: std::cell::Cell<usize>,
+    /// The bound's narrowest advance (`BOUND_ADVANCE_EMS`), which a test
+    /// widens until a text's start no longer proves its cut.
+    #[cfg(test)]
+    pub(crate) bound_advance_ems: f32,
     /// The bands the last frame drew (`resize`, tests only).
     #[cfg(all(test, feature = "resize"))]
     pub(crate) bands_drawn: std::cell::RefCell<Vec<resize::DrawnBand>>,
@@ -956,6 +972,12 @@ impl<D: TallTableDelegate> TallTableState<D> {
             hide_control: hide::Control::None,
             #[cfg(test)]
             keep_mark: false,
+            #[cfg(test)]
+            unbounded_text: false,
+            #[cfg(test)]
+            bounded: Default::default(),
+            #[cfg(test)]
+            bound_advance_ems: BOUND_ADVANCE_EMS,
             #[cfg(all(test, feature = "resize"))]
             bands_drawn: Default::default(),
         };
@@ -2095,6 +2117,80 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
+    /// A long text's cell, from the start of its value alone: what
+    /// [`cell_text`] gives for as many of its characters as the cell could
+    /// show at the narrowest advance, where the cut `cells_text` makes of
+    /// them is the cut it would make of the whole value, so the cell draws
+    /// the same glyphs without the whole value copied and shaped each frame
+    /// (`docs/DECISIONS.md`, "Features", 2026-11-21). `None` for any other
+    /// cell, drawn from [`shown_text`]: a value that isn't text, a text
+    /// short enough, one cut in the middle (which reads its end too), and
+    /// one whose start doesn't prove the cut (glyphs with no advance). The
+    /// proof is in the glyphs' font and size, the paint's in every host
+    /// that renders `TallTable` (as `drawn_text`'s is).
+    fn bounded_text(
+        &self,
+        column: &LaidOutColumn,
+        value: &CellValue<'_>,
+        window: &Window,
+        cx: &App,
+    ) -> Option<String> {
+        let CellValue::Text(text) = value else {
+            return None;
+        };
+        #[cfg(test)]
+        if self.unbounded_text {
+            return None;
+        }
+        let font_size = f32::from(self.glyphs.font_size);
+        // The paint's content box (its padding, at the window's rem) and a
+        // margin of one em: the box here isn't snapped to device pixels as
+        // the paint's is (under a pixel apart), and the whole value's last
+        // glyph may be shaped a little narrower with a neighbor than at the
+        // bound's end.
+        let pad = f32::from(cell_pad(self.sizes()).to_pixels(window.rem_size()));
+        let room = column.width - 2.0 * pad + font_size;
+        #[cfg(test)]
+        let advance = self.bound_advance_ems;
+        #[cfg(not(test))]
+        let advance = BOUND_ADVANCE_EMS;
+        if font_size <= 0.0
+            || room <= 0.0
+            || matches!(column.kind, CellKind::Integer | CellKind::Decimal)
+        {
+            return None;
+        }
+        let chars = (room / (font_size * advance)) as usize + 1;
+        // Bytes first: a text of at most `chars` bytes has no more
+        // characters, and most cells stop here.
+        if text.len() <= chars {
+            return None;
+        }
+        let (end, _) = text.char_indices().nth(chars)?;
+        let start = cell_text(column, CellValue::Text(text[..end].into()));
+        // The paint cuts a text whose shaped line is wider than its box, at
+        // the first character whose advances, summed from the start, pass
+        // the box (`truncate_line`): both read the start alone once it's
+        // wider than the box by each measure, and a box no wider than
+        // `room` is passed sooner (the cue's, the view's edge).
+        let cut_in_start = self.text_width(start.clone().into(), window) > room
+            && cx
+                .text_system()
+                .line_wrapper(self.glyphs.font.clone(), self.glyphs.font_size)
+                .should_truncate_line(
+                    &start,
+                    px(room),
+                    crate::cells_text::ELLIPSIS,
+                    TruncateFrom::End,
+                )
+                .is_some();
+        #[cfg(test)]
+        if cut_in_start {
+            self.bounded.set(self.bounded.get() + 1);
+        }
+        cut_in_start.then_some(start)
+    }
+
     /// The exact value of a cell that's rounded, shown on one line, or cut,
     /// as a tooltip's text. A cut is found by shaping this one cell's text,
     /// as GPUI does to decide it.
@@ -2416,11 +2512,9 @@ impl<D: TallTableDelegate> TallTableState<D> {
         header
     }
 
-    fn render_body(
-        &mut self,
-        #[cfg(feature = "find")] window: &Window,
-        cx: &mut Context<Self>,
-    ) -> Div {
+    fn render_body(&mut self, window: &Window, cx: &mut Context<Self>) -> Div {
+        #[cfg(test)]
+        self.bounded.set(0);
         let sizes = self.sizes();
         let row_h = sizes.row();
         let gutter = self.gutter_width();
@@ -2686,17 +2780,30 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 drawn
                             };
                             // A formatted text that fits, drawn whole
-                            // (`format`), or the automatic format.
+                            // (`format`), or the automatic format: a long
+                            // text from its start alone.
                             #[cfg(feature = "format")]
-                            let (text, whole) = match self
+                            let (text, whole, was_bounded) = match self
                                 .glyphs
                                 .fit_format(column, sizes, page, index, source, &value)
                             {
-                                Some(text) => (text, true),
-                                None => (shown_text(column, value), false),
+                                Some(text) => (text, true, false),
+                                None => {
+                                    let bounded = self.bounded_text(column, &value, window, cx);
+                                    let was_bounded = bounded.is_some();
+                                    (
+                                        bounded.unwrap_or_else(|| shown_text(column, value)),
+                                        false,
+                                        was_bounded,
+                                    )
+                                }
                             };
                             #[cfg(not(feature = "format"))]
-                            let text = shown_text(column, value);
+                            let bounded = self.bounded_text(column, &value, window, cx);
+                            #[cfg(not(feature = "format"))]
+                            let was_bounded = bounded.is_some();
+                            #[cfg(not(feature = "format"))]
+                            let text = bounded.unwrap_or_else(|| shown_text(column, value));
                             if let (Some(probes), Some(exact)) = (cell_probes.as_mut(), exact) {
                                 // The find on the drawn text, after the cut
                                 // `cells_text` makes (`find`).
@@ -2729,8 +2836,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
                                 probes.push(CellProbe {
                                     row,
                                     column: *column_index,
+                                    // The whole shown text, as before a
+                                    // long text was drawn from its start.
+                                    shown: if was_bounded {
+                                        cell_text(column, CellValue::Text(exact.as_str().into()))
+                                    } else {
+                                        text.clone()
+                                    },
                                     exact,
-                                    shown: text.clone(),
                                     #[cfg(feature = "custom-cells")]
                                     paint: drawn.probe(left),
                                     #[cfg(feature = "find")]
@@ -3447,11 +3560,7 @@ impl<D: TallTableDelegate> Render for TallTableState<D> {
         let header = header
             .children(self.render_gap_line(true, cx))
             .children(self.render_preview(cx));
-        let body = self.render_body(
-            #[cfg(feature = "find")]
-            window,
-            cx,
-        );
+        let body = self.render_body(window, cx);
         // The cues over their cells (`popover`): the body's last children.
         #[cfg(feature = "popover")]
         let body = body.children(self.render_cues(window, cx));

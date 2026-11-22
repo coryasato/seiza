@@ -1,0 +1,386 @@
+{
+  "date": "2026-11-21",
+  "label": "m23-b-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.10.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13340.5,
+    "optKiB": 9849.3,
+    "brotliKiB": 2763.6
+  },
+  "homePaths": {
+    "host": 0,
+    "untrimmedControl": 995
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13352.4,
+      "optKiB": 9859.3,
+      "brotliKiB": 2767.3,
+      "moreOptKiB": 10,
+      "moreBrotliKiB": 3.7
+    },
+    "live": {
+      "rawKiB": 13357,
+      "optKiB": 9863.4,
+      "brotliKiB": 2768.3,
+      "moreOptKiB": 14.1,
+      "moreBrotliKiB": 4.7
+    },
+    "live,custom-cells": {
+      "rawKiB": 13383.8,
+      "optKiB": 9884,
+      "brotliKiB": 2775.2,
+      "moreOptKiB": 34.7,
+      "moreBrotliKiB": 11.6,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.6,
+          "moreBrotliKiB": 6.9
+        },
+        "custom-cells": {
+          "moreOptKiB": 24.7,
+          "moreBrotliKiB": 7.9
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13370.1,
+      "optKiB": 9874.6,
+      "brotliKiB": 2771.5,
+      "moreOptKiB": 25.3,
+      "moreBrotliKiB": 7.9,
+      "against": {
+        "live": {
+          "moreOptKiB": 11.2,
+          "moreBrotliKiB": 3.2
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13346.4,
+      "optKiB": 9854.2,
+      "brotliKiB": 2764.9,
+      "moreOptKiB": 4.9,
+      "moreBrotliKiB": 1.3
+    },
+    "select": {
+      "rawKiB": 13379.9,
+      "optKiB": 9871.6,
+      "brotliKiB": 2769.4,
+      "moreOptKiB": 22.3,
+      "moreBrotliKiB": 5.8
+    },
+    "copy": {
+      "rawKiB": 13422.6,
+      "optKiB": 9905.5,
+      "brotliKiB": 2779.7,
+      "moreOptKiB": 56.2,
+      "moreBrotliKiB": 16.1,
+      "against": {
+        "select": {
+          "moreOptKiB": 33.9,
+          "moreBrotliKiB": 10.3
+        }
+      }
+    },
+    "sort": {
+      "rawKiB": 13435.3,
+      "optKiB": 9933.6,
+      "brotliKiB": 2784,
+      "moreOptKiB": 84.3,
+      "moreBrotliKiB": 20.4
+    },
+    "pin": {
+      "rawKiB": 13352.2,
+      "optKiB": 9859,
+      "brotliKiB": 2766.9,
+      "moreOptKiB": 9.7,
+      "moreBrotliKiB": 3.3
+    },
+    "density": {
+      "rawKiB": 13347.5,
+      "optKiB": 9854.9,
+      "brotliKiB": 2766,
+      "moreOptKiB": 5.6,
+      "moreBrotliKiB": 2.4
+    },
+    "format": {
+      "rawKiB": 13351.9,
+      "optKiB": 9858,
+      "brotliKiB": 2767.2,
+      "moreOptKiB": 8.7,
+      "moreBrotliKiB": 3.6
+    },
+    "reorder": {
+      "rawKiB": 13364.5,
+      "optKiB": 9867.5,
+      "brotliKiB": 2769.5,
+      "moreOptKiB": 18.2,
+      "moreBrotliKiB": 5.9
+    },
+    "clicks": {
+      "rawKiB": 13354.9,
+      "optKiB": 9860.6,
+      "brotliKiB": 2766.4,
+      "moreOptKiB": 11.3,
+      "moreBrotliKiB": 2.8
+    },
+    "group-headers": {
+      "rawKiB": 13351.1,
+      "optKiB": 9857.1,
+      "brotliKiB": 2766.9,
+      "moreOptKiB": 7.8,
+      "moreBrotliKiB": 3.3
+    },
+    "hide": {
+      "rawKiB": 13347.5,
+      "optKiB": 9854.6,
+      "brotliKiB": 2764.1,
+      "moreOptKiB": 5.3,
+      "moreBrotliKiB": 0.5
+    },
+    "find": {
+      "rawKiB": 13369.8,
+      "optKiB": 9872.2,
+      "brotliKiB": 2770.3,
+      "moreOptKiB": 22.9,
+      "moreBrotliKiB": 6.7
+    },
+    "popover": {
+      "rawKiB": 13403.9,
+      "optKiB": 9898.8,
+      "brotliKiB": 2780.7,
+      "moreOptKiB": 49.5,
+      "moreBrotliKiB": 17.1
+    },
+    "header-icon": {
+      "rawKiB": 13406.2,
+      "optKiB": 9911.3,
+      "brotliKiB": 2779.6,
+      "moreOptKiB": 62,
+      "moreBrotliKiB": 16
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 27
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 29,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 25,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 11
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 205
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 2
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    },
+    "sort": {
+      "markers": {
+        "seiza_tall_table4sort": {
+          "base": 0,
+          "feature": 11
+        },
+        "seiza_tall_table5state4sort": {
+          "base": 0,
+          "feature": 14
+        }
+      }
+    },
+    "pin": {
+      "markers": {
+        "seiza_tall_table3pin": {
+          "base": 0,
+          "feature": 3
+        },
+        "seiza_tall_table5state3pin": {
+          "base": 0,
+          "feature": 8
+        }
+      }
+    },
+    "density": {
+      "markers": {
+        "seiza_tall_table7density": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state7density": {
+          "base": 0,
+          "feature": 4
+        }
+      }
+    },
+    "format": {
+      "base": 0,
+      "feature": 19
+    },
+    "reorder": {
+      "markers": {
+        "seiza_tall_table7reorder": {
+          "base": 0,
+          "feature": 12
+        },
+        "seiza_tall_table5state7reorder": {
+          "base": 0,
+          "feature": 32
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 1
+        }
+      }
+    },
+    "clicks": {
+      "markers": {
+        "seiza_tall_table5state5click": {
+          "base": 0,
+          "feature": 28
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 3
+        }
+      }
+    },
+    "group-headers": {
+      "markers": {
+        "seiza_tall_table6groups": {
+          "base": 0,
+          "feature": 16
+        },
+        "seiza_tall_table5state6groups": {
+          "base": 0,
+          "feature": 10
+        }
+      }
+    },
+    "hide": {
+      "base": 0,
+      "feature": 3
+    },
+    "find": {
+      "markers": {
+        "seiza_tall_table4find": {
+          "base": 0,
+          "feature": 19
+        },
+        "seiza_tall_table5state4find": {
+          "base": 0,
+          "feature": 19
+        }
+      }
+    },
+    "popover": {
+      "markers": {
+        "seiza_tall_table7popover": {
+          "base": 0,
+          "feature": 18
+        },
+        "seiza_tall_table5state7popover": {
+          "base": 0,
+          "feature": 86
+        }
+      }
+    },
+    "header-icon": {
+      "markers": {
+        "seiza_tall_table11header_icon": {
+          "base": 0,
+          "feature": 10
+        },
+        "seiza_tall_table5state11header_icon": {
+          "base": 0,
+          "feature": 19
+        }
+      }
+    }
+  },
+  "against": {
+    "commit": "4561bee",
+    "then": {
+      "rawKiB": 13339.3,
+      "optKiB": 9848.3,
+      "brotliKiB": 2762.3
+    },
+    "now": {
+      "rawKiB": 13340.5,
+      "optKiB": 9849.3,
+      "brotliKiB": 2763.6
+    },
+    "moreOptKiB": 1,
+    "moreBrotliKiB": 1.3
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-DrfrI5Tp.wasm",
+    "optKiB": 9902.9,
+    "brotliKiB": 2780.8,
+    "moreBrotliKiB": 17.2
+  },
+  "failures": [
+    "the base changed: 1 KiB after wasm-opt against 4561bee"
+  ]
+}

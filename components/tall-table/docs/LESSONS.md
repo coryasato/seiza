@@ -894,6 +894,17 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - "The mark turned up" hid a rule the draft didn't have: a cue is drawn on the hovered and the active cell only, so a popover opened by the host, or left by the pointer, had no cell to draw an open mark on. The canvas drew one state; the code had three ways into it.
 - A fade "on a text that is cut" was too narrow a rule: a fitting text with a line break gets a cue too, and under the built cue it's cut short to make room. Fading by place, whatever the text's length, covers both and is one rule; the numbers are what it must leave alone.
 
+## M23: a long value's cell (part B, 2026-11-21)
+
+**Results:** [`perf/results/2026-11-21-m23-b.md`](../perf/results/2026-11-21-m23-b.md) (the frames before and after, the bytes, the apps', the screens).
+
+**Surprises:**
+- "At the narrowest advance" isn't a number a font gives: a combining mark advances nothing, so no count of characters is sure to pass the box. The spec's bound became an estimate with a proof beside it (the start shaped wider than the box, GPUI's own cut found inside it), and a text that fails the proof is drawn the old way. Reading `truncate_line` first is what made the proof short: its end cut walks from the start and stops, so a start that is cut is cut where the whole value is.
+- The first native test passed and couldn't have failed on the proof: the test font gives every character 0.6 em, so every start overflows its box. The code review caught it. The fallback is reached by widening the test's advance until the start fits, not by a text the test font can't draw narrow.
+- The reference screens passed without drawing one long value: the base build's host has none. "The same pixels" needed a second set, the long column's own screens from the build before and the build after, kept before the first edit; a check named in the spec can pass while never meeting the change.
+- The fling's cost wasn't in the number first looked at: the trace's work p50 read 4.28 ms with the long column, under the base's, while its p95 read 14.6 and the recorder's p50 10.2. Placeholder frames draw no text and held the median down. One metric a segment, named, or the before and after don't describe the same thing.
+- `render_body` had no `Window` in the base (only `find` passed one), so the base had never shaped anything while building its cells; the bound's proof is the first thing there that does, for a long text alone.
+
 ## M22 follow-up: the header icon's review findings (2026-11-21)
 
 **Results:** no measurement; the checks are in [`milestones.md`](milestones.md), "M22 follow-up".
