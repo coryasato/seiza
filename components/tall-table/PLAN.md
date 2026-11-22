@@ -10,11 +10,10 @@ What's next for the tall table: the candidates for its next features, the active
 
 ## Status
 
-M1–M22, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-21: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, `popover`, a cell's full value with a button to the host's view of its row, and `header-icon`, a column's icon the host sets, its press reported ([`docs/milestones.md`](docs/milestones.md)).
+M1–M23, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-22: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, `popover`, a cell's full value with a button to the host's view of its row, `header-icon`, a column's icon the host sets, its press reported, and the popover's three settings (the cue and Enter on a cut text alone, a cue that fades with a mark for the open cell, a button the popover's width), with a long value's cell drawn from its start ([`docs/milestones.md`](docs/milestones.md)).
 
 | Milestone | Title | Status |
 |---|---|---|
-| M23 | The popover for cut text only, its cue a fade, and a long value's cell | Active: parts A and B done (2026-11-21), part C done (2026-11-22), part D next |
 | M24 | Touch presses, a header's tap as one press | Planned |
 
 A *Planned* row's draft is under "Next milestones": what it adds, its research questions, its parts, and its checks. Its part A (the research) settles the spec and tightens the checks when it opens.
@@ -36,11 +35,11 @@ A *Planned* row's draft is under "Next milestones": what it adds, its research q
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are milestones: the header icon is built (M22), M23 is the active milestone, and M24 is drafted under "Next milestones", with its research questions; no other row is drafted, and every other candidate waits for a host ("Notes").
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are milestones: the header icon (M22) and the popover for cut text (M23) are built, and M24 is drafted under "Next milestones", with its research questions; no other row is drafted, and every other candidate waits for a host ("Notes").
 
 ### Notes
 
-Not planned; each waits for a host to ask, and is researched as any candidate is. None is built past what its note says: a candidate leaves this list when its milestone opens (Tycho's header icon was M22, built; its popover for cut text is M23, the active milestone, and touch presses M24, "Next milestones"). Global filtering left it built: its table's part was `replace_rows` alone (M18), and the README's "TanStack Table's features" has its row.
+Not planned; each waits for a host to ask, and is researched as any candidate is. None is built past what its note says: a candidate leaves this list when its milestone opens (Tycho's header icon was M22 and its popover for cut text M23, both built; touch presses are M24, "Next milestones"). Global filtering left it built: its table's part was `replace_rows` alone (M18), and the README's "TanStack Table's features" has its row.
 
 #### Reading the shown columns only
 
@@ -130,8 +129,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | The popover for cut text only, its cue a fade | Its cell popover: a glimpse of overflowing text, a cue that moves no text, Enter opening its row view everywhere else | M23, active | *Not ready* |
-| Tycho | Touch presses | Its column's and cell's menus at a phone | M24, planned | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Touch presses | Its column's and cell's menus at a phone | M24, planned | *Not ready* |
 | Tycho | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Notes") | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile's strip, only once its panel's profile proves fast enough | Not planned ("Notes"): not asked yet | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
@@ -142,88 +140,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-### M23: the popover for cut text only, its cue a fade, and a long value's cell
-
-**What it adds:** three settings of `popover`, each off by default and independent, the popover as built unchanged with none set: the cue and Enter narrowed to a text that is cut, a cue that fades the text and moves none of it, with a mark of its own on the open cell, and a button laid out the popover's whole width. With them, the base's fix for a long value's cell ("Follow-ups to built features", "A long value's cell"), which Tycho's popover would meet first: both change the cells' text element, so they're built and measured together. Tycho waits on it ([its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope", 2026-11-20, two entries; [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK), "Cell and row"). The research and the options weighed: root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), "The popover for cut text, its cue a fade"; the decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Features" (2026-11-21, M23 part A; three with the owner, the fade's way from a spike).
-
-```rust
-/// Which cells the table's own openers, the cue and Enter, work on
-/// (`popover`). Non-exhaustive.
-pub enum PopoverCells {
-    /// As built: Enter on any active cell; the cue where the popover shows
-    /// more than the cell, or on every loaded cell with a button set.
-    Every, // the default
-    /// A `ColumnKind::Text` column's cell, not NULL, cut at its end or
-    /// holding a line break, a button set or not.
-    CutText,
-}
-
-impl<D: TallTableDelegate> TallTableState<D> {
-    pub fn set_popover_cells(&mut self, cells: PopoverCells, cx: &mut Context<Self>);
-    pub fn popover_cells(&self) -> PopoverCells;
-}
-
-impl PopoverCue {
-    /// The cued cell's text drawn without its "…", washing out short of
-    /// the mark at the cell's far right; no text moved.
-    pub fn fade(self) -> Self;
-    /// The mark on the open popover's cell: an SVG from the host's assets,
-    /// in the theme's `foreground`. The cue then stays on that cell while
-    /// the popover is open. Nothing on `PopoverCue::custom`.
-    pub fn open_icon(self, path: impl Into<SharedString>) -> Self;
-}
-
-impl PopoverButton {
-    /// Laid out the popover's whole width, with no padding around it.
-    pub fn fill(self) -> Self;
-}
-
-// CueProbe: `faded` (its cell is drawn faded) and `open` (its mark is
-// the open one).
-```
-
-Settled in part C, each a decision (`docs/DECISIONS.md`, "Features", 2026-11-22): the probe's two fields, and its cue the open popover's cell's when none is hovered or active; the fade clear by the mark's room at any density; an open mark whose path doesn't load counted as none; `CutText`'s test the paint's snapped box, a long text's its start.
-
-**The rules:**
-- **`CutText`, which cells:** the cue is drawn, and Enter opens the popover, only on a cell in a `ColumnKind::Text` column, not NULL, whose shown text is wider than its cell's content box (the tooltip's test, by shaping that one cell) or whose value holds a line break. A number, a date, a timestamp, a boolean, and a NULL get neither, cut or not, with a button set or not; the tooltip is unchanged. A `custom-cells` cell follows the rule on its text. A row not loaded has no cue.
-- **Enter:** on an open popover, as built. Else on `select`'s active cell: under `Every`, as built; under `CutText`, it opens on a cell the rule holds for (decided at the key) and on any other propagates to the host, as with no `Cells` selection.
-- **`open_popover`:** as built under either setting: any cell in view, on a shown column, its page loaded.
-- **The fade:** at rest every cell is drawn as now. With `fade()`, a cell that draws a cue and whose text is left-aligned and cut at its end, or uncut, is drawn from its start without the "…", each glyph's alpha by its middle's place: whole up to 64 px short of the content box's right end, clear from 16 px short of it (at the default text size; through `sizes()`), glyphs past the clear point not painted. The mark is in the cue's box at the cell's far right (its visible end, when the view cuts the cell). A text ending before the fade starts is drawn as at rest. A right-aligned or middle-cut text keeps the cue as built. An emoji is drawn whole at an alpha of half or more, and not under it. No cue (a cell too narrow for one, `set_popover_cue(None)`), no fade.
-- **The fade and `find`:** a faded cell's drawn line is its text up to its last painted glyph; the tints are that line's ranges, at full strength, clipped where the fade clears, and `drawn_text` cuts the same.
-- **The open mark:** with `open_icon`, the open popover's cell draws that path in place of the mark, in `foreground`, and keeps its cue while the popover is open, whether or not it's hovered or active, if the rule in effect gives that cell a cue; its press closes the popover (as a cue's press on the open cell does today). A path that doesn't load: the closed mark stays. Without `open_icon`, the cue's cells and its mark are as built.
-- **The button's width:** with `fill()`, the foot has no padding and the button (the label's, or the host's element) is laid out the popover's whole width; the probe's `button` is that row. Without it, as built.
-- **A long value's cell (the base):** before its line breaks are replaced and it's shaped, a cell's text is cut to as many characters as its cell could show at the narrowest advance, and the "…"; the drawn pixels, the cut's text, `drawn_text`, the tooltip's cut test, and the cue's rule give what they gave. The faded line takes the same bound.
-
-**Split into parts,** one session each, in order. Each part ends with its notes in `perf/results/` (where it measures) and `docs/LESSONS.md`. The milestone closes after part D.
-
-- **A. Research and spec** (no shipped code). *Done 2026-11-21.* The research section, the fade's spike, the decisions, this spec.
-- **B. A long value's cell** (the base). *Done 2026-11-21.* The bound on what's replaced and shaped, the same pixels, its frames read again. Checks B1–B2.
-- **C. The settings, built and tested.** *Done 2026-11-22.* `PopoverCells` and Enter, the fade and the open mark, the button's width, the probe, the window tests, the random test's steps, the bare host's switches, the docs, `pairs` if a `cfg` names two features (the fade's `find` half does). Checks C1–C4.
-- **D. The cost and the close.** Checks D1–D3.
-
-**Done when:**
-
-- [x] **A1. The research and the spec:** the research section answers each of the draft's questions (the fade's way, from a measured frame; the settings' shape; which cells, exactly; the mark turned up; the canvas gaps); its decisions are in `docs/DECISIONS.md`; the API, the rules, and the checks are here. *Evidence:* root `docs/research/tall-table-features.md`, "The popover for cut text, its cue a fade"; `docs/DECISIONS.md`, "Features", four entries tagged M23 part A, three decided with the owner (2026-11-21); the spike's frames and looks in [`perf/results/2026-11-21-m23-a.md`](perf/results/2026-11-21-m23-a.md) (a glyph's alpha within +0.16 ms of none with about 28 cells faded a frame; strips +0.8 to +4.4).
-- [x] **B1. A long value's cell, the same pixels:** `just tall-table smoke --screens` matches the screens saved at the commit part B starts from; `just tall-table test` passes with the cell fixtures untouched, and `just observatory fixtures` after; a native test draws a value longer than the bound and one a character under it, the drawn text and its cut the same as the unbounded path's (kept as the test's control); Tycho's table checks (`just tycho table`, `cells`) pass. *Evidence (2026-11-21, on the code as reviewed):* 12 screens pixel for pixel with `4561bee`'s in three browsers, and 12 more of a `popover` build with a column of 10,000-character texts on screen, the build before against the build after; `a_long_text_is_drawn_from_its_start` (`src/state/cells_text_tests.rs`: four cells drawn from their start, the same `DrawnText`s as the control's, none where the start doesn't prove its cut, and failing with the bound too short and unchecked); `test`, `lint`, the observatory's fixtures, and Tycho's `table` and `cells` (its long text and multi-line cases among them; `table` run before the review's fixes, `cells` again after) pass ([`perf/results/2026-11-21-m23-b.md`](perf/results/2026-11-21-m23-b.md)).
-- [x] **B2. Its frames:** the wide shape's steady scroll and fling with a column of 10,000-character values (`just tall-table perf --popover 10000`'s `popover-none` segments, as on 2026-11-20), read against the base's without one in the same session: within the base's spread, where they read 5.75 ms a frame against 4.67 and 10.05 against 4.89; the base's size change, by `size --against <the commit part B starts from>`, recorded for each app that builds the table. *Evidence:* median of 10, the ten runs' ranges overlapping the base's in every segment: the scroll's work p50 4.58 ms against the base's 4.52 (5.71 before), the fling's `workRecorder` p50 5.04 against 4.83 (10.21 before) and its work p95 5.84 against 5.79 (14.58), 59.7 frames a second against 59.7 (48.8). The base +1.0 KiB after wasm-opt (+1.3 brotli) in the bare host; Tycho +847 bytes, the observatory's GPUI contender +1,014, Kirkwood +1,051, each brotli within its swing, in the note and each app's `perf/results/`.
-- [x] **C1. Off by default, the popover unchanged:** `just tall-table test`, `lint`, and `pairs` pass; with no setting on, the popover's window tests and its smoke run pass untouched; `size --against <part B's commit>` reports the base unchanged, and none of the settings' symbols in a build without `popover`. *Evidence (2026-11-22, `pairs`, the all-on tests, the smoke run, and `size` on the code as reviewed and fixed; `test` whole before the review):* `lint` passes; `pairs` passes whole (clippy and rustdoc at 151 builds each, the tests at 111 pairs); all on, 603 tests pass, the random test's 48 cases and every control among them; the popover's window tests from before pass with no line of them changed (its helpers gained a source flag); `just tall-table smoke` on a `popover,select` build passes in Chromium, Firefox, and WebKit, both shapes, its script untouched; `size --against 466d2f8`: the base 9849.3 KiB after wasm-opt at both, 0 KiB more (brotli -0.6, its swing), and the popover's two modules' symbols 0 in the base, 29 and 98 with `popover`. For part D: `popover` alone now reads +103.0 KiB after wasm-opt in the bare host (+30 brotli) where the README says +49.7, most of it not the table's: the host bundles two icons for `?popover-icons`, so a popover build installs an asset source and links GPUI's SVG path, as the header icon's did.
-- [x] **C2. `CutText` and Enter, natively:** *Evidence:* `src/state/fixtures/popover.rs`: `cut_text_cues_a_cut_text_alone` (the five cells left out and the two taken, hovered, with a button and without; `open_popover` on a number; back to `Every`), `enter_under_cut_text_opens_a_cut_text_and_goes_on_elsewhere` (the active cell's cue, Enter reaching the host's binding on each of the five, opening on the two, and pressing the button on the open one), `cut_text_reads_a_painted_cell_s_text`, `cut_text_decides_again_at_a_new_width` and `_when_a_page_lands`, and from the review `cut_text_decides_a_long_text_from_its_start` and `enter_under_cut_text_right_after_a_new_text_size`. Window tests under `CutText` with a button set: window tests under `CutText` with a button set:
-  - no cue, hovered or active, on a number, a rounded float, a timestamp cut at its end, a NULL, and a text that fits; a cue on a cut text and on a fitting text with a line break;
-  - Enter on each of the first five propagating (a host's binding hears it) with none open, and opening on the last two; Enter on an open one pressing its button;
-  - `open_popover` opening a number's cell, which draws no cue;
-  - under `Every`, the same cells as built (the existing tests, untouched);
-  - a `custom-cells` cell by its text; the decision made again after a resize that uncuts the text and after a page landing on its row.
-- [x] **C3. The fade, the open mark, and the button, natively:** *Evidence:* the same file: `a_fading_cue_changes_nothing_at_rest` (every cell's whole drawn record equal), `the_cued_cut_text_fades_to_the_mark_and_moves_nothing` (each glyph's x and alpha read from the paint, on the hovered and the active cell), `a_short_text_and_a_number_are_left_alone_by_the_fade`, `the_fade_runs_to_the_visible_end_and_needs_a_cue`, `the_fade_is_scaled_with_the_text` (half the lengths at half the text size, and clear by the mark's room in tall rows), `a_faded_cell_s_tints_are_its_drawn_line_s` (the probe's ranges equal), `the_open_mark_stays_on_the_open_popover_s_cell`, `a_filled_button_is_the_popover_s_width`. Not tested natively: an emoji's half-alpha rule (the test font has none); part D reads it off the screen. Window tests:
-  - at rest, `drawn_text` and the drawn glyphs of every cell as without `fade()`;
-  - on the hovered and on the active cut text: no "…", the first glyph where it is at rest, alphas whole before the fade's start, falling to its clear point, and nothing painted past it; the mark's box at the cell's far right; no other cell changed;
-  - a text ending before the fade's start drawn as at rest; a number under `Every` cued as built; a cell cut by the view's right edge faded toward its visible end; a cell too narrow for a cue not faded; the lengths scaled at another density;
-  - with `find`, a faded cell's tints from its drawn line, none past the clear point, and the probe's ranges agreeing;
-  - with `open_icon`: the open path, in `foreground`, on the open cell, the cue kept there with the pointer elsewhere and no active cell, its press closing the popover; none on an excluded cell a host opened; without it, as built;
-  - `fill()`: the button's bounds the popover's inner width, for the label's and for a host's element; without it, as built.
-- [x] **C4. The random test and the host:** *Evidence:* `Step::PopoverRule`, placed by `with_popover_rules` after `with_icons` from SHA-512's sixth word, a stream no other steps use; invariant 29 (`cut_text_apart`, by the test font's 0.6 em a character) and its control `EnterOnAny`, which `enter_on_any_cell_under_cut_text` fails at 29 while every earlier control still fails its own; the host's `?popover-cells=cut`, `?popover-fade`, `?popover-icons` (gpui-kit's chevrons, down and up, bundled), and `?popover-fill` (`host/crate/src/lib.rs`), the bridge writing the cue's `faded` and `open`. The switches are built and linted, not yet driven in a browser: part D's smoke run does. the two steps (`set_popover_cells`, Enter on the active cell) placed from a stream of their own after `with_icons`, no existing case's draw changed; the invariant (under `CutText`, a popover Enter opened is on a cell the rule holds for, worked out apart from the table's) and its control (Enter opening on any cell) failing it; the bare host's switches for each setting (`CutText`, the fade, an open icon from its assets, a filled button), so `size`, `perf`, and `smoke` reach them.
-- [ ] **D1. Its cost:** the added bytes on `popover` with the settings built, alone and with every feature, in a `perf/results/` note, and each app that builds the table in its own `perf/results/`; frame work in the protocol's scroll with the pointer over a cut cell and an active cell, both faded, against the popover as built (the same cells cued), within the spread.
-- [ ] **D2. In the browsers:** `just tall-table smoke` in Chromium, Firefox, and WebKit, both shapes: the fade read off the screen over a striped row and over a `custom-cells` fill (ink falling off toward the mark, none past the clear point, the row's background unchanged under it); the mark's press opening the popover and the open mark's closing it; Enter on a cut cell opening it and on one that fits reaching the host; the filled button's row the popover's width.
-- [ ] **D3. The README and waiting apps:** "The cell popover" and its three settings, the API lines, the Features row's cost, the Canvas tradeoffs (the cue under the pointer alone, the fade's contrast, touch); "A long value's cell" removed from this file's follow-ups; Tycho's "Waiting on" row flipped to *Ready*.
+None. Next: M24 ("Next milestones").
 
 ---
 
@@ -234,10 +151,6 @@ Settled in part C, each a decision (`docs/DECISIONS.md`, "Features", 2026-11-22)
 Found by the code review of 2026-11-19 (after `find` closed), a nit; fixed in a session of its own, with a check that fails before its fix. (The review's `find` and harness findings are fixed: [`docs/milestones.md`](docs/milestones.md), "M20 follow-up".)
 
 - **Docs: milestone IDs in the bodies of `docs/DECISIONS.md` entries** ("part A's draft", "Revises check C1's remedy", and others since 2026-10-24), where the root `CLAUDE.md` allows them only in the *[source]* tags. Fix: name the thing in each; and `check-terms` made to read `DECISIONS.md`'s bodies (outside its tags), so it can't drift again.
-
-### A long value's cell
-
-Found 2026-11-20, measuring the cell popover ([`perf/results/2026-11-20-m21-c.md`](perf/results/2026-11-20-m21-c.md)): with a column of 10,000-character values on screen, the wide shape's steady scroll read 5.75 ms a frame against the base's 4.67, and its fling's 10.05 against 4.89 (52.6 frames a second against 59.7). The cells' text copies each drawn cell's whole value (its line breaks replaced, `cell_text`) and shapes it before cutting it to the cell, every frame. A host with long text (Tycho's JSONL, a log's messages) meets it in the base. Shape: take only as much of the value as the widest cell could show (its width over the narrowest advance, and the "…") before replacing and shaping, keeping the drawn pixels (`just tall-table smoke --screens`) and `drawn_text`'s cut; then read the same scroll and fling again. Built 2026-11-21 as M23's part B ("Active milestone"; [`perf/results/2026-11-21-m23-b.md`](perf/results/2026-11-21-m23-b.md)); this entry goes when the milestone closes.
 
 ### `custom-cells`
 
@@ -261,7 +174,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
 
-Tycho's asks for its first release (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK)), drafted 2026-11-21 while its design session goes on; the first of the three, the header icon, is built (M22, [`docs/milestones.md`](docs/milestones.md)), and the second, the popover for cut text, is the active milestone (M23, above). What's left here is a draft, not a spec: its part A researches it (root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section of its own), settles the API with the owner, and rewrites the rules and checks here before anything is built.
+Tycho's asks for its first release (2026-11-20, [its decisions](../../apps/tycho/docs/DECISIONS.md), "Scope"; drawn on [its design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK)), drafted 2026-11-21 while its design session goes on; the first of the three, the header icon, is built (M22, [`docs/milestones.md`](docs/milestones.md)), and the second, the popover for cut text, too (M23). What's left here is a draft, not a spec: its part A researches it (root [`docs/research/tall-table-features.md`](../../docs/research/tall-table-features.md), a section of its own), settles the API with the owner, and rewrites the rules and checks here before anything is built.
 
 **Why last:** the popover's narrowing was settled on the canvas, as the header icon was; the frame at a phone was still being drawn when these were ordered, so touch presses come after the icon whose press a tap has to sit with.
 

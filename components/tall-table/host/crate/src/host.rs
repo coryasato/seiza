@@ -507,14 +507,23 @@ impl Host {
             let long: Option<usize> = None;
             match long {
                 Some(chars) => {
-                    let mut columns = columns;
-                    columns.insert(
-                        crate::rows::LONG_AT.min(columns.len()),
-                        seiza_tall_table::TallTableColumn::new(
-                            "note",
-                            seiza_tall_table::ColumnKind::Text,
-                        ),
+                    let note = seiza_tall_table::TallTableColumn::new(
+                        "note",
+                        seiza_tall_table::ColumnKind::Text,
                     );
+                    // Under `?cells=heat`, filled as the floats are: a
+                    // text over a fill, for the faded cue's check.
+                    #[cfg(feature = "custom-cells")]
+                    let note = if cells == Cells::Heat {
+                        note.fill(seiza_tall_table::Ramp::new(&[
+                            |theme| theme.background,
+                            |theme| theme.chart_1,
+                        ]))
+                    } else {
+                        note
+                    };
+                    let mut columns = columns;
+                    columns.insert(crate::rows::LONG_AT.min(columns.len()), note);
                     (rows.with_long(chars), columns)
                 }
                 None => (rows, columns),

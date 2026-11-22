@@ -82,7 +82,8 @@
 //! `?popover-cells=cut` narrows the cue and Enter to a cut text, and
 //! `?popover-long=<chars>` puts a third column, `note`, whose every value
 //! is one text that long (the cap's frame; the shape's columns after it
-//! one place on); each press of the button is
+//! one place on; with `custom-cells` and `?cells=heat`, its cells filled
+//! by their row, a text over a fill); each press of the button is
 //! published (`__tallTablePopoverButton`), the probe carries the popover
 //! and the cue, and with `?perf` the scripts get the table's
 //! `open_popover` and `close_popover`, and Enter. With `header-icon`,

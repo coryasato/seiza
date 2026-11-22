@@ -96,6 +96,24 @@
 // The table's cue for the hovered cell is decided once (the pointer is
 // still) in either.
 //
+// Built with `popover` and `select` alone, `--cue built|faded|all` (with
+// `--popover <chars>`) reads the cue's own frames in place of every
+// segment above, the button labeled so the popover as built cues every
+// cell: `built` the cue as built (the control: the same cells cued),
+// `faded` its `fade()` (`?popover-fade`), `all` the three settings
+// together (`?popover-fade`, `?popover-icons`, `?popover-cells=cut`,
+// `?popover-fill`). An active cell on row `CUE_ACTIVE_ROW`'s long text (a
+// press) and the pointer over another row's, both cued (and faded, as
+// asked: checked on the probe), then two segments: `cue-hover`, the
+// pointer moved a row a move down the long text's column to the last row
+// wholly in view and back (a move every `DRAG_EVERY_MS`, round trips for
+// about the resize drag's moves), so every move cues, and fades, another
+// cut text while the active cell's cue stands; then `cue-scroll`, the
+// steady scroll from the same start: its first wheel clears the hover (the
+// cells move under a still pointer) and takes the active cell out of
+// view, so its frames are the setting's cost on a scroll with nothing
+// cued.
+//
 // Built with `header-icon`, every column draws the host's icon (one a
 // column, by its kind, with a fill), so the header draws a badge a
 // visible column every frame, and the sideways fling brings new ones in;
@@ -136,7 +154,7 @@
 //          [--profile reference|throttled] [--cells <style>] [--pin <n>]
 //          [--density <row>,<text>[,<width>]] [--format off] [--order reverse]
 //          [--groups 0] [--hidden <n>] [--find <term>] [--popover <chars>]
-//          [--icons off] [--label <name>]
+//          [--cue built|faded|all] [--icons off] [--label <name>]
 // --label writes perf/results/<date>-<label>.json. Run `just tall-table build` first.
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -206,11 +224,15 @@ const POPOVER = features.includes('popover');
 const POPOVER_OPTION = option('popover');
 if (POPOVER_OPTION !== undefined && !POPOVER) throw new Error('--popover needs the host built with popover: `just tall-table build popover`');
 if (POPOVER_OPTION !== undefined && !(/^\d+$/.test(POPOVER_OPTION) && Number(POPOVER_OPTION) > 0)) throw new Error(`--popover ${POPOVER_OPTION}: not a positive count of characters`);
+const CUE_OPTION = option('cue') as 'built' | 'faded' | 'all' | undefined;
+if (CUE_OPTION !== undefined && !['built', 'faded', 'all'].includes(CUE_OPTION)) throw new Error(`--cue ${CUE_OPTION}: not one of built, faded, all`);
+if (CUE_OPTION !== undefined && [...features].sort().join(',') !== 'popover,select') throw new Error('--cue needs the host built with popover and select alone: `just tall-table build popover,select`');
+if (CUE_OPTION !== undefined && POPOVER_OPTION === undefined) throw new Error('--cue needs --popover <chars>: the long text its cells cut');
 const ICONS = features.includes('header-icon');
 const ICONS_OPTION = option('icons');
 if (ICONS_OPTION !== undefined && !ICONS) throw new Error('--icons needs the host built with header-icon: `just tall-table build header-icon`');
 if (ICONS_OPTION !== undefined && ICONS_OPTION !== 'off') throw new Error(`--icons ${ICONS_OPTION}: only \`off\` (the control)`);
-console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}${FIND ? `, find: ${FIND_OPTION === undefined ? 'none' : JSON.stringify(FIND_OPTION)}` : ''}${POPOVER ? `, popover: ${POPOVER_OPTION === undefined ? 'none opened' : `${POPOVER_OPTION} characters`}` : ''}${ICONS ? `, icons: ${ICONS_OPTION ?? 'on'}` : ''}`);
+console.log(`build: ${BUILD}${CELLS ? `, cells: ${CELLS}` : ''}${PIN ? `, pin: ${PIN_OPTION ?? 'default'}` : ''}${DENSITY ? `, density: ${DENSITY_OPTION ?? 'default'}` : ''}${FORMAT ? `, format: ${FORMAT_OPTION ?? 'on'}` : ''}${REORDER ? `, order: ${ORDER_OPTION ?? 'own'}` : ''}${GROUPS ? `, groups: ${GROUPS_OPTION ?? 'default'}` : ''}${HIDE ? `, hidden: ${HIDDEN_OPTION ? `1 column in ${HIDDEN_OPTION}` : 'none'}` : ''}${FIND ? `, find: ${FIND_OPTION === undefined ? 'none' : JSON.stringify(FIND_OPTION)}` : ''}${POPOVER ? `, popover: ${POPOVER_OPTION === undefined ? 'none opened' : `${POPOVER_OPTION} characters`}` : ''}${CUE_OPTION ? `, cue: ${CUE_OPTION}` : ''}${ICONS ? `, icons: ${ICONS_OPTION ?? 'on'}` : ''}`);
 /** The steady scroll: this many px every `SCROLL_EVERY_MS`, for `SCROLL_STEPS`. */
 const SCROLL_PX = 300;
 const SCROLL_EVERY_MS = 16;
@@ -235,6 +257,11 @@ const POPOVER_WHEEL_PX = 40;
 const POPOVER_STEPS = 60;
 /** The popover's text must scroll at least this many wheels each way. */
 const MIN_POPOVER_STEPS = 10;
+/** The cue segments (`--cue`): the button's label, the active cell's row,
+ *  and the row the pointer starts over. */
+const CUE_LABEL = 'Open row';
+const CUE_ACTIVE_ROW = 2;
+const CUE_HOVER_ROW = 4;
 
 const SORT = features.includes('sort');
 /** The sorted segments' order: each shape's `SORTED_COLUMN`, descending
@@ -251,13 +278,16 @@ const REST_CAP_MS = 300_000;
 /** A rest presents no frame for this long. */
 const QUIET_MS = 300;
 
-type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select' | 'reorder' | 'reorder-group' | 'popover-none' | 'popover-open';
-const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select', 'reorder', 'reorder-group', 'popover-none', 'popover-open'];
+type Segment = 'scroll' | 'fling' | 'hfling' | 'scroll-sorted' | 'fling-sorted' | 'hfling-sorted' | 'resize' | 'select' | 'reorder' | 'reorder-group' | 'popover-none' | 'popover-open' | 'cue-hover' | 'cue-scroll';
+const SEGMENTS: Segment[] = ['scroll', 'fling', 'hfling', 'scroll-sorted', 'fling-sorted', 'hfling-sorted', 'resize', 'select', 'reorder', 'reorder-group', 'popover-none', 'popover-open', 'cue-hover', 'cue-scroll'];
 /** The popover segments' wheels in each shape, as its first run laid them
  *  out (the text's room set them); a later run laying them out otherwise
  *  fails. */
 type PopoverWheels = { stepsEachWay: number; trips: number; chars: number; cut: boolean };
 const popoverWheels: Partial<Record<Shape, PopoverWheels>> = {};
+/** The cue's hover moves in each shape, as its first run laid them out. */
+type CueMoves = { rowsEachWay: number; trips: number; moves: number };
+const cueMoves: Partial<Record<Shape, CueMoves>> = {};
 type Sample = Partial<Pick<Shown, 'top' | 'first' | 'end' | 'loaded' | 'pending' | 'scrollX'>>;
 
 interface Reading {
@@ -422,6 +452,76 @@ async function popoverSegments(browser: Browser, page: Page, layout: Layout, sha
   await popoverClosed(page);
 }
 
+/** With `--cue`: an active cell and a hovered one on the long text's
+ *  column, both cued as asked, then the pointer moved a row a move down
+ *  that column and back (`cue-hover`), and the steady scroll from the same
+ *  start (`cue-scroll`), each traced on its own (the header's comment). */
+async function cueSegments(browser: Browser, page: Page, layout: Layout, shape: Shape, readings: Partial<Record<Segment, Reading>>, failures: string[]): Promise<void> {
+  const place = layout.columns.findIndex((column, at) => (column.index ?? at) === LONG_AT);
+  if (place < 0 || layout.columns[place]!.kind !== 'text') throw new Error(`no long text's column at index ${LONG_AT}: ${JSON.stringify(layout.columns.slice(0, 4).map((column) => column.name))}`);
+  const faded = CUE_OPTION !== 'built';
+  /** The probe's cue once it's on `row`'s long text, faded as asked and
+   *  not the open mark; a failure otherwise. */
+  const cued = async (what: string, row: number): Promise<void> => {
+    await page
+      .waitForFunction(({ row, column, faded }) => {
+        const cue = (globalThis as { __tallTable?: Shown }).__tallTable?.cue;
+        return Boolean(cue && cue.cell.row === row && cue.cell.column === column && cue.faded === faded && !cue.open);
+      }, { row, column: LONG_AT, faded }, { timeout: 5_000, polling: 10 })
+      .catch(async () => failures.push(`${what}: the cue ${JSON.stringify((await shown(page)).shown.cue ?? null)}, not on (${row}, ${LONG_AT}) ${faded ? 'faded' : 'unfaded'}`));
+  };
+  /** From the top: the active cell pressed, then the pointer over
+   *  `CUE_HOVER_ROW`'s long text, its cue the probe's. */
+  const setUp = async (what: string): Promise<Shown> => {
+    await home(page, layout, false);
+    const view = (await shown(page)).shown;
+    const active = cellAt(layout, view, CUE_ACTIVE_ROW, place);
+    await page.mouse.click(active.x, active.y);
+    await selected(page, { kind: 'cells', anchor: [CUE_ACTIVE_ROW, place], head: [CUE_ACTIVE_ROW, place] });
+    // The active cell's cue, the pointer still on it, then the hovered one's.
+    await cued(`${what}, the active cell`, CUE_ACTIVE_ROW);
+    const hovered = cellAt(layout, view, CUE_HOVER_ROW, place);
+    await page.mouse.move(hovered.x, hovered.y);
+    await cued(`${what}, the hovered cell`, CUE_HOVER_ROW);
+    return view;
+  };
+
+  const view = await setUp('cue-hover');
+  const span = view.end - 3 - CUE_HOVER_ROW;
+  if (span < 1) throw new Error(`the cue's hover needs 2 rows wholly in view past row ${CUE_HOVER_ROW}: rows ${view.first}–${view.end}`);
+  const trips = Math.max(1, Math.round((DRAG_TRIPS * DRAG_MOVES) / span));
+  const moves = trips * 2 * span;
+  const laid: CueMoves = { rowsEachWay: span, trips, moves };
+  const recorded = (cueMoves[shape] ??= laid);
+  if (JSON.stringify(recorded) !== JSON.stringify(laid)) failures.push(`the cue's hover laid out ${JSON.stringify(laid)}, not ${JSON.stringify(recorded)} as the first run did`);
+  const hover = (readings['cue-hover'] = await traced(browser, page, layout, async () => {
+    // On a fixed schedule, as the drags' moves.
+    const sent: Promise<void>[] = [];
+    for (let step = 1; step <= moves; step++) {
+      const phase = step % (2 * span);
+      const to = cellAt(layout, view, CUE_HOVER_ROW + (phase <= span ? phase : 2 * span - phase), place);
+      sent.push(page.mouse.move(to.x, to.y));
+      await page.waitForTimeout(DRAG_EVERY_MS);
+    }
+    await Promise.all(sent);
+  }));
+  // Back on the row it started over, cued as asked, the active cell kept.
+  await cued('after the cue-hover moves', CUE_HOVER_ROW);
+  await selected(page, { kind: 'cells', anchor: [CUE_ACTIVE_ROW, place], head: [CUE_ACTIVE_ROW, place] }).catch(() => failures.push("the cue's hover moves changed the selection"));
+  if (hover.recorder.frames < MIN_DRAG_FRAMES) failures.push(`the cue's hover drew ${hover.recorder.frames} frames for ${moves} moves: did the cue follow the pointer?`);
+
+  await setUp('cue-scroll');
+  readings['cue-scroll'] = await traced(browser, page, layout, async () => {
+    const sent: Promise<void>[] = [];
+    for (let step = 0; step < SCROLL_STEPS; step++) {
+      sent.push(wheel(page, SCROLL_PX));
+      await page.waitForTimeout(SCROLL_EVERY_MS);
+    }
+    await Promise.all(sent);
+    return (await rest(page, 'true')) !== null;
+  });
+}
+
 /** One cold run of `shape`: every segment, each traced on its own. */
 async function run(url: string, shape: Shape, profile: Profile): Promise<{ readings: Partial<Record<Segment, Reading>>; failures: string[] }> {
   const failures: string[] = [];
@@ -439,6 +539,9 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (HIDDEN_OPTION !== undefined) params.hidden = HIDDEN_OPTION;
     if (FIND_OPTION !== undefined) params.find = FIND_OPTION;
     if (POPOVER_OPTION !== undefined) params['popover-long'] = POPOVER_OPTION;
+    if (CUE_OPTION !== undefined) params.popover = CUE_LABEL;
+    if (CUE_OPTION === 'faded' || CUE_OPTION === 'all') params['popover-fade'] = '';
+    if (CUE_OPTION === 'all') Object.assign(params, { 'popover-icons': '', 'popover-cells': 'cut', 'popover-fill': '' });
     if (ICONS_OPTION !== undefined) params.icons = ICONS_OPTION;
     session = await open(chromium, url, { profile, params, init: [workRecorder, frameRecorder] });
     const { page } = session;
@@ -463,7 +566,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     if (REORDER && JSON.stringify(order) !== JSON.stringify(ORDER_OPTION === 'reverse' ? order.map((_, place) => order.length - 1 - place) : order.map((_, place) => place))) throw new Error(`the columns at open in the order ${JSON.stringify(order.slice(0, 12))}…, not ${ORDER_OPTION ?? "the list's own"}`);
     // Over the cells, clear of the scrollbar.
     await page.mouse.move(layout.left + 300, layout.top + 300);
-    if (SELECT) await selectAll(page, layout);
+    if (SELECT && !CUE_OPTION) await selectAll(page, layout);
     /** With `select`, a failure unless the select-all stood through `segment`. */
     const stood = async (segment: Segment) => {
       if (SELECT && (await shown(page)).shown.selection?.kind !== 'columns') failures.push(`the select-all didn't stand through the ${segment}`);
@@ -518,7 +621,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       }
     };
 
-    await scrollAndFlings('');
+    if (!CUE_OPTION) await scrollAndFlings('');
     if (SORT) {
       // Sorted from the top, the order computed before the windows: the
       // host's source sorts on the main thread, at the order's first sort.
@@ -558,7 +661,7 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
     }
 
     // After the resize drag, which leaves the widths as they were.
-    if (SELECT) {
+    if (SELECT && !CUE_OPTION) {
       await home(page, layout, false);
       const view = (await shown(page)).shown;
       // A row a move, from row 1 to the last row wholly in view (the
@@ -647,7 +750,8 @@ async function run(url: string, shape: Shape, profile: Profile): Promise<{ readi
       }
     }
     // Last, so every other segment runs as in a build without it.
-    if (POPOVER_OPTION !== undefined) await popoverSegments(browser, page, layout, shape, readings, failures);
+    if (CUE_OPTION) await cueSegments(browser, page, layout, shape, readings, failures);
+    else if (POPOVER_OPTION !== undefined) await popoverSegments(browser, page, layout, shape, readings, failures);
     for (const [segment, reading] of Object.entries(readings)) {
       if (reading.reached) continue;
       if (profile.name === 'reference') failures.push(`the ${segment} didn't rest where its input took it, filled`);
@@ -713,7 +817,7 @@ if (label) {
   const date = localDate();
   const out = join(perfDir, 'results', `${date}-${label}.json`);
   mkdirSync(join(perfDir, 'results'), { recursive: true });
-  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), ...(FIND ? { find: FIND_OPTION ?? null } : {}), ...(POPOVER ? { popoverLong: POPOVER_OPTION === undefined ? null : Number(POPOVER_OPTION), ...(POPOVER_OPTION === undefined ? {} : { popoverWheels: { ...popoverWheels, px: POPOVER_WHEEL_PX, everyMs: SCROLL_EVERY_MS } }) } : {}), ...(ICONS ? { icons: ICONS_OPTION ?? 'on' } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
+  const protocol = { browser: 'chromium headless=new', viewport: '1440x900', dpr: 2, runs: RUNS, cold: true, scroll: { px: SCROLL_PX, everyMs: SCROLL_EVERY_MS, steps: SCROLL_STEPS }, flingMs: FLING_MS, ...(RESIZE ? { resizeDrag: { px: DRAG_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(SELECT ? { selectAllStanding: true, selectDrag: { ...selectDrags, everyMs: DRAG_EVERY_MS } } : {}), ...(SORT ? { sorted: SORTED } : {}), ...(PIN ? { pinned: Object.fromEntries(shapes.map((shape) => [shape, pinned(shape)])) } : {}), ...(DENSITY ? { density: DENSITY_OPTION ?? `${DEFAULT_DENSITY.row},${DEFAULT_DENSITY.text},${DEFAULT_DENSITY.width}` } : {}), ...(FORMAT ? { format: FORMAT_OPTION ?? 'on' } : {}), ...(REORDER ? { order: ORDER_OPTION ?? 'own', reorderDrag: { px: MOVE_PX, trips: DRAG_TRIPS, movesEachWay: DRAG_MOVES, everyMs: DRAG_EVERY_MS } } : {}), ...(GROUPS ? { groups: GROUPS_OPTION ?? 'default', headerRows: HEADER_ROWS } : {}), ...(HIDE ? { hiddenEvery: HIDDEN_OPTION === undefined ? null : Number(HIDDEN_OPTION) } : {}), ...(FIND ? { find: FIND_OPTION ?? null } : {}), ...(POPOVER ? { popoverLong: POPOVER_OPTION === undefined ? null : Number(POPOVER_OPTION), ...(POPOVER_OPTION === undefined ? {} : { popoverWheels: { ...popoverWheels, px: POPOVER_WHEEL_PX, everyMs: SCROLL_EVERY_MS } }) } : {}), ...(CUE_OPTION ? { cue: CUE_OPTION, cueLabel: CUE_LABEL, cueActiveRow: CUE_ACTIVE_ROW, cueHover: { ...cueMoves, fromRow: CUE_HOVER_ROW, everyMs: DRAG_EVERY_MS } } : {}), ...(ICONS ? { icons: ICONS_OPTION ?? 'on' } : {}), restSliceMs: REST_SLICE_MS, tailMs: TAIL_MS, build: BUILD, cells: CELLS ?? null };
   writeFileSync(out, `${JSON.stringify({ date, label, ...machineInfo(), protocol, results, failures }, null, 2)}\n`);
   console.log(`wrote ${out}`);
 }

@@ -1121,6 +1121,37 @@ export async function inkIn(page: Page, clip: { x: number; y: number; width: num
   );
 }
 
+/** How strong the ink is across a screenshot (`screenshot`'s) of a clip
+ *  `width` CSS px wide: for each device pixel column, the most any of its
+ *  pixels is off its row's leftmost pixel in a color channel (0–255; so
+ *  the clip starts on a cell's bare padding, and a row's stripe or a
+ *  cell's fill is no ink). `scale` is device pixels a CSS px. Read in the
+ *  page (the popover's faded cue: its text's ink falling off). */
+export async function inkStrength(page: Page, png: string, width: number): Promise<{ strength: number[]; scale: number }> {
+  return page.evaluate(
+    async ({ png, width }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${png}`;
+      await image.decode();
+      const canvas = new OffscreenCanvas(image.width, image.height);
+      const context = canvas.getContext('2d')!;
+      context.drawImage(image, 0, 0);
+      const { data } = context.getImageData(0, 0, image.width, image.height);
+      const strength = new Array<number>(image.width).fill(0);
+      for (let row = 0; row < image.height; row++) {
+        const base = row * image.width * 4;
+        for (let column = 1; column < image.width; column++) {
+          const at = base + column * 4;
+          const off = Math.max(Math.abs(data[at]! - data[base]!), Math.abs(data[at + 1]! - data[base + 1]!), Math.abs(data[at + 2]! - data[base + 2]!));
+          if (off > strength[column]!) strength[column] = off;
+        }
+      }
+      return { strength, scale: image.width / width };
+    },
+    { png, width },
+  );
+}
+
 /** For each box (CSS px of the page, inside `clip`), what screen `b`
  *  draws otherwise than screen `a` (both of `clip`, PNGs as base64): the
  *  runs of device pixel columns holding a pixel more than `within` off in a

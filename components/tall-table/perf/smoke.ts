@@ -159,7 +159,20 @@
 // cell, closing it; opened at the window's bottom (the host's hook),
 // flipped above; Escape and a press outside closing it (with `select`,
 // the press selecting its cell); and with `select`, Enter on the active
-// cell opening it and Enter again pressing its button.
+// cell opening it and Enter again pressing its button. Then both shapes
+// with its three settings (`?popover-cells=cut`, `?popover-fade`,
+// `?popover-icons`, `?popover-fill`), over a striped row, and with
+// `custom-cells` again over a fill (`?cells=heat`, the long text's cells
+// filled): no cue on a number's cell; on a cut text's, the cue at the
+// cell's far right, the probe's `faded`, and on screen, against the cell
+// at rest, the text's start as it was, its ink falling off across the
+// ramp to next to none short of the mark, and the row's background (or
+// the fill) as it was above the text; the mark's press opening the
+// popover, the mark then another (the open one), kept with the pointer
+// elsewhere, its press closing it; the button's row the popover's width,
+// flush with its bottom; and with `select`, Enter on a cut text opening
+// it and on a number's cell opening nothing, the browser left its key
+// (GPUI cancels only a key something handled).
 // Built with `header-icon`, every run draws the host's icons (one a
 // column, by its kind, with a fill), so each feature's header presses
 // above land clear of them; and it runs both shapes again: every column's
@@ -200,7 +213,7 @@ import { chromium, firefox, webkit, type BrowserType, type Page } from 'playwrig
 import { firstDrawProbe, open, presentedMark, presentingTaskRecorder, waitMark, wheel, workRecorder, type FirstDrawProbe } from '../../../shared-web/perf/harness.ts';
 import { option } from '../../../shared-web/perf/protocol.ts';
 import { serveApp } from '../../../shared-web/perf/serve.ts';
-import { ICON_CLEAR_PX, iconEnd, differingBox, iconPressAfter, iconPressCount, iconThrough, type IconPress, GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, findThrough, stepThrough, tintsIn, type Found, LONG_AT, POPOVER_BUTTON_GLOBAL, popoverThrough, popoverWhere, type Popover, type PopoverPress, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
+import { ICON_CLEAR_PX, iconEnd, differingBox, iconPressAfter, iconPressCount, iconThrough, type IconPress, GROUPS_GLOBAL, HOST_GROUPS, groupCellsOf, groupRuns, groupsAs, hostPath, type GroupCell, clickAfter, clickCount, ctrlContext, type Click, COLUMN_ORDER_GLOBAL, SELECT_OFFSET_PX, gapAfterX, selectOn, moveGripAt, movedOrder, orderThrough, orderedAs, sortThrough, advances, advancesWidth, formatNumber, hostFormat, type NumberFormat, DEFAULT_DENSITY, DEFAULT_PINNED, FILLED_MARK, densityThrough, followingIs, letGo, inkIn, leastAt, paddingAt, perfDir, repo, restedWhere, runsOf, PINNED_GLOBAL, FIRST_FRAME_MARK, FOLLOWING_GLOBAL, PORT, READS_SENT_GLOBAL, REFRESHED_GLOBAL, REFRESHED_MARK, SELECTION_GLOBAL, TAIL_MARK, SHAPES, SORTED_COLUMN, WIDTHS_GLOBAL, arrowAt, bandAt, buildName, builtFeatures, builtFrom, drawnFrom, UNCHANGED, cellAt, copyReached, cornerAt, drawnCells, exactTexts, filledWhere, global, gutterAt, headerAt, hostWebDir, laidOutAt, lastCopyId, parseTsv, paste, differingPixels, hideThrough, findThrough, stepThrough, tintsIn, type Found, LONG_AT, POPOVER_BUTTON_GLOBAL, inkStrength, popoverClosed, popoverThrough, popoverWhere, type Popover, type PopoverPress, pinEdge, pinThrough, pinnedAs, pixel, screenLeft, screenshot, replaceThrough, selectThrough, selected, shown, sidewaysRoom, sortedAs, sourceRows, visibleColumns, type Cell, type CellStyle, type CopyState, type Layout, type Selection, type Shape, type Shown, type Sort } from './harness.ts';
 
 /** A drawn fill's screen color may differ from the probe's by this much a
  *  channel (the browsers' own color handling). */
@@ -1502,6 +1515,155 @@ async function checkPopover(page: Page, label: string, start: Layout): Promise<s
   return `, ${notes.join('; ')}`;
 }
 
+/** The faded cue's lengths at the base's 14 px text, in CSS px short of
+ *  the cell's right edge: the cells' padding, where the fade starts and
+ *  where it's clear (`popover.rs`'s `FADE_RAMP` and `FADE_CLEAR` short of
+ *  the content box's end), the cue's inset, and the widest glyph (one whose
+ *  middle is past the fade's start reaches this far before it). */
+const FADE = { pad: 8, start: 72, clear: 24, inset: 2, glyph: 14 };
+/** How long an Enter that opens nothing is waited on. */
+const ENTER_QUIET_MS = 400;
+
+/** With `popover` and its three settings on (`?popover-cells=cut`,
+ *  `?popover-fade`, `?popover-icons`, `?popover-fill`; the long text's
+ *  column at `LONG_AT`), `over` saying what its cells are drawn over (a
+ *  striped row, or `custom-cells`' fill): the smoke check's header says
+ *  what's checked. */
+async function checkPopoverSettings(page: Page, label: string, start: Layout, over: 'stripe' | 'fill'): Promise<string> {
+  const notes: string[] = [];
+  const place = start.columns.findIndex((column, at) => (column.index ?? at) === LONG_AT);
+  if (place < 0) return failed(`${label}: no long text's column at index ${LONG_AT}`) ?? '';
+  const number = start.columns.findIndex((column) => ['float', 'integer'].includes(column.kind));
+  if (number < 0) return failed(`${label}: no number's column`) ?? '';
+  const view = (await shown(page)).shown;
+  const cellLeft = start.left + screenLeft(start, place, view.scrollX);
+  const cellWidth = start.columns[place]!.width;
+  const cellRight = cellLeft + cellWidth;
+  if (cellWidth < FADE.start + 4 * FADE.glyph) return failed(`${label}: the long text's column ${cellWidth} px wide: no room to read its fade`) ?? '';
+  /** The probe's cue once `test` holds of it (null for none), or null. */
+  const cueWhere = (test: string, timeout = 5_000): Promise<NonNullable<Shown['cue']> | null> =>
+    page
+      .waitForFunction((test) => {
+        const s = (globalThis as { __tallTable?: Shown }).__tallTable;
+        if (!s || s.cue === undefined) return false;
+        return new Function('c', `return ${test}`)(s.cue) ? { cue: s.cue } : false;
+      }, test, { timeout, polling: 10 })
+      .then(async (handle) => ((await handle.jsonValue()) as { cue: NonNullable<Shown['cue']> | null }).cue, () => null);
+  const center = (bounds: [number, number, number, number]) => ({ x: bounds[0] + bounds[2] / 2, y: bounds[1] + bounds[3] / 2 });
+  // An odd row: striped.
+  const row = view.first + 1 + (view.first % 2);
+  const rowTop = start.top + (row - view.top) * start.rowHeight;
+  /** Row `row`'s long cell from `from` to `to` px left of its right edge,
+   *  a pixel inside its top and bottom. */
+  const span = (from: number, to: number, top = rowTop + 1, height = start.rowHeight - 2) => ({ x: Math.round(cellRight - from), y: Math.round(top), width: Math.round(from - to), height: Math.round(height) });
+  const whole = span(cellWidth - 2, 0);
+  const lead = span(cellWidth - 2, FADE.start + FADE.glyph);
+  // Above the text's ink: the row's background, or the fill, short of the cue.
+  const above = span(cellWidth - 2, FADE.clear + 4, rowTop + 1, 3);
+
+  // A number's cell: no cue under `CutText`, a button set.
+  const plain = cellAt(start, view, row, number);
+  await page.mouse.move(plain.x, plain.y);
+  await page.waitForTimeout(150);
+  const none = await cueWhere('true');
+  if (none) failed(`${label}: a cue on a number's cell (${none.cell.row}, ${none.cell.column}) under CutText`);
+  const [restWhole, restLead, restAbove] = [await settledScreen(page, whole), await screenshot(page, lead), await screenshot(page, above)];
+  if (over === 'stripe') {
+    // The row is striped: its bare padding against the next row's.
+    const [striped, next] = [await pixel(page, whole.x, rowTop + 2), await pixel(page, whole.x, rowTop + start.rowHeight + 2)];
+    if (striped.every((channel, at) => channel === next[at])) failed(`${label}: row ${row} isn't striped: ${striped} as row ${row + 1}'s`);
+  } else {
+    const [fill, bare] = [await pixel(page, whole.x, rowTop + 2), await pixel(page, cellLeft - 4, rowTop + 2)];
+    if (fill.every((channel, at) => Math.abs(channel - bare[at]!) <= FILL_STEPS)) failed(`${label}: row ${row}'s long text has no fill: ${fill} as the cell's before it`);
+  }
+
+  // The pointer on the cell, at its bottom left (clear of its tooltip and
+  // of the text read): the cue at its far right, its text faded.
+  await page.mouse.move(cellLeft + 3, rowTop + start.rowHeight - 3);
+  const cue = await cueWhere(`c && c.cell.row === ${row} && c.cell.column === ${LONG_AT}`);
+  if (!cue) return failed(`${label}: no cue on the hovered cut text (${row}, ${LONG_AT})`) ?? '';
+  if (!cue.faded || cue.open) failed(`${label}: the hovered cue ${cue.faded ? 'faded' : 'not faded'}, ${cue.open ? 'the open mark' : 'the closed mark'}`);
+  if (Math.abs(cue.bounds[0] + cue.bounds[2] - (cellRight - FADE.inset)) > 0.75) failed(`${label}: the cue ends at ${(cue.bounds[0] + cue.bounds[2]).toFixed(1)} px, not ${FADE.inset} px inside its cell's right edge (${cellRight.toFixed(1)})`);
+  const cueBox = { x: Math.round(cue.bounds[0]), y: Math.round(cue.bounds[1]), width: Math.round(cue.bounds[2]), height: Math.round(cue.bounds[3]) };
+  const fadedWhole = await settledScreen(page, whole);
+  const moved = await differingPixels(page, restLead, await screenshot(page, lead), 8);
+  if (moved) failed(`${label}: ${moved} pixels of the text before its fade differ from the cell at rest: a glyph moved or lost ink`);
+  const tinted = await differingPixels(page, restAbove, await screenshot(page, above), 2);
+  if (tinted) failed(`${label}: ${tinted} pixels above the faded text differ from the cell at rest: its ${over} changed under the fade`);
+  const [rest, faded] = [await inkStrength(page, restWhole, whole.width), await inkStrength(page, fadedWhole, whole.width)];
+  /** The strongest ink from `from` to `to` px left of the cell's right edge. */
+  const most = (ink: { strength: number[]; scale: number }, from: number, to: number) => Math.max(0, ...ink.strength.slice(Math.round((whole.width - from) * ink.scale), Math.round((whole.width - to) * ink.scale)));
+  const full = most(faded, cellWidth - 2, FADE.start + FADE.glyph);
+  const third = (FADE.start - FADE.clear) / 3;
+  const bands = [0, 1, 2].map((band) => most(faded, FADE.start - band * third, FADE.start - (band + 1) * third));
+  const last = most(faded, FADE.clear + 6, FADE.clear);
+  const past = most(faded, FADE.clear, FADE.clear - 2);
+  const inked = most(rest, FADE.start, FADE.pad);
+  if (full < 48 || inked < 48) failed(`${label}: the long text's ink reads ${full} of 255 before its fade and ${inked} at rest: no text to fade`);
+  else {
+    const share = (ink: number) => (ink / full).toFixed(2);
+    if (!(bands[0]! > bands[1]! - 0.1 * full && bands[1]! > bands[2]! - 0.1 * full && bands[0]! - bands[2]! > 0.2 * full)) failed(`${label}: the faded text's ink across its ramp's thirds is ${bands.map(share).join(', ')} of its whole ink: not falling off toward the mark`);
+    if (bands[2]! > 0.6 * full || last > 0.3 * full) failed(`${label}: the faded text's ink is ${share(bands[2]!)} of its whole in the ramp's last third and ${share(last)} in its last 6 px: not next to none short of the mark`);
+    if (past > 0.15 * full) failed(`${label}: ink ${share(past)} of the text's whole past where the fade is clear`);
+    notes.push(`over a ${over}, the cut text faded to its cue (ink ${bands.map(share).join(', ')} of its whole across the ramp, ${share(last)} in its last 6 px, ${share(past)} past it), its start and its ${over} as at rest`);
+  }
+
+  // The mark's press opens the popover; its mark is then the open one,
+  // kept with the pointer elsewhere, and its press closes it.
+  const closedMark = await settledScreen(page, cueBox);
+  await pressAt(page, center(cue.bounds));
+  const opened = await popoverWhere(page, `p && p.cell.row === ${row} && p.cell.column === ${LONG_AT}`).catch(() => null);
+  if (!opened) return failed(`${label}: the mark's press opened no popover on (${row}, ${LONG_AT})`) ?? '';
+  if (!(await cueWhere(`c && c.cell.row === ${row} && c.cell.column === ${LONG_AT} && c.open`))) failed(`${label}: the open popover's cell's cue isn't the open mark`);
+  const openMark = await settledScreen(page, cueBox);
+  if (!(await differingPixels(page, closedMark, openMark, 24))) failed(`${label}: the open popover's cell draws the mark it drew closed`);
+  await page.mouse.move(plain.x, plain.y + 8 * start.rowHeight);
+  await page.waitForTimeout(150);
+  const kept = await cueWhere(`c && c.cell.row === ${row} && c.cell.column === ${LONG_AT} && c.open && c.faded`, 1_000);
+  if (!kept) failed(`${label}: with the pointer elsewhere, the open popover's cell kept no open, faded cue`);
+  const away = await differingPixels(page, openMark, await settledScreen(page, cueBox), 8);
+  if (away) failed(`${label}: with the pointer elsewhere, ${away} pixels of the open mark changed`);
+
+  // The button's row: the popover's width, flush with its sides and bottom.
+  const [x, y, width, height] = opened.bounds;
+  if (!opened.button) failed(`${label}: no button drawn, with a label set`);
+  else {
+    const [bx, by, bw, bh] = opened.button;
+    if (Math.abs(bx - x) > 0.5 || Math.abs(bw - width) > 0.5 || Math.abs(by + bh - (y + height)) > 0.5) failed(`${label}: the filled button at ${opened.button.map((value) => value.toFixed(1)).join(', ')}, not the popover's width at its bottom (${opened.bounds.map((value) => value.toFixed(1)).join(', ')})`);
+    else notes.push(`the filled button ${bw.toFixed(0)} px, the popover's width`);
+  }
+  await pressAt(page, center(cue.bounds));
+  await popoverWhere(page, 'p === null').then(() => notes.push("the mark's press opened it, the open mark kept with the pointer away, its press closed it"), () => failed(`${label}: the open mark's press didn't close the popover`));
+
+  // With `select`: Enter on a cut text opens it; on a number's cell it
+  // opens nothing and isn't cancelled, so it goes on past the table.
+  if (select) {
+    await page.evaluate(() => {
+      const g = globalThis as { __enters?: boolean[] };
+      g.__enters = [];
+      // After GPUI's own listener, on its key target: what it left of the key.
+      window.addEventListener('keydown', (event) => event.key === 'Enter' && g.__enters!.push(event.defaultPrevented));
+    });
+    const enters = () => page.evaluate(() => (globalThis as { __enters?: boolean[] }).__enters!);
+    const entered = row + 2;
+    await pressAt(page, cellAt(start, view, entered, place));
+    await selected(page, { kind: 'cells', anchor: [entered, place], head: [entered, place] }, 5_000).catch(() => failed(`${label}: a press didn't select (${entered}, ${LONG_AT})`));
+    await page.keyboard.press('Enter');
+    const byEnter = await popoverWhere(page, `p && p.cell.row === ${entered} && p.cell.column === ${LONG_AT}`).catch(() => null);
+    if (!byEnter) failed(`${label}: Enter on an active cut text opened no popover`);
+    await popoverClosed(page);
+    await pressAt(page, cellAt(start, view, entered, number));
+    await selected(page, { kind: 'cells', anchor: [entered, number], head: [entered, number] }, 5_000).catch(() => failed(`${label}: a press didn't select the number's cell (${entered}, ${number})`));
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(ENTER_QUIET_MS);
+    const still = await popoverWhere(page, 'true');
+    if (still) failed(`${label}: Enter on a number's cell opened a popover on (${still.cell.row}, ${still.cell.column}) under CutText`);
+    const cancelled = await enters();
+    if (cancelled.length !== 2 || cancelled[0] !== true || cancelled[1] !== false) failed(`${label}: the two Enters' keydowns cancelled ${JSON.stringify(cancelled)}, not the cut text's alone (the number's goes on)`);
+    else notes.push("Enter opened a cut text's and went on from a number's cell");
+  }
+  return `, ${notes.join('; ')}`;
+}
 
 /** How long an icon press that reports nothing is waited on. */
 const ICON_QUIET_MS = 400;
@@ -2917,7 +3079,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false, popping: false, iconing: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false, popping: false, setting: undefined as 'stripe' | 'fill' | undefined, iconing: false };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -2944,11 +3106,13 @@ try {
     if (hide) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, hiding: true })));
     if (find) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, finding: true })));
     if (popover) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, popping: true })));
+    // Its settings, over a striped row and (`custom-cells`) over a fill.
+    if (popover) runs.push(...SHAPES.flatMap((shape) => (painted.length ? (['stripe', 'fill'] as const) : (['stripe'] as const)).map((setting) => ({ ...quiet, shape, setting }))));
     if (headerIcon) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, iconing: true })));
     // In every build: the base's `replace_rows`.
     runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, replacing: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding, popping, iconing } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}${popping ? ' popover' : ''}${iconing ? ' icons' : ''}`;
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding, popping, setting, iconing } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}${popping ? ' popover' : ''}${setting ? ` popover settings ${setting}` : ''}${iconing ? ' icons' : ''}`;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -2961,6 +3125,8 @@ try {
       // text and its padding (`paddingAt(14)`), with `density` too.
       if (finding && density) params.density = '30,14';
       if (popping) Object.assign(params, { popover: POPOVER_LABEL, 'popover-long': String(POPOVER_LONG) });
+      // The settings runs read the fade's lengths at the base's 14 px text.
+      if (setting) Object.assign(params, { popover: POPOVER_LABEL, 'popover-long': String(POPOVER_LONG), 'popover-cells': 'cut', 'popover-fade': '', 'popover-icons': '', 'popover-fill': '', ...(setting === 'fill' ? { cells: 'heat' } : {}), ...(density ? { density: '30,14' } : {}) });
       if (reordering === 'reverse') params.order = 'reverse';
       // A drag is held to its group (`group-headers`): the reorder runs'
       // moves are the ungrouped table's; the group runs drag groups.
@@ -3000,6 +3166,13 @@ try {
           const iconed = await checkIcons(page, label, layout, start);
           if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
           console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${iconed}`);
+          continue;
+        }
+        // The popover's settings runs too.
+        if (setting) {
+          const set = await checkPopoverSettings(page, label, layout, setting);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${set}`);
           continue;
         }
         // The popover runs check their own, from the first screen.

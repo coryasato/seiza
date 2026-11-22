@@ -630,6 +630,21 @@ impl TallTablePage for MemoryPage {
         let Some((cells, shape)) = self.paint else {
             return paint;
         };
+        // The long text's column (`popover`), as `value` reads it: under
+        // `heat` its cells filled by their row, five steps across the
+        // ramp, so a script reads a text over a fill (the popover's faded
+        // cue); the shape's columns from it on one place on.
+        #[cfg(feature = "popover")]
+        let column = match (&self.long, column.cmp(&LONG_AT)) {
+            (Some(_), std::cmp::Ordering::Equal) => {
+                if cells == Cells::Heat {
+                    paint.fill = Some((row % LONG_FILLS) as f32 / (LONG_FILLS - 1) as f32);
+                }
+                return paint;
+            }
+            (Some(_), std::cmp::Ordering::Greater) => column - 1,
+            _ => column,
+        };
         let (Some(domain), Some(Values::Float(values))) =
             (shape.domain(column), self.columns.get(column))
         else {
@@ -731,6 +746,11 @@ pub struct MemoryRows {
 /// columns from there on move one place on.
 #[cfg(feature = "popover")]
 pub const LONG_AT: usize = 2;
+
+/// The steps of the ramp the long text's cells are filled through, a row
+/// each in turn (`popover` with `custom-cells`, `?cells=heat`).
+#[cfg(all(feature = "popover", feature = "custom-cells"))]
+const LONG_FILLS: usize = 5;
 
 /// The cells a find tests in a window (`find`), before it yields to the
 /// frames and the page reads and checks for a cancel: 16,384, about 7 ms of
@@ -1453,6 +1473,41 @@ mod tests {
         assert_eq!(page.paint(0, 0), Default::default());
         assert_eq!(Cells::from_name("heat"), Some(Cells::Heat));
         assert_eq!(Cells::from_name("blue"), None);
+    }
+
+    /// With a long text's column (`popover`), `heat` fills its cells by
+    /// their row and paints each float one place on, as `value` reads it;
+    /// no other style paints the long text.
+    #[cfg(all(feature = "custom-cells", feature = "popover"))]
+    #[test]
+    fn heat_fills_the_long_text_and_paints_the_floats_a_place_on() {
+        use super::{Cells, LONG_AT, LONG_FILLS};
+        let shape = Shape::Wide;
+        let plain = {
+            let mut page = fresh_page(shape, 0..64);
+            page.paint = Some((Cells::Heat, shape));
+            page
+        };
+        let mut long = fresh_page(shape, 0..64);
+        long.paint = Some((Cells::Heat, shape));
+        long.long = Some("a long text".into());
+        let fills: Vec<_> = (0..2 * LONG_FILLS)
+            .map(|row| long.paint(row, LONG_AT).fill)
+            .collect();
+        let steps: Vec<_> = (0..2 * LONG_FILLS)
+            .map(|row| Some((row % LONG_FILLS) as f32 / (LONG_FILLS - 1) as f32))
+            .collect();
+        assert_eq!(fills, steps);
+        for row in 0..64 {
+            for column in 0..8 {
+                let moved = if column < LONG_AT { column } else { column + 1 };
+                assert_eq!(long.paint(row, moved), plain.paint(row, column));
+            }
+        }
+        for cells in [Cells::Text, Cells::Bars, Cells::Color] {
+            long.paint = Some((cells, shape));
+            assert_eq!(long.paint(0, LONG_AT), Default::default(), "{cells:?}");
+        }
     }
 
     /// `fixtures/sort.json`'s orders that `rules` doesn't give: each case's
