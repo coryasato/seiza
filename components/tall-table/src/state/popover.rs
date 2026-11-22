@@ -91,6 +91,10 @@ pub(super) struct PopoverState<D: TallTableDelegate> {
     /// Each cue cell's decision, by row and place: whether it shows. Kept
     /// only for the cells a frame would cue (the hovered and the active).
     decided: Vec<((u64, usize), bool)>,
+    /// The window's scale factor the decisions were made at: `CutText`'s
+    /// rule reads the cell's box snapped to device pixels, so another
+    /// scale (a browser zoom, another monitor) decides each again.
+    decided_scale: f32,
     /// The cues this frame draws, in window pixels: a press on one is the
     /// cue's, not a press outside.
     cues: Rc<RefCell<Vec<DrawnCue>>>,
@@ -144,6 +148,7 @@ impl<D: TallTableDelegate> PopoverState<D> {
             cue: Some(PopoverCue::default()),
             cells: PopoverCells::default(),
             decided: Vec::new(),
+            decided_scale: 0.0,
             cues: Default::default(),
             placed: Default::default(),
             this,
@@ -253,7 +258,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// [`PopoverCue::fade`] fades its cell's text to the mark, and its
     /// [`PopoverCue::open_icon`], loaded from the asset source here, marks
     /// the open popover's cell.
-    pub fn set_popover_cue(&mut self, cue: Option<PopoverCue>, cx: &mut Context<Self>) {
+    ///
+    /// The open mark's path is loaded once, at this call, never in a frame:
+    /// `false` says it didn't load, and the cue is then as without
+    /// `open_icon` until a later call's loads (`true` otherwise: no cue,
+    /// none with an open mark, or a [`PopoverCue::custom`], whose open
+    /// mark is never drawn or loaded). So the path comes from a source that
+    /// answers at the call, an embedded one (`icon_assets!`); gpui-kit's
+    /// default source on the web downloads an icon after its first load,
+    /// which fails, and says nothing when it's in.
+    pub fn set_popover_cue(&mut self, cue: Option<PopoverCue>, cx: &mut Context<Self>) -> bool {
         #[cfg(test)]
         let source = self
             .popover_state
@@ -262,14 +276,20 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .unwrap_or_else(|| cx.asset_source().clone());
         #[cfg(not(test))]
         let source = cx.asset_source().clone();
+        let mut loaded = true;
         self.popover_state.cue = cue.map(|mut cue| {
-            if let Some(open) = &mut cue.open {
+            // A custom cue draws itself: its open mark is never read.
+            if let Some(open) = &mut cue.open
+                && !matches!(cue.look, CueLook::Custom(_))
+            {
                 open.loaded = matches!(source.load(&open.path), Ok(Some(_)));
+                loaded = open.loaded;
             }
             cue
         });
         self.popover_state.decided.clear();
         cx.notify();
+        loaded
     }
 
     /// Which cells the table's own openers, the cue and Enter, work on:
@@ -695,13 +715,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// Each cue cell decided once (until a page lands on it, the layout
-    /// changes, or a setting does): it shows by the rule in effect
+    /// changes, the window's scale factor does, or a setting does): it
+    /// shows by the rule in effect
     /// ([`TallTableState::cue_shows`], by shaping the cell), its page
     /// loaded either way.
     fn decide_cues(&mut self, window: &Window, cx: &App) {
         if self.popover_state.cue.is_none() {
             self.popover_state.decided.clear();
             return;
+        }
+        let scale = window.scale_factor();
+        if self.popover_state.decided_scale != scale {
+            self.popover_state.decided_scale = scale;
+            self.popover_state.decided.clear();
         }
         let cells = self.cue_cells();
         self.popover_state

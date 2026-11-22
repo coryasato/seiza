@@ -112,7 +112,9 @@ impl TallTableColumn {
 
     /// The icon at its header's start (`header-icon`): none unless set.
     /// One whose path doesn't load from the asset source draws nothing and
-    /// takes no room. `TallTableState::set_column_icon` changes it later.
+    /// takes no room, and nothing here says so: the columns' paths are
+    /// loaded once, when the table takes them. `TallTableState::set_column_icon`
+    /// changes it later, and answers whether its path loaded.
     #[cfg(feature = "header-icon")]
     pub fn icon(self, icon: crate::HeaderIcon) -> Self {
         Self {

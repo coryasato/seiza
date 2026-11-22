@@ -484,7 +484,7 @@ fn the_hosts_icons_or_the_glyphs(cx: &mut TestAppContext) {
     let width = sheet.read(|table| table.columns[0].width);
     sheet.update(|table, cx| {
         table.sort_state.assets = Some(Arc::new(Icons));
-        table.set_sort_icons(Some(icons("both.svg")), cx);
+        assert!(table.set_sort_icons(Some(icons("both.svg")), cx));
     });
     let (full, dim) = sheet.colors();
     let icon = |path: &str| Arrow::Icon(path.to_string().into());
@@ -503,12 +503,15 @@ fn the_hosts_icons_or_the_glyphs(cx: &mut TestAppContext) {
     // The same width with icons as with glyphs, and unchanged by a sort.
     assert_eq!(sheet.read(|table| table.columns[0].width), width);
     // A path that doesn't load: the glyphs, for all three.
-    sheet.update(|table, cx| table.set_sort_icons(Some(icons("missing.svg")), cx));
+    // The setter says so.
+    let loaded = sheet.update(|table, cx| table.set_sort_icons(Some(icons("missing.svg")), cx));
+    assert!(!loaded);
     assert_eq!(
         sheet.arrow(0).map(|arrow| arrow.arrow),
         Some(Arrow::Glyph('↑'))
     );
-    sheet.update(|table, cx| table.set_sort_icons(None, cx));
+    let loaded = sheet.update(|table, cx| table.set_sort_icons(None, cx));
+    assert!(loaded, "the glyphs asked for");
     assert_eq!(
         sheet.arrow(0).map(|arrow| arrow.arrow),
         Some(Arrow::Glyph('↑'))

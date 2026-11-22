@@ -14,7 +14,7 @@ M1–M23, the two hardenings (between M7 and M8, and after M17), and the public 
 
 | Milestone | Title | Status |
 |---|---|---|
-| M24 | Touch presses, a header's tap as one press | Active: part A (the research and the spec) done 2026-11-22, part B next, after M23's follow-up ("Follow-ups to built features") |
+| M24 | Touch presses, a header's tap as one press | Active: part A (the research and the spec) done 2026-11-22, part B next |
 
 Its spec and checks are under "Active milestone".
 
@@ -195,16 +195,6 @@ Tycho's third ask for its first release (2026-11-20, [its decisions](../../apps/
 Found by the code review of 2026-11-19 (after `find` closed), a nit; fixed in a session of its own, with a check that fails before its fix. (The review's `find` and harness findings are fixed: [`docs/milestones.md`](docs/milestones.md), "M20 follow-up".)
 
 - **Docs: milestone IDs in the bodies of `docs/DECISIONS.md` entries** ("part A's draft", "Revises check C1's remedy", and others since 2026-10-24), where the root `CLAUDE.md` allows them only in the *[source]* tags. Fix: name the thing in each; and `check-terms` made to read `DECISIONS.md`'s bodies (outside its tags), so it can't drift again.
-
-### M23 follow-up: the popover's settings' review findings
-
-Found by the code review of 2026-11-22 (after M23 closed), none verified against the code yet: the session that fixes them reads each first, and a finding that doesn't hold is dropped with a line saying why. Fixed in a session of its own before M24's part B, each with a check that fails before its fix; a fix that touches no paging needs no soak, and one that adds or moves a `cfg` naming two features runs `pairs`.
-
-- **Important. An open mark never appears for a host whose assets load asynchronously** (`src/state/popover.rs`, `set_popover_cue`, about line 267). `open_icon`'s path is loaded once, at the setter, and `loaded: false` is kept for good if that one call isn't `Ok(Some(_))`. gpui-kit 0.10.0's default wasm `Assets` (icons from its CDN) answers the first call for any icon with an error while it downloads, so the open popover's cell shows no open mark and keeps no cue until the host calls `set_popover_cue` again, with nothing reported. The hosts here embed their icons (`Bootstrap::assets`) and don't meet it. `header-icon`'s `set_column_icon` and `sort`'s `set_sort_icons` check the same way, once. **To decide with the owner first:** say in each setter's doc and the README that a path must come from an embedded source (the smaller fix, and what the decision of 2026-11-22, "An open mark whose path doesn't load is no open mark", already implies), or test the path again while it's unloaded (when the open cell's cue is decided), for all three.
-- **Nit. A `--cue` run's results file records a protocol it didn't run** (`perf/perf.ts`, about line 820). With `--cue` the select-all and the select drag are skipped (`SELECT && !CUE_OPTION`), but `protocol` still writes `selectAllStanding: true` and a `selectDrag` entry whenever `select` is built. Fix: both keys gated as the segments are, and the four committed `perf/results/2026-11-22-m23-d-frames-cue-*.json` corrected by hand, the correction named in M23 part D's note (results are append-only: a line added, nothing rewritten in the note).
-- **Nit. The wide shape's "has no fill" check can't fail** (`perf/smoke.ts`, about line 1577). The settings run compares the long cell's padding pixel with one 4 px left of it, in column 1's cell, which under `?cells=heat` is a heat-filled float itself: a long cell that lost its fill still differs from it and passes, and two fills within `FILL_STEPS` of each other fail falsely. Fix: compare with a surface that's never filled (the row's gutter, or the same pixel in the `stripe` run) or with the color the probe's `paint.fill` gives; its control, the host's `note` column drawn with no fill.
-- **Nit. A cue decided under `PopoverCells::CutText` can go stale when the window's scale factor changes** (`src/state/popover.rs`, `decide_cues`, about line 701). `is_cut_text` reads the paint's box snapped to device pixels (`content_width`, by `window.scale_factor()`), and the answer is kept a cell until a layout change, a landed page, or a setter. A text within a fraction of a pixel of its box (the 201 px column at scale 1.5: 184.67 px against 185) decided not cut at scale 1 keeps no cue after a zoom to 150% draws its "…", while Enter, decided fresh, opens the popover. First check whether a browser zoom or a move between monitors already goes through `lay_out` (then nothing to fix, and a test pins it); else keep the scale the decisions were made at and clear them when it differs.
-- **Nit. "cancelled" in the settings check** (`perf/smoke.ts`, a comment about line 1639, a variable and a failure message at 1661 and 1662): American spelling, `canceled`. The same word at lines 837 and 840 is older; fixed with them.
 
 ### A sideways scroll over the header
 

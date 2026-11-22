@@ -173,9 +173,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// Draws the arrows from `icons` (`None`: the glyphs). Each path is
-    /// loaded from the asset source once, here; if any doesn't load, the
-    /// glyphs are drawn (and a debug assertion names it).
-    pub fn set_sort_icons(&mut self, icons: Option<SortIcons>, cx: &mut Context<Self>) {
+    /// loaded from the asset source once, here, never in a frame; if any
+    /// doesn't load, the glyphs are drawn until a later call's do, and
+    /// this answers `false`, with no assertion (a host may ask and call
+    /// again); `true` otherwise, `None` included. So the paths come from a source that
+    /// answers at the call, an embedded one (`icon_assets!`); gpui-kit's
+    /// default source on the web downloads an icon after its first load,
+    /// which fails, and says nothing when it's in.
+    pub fn set_sort_icons(&mut self, icons: Option<SortIcons>, cx: &mut Context<Self>) -> bool {
         #[cfg(test)]
         let source = self
             .sort_state
@@ -184,23 +189,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
             .unwrap_or_else(|| cx.asset_source().clone());
         #[cfg(not(test))]
         let source = cx.asset_source().clone();
+        let mut loaded = true;
         self.sort_state.icons = icons.filter(|icons| {
             let paths = [&icons.ascending, &icons.descending, &icons.unsorted];
-            let missing = paths
+            loaded = paths
                 .into_iter()
-                .find(|path| !matches!(source.load(path), Ok(Some(_))));
-            if let Some(path) = missing {
-                // The tests reach it on purpose (the fallback's).
-                #[cfg(not(test))]
-                debug_assert!(
-                    false,
-                    "set_sort_icons: {path} doesn't load from the asset source"
-                );
-                let _ = path;
-            }
-            missing.is_none()
+                .all(|path| matches!(source.load(path), Ok(Some(_))));
+            loaded
         });
         cx.notify();
+        loaded
     }
 
     /// A click on column `column`'s arrow: the next sort in its cycle. A

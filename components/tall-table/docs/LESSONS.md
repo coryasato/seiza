@@ -948,3 +948,13 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The spike's last step failed in three browsers for a reason that had nothing to do with it: the step before was a pan whose momentum was still running, and a touch that lands on a fling catches it and can never be a long press. Three browsers agreeing made it look like a finding.
 - A finger can't resize, move a column, or drag a selection, with or without this milestone: a moving finger is a pan unless something claims the touch at its landing. Nobody had written that down because nobody had held a finger on a band.
 
+## M23 follow-up: the popover's settings' review findings (2026-11-22)
+
+**Results:** no measurement; the checks are in [`milestones.md`](milestones.md), "M23 follow-up".
+
+**Surprises:**
+- Every host in the repo embeds its icons, so "load the path once, at the setter" had only ever met sources that answer at once. gpui-kit's own default on the web answers a first load with an error and fetches the icon behind it, with no signal when it lands: the one source a new user of the crate is most likely to have was the one no test here stood in for. The fix was a return value and a sentence, but the gap was in whose asset source the tests imagined.
+- The stale cue at a new scale factor wasn't where the review put it. A scale change resizes the viewport by a fraction of a pixel, which already forgets the hover, so the hovered cell's cue was decided again by accident. The active cell's and the open popover's cell's weren't: the first test, written on the hovered cell, passed its first half for the wrong reason and failed its second.
+- The fill check that couldn't fail did fail, in the narrow shape, where the column beside the long text is a text with no fill; the wide shape's neighbor is a filled float. One shape's control passing hid that the other's compared two fills. A control is run in every shape the check runs in.
+- A `--cue` run's file also recorded a fling and the popover's wheels it never ran, not only the selection's two keys the review named: the protocol was written from what was built, not from what ran. The first correction then removed `scroll` too, which the run's `cue-scroll` does use: "skipped `scrollAndFlings`" was read as "sent no scroll", and the second review caught it.
+- "cancelled" in the smoke check's copy run is a value, not prose: the bridge publishes it as a copy's reason, and the observatory's contract and page read it. A spelling rule stops at a published string.

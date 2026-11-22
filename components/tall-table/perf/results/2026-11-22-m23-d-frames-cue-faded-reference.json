@@ -23,16 +23,7 @@
       "everyMs": 16,
       "steps": 125
     },
-    "flingMs": 3000,
-    "selectAllStanding": true,
-    "selectDrag": {
-      "everyMs": 8
-    },
     "popoverLong": 10000,
-    "popoverWheels": {
-      "px": 40,
-      "everyMs": 16
-    },
     "cue": "faded",
     "cueLabel": "Open row",
     "cueActiveRow": 2,

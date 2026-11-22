@@ -834,7 +834,7 @@ async function checkCopyHeld(page: Page, label: string, layout: Layout, run: Cop
   const notes = [`${note} in ${(tookMs / 1000).toFixed(1)} s${other ? ', in the background' : ''}`];
   if (run !== 'held') return `, copied ${notes.join('; ')}`;
 
-  // Escape while a copy runs: cancelled, the selection kept, the
+  // Escape while a copy runs: canceled, the selection kept, the
   // clipboard as it was. Then closing the table during one.
   const cancels: [string, Selection, () => Promise<unknown>, string][] = [
     ['Escape', rowsFrom(UNLOADED_ROW + rows, 2048), () => page.keyboard.press('Escape'), 'cancelled'],
@@ -1550,8 +1550,10 @@ async function checkPopoverSettings(page: Page, label: string, start: Layout, ov
       }, test, { timeout, polling: 10 })
       .then(async (handle) => ((await handle.jsonValue()) as { cue: NonNullable<Shown['cue']> | null }).cue, () => null);
   const center = (bounds: [number, number, number, number]) => ({ x: bounds[0] + bounds[2] / 2, y: bounds[1] + bounds[3] / 2 });
-  // An odd row: striped.
-  const row = view.first + 1 + (view.first % 2);
+  // An odd row: striped. Not one the host fills at its ramp's first
+  // step, the background's own color (a row in five: `over === 'fill'`).
+  const odd = view.first + 1 + (view.first % 2);
+  const row = odd % 5 === 0 ? odd + 2 : odd;
   const rowTop = start.top + (row - view.top) * start.rowHeight;
   /** Row `row`'s long cell from `from` to `to` px left of its right edge,
    *  a pixel inside its top and bottom. */
@@ -1573,8 +1575,13 @@ async function checkPopoverSettings(page: Page, label: string, start: Layout, ov
     const [striped, next] = [await pixel(page, whole.x, rowTop + 2), await pixel(page, whole.x, rowTop + start.rowHeight + 2)];
     if (striped.every((channel, at) => channel === next[at])) failed(`${label}: row ${row} isn't striped: ${striped} as row ${row + 1}'s`);
   } else {
-    const [fill, bare] = [await pixel(page, whole.x, rowTop + 2), await pixel(page, cellLeft - 4, rowTop + 2)];
-    if (fill.every((channel, at) => Math.abs(channel - bare[at]!) <= FILL_STEPS)) failed(`${label}: row ${row}'s long text has no fill: ${fill} as the cell's before it`);
+    // The host fills the long text's cells by their row, five steps of
+    // its ramp in turn: two rows on is another step (half the ramp or
+    // more away) over the same stripe, so the two differ by the fill
+    // alone. Below the row the pointer is on, which is filled too if
+    // they are (not at the ramp's first step: `row`, above).
+    const [near, far] = [await pixel(page, whole.x, rowTop + 2 * start.rowHeight + 2), await pixel(page, whole.x, rowTop + 4 * start.rowHeight + 2)];
+    if (near.every((channel, at) => Math.abs(channel - far[at]!) <= FILL_STEPS)) failed(`${label}: the long text has no fill: row ${row + 2}'s padding ${near} as row ${row + 4}'s, another step of the host's ramp`);
   }
 
   // The pointer on the cell, at its bottom left (clear of its tooltip and
@@ -1636,7 +1643,7 @@ async function checkPopoverSettings(page: Page, label: string, start: Layout, ov
   await popoverWhere(page, 'p === null').then(() => notes.push("the mark's press opened it, the open mark kept with the pointer away, its press closed it"), () => failed(`${label}: the open mark's press didn't close the popover`));
 
   // With `select`: Enter on a cut text opens it; on a number's cell it
-  // opens nothing and isn't cancelled, so it goes on past the table.
+  // opens nothing and isn't canceled, so it goes on past the table.
   if (select) {
     await page.evaluate(() => {
       const g = globalThis as { __enters?: boolean[] };
@@ -1658,8 +1665,8 @@ async function checkPopoverSettings(page: Page, label: string, start: Layout, ov
     await page.waitForTimeout(ENTER_QUIET_MS);
     const still = await popoverWhere(page, 'true');
     if (still) failed(`${label}: Enter on a number's cell opened a popover on (${still.cell.row}, ${still.cell.column}) under CutText`);
-    const cancelled = await enters();
-    if (cancelled.length !== 2 || cancelled[0] !== true || cancelled[1] !== false) failed(`${label}: the two Enters' keydowns cancelled ${JSON.stringify(cancelled)}, not the cut text's alone (the number's goes on)`);
+    const canceled = await enters();
+    if (canceled.length !== 2 || canceled[0] !== true || canceled[1] !== false) failed(`${label}: the two Enters' keydowns canceled ${JSON.stringify(canceled)}, not the cut text's alone (the number's goes on)`);
     else notes.push("Enter opened a cut text's and went on from a number's cell");
   }
   return `, ${notes.join('; ')}`;

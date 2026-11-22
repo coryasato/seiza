@@ -109,8 +109,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// Sets, changes, or removes (`None`) column `index`'s icon (by index,
     /// as [`TallTableState::columns`], wherever it's drawn) without
     /// `set_columns`, which resets what the table keeps by column. Its path
-    /// is loaded from the asset source once, here: one that doesn't load
-    /// draws no icon and takes no room. The
+    /// is loaded from the asset source once, here, never in a frame: one
+    /// that doesn't load draws no icon and takes no room until a later
+    /// call's does, and this answers `false` (`true` otherwise: `None`, or
+    /// an index past the last). So the path comes from a source that
+    /// answers at the call, an embedded one (`icon_assets!`); gpui-kit's
+    /// default source on the web downloads an icon after its first load,
+    /// which fails, and says nothing when it's in. The
     /// columns are laid out again only when the icon's room changes (one
     /// added or removed, a failed path counted as none); another path or
     /// color only redraws. A press held on an icon this removes is
@@ -122,14 +127,16 @@ impl<D: TallTableDelegate> TallTableState<D> {
         index: usize,
         icon: Option<HeaderIcon>,
         cx: &mut Context<Self>,
-    ) {
+    ) -> bool {
         let source = self.icon_source(cx);
         let Some(column) = self.column_info.get_mut(index) else {
-            return;
+            return true;
         };
         let had = column.has_icon();
+        let mut loaded = true;
         column.icon = icon.map(|mut icon| {
             load_icon(&mut icon, &source);
+            loaded = icon.loaded;
             icon
         });
         let has = column.has_icon();
@@ -140,6 +147,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
             self.lay_out(cx);
         }
         cx.notify();
+        loaded
     }
 
     /// The asset source the icons' paths are checked against.

@@ -1593,6 +1593,88 @@ fn cut_text_decides_again_at_a_new_width(cx: &mut TestAppContext) {
     }
 }
 
+/// And at a new scale factor (a browser zoom, another monitor): the rule
+/// reads the cell's box snapped to device pixels, so a text within a
+/// fraction of a pixel of its box is cut at one scale and whole at
+/// another. `MIDDLING` (252 px) in a 267.4 px column: its box is 251.5 px
+/// at the test window's scale of 2 and 252.3 px at 1.3. On the open
+/// popover's cell, whose cue outlives the hover a new viewport forgets.
+#[cfg(any(feature = "resize", feature = "density"))]
+#[gpui_kit::test]
+fn cut_text_decides_again_at_a_new_scale_factor(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.update(|table, cx| {
+        table.set_columns(kinds_columns(Some(267.4)), cx);
+        table.popover_state.assets = Some(std::sync::Arc::new(Marks));
+        table.set_popover_cue(Some(PopoverCue::expand().open_icon(OPEN_MARK)), cx);
+    });
+    sheet.cut_text();
+    sheet.hover_none();
+    let boxed = |sheet: &mut Sheet<'_>| {
+        let table = sheet.table.clone();
+        sheet.cx.update(|window, cx| {
+            let table = table.read(cx);
+            f32::from(crate::cells_text::content_width(
+                table.columns[MID].width,
+                crate::state::cell_pad(table.sizes()),
+                window,
+            ))
+        })
+    };
+    let text = MIDDLING.len() as f32 * ADVANCE;
+    let cell = PopoverCell::new(1, MID);
+    assert!(boxed(&mut sheet) < text - 0.25, "cut at a scale of 2");
+    assert!(sheet.open_on(1, MID));
+    assert_eq!(sheet.cues(), [cell]);
+    // No layout, no page, no setter: the window's scale alone.
+    sheet.cx.update(|window, _| window.set_scale_factor(1.3));
+    sheet.draw();
+    assert!(boxed(&mut sheet) > text + 0.25, "whole at 1.3");
+    assert_eq!(sheet.popover(), Some(cell), "still open");
+    assert_eq!(sheet.cues(), [], "whole at the new scale");
+    sheet.cx.update(|window, _| window.set_scale_factor(2.0));
+    sheet.draw();
+    assert_eq!(sheet.cues(), [cell], "and cut again");
+}
+
+/// The open mark's path is tested once, at the setter: a source that
+/// answers a first load with an error while it fetches (gpui-kit's default
+/// on the web) leaves the cue with no open mark, said by the setter's
+/// `false`, until the host sets the cue again.
+#[gpui_kit::test]
+fn the_open_mark_s_path_is_loaded_at_the_setter_alone(cx: &mut TestAppContext) {
+    /// Its first load fails; every later one answers.
+    struct Late(std::sync::atomic::AtomicBool);
+    impl gpui_kit::AssetSource for Late {
+        fn load(&self, _: &str) -> gpui_kit::Result<Option<std::borrow::Cow<'static, [u8]>>> {
+            if self.0.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                Ok(Some(std::borrow::Cow::Borrowed(&b"<svg/>"[..])))
+            } else {
+                Err(std::io::Error::other("loading").into())
+            }
+        }
+
+        fn list(&self, _: &str) -> gpui_kit::Result<Vec<gpui_kit::SharedString>> {
+            Ok(Vec::new())
+        }
+    }
+    let mut sheet = Sheet::open_kinds(cx);
+    sheet.hover_none();
+    let cue = || Some(PopoverCue::expand().open_icon(OPEN_MARK));
+    let loaded = sheet.update(|table, cx| {
+        table.popover_state.assets = Some(std::sync::Arc::new(Late(false.into())));
+        table.set_popover_cue(cue(), cx)
+    });
+    assert!(!loaded, "the first load fails");
+    // The source has it now, and no frame asks again.
+    assert!(sheet.open_on(1, 2));
+    assert_eq!(sheet.cues(), [], "no open mark");
+    sheet.update(|table, cx| table.close_popover(cx));
+    assert!(sheet.update(|table, cx| table.set_popover_cue(cue(), cx)));
+    assert!(sheet.open_on(1, 2));
+    assert_eq!(sheet.cues(), [PopoverCell::new(1, 2)]);
+}
+
 /// And after a page landing on its row: a text that grew past its column.
 #[cfg(feature = "live")]
 #[gpui_kit::test]
@@ -1870,11 +1952,12 @@ fn the_open_mark_stays_on_the_open_popover_s_cell(cx: &mut TestAppContext) {
     assert!(sheet.open_on(1, 2));
     assert_eq!(sheet.cues(), []);
     sheet.update(|table, cx| table.close_popover(cx));
-    // A path that doesn't load is none.
-    sheet.update(|table, cx| {
+    // A path that doesn't load is none, and the setter says so.
+    let loaded = sheet.update(|table, cx| {
         table.popover_state.assets = Some(std::sync::Arc::new(Marks));
-        table.set_popover_cue(Some(PopoverCue::expand().open_icon("marks/none.svg")), cx);
+        table.set_popover_cue(Some(PopoverCue::expand().open_icon("marks/none.svg")), cx)
     });
+    assert!(!loaded);
     assert!(sheet.open_on(1, 2));
     assert_eq!(sheet.cues(), []);
     let at = sheet.at(1.0, 2);
@@ -1883,9 +1966,10 @@ fn the_open_mark_stays_on_the_open_popover_s_cell(cx: &mut TestAppContext) {
     sheet.hover_none();
     sheet.update(|table, cx| table.close_popover(cx));
     // With one.
-    sheet.update(|table, cx| {
+    let loaded = sheet.update(|table, cx| {
         table.set_popover_cue(Some(PopoverCue::expand().open_icon(OPEN_MARK)), cx)
     });
+    assert!(loaded);
     let at = sheet.at(1.0, 2);
     sheet.hover(at);
     assert_eq!(sheet.drawn(1, 2).mark_look, Some((None, muted)), "closed");
@@ -1920,12 +2004,16 @@ fn the_open_mark_stays_on_the_open_popover_s_cell(cx: &mut TestAppContext) {
     sheet.cut_text();
     assert!(sheet.open_on(1, N));
     assert_eq!(sheet.cues(), []);
-    // Nothing on a host's own cue.
-    sheet.update(|table, cx| {
-        table.set_popover_cells(crate::PopoverCells::Every, cx);
-        let custom = PopoverCue::custom(|_, _| div().size_full().into_any_element());
-        table.set_popover_cue(Some(custom.open_icon(OPEN_MARK)), cx)
-    });
+    // Nothing on a host's own cue, and no path of it is loaded: one that
+    // wouldn't load fails nothing.
+    for path in [OPEN_MARK, "marks/none.svg"] {
+        let loaded = sheet.update(|table, cx| {
+            table.set_popover_cells(crate::PopoverCells::Every, cx);
+            let custom = PopoverCue::custom(|_, _| div().size_full().into_any_element());
+            table.set_popover_cue(Some(custom.open_icon(path)), cx)
+        });
+        assert!(loaded, "{path}");
+    }
     assert!(sheet.open_on(1, 2));
     assert_eq!(sheet.cues(), []);
 }

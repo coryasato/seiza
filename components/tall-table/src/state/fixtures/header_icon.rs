@@ -1052,9 +1052,17 @@ fn set_column_icon_lays_out_only_when_its_room_changes(cx: &mut TestAppContext) 
     let layout = sheet.layout.borrow().clone().expect("a layout");
     assert_eq!(layout.columns[0].icon, None);
     // Past the last column: nothing, quietly.
-    sheet.update(|table, cx| table.set_column_icon(9, Some(icon("text.svg")), cx));
+    let loaded = sheet.update(|table, cx| table.set_column_icon(9, Some(icon("text.svg")), cx));
+    assert!(loaded, "no path failed");
     assert_eq!(sheet.read(|table| table.layout_generation), generation);
     assert_eq!(sheet.heard().len(), 0, "no event");
+    // The setter says whether its path loaded, which it tests once, at
+    // the call: `false` for one that fails, alone.
+    let mut loads =
+        |icon: Option<HeaderIcon>| sheet.update(|table, cx| table.set_column_icon(0, icon, cx));
+    assert!(!loads(Some(icon("nope.svg"))));
+    assert!(loads(Some(icon("text.svg"))));
+    assert!(loads(None));
 }
 
 #[gpui_kit::test]
