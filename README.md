@@ -2,7 +2,7 @@
 
 **seiza** ("constellation") is a monorepo of heavy web apps built with [GPUI](https://www.gpui.rs/) (via [GPUI Kit](https://github.com/longbridge/gpui-kit)), compiled to WebAssembly, and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available).
 
-The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM.** Every claim here needs a number on screen to back it up, so each utility app ships with a live observation panel and a reproducible measurement suite, its README says where the canvas still falls short, and the observatory measures its components against DOM equivalents.
+The thesis: **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**, with the canvas for the GPUI components, the heavy parts, and the DOM where text lives: entry, selection, Ctrl+F, screen readers, and browser agents. Every claim here needs a number on screen to back it up, so the observatory measures the components against DOM equivalents, each app's README says where the canvas still falls short, and the apps carry a live observation panel.
 
 The repo holds four kinds of thing:
 
@@ -15,22 +15,21 @@ The repo holds four kinds of thing:
 
 | App | What it is | Status |
 |---|---|---|
-| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io) |
+| [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io); v2, a workbench to open, understand, check, and export a large file, is being built |
 | [**Observatory**](apps/observatory/) | The comparison page: a component in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): six scenarios (Big file, Wide sheet, Market watch, Live tail, Admin table, Monitoring wall), both contenders, the window's numbers, the meter |
 | [**Kirkwood**](apps/kirkwood/) | A showcase: the asteroid belt as a scene to fly through, every dot a row of the table beside it. | Live at [tycho.seiza.io/kirkwood](https://tycho.seiza.io/kirkwood/): the belt on its orbits, colored by orbit size in front of Gaia's stars, and the table over 1.58 million rows, each moving the other |
 
-Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included):
+Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included). Tycho records none: it's a tool, not a measurement, and the observatory measures what it's built from.
 
 <!-- report:headlines:start -->
 - **[Observatory](apps/observatory/)**: GPUI / TanStack: first usable 140.8 / 41.7 ms · fling per-frame work p95 4.3 / 7.8 ms
-- **[Tycho](apps/tycho/)**: first paint 187.5 ms · 25.1 M rows → first rows 289.4 ms · fling p95 16.7 ms
 <!-- report:headlines:end -->
 
 ## Principles
 
-1. **Time to first paint is the deciding metric.** Nothing delays first paint: not engines, not data, not extra fonts. Every app has TTFP and wasm-size budgets that fail the build on a regression.
+1. **Time to first paint is the deciding metric.** Nothing delays first paint: not engines, not data, not extra fonts. The observatory has TTFP and wasm-size budgets that fail the build on a regression; Tycho, a tool, gates its wasm's size alone.
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame. The UI stays usable and says what's still loading.
-3. **Measure before and after.** Every milestone ends with a measurement, committed to `apps/<app>/perf/results/`.
+3. **Measure before and after.** Every measured milestone ends with a measurement, committed to `apps/<app>/perf/results/`. Tycho and the showcase are exempt; Tycho's past measurements stay in its `perf/results/` as history.
 4. **Canvas tradeoffs in the open.** Accessibility, IME, text selection, Ctrl+F, and bundle size are real costs of drawing to a canvas. Where an app falls short, it says so in its UI and README.
 
 ## How we measure
@@ -73,7 +72,7 @@ seiza/
       web/              # Vite host
       worker/           # Cloudflare Worker
       data/             # dataset scripts (generated data is gitignored)
-      perf/             # Playwright suite, budgets.json, baseline.json, results/
+      perf/             # checks, budgets.json, baseline.json, results/
       docs/             # DECISIONS.md, LESSONS.md, milestones.md, reference docs
   docs/
     DECISIONS.md        # repo-wide decisions

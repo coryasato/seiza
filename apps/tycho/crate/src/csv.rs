@@ -4,7 +4,7 @@
 //!
 //! Why not query the file where it lies, as Parquet is: CSV has no index, so
 //! every page read parses from the top. On the 1 GB test file a page at 90%
-//! took 5.1 s, and `count(*)` 3.3 s (`perf/ingest.ts` results).
+//! took 5.1 s, and `count(*)` 3.3 s (the ingest experiment, `perf/results/2026-09-30-m6.md`).
 //!
 //! Why one table per chunk, not one table appended to: appends into one
 //! growing table stalled for 200–600 ms every few chunks inside DuckDB (not

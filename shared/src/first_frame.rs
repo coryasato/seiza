@@ -31,9 +31,9 @@ pub const FIRST_FRAME_MARK: &str = "gpui:first-frame";
 /// An earlier version marked in a `requestAnimationFrame` requested from the
 /// first render. That depended on rAF ordering: it landed a frame late with
 /// WebGPU, and a frame early with WebGL2 once requested synchronously.
-/// Re-check this on every gpui-kit bump: the Playwright suite's first-draw
-/// probe (`perf/perf.ts`) fails if the mark isn't right after the first GPU
-/// work.
+/// Re-check this on every gpui-kit bump: the first-draw probe
+/// (`shared-web/perf/`'s `firstDrawProbe`, in the observatory's and the tall
+/// table's checks) fails if the mark isn't right after the first GPU work.
 ///
 /// The same microtask starts the page's placeholder shell leaving, if it has
 /// one: it fades out over the first frame, which is already presented, so

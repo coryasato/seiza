@@ -1,11 +1,11 @@
 # seiza (星座)
 
-**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit), compiled to WebAssembly and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available). The apps share one Cargo workspace, one `gpui-kit` pin, and a foundation crate (`shared/`). The goal of every app here is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up.
+**seiza** (星座, "constellation") is a monorepo of heavy web apps built with GPUI (via GPUI Kit), compiled to WebAssembly and drawn on a canvas with WebGPU (WebGL2 where WebGPU isn't available). The apps share one Cargo workspace, one `gpui-kit` pin, and a foundation crate (`shared/`). The goal of every app here is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**: the canvas for the GPUI components, the heavy parts; the DOM where text lives (entry, selection, Ctrl+F, screen readers, agents). Every claim needs a number on screen to back it up, and the observatory is where they're measured.
 
 This file holds the rules for every app. Each app's own `apps/<app>/CLAUDE.md` (its context and rules) and `PLAN.md` (what's next) apply when working inside it. Where every other kind of fact lives is in "Docs: one home per fact" below.
 
 **Apps**
-- `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + virtualized table). A utility app, at tycho.seiza.io.
+- `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + the tall table on the canvas, the rest of the page in the DOM), being rebuilt. A utility app, at tycho.seiza.io.
 - `apps/observatory/`: the Observatory, the comparison page and both its contenders, at seiza.io/observatory.
 - `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it, at tycho.seiza.io/kirkwood.
 
@@ -15,10 +15,12 @@ The apex site (seiza.io: the observatory's page now, a landing page later) share
 
 ## Repo-wide rules
 
-1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. A change that adds bytes to an app's wasm records its size effect in that app's `perf/results/` notes, not the commit message; a change to `shared/`, a component, or an engine records it for every app that builds it. Each app's `just <app> check` fails on a TTFP or wasm-size regression: its budgets are in `perf/budgets.json`, the baselines `check` compares against in `perf/baseline.json`. This gates every build, the observatory's contenders included; what the observatory's comparison headlines is per-use cost (`.claude/rules/comparison-protocol.md`).
+1. **Time to first paint is the deciding metric.** Nothing may delay first paint: not engines, not data, not fonts beyond the one UI face. A change that adds bytes to an app's wasm records its size effect in that app's `perf/results/` notes, not the commit message; a change to `shared/`, a component, or an engine records it for every app that builds it. Each measured app's `just <app> check` fails on a TTFP or wasm-size regression (Tycho's, on the wasm's size alone: below the rules): its budgets are in `perf/budgets.json`, the baselines `check` compares against in `perf/baseline.json`. This gates every build, the observatory's contenders included; what the observatory's comparison headlines is per-use cost (`.claude/rules/comparison-protocol.md`).
 2. **Paint first, load heavy things after.** Engines, workers, and datasets start loading after the first frame appears. The UI stays usable and says what's still loading.
 3. **Measure before and after.** Every milestone ends with a measurement under the protocol below. The numbers go in `apps/<app>/perf/results/` (committed; raw Playwright traces in the gitignored `perf/results/raw/`) and a short note in `apps/<app>/docs/LESSONS.md`.
 4. **Handle the canvas tradeoffs in the open** (a11y, IME, text selection, Ctrl+F, bundle size). When an app falls short on one, it says so in the UI or in its own `README.md` ("Canvas tradeoffs"). It never hides the gap.
+
+**Tycho is exempt from rules 1 and 3 and the measurement protocol,** as a showcase is: its job is to be useful, and the observatory is where GPUI is measured. Rules 2 and 4 bind it (its smoke check fails a request that starts before first paint), and its `check` gates the wasm's size alone, with no time-to-first-paint gate (`docs/DECISIONS.md`, "Measurement protocol", 2026-11-17).
 
 ## Where the detail is
 
@@ -93,10 +95,10 @@ seiza/
 ## Commands
 
 ```
-just <app> <recipe>        # e.g. just tycho dev, just tycho perf; each app's recipes are in its CLAUDE.md
+just <app> <recipe>        # e.g. just tycho dev, just observatory check; each app's recipes are in its CLAUDE.md
 just tall-table <recipe>   # the tall table's bare host: build, size, perf (its CLAUDE.md)
 just kirkwood <recipe>     # the showcase: dev, build, worker, deploy, deployed, test, see, lint (no check, perf, or report)
-just <app> report          # every app but a showcase: the numbers in its README, its PLAN.md, and the root README's apps table, from perf/budgets.json and perf/results/
+just <app> report          # every app but a showcase and Tycho: the numbers in its README, its PLAN.md, and the root README's headlines, from perf/budgets.json and perf/results/
 ```
 
 ## Measurement protocol

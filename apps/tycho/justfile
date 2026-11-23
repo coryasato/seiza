@@ -13,11 +13,13 @@ worker_scripts := app_dir / "worker/scripts"
 dev: (wasm "debug") extensions
     node {{worker_scripts}}/with-worker.ts npm run dev --workspace @seiza/tycho-web
 
-# Release wasm (+ wasm-opt), Vite build, then report asset sizes. DuckDB's
-# wasm bundles are over Cloudflare's 25 MiB asset limit; they go to R2.
+# Release wasm (+ wasm-opt), Vite build, then report asset sizes, and the
+# page's weight before first paint (the document, the entry JS, the app wasm,
+# the UI font; reported, not gated). DuckDB's wasm bundles are over
+# Cloudflare's 25 MiB asset limit; they go to R2.
 build: (wasm "release") extensions
     npm run build --workspace @seiza/tycho-web
-    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist --r2 duckdb-eh --r2 duckdb-mvp
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist --r2 duckdb-eh --r2 duckdb-mvp --first-paint index.html --first-paint assets/index- --first-paint tycho_bg --first-paint IBMPlexSans-Regular
 
 # Serve the release build with the same headers, plus the Worker for /data/*.
 preview:
@@ -88,9 +90,10 @@ data *args: data-deps
 
 # The drop-test files (data/drop/, gitignored): asteroids.parquet repeated
 # to ~100 MB and ~1 GB, the 1 GB one in three row-group layouts, and the
-# CSV fixture repeated to ~1 GB. Local only: perf/drop.ts and
-# perf/csv.ts open them from disk, like a visitor's file. Pass name parts to
-# build only some, e.g. `just tycho drop-files csv`.
+# CSV fixture repeated to ~1 GB. Local only: dropped from disk, like a
+# visitor's file, by hand (the 1 GB memory check, perf/CLAUDE.md) and by the
+# checks the rebuild writes again. Pass name parts to build only some, e.g.
+# `just tycho drop-files csv`.
 drop-files *args: data-deps
     node {{app_dir}}/data/drop_files.ts {{args}}
 
@@ -105,148 +108,23 @@ worker-check:
     node --test {{app_dir}}/worker/test/index.test.ts
     node {{worker_scripts}}/check.ts
 
-# Sample checks on the release build (vite preview + wrangler dev): click →
-# schema time, bytes transferred, click before the engine is ready. Writes
-# perf/results/<date>-<label>.json. Run `just tycho build` first.
-sample *args:
-    node {{app_dir}}/perf/sample.ts {{args}}
-
-# Table checks on the release build: file → first rows, scrollbar jump to
-# 90%, last row vs count(*), fling frame times, steady-scroll placeholders.
-# `--sweep` runs page size × prefetch instead; `--memory` adds two full passes
-# and records memory. Writes perf/results/<date>-<label>.json. Run
-# `just tycho build` first.
-table *args:
-    node {{app_dir}}/perf/table.ts {{args}}
-
-# Panel checks on the release build: every observation-panel value
-# against an independent measurement (page timings, an rAF recorder, a
-# work-time wrapper, /data/ bytes at the server), and the fling with the
-# panel open and closed (reference + throttled). Writes
-# perf/results/<date>-<label>.json. Run `just tycho build` first.
-panel *args:
-    node {{app_dir}}/perf/panel.ts {{args}}
-
-# Cell-overflow checks on the release build: no value spills out
-# of its cell (screenshot ink in each cell's padding), rounded doubles within
-# half a unit, tooltips on rounded and cut values, on both samples and
-# data/drop/overflow.parquet (`just tycho drop-files overflow`).
-# Flags: --label, --files asteroids,gaia,overflow.
-cells *args:
-    node {{app_dir}}/perf/cells.ts {{args}}
-
-# Jump-to-row checks on the release build, both samples: first, middle,
-# last, and out of range land (or refuse) with the panel open and clear of
-# the input; keys stay in the input; IME full-width digits, paste (keys and
-# context menu), Cmd/Ctrl editing keys, focus after a failed open (reference
-# + throttled; --browsers adds Firefox and WebKit). Writes
-# perf/results/<date>-<label>.json. Run `just tycho build` first.
-jump *args:
-    node {{app_dir}}/perf/jump.ts {{args}}
-
-# Error-state checks on the release build: the engine didn't load
-# (Retry), the engine stopped (Retry), the sample offline, page reads
-# offline (rows recover by themselves once online), reopening a file while
-# its reads drain ("Read" stays right), files over the size limits refused,
-# the open panel clear of the scrollbars. Writes
-# perf/results/<date>-<label>.json. Run `just tycho build` first.
-errors *args:
-    node {{app_dir}}/perf/errors.ts {{args}}
-
-# Hardening experiments on the release build: --only footers (parsed footers
-# piling up over 20 opens), ceiling (the big drop files: first rows, End,
-# memory; --files), wheel-end (redraws against the last row). Needs
-# `just tycho drop-files`. Run `just tycho build` first.
-hardening *args:
-    node {{app_dir}}/perf/hardening.ts {{args}}
-
-# Drop checks on the release build: drop a ~1 GB Parquet → schema and
-# first rows, 100 MB vs 1 GB memory, unsupported files, a drop superseding a
-# load, and the file dialog in Chromium/Firefox/WebKit. Needs
-# `just tycho drop-files`. Writes perf/results/<date>-<label>.json.
-drop *args:
-    node {{app_dir}}/perf/drop.ts {{args}}
-
-# CSV checks on the release build: drop a ~1 GB CSV → schema and first
-# rows, row-count updates ≤ 500 ms apart, a fling while it loads, the final
-# count (reference + throttled); the fixture's count and tricky rows; a drop
-# replacing a loading CSV (its tables dropped); Firefox and WebKit. Needs
-# `just tycho drop-files`. Writes perf/results/<date>-<label>.json.
-csv *args:
-    node {{app_dir}}/perf/csv.ts {{args}}
-
-# CSV ingest experiment: raw-file queries vs whole-file and chunked ingest of
-# the ~1 GB CSV, by chunk size, compression, and one table vs one per chunk
-# (see perf/results/2026-09-30-m6.md).
-ingest *args:
-    node {{app_dir}}/perf/ingest.ts {{args}}
-
-# Paging experiment: LIMIT/OFFSET vs file_row_number vs ingest, at several
-# row-group sizes (bench/ files in local R2; see perf/results/2026-09-25-m4.md).
-paging *args:
-    node {{app_dir}}/perf/paging.ts {{args}}
-
-# Request bursts on the release build: the most requests one visitor sends
-# in any 10 s (the WAF rate limit's window) across a fling visit, random
-# jumps, held PageDown, and reloads. Needs `just tycho build` and
-# `just tycho data gaia`. Writes perf/results/<date>-<label>.json.
-burst *args:
-    node {{app_dir}}/perf/burst.ts {{args}}
-
-# Lint, release build, then the perf budgets: fails if reference TTFP regresses
-# more than 10% from perf/baseline.json, or the wasm grows more than 15% (brotli)
-# without a row in perf/budget-notes.md. Also fails if the shipped wasm holds
-# a home-directory path (the root release profile's trim-paths).
+# Lint, release build, then: no home-directory path in the shipped wasm (the
+# root release profile's trim-paths), and the wasm's size gate: fails if the
+# app wasm (brotli) grows more than 15% over perf/baseline.json without a row
+# in perf/budget-notes.md (perf/size.ts). Tycho times nothing here: its
+# measurements are retired (docs/DECISIONS.md, "Perf tooling and budgets").
 check: lint build
     node {{root}}/shared-web/perf/home-paths.ts {{web}}/dist/assets/tycho_bg-*.wasm
-    node {{app_dir}}/perf/perf.ts --check
+    node {{app_dir}}/perf/size.ts
 
 # The home-path check's control: Tycho built without trim-paths (a cold build
 # in target/untrimmed/) must fail it, and the release build must pass.
 home-paths: build
     node {{root}}/shared-web/perf/home-paths.ts {{web}}/dist/assets/tycho_bg-*.wasm --control tycho
 
-# The full perf suite: cold load, the observation panel, the table on
-# both samples, jump to row, and the ~1 GB CSV, reference + throttled, median
-# of 10, into one perf/results/<date>-<label>.json (each part's own output in
-# perf/results/raw/). About 1 h 45 min. Needs `just tycho drop-files csv`. Run
-# `just tycho build` first. Flags: --runs, --label, --only cold,panel,table,jump,csv,
-# --reference-only.
-perf *args:
-    node {{app_dir}}/perf/suite.ts {{args}}
-
-# Placeholder-shell checks on the release build: the static placeholder shell against
-# GPUI's first frame in screenshots (light and dark), its font's character
-# set, its bytes, and the theme toggle (button, Cmd/Ctrl+Shift+L, system
-# changes, reload). --controls: negative controls for the screenshot match.
-# --ab <dist>: interleaved TTFP and placeholder-paint A/B against another
-# build's web/dist (--runs, --reference-only); fails when either side's TTFP
-# spread (IQR over median) is 3.5% or more. Run `just tycho build` first.
-placeholder *args:
-    node {{app_dir}}/perf/placeholder.ts {{args}}
-
-# Cold load only (reference + throttled, median of 10) on the release build in
-# web/dist; writes perf/results/<date>-<label>.json. Run `just tycho build` first.
-# Extra flags pass through, e.g. `just tycho cold --label m2 --runs 5`.
-cold *args:
-    node {{app_dir}}/perf/perf.ts {{args}}
-
-# Engine self-test: SELECT 42, every shown type, and cancel, run from Rust
-# in the release build (`?selftest`). Chromium --runs times, Firefox and WebKit
-# once; writes perf/results/<date>-<label>.json. Run `just tycho build` first.
-engine *args:
-    node {{app_dir}}/perf/engine.ts {{args}}
-
-# Regenerate the numbers in README.md, PLAN.md, and the root README from
-# perf/budgets.json and the newest matching perf/results/ files. Run it after a
-# measurement lands; `lint` fails while they're stale. --check: report only.
-report *args:
-    cd {{root}} && node shared-web/scripts/report.ts apps/tycho {{args}}
-
-# fmt, clippy (wasm target and native host; Tycho, seiza, the DuckDB engine, and the table component), TypeScript (host, perf, data, and worker scripts, shared-web scripts, the DuckDB engine's package), and the generated numbers in the docs, plus no milestone references outside the history files (check-terms).
+# fmt, clippy (wasm target and native host; Tycho, seiza, the DuckDB engine, and the table component), TypeScript (host, perf, data, and worker scripts, shared-web scripts, the DuckDB engine's package), plus no milestone references outside the history files (check-terms).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
-    cd {{root}} && node shared-web/scripts/report.ts apps/tycho --check
     cargo fmt --all --check
     cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-tall-table --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-tall-table --all-features --all-targets -- -D warnings
@@ -259,6 +137,10 @@ wasm profile="debug":
     wasm-bindgen {{target_dir}}/{{profile}}/tycho.wasm --out-dir {{pkg}} --target web
     {{ if profile == "release" { "wasm-opt -Oz --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue --enable-threads " + pkg + "/tycho_bg.wasm -o " + pkg + "/tycho_bg.wasm" } else { "true" } }}
 
-# Cross-browser shell check (Chromium, Firefox, WebKit) against a running server.
-smoke url="http://localhost:5173/":
-    node {{app_dir}}/perf/smoke.ts {{url}}
+# Cross-browser shell check (Chromium, Firefox, WebKit) against a running
+# server: a first frame appears (its time printed, stored nowhere),
+# cross-origin isolated, no console errors, resizes followed; on a release
+# build (the preview's URL), no request outside the first-paint set starts
+# before the first frame (Chromium). --control must fail that part.
+smoke url="http://localhost:5173/" *args:
+    node {{app_dir}}/perf/smoke.ts {{url}} {{args}}

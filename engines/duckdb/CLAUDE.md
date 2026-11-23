@@ -51,7 +51,7 @@ Each was found in Tycho; its paths are under `apps/tycho/`.
 - **Nothing frees a parsed Parquet footer:** neither `db.dropFile` nor toggling `parquet_metadata_cache` (~2.2 MiB per open of a 1,378-group file; `apps/tycho/perf/results/2026-10-08-m7-footers.json`). Files stay registered; it's a documented cost.
 - **The worker takes messages in order,** so a canceled query's reads land on the old file's read counter, never the next open's, even under the same key; an open needn't wait for them (`docs/DECISIONS.md`, "Engine and bridge").
 - **A stopped worker rejects only the calls made after it stopped,** so with nothing in flight the host learns at its next call. A script that kills the worker (`page.workers()`, a throw in a `setTimeout`) must then make one (press End, say).
-- **Playwright doesn't see DuckDB's requests** (sync XHRs in its worker). Count `/data/` bytes at the server: `shared-web/perf/serve.ts`'s counting proxy, which Tycho's `perf/harness.ts` (`serveTycho`) puts in front of `wrangler dev`.
+- **Playwright doesn't see DuckDB's requests** (sync XHRs in its worker). Count `/data/` bytes at the server: `shared-web/perf/serve.ts`'s counting proxy (`serveApp`'s `data`), in front of the app's data server.
 
 ## Tests
 
@@ -61,4 +61,4 @@ cargo test -p seiza-duckdb --all-features   # native: the Arrow reader, errors, 
 
 The SQL fixture (`components/tall-table/fixtures/sql.json`) pins, as text, the page SQL and summary queries a contender sends; its test is here, where the SQL is written. A change to `ParquetFile::page_sql` or `summary_queries` fails it: update the fixture in the same change.
 
-The client runs only in a browser: Tycho's `just tycho engine` (the self-test) and `just tycho errors` (failed load, stopped worker, Retry) check it end to end.
+The client runs only in a browser, and nothing checks it end to end: not its self-test (`?selftest` in Tycho) nor its error states (failed load, stopped worker, Retry), which Tycho's rebuild checks again (its `PLAN.md`, the controller's goal). The observatory's GPUI contender reads every page through it.

@@ -14,8 +14,9 @@ import type { HtmlTagDescriptor, Plugin } from 'vite';
  * bar, an empty state), in gpui-kit 0.9.1's default theme, light or dark by
  * `prefers-color-scheme` (`shared/` follows the system until the app says a
  * visitor picked a theme, and a reload follows it again), or by the root's
- * `data-theme` where the page sets one before it paints. Each app's check
- * (`apps/<app>/perf/placeholder.ts`) compares screenshots of both. TTFP keeps
+ * `data-theme` where the page sets one before it paints. The observatory's
+ * check (`apps/observatory/perf/placeholder.ts`) compares screenshots of both;
+ * Tycho's placeholder is compared by eye. TTFP keeps
  * meaning GPUI's first frame; the placeholder's paint is its own metric.
  *
  * GPUI and the browser can't draw the same text identically: they rasterize

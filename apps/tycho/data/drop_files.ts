@@ -1,5 +1,6 @@
 // Builds the drop-test files. They're files a visitor could drop, so
-// `perf/drop.ts` and `perf/csv.ts` open them from disk, never R2.
+// they're opened from disk, never R2: by hand for the 1 GB memory check
+// (perf/CLAUDE.md), and by the checks the rebuild writes again.
 //
 // Row-group layouts, from asteroids.parquet: the asteroid table repeated k times, in file
 // order, to ~100 MB and ~1 GB. The 1 GB file comes in three row-group

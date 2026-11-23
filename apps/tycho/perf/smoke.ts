@@ -1,18 +1,33 @@
 // Smoke check: the shell paints in Chromium, Firefox, and WebKit with no
 // console errors, the page is cross-origin isolated, and every resize ends
 // with a canvas that followed the new viewport (CSS box and backing store)
-// and is painted edge to edge.
-// Usage: node apps/tycho/perf/smoke.ts [url] [--out <dir>]
+// and is painted edge to edge. Each first frame's time is printed, stored
+// nowhere, and judged against nothing.
+//
+// Rule 2 (root CLAUDE.md), in Chromium on a release build: no request
+// outside the first-paint set (the document, the entry JS, the app wasm, the
+// UI font) starts before `gpui:first-frame`. The page's own requests come
+// from Resource Timing, on the marks' clock; its workers' (DuckDB's wasm)
+// from Playwright's network events. On the dev server, whose module graph
+// isn't the build's, this part is skipped and says so. --control starts a
+// request as the page loads (an init script's fetch): Chromium must fail.
+// Usage: node apps/tycho/perf/smoke.ts [url] [--out <dir>] [--control]
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { chromium, firefox, webkit, type BrowserType, type LaunchOptions, type Page } from '@playwright/test';
+import { chromium, firefox, webkit, type BrowserType, type LaunchOptions, type Page, type Request } from '@playwright/test';
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
+/** What first paint may wait on in the release build, by path. */
+const FIRST_PAINT_REQUESTS = [/^\/$/, /^\/index\.html$/, /^\/assets\/index-[\w-]+\.js$/, /^\/assets\/tycho_bg-[\w-]+\.wasm$/, /^\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];
+/** How long after the first frame to keep listening, so a request that
+ *  started before it but was reported late is still seen. */
+const SETTLE_MS = 1000;
 const url = process.argv.find((arg) => /^https?:/.test(arg)) ?? 'http://localhost:5173/';
 const outIndex = process.argv.indexOf('--out');
 const outDir = outIndex > 0 ? process.argv[outIndex + 1] : undefined;
 if (outDir) mkdirSync(outDir, { recursive: true });
+const control = process.argv.includes('--control');
 
 const RESIZES = [
   { width: 1440, height: 900 },
@@ -31,6 +46,9 @@ interface Result {
   sizeMismatches: string[];
   dpr: number | null;
   backingRatio: number | null;
+  /** Chromium on a release build: requests outside the first-paint set that
+   *  started before the first frame. Null where it wasn't checked. */
+  earlyRequests: string[] | null;
   error?: string;
 }
 
@@ -100,13 +118,33 @@ async function isPainted(page: Page, png: Buffer): Promise<boolean> {
  * - Chromium at DPR 1. Under DPR-2 emulation (old and new headless), the
  *   device-pixel-content-box reports CSS pixels, so GPUI draws 2× layout into
  *   a 1× backing store. `--force-device-scale-factor=2` flips it the other way
- *   (DPR reads 1, the box reads 2×). The perf suite (perf.ts) gets a real DPR 2
- *   by hiding `devicePixelContentBoxSize`; smoke keeps Chromium on the
- *   unshimmed path, so it still checks the code path real Chrome uses.
+ *   (DPR reads 1, the box reads 2×). Measurements get a real DPR 2 by hiding
+ *   `devicePixelContentBoxSize` (`shared-web/perf/`); smoke keeps Chromium on
+ *   the unshimmed path, so it checks the code path real Chrome uses.
  * - Firefox at DPR 2 through `layout.css.devPixelsPerPx`. Playwright's
  *   `deviceScaleFactor` isn't reliably honored there.
  * - WebKit at DPR 2 through `deviceScaleFactor`, which it honors.
  */
+const firstPaintRequest = (url: string) => FIRST_PAINT_REQUESTS.some((pattern) => pattern.test(new URL(url).pathname));
+
+/** Requests outside the first-paint set that started before the first frame,
+ *  or null on a page that isn't a release build (no hashed entry script). */
+async function earlyRequests(page: Page, network: Map<Request, { url: string; wallMs: number }>, firstFrameMs: number): Promise<string[] | null> {
+  await page.waitForTimeout(SETTLE_MS);
+  const { timeOrigin, resources } = await page.evaluate(() => ({
+    timeOrigin: performance.timeOrigin,
+    resources: performance.getEntriesByType('resource').map((entry) => ({ url: entry.name, startMs: entry.startTime })),
+  }));
+  if (!resources.some((r) => /\/assets\/index-[\w-]+\.js$/.test(new URL(r.url).pathname))) return null;
+  const requests = [
+    ...resources,
+    ...[...network.values()].filter((r) => !resources.some((resource) => resource.url === r.url)).map((r) => ({ url: r.url, startMs: r.wallMs - timeOrigin })),
+  ];
+  return requests
+    .filter((r) => !/^(data|blob):/.test(r.url) && !firstPaintRequest(r.url) && r.startMs < firstFrameMs)
+    .map((r) => `${new URL(r.url).pathname} at ${r.startMs.toFixed(1)} ms (first frame ${firstFrameMs.toFixed(1)} ms)`);
+}
+
 const ENGINES: { name: string; type: BrowserType; launch: LaunchOptions; deviceScaleFactor: number }[] = [
   { name: 'chromium', type: chromium, launch: {}, deviceScaleFactor: 1 },
   { name: 'firefox', type: firefox, launch: { firefoxUserPrefs: { 'layout.css.devPixelsPerPx': '2' } }, deviceScaleFactor: 1 },
@@ -123,15 +161,27 @@ async function run({ name, type, launch, deviceScaleFactor }: (typeof ENGINES)[n
     sizeMismatches: [],
     dpr: null,
     backingRatio: null,
+    earlyRequests: null,
   };
   const browser = await type.launch(launch);
   try {
     const context = await browser.newContext({ viewport: RESIZES[0], deviceScaleFactor });
+    if (control) await context.addInitScript(() => void fetch('/assets/engine-control.js').catch(() => {}));
     const page = await context.newPage();
     page.on('console', (message) => {
       if (message.type() === 'error') result.consoleErrors.push(message.text());
     });
     page.on('pageerror', (error) => result.consoleErrors.push(`pageerror: ${error.message}`));
+    // Every request Playwright saw, workers' included, with a wall-clock start:
+    // when Playwright reported it (a few ms late at most), then the browser's
+    // own start once it finishes.
+    const network = new Map<Request, { url: string; wallMs: number }>();
+    page.on('request', (request) => network.set(request, { url: request.url(), wallMs: Date.now() }));
+    page.on('requestfinished', (request) => {
+      const entry = network.get(request);
+      const start = request.timing().startTime;
+      if (entry && start > 0) entry.wallMs = start;
+    });
 
     await page.goto(url);
     result.firstFrameMs = await page
@@ -142,6 +192,7 @@ async function run({ name, type, launch, deviceScaleFactor }: (typeof ENGINES)[n
       )
       .then((handle) => handle.jsonValue() as Promise<number>)
       .catch(() => null);
+    if (name === 'chromium' && result.firstFrameMs !== null) result.earlyRequests = await earlyRequests(page, network, result.firstFrameMs);
     result.crossOriginIsolated = await page.evaluate(() => self.crossOriginIsolated);
     result.dpr = await page.evaluate(() => devicePixelRatio);
 
@@ -178,16 +229,19 @@ for (const r of results) {
     r.crossOriginIsolated &&
     r.consoleErrors.length === 0 &&
     r.blankFrames.length === 0 &&
-    r.sizeMismatches.length === 0;
+    r.sizeMismatches.length === 0 &&
+    (r.earlyRequests ?? []).length === 0;
   failed ||= !ok;
   console.log(
     `${ok ? 'PASS' : 'FAIL'} ${r.browser.padEnd(8)} dpr=${r.dpr} backing=${r.backingRatio}x first-frame=${r.firstFrameMs?.toFixed(0) ?? '—'}ms ` +
       `crossOriginIsolated=${r.crossOriginIsolated} consoleErrors=${r.consoleErrors.length} ` +
-      `blankFrames=${r.blankFrames.length} sizeMismatches=${r.sizeMismatches.length}`,
+      `blankFrames=${r.blankFrames.length} sizeMismatches=${r.sizeMismatches.length}` +
+      (r.browser === 'chromium' ? ` requestsBeforeFirstFrame=${r.earlyRequests === null ? 'skipped (not a release build)' : r.earlyRequests.length}` : ''),
   );
   if (r.error) console.log(`    error: ${r.error}`);
   for (const error of r.consoleErrors) console.log(`    console: ${error}`);
   for (const size of r.blankFrames) console.log(`    blank frame at ${size}`);
   for (const mismatch of r.sizeMismatches) console.log(`    canvas size mismatch at ${mismatch}`);
+  for (const request of r.earlyRequests ?? []) console.log(`    request before the first frame: ${request}`);
 }
 process.exit(failed ? 1 : 0);

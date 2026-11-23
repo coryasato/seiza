@@ -1,11 +1,4 @@
 {
   "date": "2026-10-10",
-  "machine": "local",
-  "cpu": "Apple M1",
-  "os": "Darwin 25.6.0 arm64",
-  "ttfpMs": {
-    "reference": 195.3,
-    "throttled": 3727.7
-  },
   "wasmBrotliKiB": 2854.8
 }

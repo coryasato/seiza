@@ -30,8 +30,8 @@ const titleBar = `
 /**
  * The empty state `crate/src/workbench.rs` draws first (`render_empty`), as
  * the static placeholder shell shows it, below the title bar, until the first
- * frame. Keep the two matched: `just tycho placeholder` compares screenshots
- * of both. The status
+ * frame. Keep the two matched, compared by eye (no check compares them).
+ * The status
  * line says "Engine loading…" as the first frame does: the placeholder is up
  * for a few hundred ms at most, too short to read a different line, which
  * only looked like one more jump. The three buttons ("Open a file…", the two

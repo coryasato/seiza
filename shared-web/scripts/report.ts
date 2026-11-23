@@ -3,13 +3,15 @@
 // a hand-typed copy of a measurement.
 //
 // Usage: node shared-web/scripts/report.ts [apps/<app> …] [--check]
-// With no app, every app with a perf/budgets.json. Fills, between markers:
+// With no app, every app whose perf/budgets.json lists metrics (an app with
+// a budget and no metrics, such as Tycho's wasm-size gate alone, isn't
+// reported, and naming it is an error). Fills, between markers:
 // - apps/<app>/README.md   <!-- report:readme:start --> … <!-- report:readme:end -->,
 //   and one table per named section a metric shows in (`show: ["readme:<name>"]`),
 //   between <!-- report:readme:<name>:start --> … <!-- report:readme:<name>:end -->
 // - apps/<app>/PLAN.md     <!-- report:plan:start --> … <!-- report:plan:end -->
 // - README.md (root)       <!-- report:headlines:start --> … <!-- report:headlines:end -->
-//   (one line per app with a budgets.json, whichever apps were named)
+//   (one line per reported app, whichever apps were named)
 // --check writes nothing and exits non-zero if any of them would change.
 //
 // budgets.json:
@@ -124,11 +126,21 @@ function fill(path: string, sections: [marker: string, body: string][], changed:
 }
 
 const appsDir = join(root, 'apps');
+const reported = (dir: string) => {
+  const path = join(dir, 'perf', 'budgets.json');
+  return existsSync(path) && (JSON.parse(readFileSync(path, 'utf8')) as { metrics?: unknown[] }).metrics?.length;
+};
 const allApps = readdirSync(appsDir)
   .map((name) => join(appsDir, name))
-  .filter((dir) => existsSync(join(dir, 'perf', 'budgets.json')));
+  .filter(reported);
 // Absolute and normalized (no trailing slash), so a named app is the same key as in allApps.
 const targets = named.length ? named.map((dir) => resolve(dir)) : allApps;
+for (const dir of targets) {
+  if (!reported(dir)) {
+    console.error(`${relative(root, dir)}: no metrics in perf/budgets.json, so nothing to report`);
+    process.exit(2);
+  }
+}
 
 const changed: string[] = [];
 const reporters = new Map(allApps.map((dir) => [dir, new Reporter(dir)]));

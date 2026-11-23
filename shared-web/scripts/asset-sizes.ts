@@ -1,13 +1,16 @@
 // Prints raw, gzip, and brotli sizes for a Vite dist/ directory, grouped by
 // kind, and flags any file over Cloudflare's 25 MiB static-asset limit.
 // Usage: node shared-web/scripts/asset-sizes.ts <dist-dir> [--r2 <name-part>]… [--compressed <name-part>]…
+//                                               [--first-paint <name-part>]…
+// --first-paint parts name the files first paint waits on; their sum is
+// printed as the page's weight before first paint (reported, not gated).
 // An oversize file fails the build unless a --r2 part matches its path: that
 // says the app serves it from R2 instead of static assets (see the app's
 // docs/hosting.md); or a --compressed part does, and its gzip and brotli
 // copies fit: the app's deploy uploads only those.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { brotli } from '../src/brotli.ts';
 
@@ -40,7 +43,8 @@ function walk(dir: string): string[] {
 function measure(dist: string, path: string): Asset {
   const bytes = readFileSync(path);
   return {
-    path: relative(dist, path),
+    // Forward slashes on every OS, so a `--first-paint` part like `assets/index-` matches.
+    path: relative(dist, path).split(sep).join('/'),
     kind: kindOf(path),
     raw: bytes.length,
     gzip: gzipSync(bytes, { level: 9 }).length,
@@ -55,6 +59,7 @@ function kib(bytes: number): string {
 const dist = process.argv[2];
 const r2Parts = process.argv.flatMap((arg, i) => (process.argv[i - 1] === '--r2' ? [arg] : []));
 const compressedParts = process.argv.flatMap((arg, i) => (process.argv[i - 1] === '--compressed' ? [arg] : []));
+const firstPaintParts = process.argv.flatMap((arg, i) => (process.argv[i - 1] === '--first-paint' ? [arg] : []));
 if (!dist) {
   console.error('usage: asset-sizes.ts <dist-dir>');
   process.exit(2);
@@ -73,6 +78,19 @@ const total = assets.reduce(
   { raw: 0, gzip: 0, brotli: 0 },
 );
 rows.push(['total', '', kib(total.raw), kib(total.gzip), kib(total.brotli)]);
+// Each --first-paint part must name one file, so a renamed asset can't drop
+// out of the sum unseen; a mismatch fails after the table and the size checks print.
+const firstPaintProblems: string[] = [];
+if (firstPaintParts.length) {
+  const firstPaint = firstPaintParts.flatMap((part) => {
+    const matches = assets.filter((a) => a.path.includes(part));
+    if (matches.length === 1) return matches;
+    firstPaintProblems.push(`--first-paint ${part} matches ${matches.length} files, not one: ${matches.map((a) => a.path).join(', ') || 'none'}`);
+    return [];
+  });
+  const sum = firstPaint.reduce((s, a) => ({ raw: s.raw + a.raw, gzip: s.gzip + a.gzip, brotli: s.brotli + a.brotli }), { raw: 0, gzip: 0, brotli: 0 });
+  rows.push(['first paint', firstPaint.map((a) => a.path.split('/').at(-1)).join(' + '), kib(sum.raw), kib(sum.gzip), kib(sum.brotli)]);
+}
 
 const widths = rows[0]!.map((_, i) => Math.max(...rows.map((row) => row[i]!.length)));
 for (const row of rows) {
@@ -92,4 +110,5 @@ const failing = oversize.filter((a) => !toR2.includes(a) && !compressed.includes
 for (const asset of failing) {
   console.error(`over Cloudflare's 25 MiB asset limit: ${asset.path} (${kib(asset.raw)})`);
 }
-process.exit(failing.length > 0 ? 1 : 0);
+for (const problem of firstPaintProblems) console.error(problem);
+process.exit(failing.length > 0 || firstPaintProblems.length > 0 ? 1 : 0);

@@ -259,3 +259,15 @@ M7 is split into five parts, one session each (`milestones.md`, M7). Part E writ
 - **The image was free.** `paint_image` on a held grid, cropped and scaled differently every frame, cost what an empty frame does within a few tenths of a millisecond, and +2 KiB of wasm: everything it needs already links.
 - **Half of the spike's first "new grid" number was the test data.** The grid was seeded inside the frame (two `exp` a bin): 10.2 ms at 512², 4.9 once the grids were made before the first frame. Time the thing, not its fixture.
 - **A worktree with no `node_modules` and no local R2 could still measure:** a copy of the main checkout's built `web/dist`, a 60-line server answering ranges with the two headers, and the bridge through `?bench`. No `wrangler dev`, so nothing shared with the other checkout was written.
+
+## M11 part A: the measurements retired (2026-11-23)
+
+No results note: the part measured nothing.
+
+**Surprises:**
+- **"Reported by `build`" wasn't there yet.** The decision kept "the page's weight before first paint, reported by `build`, as it is", but `asset-sizes.ts` printed each file and the total, never the first-paint set's sum: the number lived only in the retired cold-load script. It's a `--first-paint` row now (3044.5 KiB brotli, the app wasm 2942.5 of it), and a part naming no file, or two, fails the build.
+- **Keeping one budget kept Tycho in the report.** `report.ts` read every app with a `budgets.json`, so the wasm's budget alone would have left Tycho a "not measured yet" line in the root README. An app with no metrics is skipped now, and naming one is an error.
+- **The lint failure the plan named didn't reproduce.** `just tycho lint` passed whole at the part's start, its TypeScript step and `data/`'s included; whatever failed on `ResizeObserverEntry` had been fixed or was a stale `tsc` state.
+- **The placeholder rule wasn't Tycho's alone.** "Each app's check compares them" stayed true for the observatory's contender, so the rule names the exception rather than dropping the check.
+- **Retiring the timings took rule 2's only check with them** (the code review found it): the cold-load script was also what failed a request before first paint, and the tall table's `Filled` mark and the engine's error states had no other end-to-end check either. A pass/fail request check moved into smoke; the other two are planned where they belong.
+- **The wasm grew 102 KiB since it was last measured** (2840.2 KiB at the M9 suite, 2942.5 now), every feature adopted since then without a cold-load run to show it; still under the 3283 KiB limit.

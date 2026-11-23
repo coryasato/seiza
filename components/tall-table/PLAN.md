@@ -173,6 +173,7 @@ Built 2026-10-25 ([`docs/milestones.md`](docs/milestones.md), "M2 follow-up"); w
 Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md` shrinks to a pointer.
 
 - **The served build's gpui-kit** (`perf/CLAUDE.md`, "A build from another commit is labeled with this tree's gpui-kit"): the scripts record `versions` from the lockfile, so an A/B's results are hand-corrected. Shape: each script that writes results records gpui-kit from the served wasm (`shared-web/perf/`'s `wasmCrateVersion`, as the observatory's metric scripts do), and the gotcha goes.
+- **`Filled`'s mark lands in the presenting task** (`CLAUDE.md`, rule 4): Tycho's table check asserted it, and was retired with Tycho's measurements on 2026-11-23 (Tycho M11 part A's code review); `smoke` asserts `live`'s and `follow`'s marks and not the base's. Shape: the bare host marks after `Filled` as Tycho did, and `smoke` checks it with `presentedMark` after the first rows and after a scroll that loads a page, in all three browsers.
 - **Every length through `sizes()`** (`src/CLAUDE.md`, "Rules"): a row height, padding, or text size read from a constant skips `density`. Shape: a lint in `just tall-table lint` failing on a `px(<literal>)` length in `src/` outside `density.rs`, `column.rs`'s stand-in, and an allowlist.
 
 ---

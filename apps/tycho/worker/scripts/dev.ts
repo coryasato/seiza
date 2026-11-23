@@ -1,6 +1,6 @@
 // Starts the Worker under `wrangler dev` (local mode: Miniflare R2 from
 // .wrangler/state/, filled by `just tycho data`) for the scripts that need
-// /data: the Vite dev and preview proxies, perf/sample.ts, and check.ts.
+// /data: the Vite dev and preview proxies, and check.ts.
 
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';

@@ -254,8 +254,8 @@ smoke *args:
 # cases among them, and `find`, `popover`, and `header-icon` with each); in
 # each, the random test of the paging and of what the features keep,
 # with that run's features, its gestures in the zones they have (16 cases; 48 all on, with its controls). The bridge has none: its
-# JS values are wasm-only, and Tycho's checks (`just tycho table`, `cells`),
-# the observatory's cell fixture, and `smoke` read every field it writes.
+# JS values are wasm-only, and the observatory's cell fixture and `smoke`
+# read every field it writes.
 test:
     cargo test -p seiza-tall-table -p tall-table-host
     cargo test -p seiza-tall-table -p tall-table-host --features tall-table-host/custom-cells

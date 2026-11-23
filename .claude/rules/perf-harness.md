@@ -26,7 +26,7 @@ What it reads from an app: canvas controls are clicked through the bounds the ap
 
 ## What every app's scripts meet
 
-- **WebKit can deliver a scripted press before hover updates,** and GPUI fires a press only on a hovered element. Wait two frames after moving to a control (Tycho's `hoverSettles`, `apps/tycho/perf/table.ts`).
+- **WebKit can deliver a scripted press before hover updates,** and GPUI fires a press only on a hovered element. Wait two frames after moving to a control before pressing it.
 - **The placeholder shell hides the canvas until the first frame and fades out over 120 ms after it.** A script that screenshots the app or reads canvas pixels waits for `#seiza-placeholder` to be gone, not just for `gpui:first-frame` (`placeholder-shots.ts`). The placeholder checks run with `reducedMotion: 'reduce'`, which stops the skeleton pulse and the fade.
 - **`workRecorder` (an init script) times every rAF callback that made a GPU call.** On Tycho's fling it matched the perf panel within 5% at p50 and p95 (the panel times from the shell's render to a microtask after the present). Both are the rAF callback only: the observatory's per-frame work (each frame's `BeginMainFrame` in Chromium's trace, with the input and the rendering update around the callback) runs ~0.4 ms more on the same fling, so `workRecorder`'s and the panel's numbers don't compare with the observatory's (`apps/observatory/docs/DECISIONS.md`, "Measurement").
 - **The open perf panel swallows clicks under it.** Its bounds are `globalThis.__seizaPerfOverlayRect` (`[x, y, w, h]`, gone while hidden). Click only targets clear of it, or hide it first (`setPanel`), and have every check confirm the result, not the click: a click on the panel fails silently.

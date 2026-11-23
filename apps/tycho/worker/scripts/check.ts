@@ -6,8 +6,8 @@
 // the WAF's 403s (`--no-waf` for an origin without the zone's rules).
 //
 // Usage: node apps/tycho/worker/scripts/check.ts [--url <origin> [--no-waf]]
-// With no --url it starts `wrangler dev` (local R2). perf/sample.ts runs the
-// same checks through the Vite preview proxy; deploy.ts runs them on production.
+// With no --url it starts `wrangler dev` (local R2); deploy.ts runs the same
+// checks on production.
 
 import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';

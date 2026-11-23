@@ -8,7 +8,7 @@
 //                                     [--cut 14.5] [--bench 30720,122880]
 // --cut moves Gaia's magnitude cut (at most fetch_gaia.ts's RAW_CUT);
 // --bench also writes the Gaia sample at those row-group sizes to
-// bench/gaia-rg<N>.parquet, for `just tycho paging --dataset gaia`.
+// bench/gaia-rg<N>.parquet, the input of a paging experiment since retired.
 // `just tycho data` runs this, then loads the Parquet into the local R2 that
 // `wrangler dev` serves.
 

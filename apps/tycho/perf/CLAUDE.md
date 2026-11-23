@@ -1,56 +1,36 @@
-# Tycho's checks and measurements (`perf/`)
+# Tycho's checks (`perf/`)
 
-Every check and measurement script, the probes they read, the perf gotchas. Claude Code loads this file when a file under `perf/` is read. Tycho's rules and the map of its folders are in `apps/tycho/CLAUDE.md`, the repo's in the root `CLAUDE.md`; both apply here. Paths are relative to `apps/tycho/`.
+The checks that stay, the one done by hand, the probes the crate publishes, and `results/`. Claude Code loads this file when a file under `perf/` is read. Tycho's rules and the map of its folders are in `apps/tycho/CLAUDE.md`, the repo's in the root `CLAUDE.md`; both apply here. Paths are relative to `apps/tycho/`.
 
-## Perf script gotchas
+Tycho's measurements are retired (`docs/DECISIONS.md`, "Perf tooling and budgets", 2026-11-17 and 2026-11-23): nothing here times the app, and a check that drove the old page or read a retired sample is gone, to be written again by the goal that rebuilds what it tested. Their fixtures stay (`data/CLAUDE.md`), and so does `results/`: version 1's measurements, history, never edited.
 
-The harness's helpers, headless Chromium's traps, and what every app's scripts meet (WebKit's press before hover, the placeholder's fade, `workRecorder`, the open panel's clicks and refresh, an A/B worktree's `target/`) are in `.claude/rules/perf-harness.md`, which loads with this file; these add to it. Debugging a slow or failing table, CSV, or paging check starts with the engine's DuckDB-Wasm gotchas (`crate/CLAUDE.md` points to them).
+## What stays
 
-- **Canvas controls have no DOM:** Tycho publishes their bounds from `crate/src/targets.rs`; click them with `shared-web/perf/`'s `clickTarget` and `targetRect`.
-- **Where the open observation panel sits in Tycho:** the window's lower right (at 1440×900, about the right 400 px from y ≈ 340 down; `perf/jump.ts` checks its targets clear of it). It keeps clear of the table's scrollbars (at 1440×900: x 1015–1399, the vertical track at x 1407), but not of the cells, nor of anything the empty state lays out wide.
-- **Headless DPR 2 hides what a DPR 1 display shows.** GPUI and the browser round half-pixels in opposite directions (`.claude/rules/gpui-web.md`, "GPUI lays out in whole device pixels"); at DPR 2 that's half a CSS pixel, at DPR 1 a whole one. The placeholder's jump was invisible in every DPR 2 check and plain on a DPR 1 screen. `shared-web/perf/placeholder-shots.ts`'s `shoot` takes `{ dpr }`.
-- **Budgets come from `perf/budgets.json`** (`limits('table', [...])` in `perf/harness.ts`); change a limit there, never in a script, and `just tycho report` shows it in the docs. **Label a before-run `<…>-before…`, an A/B `<…>-ab` or `<…>-ab-<detail>`, and a negative control `<…>-control…`:** the report skips those (`budgets.json`'s `exclude`), and otherwise takes the newest file holding a metric's path, so a control's numbers would become the docs' "Now".
-- **Check the machine before calling a slowdown a regression.** `just tycho paging` (raw queries through the bridge, no table code) is a quick control: if it's slower by the same proportion, it's load.
+- **The wasm's size,** gated by `just tycho check` (`perf/size.ts`): the app wasm, brotli at quality 11, at most 15% over `baseline.json`'s `wasmBrotliKiB` unless a `budget-notes.md` row dated on or after the baseline accepts the new size. The limit is in `budgets.json`; change it there, never in the script. `budgets.json` lists no metrics, so `report` skips Tycho.
+- **The page's weight before first paint,** printed by `just tycho build` (`shared-web/scripts/asset-sizes.ts`'s `--first-paint` row: the document, the entry JS, the app wasm, the UI font). Reported, not gated. A file renamed out of that set fails the build until the justfile's parts name it again.
+- **The home-path check,** in `check`, and its control, `just tycho home-paths` (`.claude/rules/toolchain.md`, "Release profile").
+- **The smoke check** (`just tycho smoke`): in Chromium, Firefox, and WebKit, a first frame appears (its time printed, stored nowhere), the page is cross-origin isolated, no console errors, and the canvas follows each resize. On a release build, Chromium also holds Tycho to rule 2: no request outside the first-paint set starts before `gpui:first-frame` (`--control` must fail it). Against the dev server by default, where that part is skipped; pass the preview's URL (`just tycho preview`) for the release build. Run it on the release build after a change to what loads when.
+- **Memory at a 1 GB drop, by hand,** when a change could make the engine copy a dropped file: build the files (`just tycho drop-files x3.parquet x27.parquet`: ~100 MB and ~1 GB), open the release build (`just tycho preview`) in Chrome with `?perf`, drop each in a fresh tab, press End and Home, and read the panel's Memory row and Chrome's task manager (the tab and DuckDB's worker). The 1 GB file's peak stays within a few MiB of the 100 MB file's; a copy of the file would show as its size. Version 1's numbers: `results/2026-09-27-m5.md`.
 
 ## The probes
 
-`?bench` in the URL exposes the bridge as `globalThis.__tychoBridge` for the perf scripts; `?page=`, `?prefetch=`, and `?budget_mib=` override the table's paging (`crate/src/table.rs`, `paging`). With `?perf` or `?bench`, the table publishes what it shows to `globalThis.__tychoTable` and marks `tycho:viewport-filled` after each frame that fills the viewport; `tycho:first-rows` (the overlay's "first rows") is always marked.
+The crate publishes these and no script reads them; the checks the rebuild writes start from this list, and a change to one in `crate/` changes it.
 
-With `?perf` or `?bench`, what the workbench shows (state, file, rows, notice, and a CSV's `ingest` state, `readBytes`, `chunks`) is in `globalThis.__tychoWorkbench`, with the jump input's `jumpText`, `jumpRefusal` (the inline line, bounds `jump-refusal`), and `focused` (`jump`, `table`, `workbench`, or null); `__tychoTable.marked` is the row a jump landed on (0-based). Each frame showing a CSV's count grow marks `tycho:csv-rows`, and the one showing it done `tycho:csv-done`. Drop a file from a script with `perf/harness.ts`'s `dropFile()`; jump with Cmd/Ctrl+G (it focuses the input with its text selected) or a click on `jump-input`, then type and Enter.
+`?bench` exposes the bridge as `globalThis.__tychoBridge` and the app's `WebAssembly.Memory` as `globalThis.__tychoWasmMemory`; `?page=`, `?prefetch=`, and `?budget_mib=` override the table's paging (`crate/src/table.rs`, `paging`). With `?perf` or `?bench`: the table publishes what it shows to `globalThis.__tychoTable` (`marked` is the row a jump landed on, 0-based; `top` and `scrollX` the scroll position; `tooltip` the shown tooltip's text), where the cells are to `globalThis.__tychoTableLayout`, and what the workbench shows (state, file, rows, notice, a CSV's `ingest`, `readBytes`, `chunks`, the jump input's `jumpText` and `jumpRefusal`, and `focused`) to `globalThis.__tychoWorkbench`. With `?cells` too, every drawn cell's exact and shown text goes to `globalThis.__tychoCells` each frame. `?selftest` runs the engine self-test once DuckDB is ready, into the panel and `globalThis.__tychoSelftest`.
 
-With `?cells` too, every drawn cell's exact and shown text goes to `globalThis.__tychoCells` each frame (never in perf runs); with `?perf` or `?bench`, where the cells are is `globalThis.__tychoTableLayout` (republished only when the layout changes; the scroll position is `__tychoTable.top` and `.scrollX`) and the shown tooltip's text is `__tychoTable.tooltip`.
-
-`?selftest` in the URL runs the engine self-test once DuckDB is ready; results show in the panel and in `globalThis.__tychoSelftest`. With `?bench`, the app's `WebAssembly.Memory` is `globalThis.__tychoWasmMemory`.
+Marks: `tycho:first-rows` always; with `?perf` or `?bench`, `tycho:viewport-filled` after each frame that fills the viewport, `tycho:csv-rows` on each frame showing a CSV's count grow, and `tycho:csv-done`. Canvas controls publish their bounds from `crate/src/targets.rs` (`jump-input`, `jump-refusal`, …), clicked with `shared-web/perf/`'s `clickTarget`.
 
 ## Files
 
 ```
-perf/             # Playwright scripts on shared-web/perf/ (harness.ts: Tycho's own helpers: budgets, serving with the Worker, dropFile, the table probe and its frame sample), budgets.json (every budget), baseline.json, budget-notes.md, results/
+perf/             # size.ts (the wasm's size gate), smoke.ts, budgets.json (the one budget), baseline.json, budget-notes.md, results/ (history)
 ```
 
 ## Commands
 
-What each check covers, item by item, and its flags are in its script's header comment and the justfile's comment above its recipe; read those before running or changing one. All but `smoke` (the dev server by default) run on the release build: run `just tycho build` first (`check` and `home-paths` build it themselves).
-
 ```
-just tycho sample [flags]      # the sample over HTTP: click → schema, bytes read, an early click, failures
-just tycho table [flags]       # the table: first rows, jump to 90%, last row, fling and steady scroll (--sample, --memory, --browsers, --sweep, --url)
-just tycho panel [flags]       # every observation-panel value against an independent measurement, and the fling with it open and closed
-just tycho cells [flags]       # no value spills out of its cell; rounded values and their tooltips (--files)
-just tycho jump [flags]        # jump to row on both samples, and the input's edges: IME, paste, editing keys, focus (--browsers, --url)
-just tycho errors [flags]      # the error states: the engine, the network, files over the limits (--only)
-just tycho drop [flags]        # dropping a ~1 GB Parquet, memory, unsupported files, a drop superseding a load (--only)
-just tycho csv [flags]         # dropping a ~1 GB CSV, the fixture's tricky rows, supersede, formats (--only, --url)
-just tycho placeholder [flags] # the placeholder shell against GPUI's first frame, and the theme toggle (--controls, --ab <dist>)
-just tycho engine [flags]      # the engine self-test (`?selftest`) in three browsers, and blocked-engine controls
-just tycho smoke [url]         # paints, cross-origin isolated, no console errors, resize, in three browsers
+just tycho smoke [url]         # a first frame, cross-origin isolated, no console errors, resizes, in three browsers; on a release build, no request before first paint but its own (--control)
 just tycho home-paths          # the home-path check's control: a build without `trim-paths` must fail it
-just tycho perf [flags]        # the full suite (~1 h 45 min): cold, panel, table, jump, the ~1 GB CSV → one results file (--only, --url); needs `just tycho drop-files csv`
-just tycho cold [flags]        # cold load only, and no engine request before first paint (--url, --vs-local, --write-baseline)
-just tycho burst [flags]       # the most requests one visitor sends in any 10 s, for the WAF rate limit
-just tycho hardening [flags]   # experiments: footers piling up, the size ceiling, wheel at the end (--only); needs the drop files
-just tycho ingest [flags]      # experiment: CSV ingest approaches, by chunk size and compression
-just tycho paging [flags]      # experiment: paging strategies by row-group size; needs the bench/ files in local R2
 ```
 
-`perf`, `cold`, and `check` serve `web/dist` through `vite preview`, brotli-compressed like production.
+`check` runs the size gate and the home-path check after its own release build; `node perf/size.ts` alone reads whatever `web/dist` holds.

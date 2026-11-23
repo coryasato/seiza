@@ -1,8 +1,8 @@
 //! `?selftest`: checks the bridge end to end, from Rust, in the real app.
 //!
 //! Runs once the engine is ready. Each check becomes an overlay row, and the
-//! whole report is published to `globalThis.__tychoSelftest` for
-//! `perf/engine.ts`:
+//! whole report is published to `globalThis.__tychoSelftest`, which no
+//! script reads today:
 //!
 //! - `SELECT 42 AS x` decodes to an int with x = 42.
 //! - A row of every type the table shows decodes to the text DuckDB means.
@@ -62,7 +62,7 @@ struct Check {
     ok: bool,
     /// What the overlay shows, timings included.
     detail: String,
-    /// The check's headline time, for `perf/engine.ts`: the query's round
+    /// The check's headline time, in `__tychoSelftest`: the query's round
     /// trip, or for cancel, from `cancel` to the rejection.
     ms: Option<f64>,
 }

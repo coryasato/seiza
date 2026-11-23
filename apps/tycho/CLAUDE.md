@@ -4,13 +4,13 @@
 
 **Tycho** is a local-first data workbench in the browser. Drop a CSV or Parquet file, or click a sample, and scroll through every row instantly. The data is queried locally with DuckDB-Wasm and drawn by GPUI (via GPUI Kit) on a canvas with WebGPU, or WebGL2 where WebGPU isn't available. Nothing is uploaded.
 
-The project's goal is to show that **WebAssembly + GPU-rendered UI builds heavy web apps better than the DOM**. Every claim needs a number on screen to back it up. Tycho is a utility app (root `CLAUDE.md`, "Tiers"): a tool people use, which grows features as it needs them. Its DuckDB layer is the repo's first engine, `engines/duckdb/`, and its table the first component, `components/tall-table/`.
+The project's claim, as Tycho takes it: the canvas for the GPUI components, the heavy parts; the DOM where text lives (root `CLAUDE.md`). Tycho is a utility app (root `CLAUDE.md`, "Tiers"): a tool people use, which grows features as it needs them. Its DuckDB layer is the repo's first engine, `engines/duckdb/`, and its table the first component, `components/tall-table/`.
 
 ---
 
-**Tycho is being rebuilt** as a public data workbench (`PLAN.md`; the research, `docs/research/tycho-workbench.md` at the repo root; who it's for, `docs/personas.md`). Until the plan's reset lands, this file and each folder's describe the app as built, its measurements included: follow `PLAN.md` where the two differ.
+**Tycho is being rebuilt** as a public data workbench (`PLAN.md`; the research, `docs/research/tycho-workbench.md` at the repo root; who it's for, `docs/personas.md`). Until the plan's reset lands, this file and each folder's describe the app as built, its measurements excepted (retired, below): follow `PLAN.md` where the two differ.
 
-This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the samples and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; budgets, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` (TTFP first, paint before heavy loads, measurement protocol, canvas tradeoffs, `shared/` conventions) apply here too, and so do `.claude/rules/` (the GPUI Kit gotchas, the perf harness, Cloudflare). Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
+This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the samples and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; the one budget, the wasm's size, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here too, but for rules 1 and 3 and the measurement protocol: Tycho is exempt from them, records no measurement, and its `check` times nothing (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17). Paint before heavy loads (rule 2), the canvas tradeoffs (rule 4), and `shared/`'s conventions bind it, and so do `.claude/rules/` (the GPUI Kit gotchas, the perf harness, Cloudflare). Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
 
 ---
 
@@ -33,7 +33,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | `web/` | The Vite host: the bridge, the engine's plugin, the `/data/*` proxy, the placeholder shell | `web/CLAUDE.md` |
 | `worker/` | Hosting: the Worker, R2, the deploy, the pause switch | `worker/CLAUDE.md` |
 | `data/` | The samples' fetch and prep, the test files | `data/CLAUDE.md` |
-| `perf/` | Every check and measurement script, the probes they read, the perf gotchas | `perf/CLAUDE.md` |
+| `perf/` | The checks that stay (the wasm's size, smoke), the 1 GB memory check by hand, the probes the crate still publishes; `results/`, version 1's measurements, as history | `perf/CLAUDE.md` |
 
 A new folder whose detail only its own work needs gets its own `CLAUDE.md` and a row here.
 
@@ -41,7 +41,7 @@ A new folder whose detail only its own work needs gets its own `CLAUDE.md` and a
 
 Rules whose cause is elsewhere, so no folder's file would be read in time:
 
-- **A change to a probe in `crate/`** (a `globalThis.__tycho*` value, a `tycho:*` mark, a `?bench`/`?perf`/`?cells` behavior) changes what `perf/`'s scripts read: the probes are listed in `perf/CLAUDE.md`, "The probes". So does a target id in `crate/src/targets.rs` (`jump-input`, `jump-refusal`, …), which the scripts click by name.
+- **A change to a probe in `crate/`** (a `globalThis.__tycho*` value, a `tycho:*` mark, a `?bench`/`?perf`/`?cells`/`?selftest` behavior, a target id in `crate/src/targets.rs`) changes the list in `perf/CLAUDE.md`, "The probes", which the checks the rebuild writes again start from.
 
 ## Layout
 
@@ -51,9 +51,9 @@ apps/tycho/
   web/              # the Vite host (web/CLAUDE.md)
   worker/           # the Cloudflare Worker (worker/CLAUDE.md)
   data/             # the samples' prep, the test files, MANIFEST.json (data/CLAUDE.md)
-  perf/             # checks and measurements, budgets.json, baseline.json, results/ (perf/CLAUDE.md)
+  perf/             # the wasm's size gate and the smoke check, budgets.json, baseline.json, results/ (history) (perf/CLAUDE.md)
   docs/             # DECISIONS.md (by area), LESSONS.md (surprises, per milestone), milestones.md (finished specs), data.md, hosting.md, personas.md (who Tycho is for and what each needs); private/ is gitignored
-  README.md         # for visitors: numbers, canvas tradeoffs, file size limits, how to run it
+  README.md         # for visitors: the rebuild's note, canvas tradeoffs, file size limits, how to run it
   CLAUDE.md         # this file: context and rules
   PLAN.md           # what's next: status, the active milestone, long-term goals, open questions
   justfile          # loaded from the root as the `tycho` module
@@ -67,22 +67,20 @@ One line each; each recipe's line is in its folder's `CLAUDE.md` (in brackets), 
 just tycho data | data gaia | data-deps | drop-files   # the samples into local R2, data/'s native DuckDB, the test files (data)
 just tycho extensions                                   # the DuckDB extensions the engine pins, into web/public/duckdb-ext/ (web)
 just tycho worker-check | deploy | pause | resume       # the Worker's byte-range checks, the deploy, production's pause switch (worker)
-just tycho sample | table | panel | cells | jump | errors | drop | csv | placeholder | engine | smoke | home-paths [flags] # checks (perf)
-just tycho perf | cold | burst | hardening | ingest | paging [flags]   # measurements and experiments (perf); `perf` is the ~1 h 45 min suite (needs `just tycho drop-files csv`); run `just tycho build` before `perf` or `cold`
+just tycho smoke [url] | home-paths                     # checks (perf)
 ```
 
 ```
 just setup              # npm install for every app host (run once)
 just tycho dev          # build wasm (debug) + Vite dev server with COOP/COEP (http://localhost:5173), with `wrangler dev` behind /data/*
-just tycho build        # release wasm (+ wasm-opt), Vite build, report asset sizes
+just tycho build        # release wasm (+ wasm-opt), Vite build, report asset sizes and the page's weight before first paint (ungated)
 just tycho preview      # serve the release build (web/dist) with the same headers, with `wrangler dev` behind /data/*
 just tycho wasm [debug|release]   # cargo build + wasm-bindgen into web/pkg/ (+ wasm-opt for release)
-just tycho check        # lint + release build + no home-directory path in the shipped wasm + perf budgets (reference TTFP ≤ baseline +10%, wasm brotli ≤ +15% unless noted in perf/budget-notes.md)
-just tycho lint         # cargo fmt --check, clippy on wasm32 and native with -D warnings, tsc, `report --check` (fails while the docs' generated numbers are stale), and `check-terms` (fails on a milestone ID outside the history files)
-just tycho report [--check] # regenerate the numbers in README.md, PLAN.md, and the root README from perf/budgets.json and the newest perf/results/ files
+just tycho check        # lint + release build + no home-directory path in the shipped wasm + the wasm's size (brotli ≤ baseline +15% unless noted in perf/budget-notes.md)
+just tycho lint         # cargo fmt --check, clippy on wasm32 and native with -D warnings, tsc, and `check-terms` (fails on a milestone ID outside the history files)
 ```
 
-`dev`, `preview`, `sample`, `table`, and `worker-check` need the local R2 `just tycho data` fills.
+`dev`, `preview`, and `worker-check` need the local R2 `just tycho data` fills.
 
 The perf panel ("Observation panel": load waterfall, frame interval and work per frame, memory, bytes read, rows/s, cache hits, pages) is on with `?perf` in the URL; toggle it with the title bar's button or Cmd/Ctrl+Shift+P. (Firefox on macOS keeps Cmd+Shift+P for a private window; use Ctrl+Shift+P or `?perf` there.)
 

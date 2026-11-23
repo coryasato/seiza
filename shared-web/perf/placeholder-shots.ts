@@ -1,7 +1,8 @@
 // The static placeholder shell (shared-web/src/placeholder.ts) against
 // GPUI's first frame: screenshots of both (the same page, the app's wasm held
 // back for one and whatever loads after first paint for the other) and their
-// comparison. Each app's `perf/placeholder.ts` runs them.
+// comparison. The observatory's `perf/placeholder.ts` runs them; Tycho has
+// no such check (compared by eye).
 
 import { type Browser, type Page } from '@playwright/test';
 import { hideDevicePixelContentBox } from './protocol.ts';
@@ -29,7 +30,8 @@ export const SCHEMES: Scheme[] = ['light', 'dark'];
  *   place or one device px around it (GPUI and the browser round half-pixel
  *   edges in opposite directions); at most SURFACE_SHARE of them may differ.
  *
- * The limits were set from negative controls (Tycho's `placeholder.ts --controls`):
+ * The limits were set from negative controls (Tycho's, since retired: its
+ * results in `apps/tycho/perf/results/`; the observatory's `--controls` runs them now):
  * each catches a 1 px move or size change, a wrong fill, border, or muted
  * color, or a fallback font, and none fires on the real placeholder.
  */
