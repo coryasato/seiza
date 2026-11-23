@@ -1,10 +1,11 @@
 /**
- * Kirkwood's Worker: the app and its three files under `/kirkwood/` on
- * Tycho's hostname, by a route that runs before Tycho's Worker
- * (wrangler.toml; docs/DECISIONS.md, "Hosting").
+ * Kirkwood's Worker: the app and its three files on its own hostname,
+ * `kirkwood.seiza.io`, a custom domain (wrangler.toml; docs/DECISIONS.md,
+ * "Hosting"). The old address, `tycho.seiza.io/kirkwood`, is the zone's
+ * redirect rule's, which answers before any Worker runs.
  *
- * - The build (web/dist, `[assets]`) has no base in its paths, so every
- *   request runs this Worker, which takes the base off. A browser that takes
+ * - The build (web/dist, `[assets]`) is at the hostname's root, and every
+ *   request runs this Worker first. A browser that takes
  *   br gets the file's quality-11 `.br` as it is (scripts/stage.ts writes
  *   them): Cloudflare's own compression is far weaker (.claude/rules/cloudflare.md).
  * - The three files are in R2, each as it is and as `<name>.br`, under a key
@@ -16,7 +17,6 @@
  */
 
 import { accepts } from '../../../../shared-web/src/encoding.ts';
-import { BASE } from '../../web/src/base.ts';
 import { CONTENT_TYPES, FILES, PAUSED_HEADER, PRECOMPRESSED } from './names.ts';
 import { keyOf } from './versions.ts';
 
@@ -41,13 +41,9 @@ const ISOLATION_HEADERS = {
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
-    // The base without its slash: relative URLs in the page would resolve
-    // against the origin's root, which is Tycho's.
-    if (`${url.pathname}/` === BASE) return new Response(null, { status: 301, headers: { ...ISOLATION_HEADERS, Location: `${BASE}${url.search}` } });
-    if (!url.pathname.startsWith(BASE)) return text(404, 'Not found');
     if (request.method !== 'GET' && request.method !== 'HEAD') return text(405, 'Method not allowed', { Allow: 'GET, HEAD' });
-    const path = url.pathname.slice(BASE.length);
-    // No empty segment: `//x/…` after the base would name a file by a path
+    const path = url.pathname.slice(1);
+    // No empty segment: `//x/…` would name a file by a path
     // the page doesn't live at (and, as a URL, a host).
     if (path.startsWith('/') || path.includes('//')) return text(404, 'Not found');
     if (path.startsWith(DATA)) return serveData(request, env, path.slice(DATA.length));

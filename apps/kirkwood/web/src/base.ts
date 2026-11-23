@@ -1,7 +1,7 @@
 /**
- * The path Kirkwood is served under, on Tycho's hostname
- * (`tycho.seiza.io/kirkwood/`; the root `docs/DECISIONS.md`, "Hosting"): the
- * build's base in dev, preview, and production, the routes its Worker takes,
- * and what the checks open. No DOM or Node: the Worker reads it too.
+ * The path Kirkwood is served under: the root of its own hostname
+ * (`kirkwood.seiza.io`; `docs/DECISIONS.md`, "Hosting"). The build's base in
+ * dev, preview, and production, what its Worker serves, and what the checks
+ * open. No DOM or Node: the Worker reads it too.
  */
-export const BASE = '/kirkwood/';
+export const BASE = '/';

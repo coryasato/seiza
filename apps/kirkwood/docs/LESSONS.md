@@ -378,3 +378,11 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Scene", "Interface", "In
 - **Eleven "by the owner's eye" questions closed as "keep".** Most had been looked at in passing while later parts were built; the knobs made that cheap, and the plan had no way to say a question was already answered until it was asked in one list.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface", "Planning".
+
+## M8 part A: the code at the root of its own hostname (2026-11-23)
+
+- **A base of `/` empties every check written against the base.** "Nothing outside `/kirkwood/`" became "nothing outside `/`", which every path passes, and the Worker's guard for a path outside the base could no longer fire. The review found both; the paint check now names the old base, and the guard is gone.
+- **The deploy that moves a hostname isn't like the deploys before it.** It makes the custom domain, which may not resolve or have its certificate when the check first asks (the wait now reads a failed request as "not yet"), and it drops the old route, so the old links would be Tycho's 404 until the zone's rule existed: the deploy now asks the old address first and refuses without the 301.
+- **A zone's redirect needs no room in the old hostname's allowlist:** Single Redirects run in the zone's first request phase, before the WAF's rules and any Worker (Cloudflare's phases list). Confirmed in production when the rule is set.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting".

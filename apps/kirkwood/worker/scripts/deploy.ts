@@ -1,7 +1,8 @@
 // Deploys Kirkwood to Cloudflare (`just kirkwood deploy`): puts what changed
 // in the bucket, deploys the Worker with web/dist as its static assets, then
-// checks production. Nothing of Tycho's is touched (docs/DECISIONS.md,
-// "Hosting").
+// checks production. Nothing of Tycho's Worker is touched (docs/DECISIONS.md,
+// "Hosting"); the old address, tycho.seiza.io/kirkwood, is the zone's
+// redirect rule's, and the deploy refuses to go on until it answers.
 //
 // 1. The bucket first, so the new build never asks for a file that isn't
 //    there. Its objects are the three files, each as it is and as
@@ -20,8 +21,10 @@
 //
 // Needs `wrangler login`, and the bucket, made once:
 //   wrangler r2 bucket create kirkwood-data
-// The zone's path allowlist must already pass `/kirkwood` and what's under
-// it (the gitignored root docs/private/zone.md).
+// The zone's rules for kirkwood.seiza.io must be in place first: its path
+// allowlist (the page, the build's top-level names, data/), the rate limit,
+// and the old address's redirect rule (the gitignored root
+// docs/private/zone.md). The check after the deploy reads all three.
 //
 // Usage: node apps/kirkwood/worker/scripts/deploy.ts [--dry-run] [--skip-check] [--prune]
 // --dry-run: says what would be put (and pruned), and `wrangler deploy --dry-run`.
@@ -36,7 +39,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { wrangler, wranglerEnv } from '../../../../shared-web/perf/wrangler.ts';
-import { PAUSED, PRODUCTION_URL, checkDeployed, servesThisBuild } from './check.ts';
+import { PAUSED, PRODUCTION_URL, checkDeployed, oldAddressNotRedirected, servesThisBuild } from './check.ts';
 import { BUCKET, dataFiles, dist, stageBuild, workerDir } from './stage.ts';
 
 /** The note of what the bucket holds: each object's key and the SHA-256 of
@@ -118,6 +121,14 @@ try {
   rmSync(scratch, { recursive: true, force: true });
 }
 
+// The old address's links stay whole: the zone's rule sends them here before
+// any route or Worker, so it must answer before the deploy drops a route the
+// Worker once had there.
+if (!dryRun) {
+  const why = await oldAddressNotRedirected();
+  if (why) throw new Error(`the zone's redirect rule for the old address isn't in place (the gitignored root docs/private/zone.md): ${why}`);
+}
+
 execFileSync(wrangler, ['deploy', ...(dryRun ? ['--dry-run'] : [])], { cwd: workerDir, stdio: 'inherit', env: wranglerEnv() });
 
 if (!dryRun && !process.argv.includes('--skip-check')) {
@@ -131,7 +142,7 @@ if (!dryRun && !process.argv.includes('--skip-check')) {
     await new Promise((resolve) => setTimeout(resolve, 5000));
   }
   let failures = await checkDeployed(PRODUCTION_URL, { behindWaf: true });
-  // (A pause lasts until `just tycho resume`: asking again would only spend requests.)
+  // (A pause lasts until `just kirkwood resume`: asking again would only spend requests.)
   if (failures.length && !failures.includes(PAUSED)) {
     console.log(`check: ${failures.length} failure(s), asking once more in 10 s`);
     await new Promise((resolve) => setTimeout(resolve, 10_000));
@@ -141,7 +152,7 @@ if (!dryRun && !process.argv.includes('--skip-check')) {
     console.error(`FAIL: ${PRODUCTION_URL}\n${failures.map((failure) => `  ${failure}`).join('\n')}`);
     process.exit(1);
   }
-  console.log(`PASS: ${PRODUCTION_URL} (the build, the three files, the guards)`);
+  console.log(`PASS: ${PRODUCTION_URL} (the build, the three files, the guards, the old address)`);
 }
 
 // What the note lists that this build doesn't read: earlier files' objects.

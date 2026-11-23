@@ -24,7 +24,7 @@ preview:
     npm run preview --workspace @seiza/kirkwood-web
 
 # Serve the release build behind the app's Worker under `wrangler dev`, at
-# http://127.0.0.1:8788/kirkwood/: the build's files as their quality-11
+# http://127.0.0.1:8788/: the build's files as their quality-11
 # `.br`, the three files from Miniflare's R2 (filled here, and compressed
 # the first time: a minute or two a file). --paused: with the pause on. Run
 # `just kirkwood build` first.
@@ -33,15 +33,31 @@ worker *args:
 
 # Deploy to Cloudflare: release build, then the bucket's objects whose file
 # changed, `wrangler deploy`, and the checks against production
-# (worker/scripts/deploy.ts). Touches nothing of Tycho's. Needs `wrangler
-# login` and the bucket, made once (the script's header). Flags: --dry-run,
-# --skip-check, --prune (deletes earlier files' objects, after the check). Pausing its data is Tycho's recipe, for both: `just tycho pause`.
+# (worker/scripts/deploy.ts). Needs `wrangler login`, the bucket, made once
+# (the script's header), and the zone's rules for the hostname. Flags:
+# --dry-run, --skip-check, --prune (deletes earlier files' objects, after the
+# check).
 deploy *args: build
     node {{app_dir}}/worker/scripts/deploy.ts {{args}}
 
+# Production: pause the three files. Each answers 503 and nothing reads R2;
+# the page still loads and says the data is paused. A Worker secret
+# (DATA_PAUSED): it takes effect in seconds and survives deploys. Kirkwood's
+# Worker alone: Tycho has its own switch (`just tycho pause`). Needs
+# `wrangler login`.
+pause: (paused "1")
+
+# Production: serve the three files again after `just kirkwood pause`.
+resume: (paused "0")
+
+# DATA_PAUSED on Kirkwood's Worker.
+[private]
+paused value:
+    cd {{app_dir}}/worker && printf {{value}} | {{root}}/node_modules/.bin/wrangler secret put DATA_PAUSED
+
 # Production against web/dist and data/: every file the page asks for, its
-# bytes and its encoding on the wire, the redirect, what's never served, the
-# WAF's 403s (worker/scripts/check.ts). Needs the build that was deployed.
+# bytes and its encoding on the wire, what's never served, the WAF's 403s,
+# and the old address's redirect (worker/scripts/check.ts). Needs the build that was deployed.
 # Flags: --url <origin>, --no-waf, --whole.
 deployed *args:
     node {{app_dir}}/worker/scripts/check.ts {{args}}

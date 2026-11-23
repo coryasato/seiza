@@ -1,12 +1,12 @@
 // The release build behind the Worker, locally: stages the build's `.br`
 // copies, fills `wrangler dev`'s R2 (Miniflare's, under .wrangler/state/)
-// with the three files, and starts `wrangler dev`. The page is at
-// <url>/kirkwood/. `wrangler dev` re-encodes what the Worker sends
+// with the three files, and starts `wrangler dev`. The page is at the
+// Worker's root, <url>/. `wrangler dev` re-encodes what the Worker sends
 // (.claude/rules/cloudflare.md), so the bytes on the wire here aren't
 // production's: `see --only slow` reads those through `vite preview`.
 //
 // Usage: node apps/kirkwood/worker/scripts/dev.ts [--paused]   (`just kirkwood worker`)
-// --paused: with the pause on, as `just tycho pause` leaves production.
+// --paused: with the pause on, as `just kirkwood pause` leaves production.
 // Run `just kirkwood build` first.
 
 import { execFileSync } from 'node:child_process';

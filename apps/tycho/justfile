@@ -36,27 +36,16 @@ deploy *args: build
 # /data/* request answers 503 and the page says to drop a file instead, so
 # nothing reads R2; the page and dropped files keep working. A Worker secret:
 # it takes effect in seconds and survives deploys. Needs `wrangler login`.
-# The hostname is Kirkwood's too (its own Worker, under /kirkwood/): its
-# three files answer 503 and its page says so. One switch stops both.
+# Tycho's Worker alone: Kirkwood has its own switch (`just kirkwood pause`).
 pause: (paused "1")
 
-# Production: serve the samples, and Kirkwood's files, again after `just tycho pause`.
+# Production: serve the samples again after `just tycho pause`.
 resume: (paused "0")
 
-# DATA_PAUSED on both Workers of tycho.seiza.io: Tycho's, then Kirkwood's.
-# Each is tried whatever became of the other, and a failure names its Worker.
+# DATA_PAUSED on Tycho's Worker.
 [private]
 paused value:
-    #!/usr/bin/env bash
-    set -uo pipefail
-    failed=()
-    for app in tycho kirkwood; do
-        (cd {{root}}/apps/$app/worker && printf {{value}} | {{root}}/node_modules/.bin/wrangler secret put DATA_PAUSED) || failed+=("$app")
-    done
-    if [ ${#failed[@]} -gt 0 ]; then
-        echo "DATA_PAUSED is NOT {{value}} on: ${failed[*]} (run this again, or set the secret on that Worker in the dashboard)" >&2
-        exit 1
-    fi
+    cd {{app_dir}}/worker && printf {{value}} | {{root}}/node_modules/.bin/wrangler secret put DATA_PAUSED
 
 # Download the DuckDB extensions the engine pins
 # (engines/duckdb/web/duckdb-extensions.json) into web/public/duckdb-ext/,

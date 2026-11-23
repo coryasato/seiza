@@ -2,18 +2,21 @@
 // the page asks for answered 200 with COOP and COEP; the build's files and
 // the three files as brotli on the wire at their quality-11 sizes, their
 // bytes the build's and the manifest's; the page as the build wrote it, with
-// no script put in on the way; a held copy answered 304; `/kirkwood` (with a
-// query) a 301 to the base; nothing else of the bucket or the build served;
-// and the zone's guards (a path outside the allowlist and a POST get the
-// WAF's 403). While the data is paused it fails with one line saying so.
+// no script put in on the way; a held copy answered 304; nothing else of
+// the bucket or the build served; the zone's guards (a path outside the
+// allowlist and a POST get the WAF's 403); and, against production, the old
+// address (`tycho.seiza.io/kirkwood` and every path under it) a 301 from the
+// zone's redirect rule to the same path here, the query kept. While the data
+// is paused it fails with one line saying so.
 //
 // Production only: `wrangler dev` re-encodes what the Worker sends
 // (.claude/rules/cloudflare.md), so the bytes on the wire there aren't these.
 //
 // Usage: node apps/kirkwood/worker/scripts/check.ts [--url <origin>] [--no-waf] [--whole]
 //   (`just kirkwood deployed`)
-// --url: the origin, https://tycho.seiza.io unless given. --no-waf: an
-// origin without the zone's rules (the Worker's own 404 and 405). --whole:
+// --url: the origin, https://kirkwood.seiza.io unless given (the old
+// address's redirect is checked only against that). --no-waf: an origin
+// without the zone's rules (the Worker's own 404 and 405). --whole:
 // each file as it is too, 97 MB more (a browser that doesn't take br).
 // scripts/deploy.ts runs the same checks after a deploy.
 
@@ -30,10 +33,14 @@ import { CONTENT_TYPES, FILES, PAUSED_HEADER, PRECOMPRESSED } from '../src/names
 import { dataFiles, dist } from './stage.ts';
 
 /** The public origin. Never the account's default Workers hostname (the root docs/DECISIONS.md, "Hosting"). */
-export const PRODUCTION_URL = 'https://tycho.seiza.io';
-/** The one failure while the data is paused (`just tycho pause`): every
+export const PRODUCTION_URL = 'https://kirkwood.seiza.io';
+/** Where Kirkwood was until it had a hostname of its own: the zone's redirect
+ *  rule sends every path under it to the same path at PRODUCTION_URL
+ *  (docs/DECISIONS.md, "Hosting"). */
+export const OLD_ADDRESS = 'https://tycho.seiza.io/kirkwood';
+/** The one failure while the data is paused (`just kirkwood pause`): every
  *  check of a file would fail too, and it lasts until `resume`. */
-export const PAUSED = 'data/*: the data is paused (`just tycho resume`)';
+export const PAUSED = 'data/*: the data is paused (`just kirkwood resume`)';
 
 /** What Chromium sends, so Cloudflare picks what a visitor gets. */
 const BROWSER_ENCODINGS = 'gzip, deflate, br, zstd';
@@ -156,23 +163,38 @@ export async function checkDeployed(origin: string, options: { behindWaf?: boole
     }
   }
 
-  // The base without its slash, a query after it: the route takes it, and
-  // the Worker sends it to the base with the query kept.
-  {
-    const answer = await ask(`${origin}${BASE.slice(0, -1)}?roll=0`);
-    expect(`${BASE.slice(0, -1)}?roll=0`, answer.status === 301 && answer.header('Location') === `${BASE}?roll=0`, `status ${answer.status}, Location ${answer.header('Location')}`);
+  // The old address: every path under it, the zone's 301 to the same path
+  // here, the query kept, before any Worker or the old hostname's WAF rules.
+  // A path that only starts with its letters is no part of it.
+  if (origin === PRODUCTION_URL) {
+    for (const [from, to] of [
+      ['', '/'],
+      ['/', '/'],
+      ['/?roll=0', '/?roll=0'],
+      ['?roll=0', '/?roll=0'],
+      ['/index.html', '/index.html'],
+      [`/data/${FILES[0]}`, `/data/${FILES[0]}`],
+    ]) {
+      const answer = await ask(`${OLD_ADDRESS}${from}`);
+      expect(`${OLD_ADDRESS}${from}`, answer.status === 301 && answer.header('Location') === `${PRODUCTION_URL}${to}`, `status ${answer.status}, Location ${answer.header('Location')}, expected a 301 to ${PRODUCTION_URL}${to}`);
+    }
+    const near = await ask(`${OLD_ADDRESS}s`);
+    expect(`${OLD_ADDRESS}s`, !near.header('Location')?.startsWith(PRODUCTION_URL), `redirected to ${near.header('Location')}`);
   }
 
   // What's never served: a `.br` by name, a file by its key, another key of
-  // the bucket (the deploy's own note among them), a path no file has.
+  // the bucket (the deploy's own note among them), a path no file has. A
+  // path outside the build's own top-level names and data/ may be the
+  // allowlist's 403 instead, before the Worker.
   for (const path of [`data/${FILES[0]}.br`, `data/${dataFiles()[0]!.key}`, 'data/put.json', 'data/missing.bin', 'data/', 'assets/missing-00000000.js', 'index.html.br', '_headers', 'missing']) {
     const answer = await ask(`${base}${path}`);
-    expect(path, answer.status === 404, `status ${answer.status}, expected 404`);
+    const refused = answer.status === 404 || (Boolean(options.behindWaf) && !allowed(path) && answer.status === 403);
+    expect(path, refused, `status ${answer.status}, expected 404${options.behindWaf && !allowed(path) ? ' or the allowlist\'s 403' : ''}`);
   }
 
   // The zone's guards run before the Worker; alone, it answers for itself.
   for (const [name, url, method, alone] of [
-    ['a path that only starts with the base', `${origin}${BASE.slice(0, -1)}s`, 'GET', 404],
+    ['a path outside the allowlist', `${base}wp-login.php`, 'GET', 404],
     ['POST', base, 'POST', 405],
     ['POST to a file', `${base}data/${FILES[0]}`, 'POST', 405],
   ] as const) {
@@ -183,11 +205,40 @@ export async function checkDeployed(origin: string, options: { behindWaf?: boole
   return failures;
 }
 
+/** Whether a path (after the base) is one the zone's allowlist must pass:
+ *  the page, a top-level name of the build's (a file, or a folder and what's
+ *  under it), or one of the three files. The allowlist's own text is in the
+ *  gitignored root docs/private/zone.md. */
+function allowed(path: string): boolean {
+  if (path === '' || path.startsWith('data/')) return true;
+  const [top, ...rest] = path.split('/');
+  const entry = statSync(join(dist, top!), { throwIfNoEntry: false });
+  return Boolean(entry && top !== '_headers' && !top!.endsWith('.br') && (rest.length ? entry.isDirectory() : entry.isFile()));
+}
+
 /** Whether `origin` serves this build's page yet: a new version takes
- *  seconds to reach the edge (.claude/rules/cloudflare.md). One request. */
+ *  seconds to reach the edge (.claude/rules/cloudflare.md), and a custom
+ *  domain the deploy just made may not resolve or have its certificate yet,
+ *  so a request that fails is a no too. One request. */
 export async function servesThisBuild(origin: string): Promise<boolean> {
-  const answer = await ask(`${origin}${BASE}`, { headers: { 'Accept-Encoding': 'identity' } });
-  return answer.status === 200 && sha256(answer.wire) === sha256(readFileSync(join(dist, 'index.html')));
+  try {
+    const answer = await ask(`${origin}${BASE}`, { headers: { 'Accept-Encoding': 'identity' } });
+    return answer.status === 200 && sha256(answer.wire) === sha256(readFileSync(join(dist, 'index.html')));
+  } catch {
+    return false;
+  }
+}
+
+/** Why the old address isn't yet the zone's 301 to the same path at
+ *  PRODUCTION_URL, or null when it is. One request. */
+export async function oldAddressNotRedirected(): Promise<string | null> {
+  try {
+    const answer = await ask(`${OLD_ADDRESS}/?roll=0`);
+    const expected = `${PRODUCTION_URL}/?roll=0`;
+    return answer.status === 301 && answer.header('Location') === expected ? null : `${OLD_ADDRESS}/?roll=0 answered ${answer.status}${answer.header('Location') ? ` to ${answer.header('Location')}` : ''}, not a 301 to ${expected}`;
+  } catch (error) {
+    return `${OLD_ADDRESS}/?roll=0: ${error instanceof Error ? error.message : String(error)}`;
+  }
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
@@ -198,6 +249,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error(`FAIL: ${origin}\n${failures.map((failure) => `  ${failure}`).join('\n')}`);
     process.exitCode = 1;
   } else {
-    console.log(`PASS: ${origin} (the build, the three files, the guards)`);
+    console.log(`PASS: ${origin} (the build, the three files, the guards${origin.replace(/\/$/, '') === PRODUCTION_URL ? ', the old address' : ''})`);
   }
 }

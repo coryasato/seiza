@@ -9,10 +9,9 @@
 //           page, its script, the wasm, and the font was asked for before
 //           the first frame (the scene's module and the files come after),
 //           if the first-frame mark isn't right after a task that did GPU
-//           work, or if the page reached outside its own path on the
-//           hostname it shares with Tycho: a request not under /kirkwood/, a
-//           key in localStorage not named for the app, a cookie, or a
-//           service worker.
+//           work, or if the page reached outside its own: a request to
+//           another origin or outside the base, a key in localStorage not
+//           named for the app, a cookie, or a service worker.
 //   table   the panel opened by its handle: the rows the table says it has
 //           against the manifest's, its columns, the first row's cells as
 //           drawn, the columns under a sideways wheel, then End and the last
@@ -359,7 +358,7 @@
 // --worker: the build behind the app's Worker under `wrangler dev`
 // (worker/scripts/dev.ts), not `vite preview`; every part but `slow`, whose
 // bytes on the wire `wrangler dev` re-encodes.
-// --url: a page already served, such as https://tycho.seiza.io/kirkwood/
+// --url: a page already served, such as https://kirkwood.seiza.io/
 // (production): `paint` and `paused` alone, and nothing is started here.
 // --only picks what's run and checked, not only what's printed.
 // Run `just kirkwood build` first. Writes out/seen.json (out/seen-<browser>.json off Chromium).
@@ -605,16 +604,18 @@ async function load(url: string, first: boolean) {
         viewsShareMemory: kirkwood.viewsShareMemory,
       };
     });
-    // The hostname is Tycho's too: everything the page asks for is under
-    // its own path, and what it keeps is named for it. From here a path is
-    // what follows the base.
-    const outside = seen.requests.filter((request) => !request.ours || !request.path.startsWith(BASE));
-    if (outside.length) throw new Error(`asked for outside ${BASE} on the page's origin: ${outside.map((request) => request.url).join(', ')}`);
+    // Everything the page asks for is on its own origin, under the base,
+    // and what it keeps is named for it. From here a path is what follows
+    // the base.
+    // (Nothing under the old base either: its address is the zone's redirect
+    // on Tycho's hostname, and here a 404.)
+    const outside = seen.requests.filter((request) => !request.ours || !request.path.startsWith(BASE) || /^\/kirkwood(\/|$)/.test(request.path));
+    if (outside.length) throw new Error(`asked for outside ${BASE} on the page's origin, or under the old base /kirkwood/: ${outside.map((request) => request.url).join(', ')}`);
     // Every cookie the browser holds, those the page can't read too.
     const cookies = (await page.context().cookies()).map((cookie) => cookie.name);
     const workers = await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).map((registration) => registration.scope));
     const strangers = [...seen.stored.local, ...seen.stored.session].filter((key) => !key.startsWith('kirkwood:'));
-    if (strangers.length || cookies.length || workers.length) throw new Error(`kept on the shared origin: keys ${strangers.join(', ') || 'none'}, cookies ${cookies.join(', ') || 'none'}, service workers ${workers.join(', ') || 'none'}`);
+    if (strangers.length || cookies.length || workers.length) throw new Error(`kept on the origin: keys ${strangers.join(', ') || 'none'}, cookies ${cookies.join(', ') || 'none'}, service workers ${workers.join(', ') || 'none'}`);
     const requests = [{ path: '/', start: 0, end: 0 }, ...seen.requests.map((request) => ({ ...request, path: request.path.slice(BASE.length - 1) }))].sort((a, b) => a.start - b.start);
 
     const result = {

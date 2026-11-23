@@ -8,7 +8,7 @@ import worker, { type Env } from '../src/index.ts';
 import { PAUSED_HEADER } from '../src/names.ts';
 import { keyOf } from '../src/versions.ts';
 
-const ORIGIN = 'https://tycho.seiza.io';
+const ORIGIN = 'https://kirkwood.seiza.io';
 // Each file under its key (the manifest's hash, then its name), and what
 // isn't to be served: a file under its bare name, and another key.
 const [ELEMENTS, ROWS, STARS] = [keyOf('elements.bin')!, keyOf('rows.bin')!, keyOf('stars.bin')!];
@@ -44,24 +44,31 @@ function env(paused?: string) {
 const ask = (e: Env, path: string, init: RequestInit & { br?: boolean } = {}) =>
   worker.fetch(new Request(`${ORIGIN}${path}`, { ...init, headers: { ...(init.br === false ? {} : { 'Accept-Encoding': 'gzip, br' }), ...init.headers } }) as never, e);
 
-test('the base without its slash goes to the base, its query kept', async () => {
-  const response = await ask(env().env, '/kirkwood?roll=0');
-  assert.equal(response.status, 301);
-  assert.equal(response.headers.get('Location'), '/kirkwood/?roll=0');
+test('the page is at the root, its query no matter', async () => {
+  const { env: e } = env();
+  for (const path of ['/', '/?roll=0']) {
+    const response = await ask(e, path);
+    assert.equal(response.status, 200, path);
+    assert.equal(await response.text(), 'page-br', path);
+  }
 });
 
-test('nothing outside the base is served', async () => {
+test("the old address is the zone's to redirect, never this Worker's: no 301, no page, no file", async () => {
   const { env: e, calls } = env();
-  for (const path of ['/', '/index.html', '/kirkwoods', '/kirkwoods/', '/assets/app-abc.wasm', '/data/elements.bin']) assert.equal((await ask(e, path)).status, 404, path);
-  assert.deepEqual(calls, { get: [], head: [], assets: [] });
+  for (const path of ['/kirkwood', '/kirkwood?roll=0', '/kirkwood/', '/kirkwood/?roll=0', '/kirkwood/index.html', '/kirkwood/assets/app-abc.wasm', '/kirkwood/data/elements.bin']) {
+    const response = await ask(e, path);
+    assert.equal(response.status, 404, path);
+    assert.equal(response.headers.get('Location'), null, path);
+  }
+  assert.deepEqual(calls.get, []);
 });
 
 test('the page and a build file go out as their .br, isolated', async () => {
   const { env: e } = env();
   for (const [path, body, cache] of [
-    ['/kirkwood/', 'page-br', 'no-cache, no-transform'],
-    ['/kirkwood/index.html', 'page-br', 'no-cache, no-transform'],
-    ['/kirkwood/assets/app-abc.wasm', 'wasm-br', 'public, max-age=31536000, immutable'],
+    ['/', 'page-br', 'no-cache, no-transform'],
+    ['/index.html', 'page-br', 'no-cache, no-transform'],
+    ['/assets/app-abc.wasm', 'wasm-br', 'public, max-age=31536000, immutable'],
   ] as const) {
     const response = await ask(e, path);
     assert.equal(response.status, 200, path);
@@ -74,7 +81,7 @@ test('the page and a build file go out as their .br, isolated', async () => {
 });
 
 test('a browser without br gets the file itself', async () => {
-  const response = await ask(env().env, '/kirkwood/assets/app-abc.wasm', { br: false });
+  const response = await ask(env().env, '/assets/app-abc.wasm', { br: false });
   assert.equal(await response.text(), 'wasm');
   assert.equal(response.headers.get('Content-Encoding'), null);
   assert.equal(response.headers.get('Content-Type'), 'application/wasm');
@@ -82,8 +89,8 @@ test('a browser without br gets the file itself', async () => {
 
 test('a file with no .br is served, a .br by name and a missing file are not, and the page is never the fallback', async () => {
   const { env: e } = env();
-  assert.equal(await (await ask(e, '/kirkwood/assets/notes.txt')).text(), 'notes');
-  for (const path of ['/kirkwood/assets/app-abc.wasm.br', '/kirkwood/index.html.br', '/kirkwood/assets/missing.js', '/kirkwood/anything', '/kirkwood//index.html', '/kirkwood//x/index.html', '/kirkwood/\\x/index.html', '/kirkwood//x/assets/app-abc.wasm', '/kirkwood/assets//app-abc.wasm']) {
+  assert.equal(await (await ask(e, '/assets/notes.txt')).text(), 'notes');
+  for (const path of ['/assets/app-abc.wasm.br', '/index.html.br', '/assets/missing.js', '/anything', '//index.html', '//x/index.html', '/\\x/index.html', '//x/assets/app-abc.wasm', '/assets//app-abc.wasm']) {
     const response = await ask(e, path);
     assert.equal(response.status, 404, path);
     assert.equal(await response.text(), 'Not found', path);
@@ -93,7 +100,7 @@ test('a file with no .br is served, a .br by name and a missing file are not, an
 test("each of the three files goes out as its .br object, whole, with the object's length", async () => {
   const { env: e, calls } = env();
   for (const name of ['elements.bin', 'rows.bin', 'stars.bin']) {
-    const response = await ask(e, `/kirkwood/data/${name}`);
+    const response = await ask(e, `/data/${name}`);
     assert.equal(response.status, 200, name);
     assert.equal(await response.text(), OBJECTS[`${keyOf(name)}.br`], name);
     assert.equal(response.headers.get('Content-Encoding'), 'br', name);
@@ -106,10 +113,10 @@ test("each of the three files goes out as its .br object, whole, with the object
 
 test('a file without br is the file itself; a HEAD reads no body', async () => {
   const { env: e, calls } = env();
-  const plain = await ask(e, '/kirkwood/data/rows.bin', { br: false });
+  const plain = await ask(e, '/data/rows.bin', { br: false });
   assert.equal(await plain.text(), 'rows');
   assert.equal(plain.headers.get('Content-Encoding'), null);
-  const head = await ask(e, '/kirkwood/data/rows.bin', { method: 'HEAD' });
+  const head = await ask(e, '/data/rows.bin', { method: 'HEAD' });
   assert.equal(head.status, 200);
   assert.equal(head.headers.get('Content-Length'), String('rows-br'.length));
   assert.deepEqual(calls, { get: [ROWS], head: [`${ROWS}.br`], assets: [] });
@@ -117,39 +124,39 @@ test('a file without br is the file itself; a HEAD reads no body', async () => {
 
 test("a browser holding the object is answered 304, and the other encoding's tag isn't a match", async () => {
   const { env: e } = env();
-  const held = await ask(e, '/kirkwood/data/stars.bin', { headers: { 'If-None-Match': `"${STARS}.br"` } });
+  const held = await ask(e, '/data/stars.bin', { headers: { 'If-None-Match': `"${STARS}.br"` } });
   assert.equal(held.status, 304);
   assert.equal(held.headers.get('ETag'), `"${STARS}.br"`);
-  assert.equal((await ask(e, '/kirkwood/data/stars.bin', { headers: { 'If-None-Match': `"${STARS}"` } })).status, 200);
-  const head = await ask(e, '/kirkwood/data/stars.bin', { method: 'HEAD', headers: { 'If-None-Match': `W/"${STARS}.br"` } });
+  assert.equal((await ask(e, '/data/stars.bin', { headers: { 'If-None-Match': `"${STARS}"` } })).status, 200);
+  const head = await ask(e, '/data/stars.bin', { method: 'HEAD', headers: { 'If-None-Match': `W/"${STARS}.br"` } });
   assert.equal(head.status, 304);
 });
 
 test('no other condition is a 304', async () => {
-  const response = await ask(env().env, '/kirkwood/data/stars.bin', { headers: { 'If-Match': '"other"', 'If-Unmodified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT' } });
+  const response = await ask(env().env, '/data/stars.bin', { headers: { 'If-Match': '"other"', 'If-Unmodified-Since': 'Thu, 01 Jan 1970 00:00:00 GMT' } });
   assert.equal(response.status, 200);
   assert.equal(await response.text(), 'stars-br');
 });
 
 test('nothing else of the bucket is served, by any spelling', async () => {
   const { env: e, calls } = env();
-  for (const path of ['/kirkwood/data/secret.bin', '/kirkwood/data/put.json', `/kirkwood/data/${ELEMENTS}`, `/kirkwood/data/${ELEMENTS}.br`, '/kirkwood/data/elements.bin.br', '/kirkwood/data/', '/kirkwood/data/a/elements.bin', '/kirkwood/data/%65lements.bin']) assert.equal((await ask(e, path)).status, 404, path);
+  for (const path of ['/data/secret.bin', '/data/put.json', `/data/${ELEMENTS}`, `/data/${ELEMENTS}.br`, '/data/elements.bin.br', '/data/', '/data/a/elements.bin', '/data/%65lements.bin']) assert.equal((await ask(e, path)).status, 404, path);
   assert.deepEqual(calls.get, []);
 });
 
 test('paused, a file is a 503 that says so and nothing reads the bucket; the page still loads', async () => {
   const { env: e, calls } = env('1');
-  const response = await ask(e, '/kirkwood/data/elements.bin');
+  const response = await ask(e, '/data/elements.bin');
   assert.equal(response.status, 503);
   assert.equal(response.headers.get(PAUSED_HEADER), '1');
   assert.equal(response.headers.get('Cache-Control'), 'no-store');
   assert.deepEqual(calls.get, []);
-  assert.equal((await ask(e, '/kirkwood/')).status, 200);
-  assert.equal((await ask(env('0').env, '/kirkwood/data/elements.bin')).status, 200);
+  assert.equal((await ask(e, '/')).status, 200);
+  assert.equal((await ask(env('0').env, '/data/elements.bin')).status, 200);
 });
 
 test('only GET and HEAD', async () => {
-  const response = await ask(env().env, '/kirkwood/data/elements.bin', { method: 'POST' });
+  const response = await ask(env().env, '/data/elements.bin', { method: 'POST' });
   assert.equal(response.status, 405);
   assert.equal(response.headers.get('Allow'), 'GET, HEAD');
 });
