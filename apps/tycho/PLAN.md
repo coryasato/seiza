@@ -35,8 +35,8 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Done 2026-11-01 |
 | — | Design session: the page, the thread, the profile, where answers show | Done 2026-11-21, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21): the frame, the command bar, grouping as a view tab, the first screen, the theme, the toolbar, find's bar, the views list and its names, keeping views, the Share menu, the column's and the cell's menus, the filter's and the sort's editors, the headers, the profile's stages, the cell popover, its cue, what Enter opens, the row detail view, export's items and its cap, the frame at a phone, the page's keys and Ctrl+F, the double-click and the row view's focus, the command bar's grammar, what a pasted action and an export may do, "Show rows" as a view of its own, the views' caps, a link to a dropped file's view, and the sample's credit. What it left for the build or for a later goal is in "Open questions" |
 | — | Sample session: which data, under the static-asset limit | Done 2026-11-21: GCAT, the catalog of every object launched to orbit, as one file ([the research](../../docs/research/tycho-sample.md); `docs/DECISIONS.md`, "Sample data") |
-| M11 | Reset: the old Tycho retired, the ground cleared | Next |
-| Later | The goals below, in order; the first release is everything through export | Each becomes a milestone when it's opened |
+| M11 | Reset: the old Tycho retired, the ground cleared | Active: opened 2026-11-23, in three parts (below) |
+| Later | The goals below, in order; the first release is everything through export, then "Ship the rebuild" | Each becomes a milestone when it's opened |
 
 **Closing a milestone:** every "done when" check passes; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. Tycho records no measurements (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17); what it still checks is in M11.
 
@@ -58,31 +58,49 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 
 ---
 
-## Next milestone: M11, the reset
+## Active milestone: M11, the reset
 
-Not opened yet. The sample session and the design session are done.
+Opened 2026-11-23 and planned in three parts, one session each. A Kirkwood session runs between parts A and B.
 
-**What it is:** Tycho stops being a measured demo of a scrolling table. Its measurements go, the Gaia sample goes, the new sample arrives, and every doc that describes the old app is rewritten for the new one. Nothing of the new app is built here.
+**What it is:** Tycho stops being a measured demo of a scrolling table. Its measurements go, the Gaia and asteroid samples go, the new sample arrives, and the docs follow the app as it changes. Nothing of the new app is built here: the crate as built stays as the ground the goals below replace, piece by piece.
 
-**Done when:**
+**It is local.** Production stays as deployed until the rebuild ships (`docs/DECISIONS.md`, "Hosting", 2026-11-23): no deploy, and nothing deleted from production's R2, in this milestone. Both are "Ship the rebuild", below. The tag `tycho-v1` is the last commit that builds the deployed app.
 
-- [ ] **The measurements are retired:** the perf suite and its scripts, every budget but the wasm's size, `just tycho report`, and the generated numbers in `README.md`, this file ("Measurements", below), and the root README's table, with a plain sentence in their place. `perf/results/` stays as history.
-- [ ] **Four things are kept and still run:** the wasm's size (brotli) gated in `just tycho check`; the page's weight before first paint reported by `just tycho build`, ungated; a first frame appearing, pass or fail, in the smoke check (*proposed:* it prints the time, stored nowhere); memory when a 1 GB file is dropped, run by hand.
-- [ ] **The behavior checks are sorted from the speed checks** and kept: the smoke check, the error cases, the tricky CSV rows, the home-path check.
-- [ ] **The root says what was decided:** Tycho's exemption from rules 1 and 3 and the measurement protocol, and the reworded claim (the canvas for the GPUI components, the heavy parts; the DOM where text lives), in the root `CLAUDE.md` and README.
-- [ ] **Gaia is out of Tycho's production R2 and its button is gone.** The Gaia fetch and prep aren't deleted here: Kirkwood's `data/stars.ts` reads the local file they build, and a Kirkwood session moves them or decides they stay ([its PLAN](../kirkwood/PLAN.md), "Open questions"). If that session hasn't run when this check is reached, stop and tell the owner. *The owner confirms the deletion in production.*
-- [ ] **The asteroid file stays a build input:** the observatory's `data/prep.ts` reads `data/asteroids.parquet` and its hash in `data/MANIFEST.json`, so the asteroid fetch, prep, and manifest entry stay here or move to the observatory with that script. `just observatory` data prep still passes.
-- [ ] **The new sample, `gcat.parquet`, is built and served whole as a static asset,** under 25 MiB, read from memory. Its columns and its build's spec, which is reviewed here before it's written: [the sample's research](../../docs/research/tycho-sample.md), "The table" and "The build". Decided here: how the file reaches the build (committed, or built by `just tycho data`), since today's Parquet files are gitignored.
-- [ ] **The bucket holds DuckDB-Wasm's two wasm bundles and nothing else** (`docs/DECISIONS.md`, "Hosting", 2026-11-21): the samples are out of it, and the Worker's data path, the deploy's upload, and the local R2 that `just tycho data` fills are cut down to what the bundles need. *The owner confirms any deletion and the deploy.*
-- [ ] **The docs describe the new Tycho:** `README.md`, `CLAUDE.md` and each folder's, `docs/data.md`, `docs/hosting.md`. Tycho's rules are revisited with them: "keep the bridge narrow" against export and URL opening, and "scope grows through `PLAN.md`".
-- [ ] **`just tycho lint` passes,** its TypeScript step included (it fails today on `shared-web/perf/protocol.ts`: `Cannot find name 'ResizeObserverEntry'`).
-- [ ] *Proposed:* the burst script (a visitor's requests against the zone's rate limit) run once on the new build, then retired.
+### Part A: the measurements retired
+
+Touches no data.
+
+- [ ] **A1. The measurements are retired:** the perf suite and its scripts, every budget but the wasm's size, the time-to-first-paint gate in `check`, `just tycho report` (and its step in `lint`), and the generated numbers in `README.md`, this file ("Measurements", below), and the root README's table, with a plain sentence in their place. `perf/results/` stays as history.
+- [ ] **A2. The checks are sorted, and what stays still runs.** Staying: the wasm's size (brotli) gated in `just tycho check`; the page's weight before first paint reported by `just tycho build`, ungated; the home-path check; a first frame appearing, pass or fail, in the smoke check (*proposed:* it prints the time, stored nowhere); memory when a 1 GB file is dropped, run by hand. A check that times something, drives the old page's targets, or reads a retired sample goes with the measurements, and is written again by the goal that rebuilds what it tested; its fixtures (the tricky CSV rows, the error cases' files) stay for that.
+- [ ] **A3. The root says what was decided:** Tycho's exemption from rules 1 and 3 and the measurement protocol, and the reworded claim (the canvas for the GPUI components, the heavy parts; the DOM where text lives), in the root `CLAUDE.md` and README. The README's Tycho row loses its numbers.
+- [ ] **A4. `README.md` says a rebuild is under way:** a short note at its top (version 2 is being built; what's below describes version 1 until its section is replaced), and what this part made false is cut, not marked. Each later goal rewrites its own section.
+- [ ] **A5. `CLAUDE.md` and `perf/CLAUDE.md` follow:** their commands, probes, and rules are what part A left.
+- [ ] **A6. `just tycho lint` passes,** its TypeScript step included (it fails today on `shared-web/perf/protocol.ts`: `Cannot find name 'ResizeObserverEntry'`), and so does `just tycho check`.
+
+### Between A and B: Kirkwood takes the Gaia fetch
+
+A Kirkwood session, in [its PLAN](../kirkwood/PLAN.md) ("Open questions"): the Gaia fetch, prep, and manifest entry move to `apps/kirkwood/data/`. Part B deletes them here, so it doesn't start until that session has run.
+
+### Part B: the old samples out
+
+- [ ] **B1. The asteroids are the observatory's:** the asteroid fetch, prep, and manifest entry move to `apps/observatory/data/`, where `prep.ts` reads its own folder. `just observatory data` passes and the file it builds has the hash it had, so the comparison's data is unchanged. The observatory's `data/CLAUDE.md` follows.
+- [ ] **B2. Gaia and the asteroids are out of Tycho:** their buttons, the code only they used, their scripts and manifest entries in `data/`, and their `just tycho data` recipes. The test files stay.
+- [ ] **B3. Locally, the bucket holds DuckDB-Wasm's two wasm bundles and nothing else** (`docs/DECISIONS.md`, "Hosting", 2026-11-21): the Worker's data path, the deploy's upload, and the local R2 that `just tycho data` fills are cut down to what the bundles need. Not deployed.
+- [ ] **B4. The folders' `CLAUDE.md` files follow** (`data/`, `worker/`, `web/`, `crate/`), and `just tycho check` and the smoke check pass.
+
+### Part C: the new sample, and the close
+
+- [ ] **C1. `gcat.parquet` is built and served whole as a static asset,** under 25 MiB, read from memory, and the app's sample button opens it. Its columns and its build's spec, which the owner reviews before it's written: [the sample's research](../../docs/research/tycho-sample.md), "The table" and "The build". Decided here: how the file reaches the build (committed, or built by `just tycho data`), since today's Parquet files are gitignored.
+- [ ] **C2. The docs describe Tycho as it stands:** `CLAUDE.md` and each folder's, `docs/data.md`, `docs/hosting.md` (which says what production still holds until the rebuild ships), and the README's sections this milestone made false. Tycho's rules are revisited with them: "keep the bridge narrow" against export and URL opening, and "scope grows through `PLAN.md`".
+- [ ] **C3. `just tycho check` passes on the final build,** and the milestone closes.
+
+**Left out, on purpose:** the burst script's last run (it measured the old app's requests against the zone's rate limit, and needs Gaia; the rate limit is looked at again on the new build, in "Ship the rebuild").
 
 ---
 
 ## Goals, in order
 
-Not milestones yet. Each links to its section of [the research](../../docs/research/tycho-workbench.md), which holds the reasoning and what's marked decided, proposed, or open; a proposed item is checked and reviewed when its goal is opened, before it's built. **The first release is everything through "Export".**
+Not milestones yet. Each links to its section of [the research](../../docs/research/tycho-workbench.md), which holds the reasoning and what's marked decided, proposed, or open; a proposed item is checked and reviewed when its goal is opened, before it's built. **The first release is everything through "Export", the connection policy if it's taken, and then "Ship the rebuild".** It is built locally: production stays as deployed until it ships.
 
 1. **The controller, thin, and the engine's lockdown.** One serializable view state behind every driver; first the parts that need nothing new from the engine (source, columns, their order, widths, pins, formats). The lockdown is repeated in a browser first, with what Tycho sends lazily today moved ahead of the lock. *("The controller"; "Security", layer 2.)*
 2. **The command bar and the log, minimal,** in the DOM, so every later goal has somewhere to show its commands and answers. Their form: `docs/DECISIONS.md`, "Scope", 2026-11-20. *("The thread".)*
@@ -91,23 +109,24 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 5. **Profiles and the catalog,** grouping included, whose result is a new view. The profile comes in three stages, in the columns panel first. If it's too slow in use, a session of its own makes the sample faster before anything is cut; the header strip is asked of the tall table only after the panel's proves itself. *("The catalog"; "The column profile's cost", which holds the timings and that session's starting points.)*
 6. **Export,** and the view copied as SQL. Its size plan is a cap (`docs/DECISIONS.md`, "Scope", 2026-11-21); the cap is measured and the storage route tested first (question 5). *("The table's own tools".)*
 7. **The connection policy.** *Proposed* as part of the first release, since the input is drivable from the day it ships. *("Trust".)*
-8. **Open from a URL:** Parquet only, read by range, on a route of its own. *("Opening a file".)*
-9. **The instructions, and the clipboard and agent routes.** *("How an LLM reaches it".)*
-10. **Trust:** offline, and the panel. *("Trust".)*
-11. **JSONL,** then nested values: the engine's half (how a `LIST`, `STRUCT`, or `MAP` becomes cells and short text) and their full form in the cell popover and the row detail view. *("Opening a file".)*
-12. **More than one file,** and joins. *("Opening a file".)*
-13. **Charts,** after a planning session of their own. *("Charts".)*
-14. **Checked SQL expressions,** after an ideation session of their own. *("Later: checked SQL expressions".)*
-15. **A SQL editor,** once the lockdown is proven. *("Later: a SQL editor".)*
-16. **More samples,** each with a job the others don't do. GCAT's is "readable, with stories"; the next is "too big for a spreadsheet, and still instant": over a million rows, with text and categories a visitor recognizes. Its data is its own research; the asteroids, cut to fit, are the fallback. No sample goes in R2: one Tycho serves stays under the static-asset limit, and a larger one is a Parquet file on someone else's host, read by range through "Open from a URL". A second sample reopens the first screen's one sample row. *([The sample's research](../../docs/research/tycho-sample.md).)*
+8. **Ship the rebuild.** The new Tycho replaces the deployed one: the deploy; Gaia and the asteroids out of production's R2, which then holds DuckDB-Wasm's two wasm bundles alone; the zone's WAF rules and rate limit looked at again against the new build's requests, right after; and `README.md` and the root README's row as a visitor finds the app. It comes after the last goal the first release takes, and after Kirkwood has moved to a subdomain of its own ([its PLAN](../kirkwood/PLAN.md)), since the two share a hostname and a pause switch until then. *The owner confirms every deletion in production and the deploy.* *(`docs/DECISIONS.md`, "Hosting", 2026-11-23.)*
+9. **Open from a URL:** Parquet only, read by range, on a route of its own. *("Opening a file".)*
+10. **The instructions, and the clipboard and agent routes.** *("How an LLM reaches it".)*
+11. **Trust:** offline, and the panel. *("Trust".)*
+12. **JSONL,** then nested values: the engine's half (how a `LIST`, `STRUCT`, or `MAP` becomes cells and short text) and their full form in the cell popover and the row detail view. *("Opening a file".)*
+13. **More than one file,** and joins. *("Opening a file".)*
+14. **Charts,** after a planning session of their own. *("Charts".)*
+15. **Checked SQL expressions,** after an ideation session of their own. *("Later: checked SQL expressions".)*
+16. **A SQL editor,** once the lockdown is proven. *("Later: a SQL editor".)*
+17. **More samples,** each with a job the others don't do. GCAT's is "readable, with stories"; the next is "too big for a spreadsheet, and still instant": over a million rows, with text and categories a visitor recognizes. Its data is its own research, and the asteroids aren't a candidate: they left Tycho in the reset. If a sample is one another app builds too, its fetch moves to a folder both read; until then each built file has one owner, the app that reads it (`docs/DECISIONS.md`, "Sample data", 2026-11-23). No sample goes in R2: one Tycho serves stays under the static-asset limit, and a larger one is a Parquet file on someone else's host, read by range through "Open from a URL". A second sample reopens the first screen's one sample row. *([The sample's research](../../docs/research/tycho-sample.md).)*
 
 ---
 
 ## Open questions
 
-1. The profile's speed: how the engine keeps page reads ahead of a profile query, and whether a smarter sample is needed, tried before the graphic is cut (the build, then a session of its own).
+1. The profile's speed: how the engine keeps page reads ahead of a profile query, and whether a smarter sample is needed, tried before the graphic is cut (the build, then a session of its own). The engine's speed has had no measurement of its own since Tycho's were retired, so this is where its page reads and CSV loading are timed again if a number is needed.
 2. How column names, which are the file's text, go out in the copied context and the capability schema.
-3. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and what sharing an origin with Kirkwood means for it and for anything saved in the browser, kept views first: where they are stored.
+3. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and where anything saved in the browser is stored, kept views first. Kirkwood shares the origin only until it moves to a subdomain of its own, which is before the rebuild ships.
 4. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
 5. Export: the cap's size, measured; whether a file can be written to the browser's own storage and saved from there, with the engine locked down, which would lift the cap (tested before export is built).
 6. JSONL's size limit, if it loads into memory as a CSV does, and what the engine's reader does with nested values today.
