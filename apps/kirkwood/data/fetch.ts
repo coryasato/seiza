@@ -1,6 +1,6 @@
 // Fetches every known asteroid from the JPL Small-Body Database Query API
-// into data/raw/asteroids/ as raw JSON pages, at full precision: the columns
-// of Tycho's asteroid sample and the orbit's other elements (docs/data.md).
+// into data/raw/asteroids/ as raw JSON pages, at full precision: each row's
+// own columns and the orbit's other elements (docs/data.md).
 //
 // Usage: node apps/kirkwood/data/fetch.ts [--refresh] [--page-size 100000]
 //
@@ -20,8 +20,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const API = 'https://ssd-api.jpl.nasa.gov/sbdb_query.api';
-/** Tycho's sample's columns, `spkid` first (the key), in its order. */
-export const SAMPLE_FIELDS = [
+/** Each row's own columns, `spkid` first (the key): its names, class, size, the orbit's shape, its observations. */
+export const ROW_FIELDS = [
   'spkid', 'full_name', 'pdes', 'name', 'neo', 'pha', 'class', 'H', 'diameter', 'albedo',
   'a', 'e', 'i', 'q', 'per_y', 'first_obs', 'last_obs', 'n_obs_used',
 ];
@@ -33,7 +33,7 @@ export const SAMPLE_FIELDS = [
  * computed one against; `orbit_id` names the solution.
  */
 export const ORBIT_FIELDS = ['om', 'w', 'ma', 'epoch', 'equinox', 'n', 'tp', 'orbit_id'];
-export const FIELDS = [...SAMPLE_FIELDS, ...ORBIT_FIELDS];
+export const FIELDS = [...ROW_FIELDS, ...ORBIT_FIELDS];
 
 const dataDir = dirname(fileURLToPath(import.meta.url));
 export const rawDir = join(dataDir, 'raw/asteroids');

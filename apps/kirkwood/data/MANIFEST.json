@@ -162,7 +162,7 @@
   },
   "stars.bin": {
     "stars": 779012,
-    "source": "Gaia DR3 gaia_source (s3://stpubdata/gaia/gaia_dr3/public/hats/gaia), through Tycho's sample gaia-dr3-bright.parquet",
+    "source": "Gaia DR3 gaia_source (s3://stpubdata/gaia/gaia_dr3/public/hats/gaia), through the sample gaia-dr3-bright.parquet",
     "sample": {
       "rows": 25067889,
       "bytes": 1572736231,
@@ -198,6 +198,20 @@
     "notes": [
       "the brightest star's G: 1.7316069602966309; stars under G 3, 6, and 8: 150, 6764, 62723 (the sample has nothing brighter, so the sky's very brightest stars, Sirius among them, aren't drawn)",
       "stars with no bp_rp (their tint the Sun's): 469"
+    ]
+  },
+  "gaia-dr3-bright.parquet": {
+    "rows": 25067889,
+    "bytes": 1572736231,
+    "sha256": "a8eb5e6ea89e864ebe81af8c4945890ece0ff416cf72b73eada90a66edc73bf9",
+    "source": "s3://stpubdata/gaia/gaia_dr3/public/hats/gaia",
+    "fetched": "2026-10-07",
+    "rowGroups": 409,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 61440, sorted by source_id",
+    "notes": [
+      "magnitude cut phot_g_mean_mag < 14.5; the row count matches the ESA archive's for the cut",
+      "17842 duplicate rows in the HATS extracts (identical copies) dropped",
+      "distance_pc = 1000 / parallax where parallax > 0, else NULL"
     ]
   }
 }

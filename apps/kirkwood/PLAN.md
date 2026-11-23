@@ -30,8 +30,9 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 | M5 | A camera a hand moves | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
 | M6 | The scene and the table, each moving the other | Done 2026-11-13 ([`docs/milestones.md`](docs/milestones.md)) |
 | M7 | In the open: deployed under Tycho | Done 2026-11-15 ([`docs/milestones.md`](docs/milestones.md)) |
+| M8 | A subdomain of its own: `kirkwood.seiza.io` | Active: opened 2026-11-23, in two parts (below) |
 
-A milestone's spec, "done when" checks, and parts are written when the milestone before it closes, from what that one found. None is specced past M7: the app is in the open, and what's left is the open questions below, two of them next (the Gaia fetch, then a subdomain of its own).
+A milestone's spec, "done when" checks, and parts are written when the milestone before it closes, from what that one found. M8 was specced from an open question when Tycho's rebuild made the move a deadline; what's left after it is the open questions below.
 
 **Closing a milestone:** every "done when" check passes, with its evidence (a screenshot, a recording, or a number) beside it; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. No results note and no `report`: a showcase has no budgets.
 
@@ -45,9 +46,36 @@ Nothing else. The tall table's `sort`, `select`, `format`, and `density` are bui
 
 ---
 
-## Active milestone
+## Active milestone: M8, a subdomain of its own
 
-None. M7 closed 2026-11-15; the next milestone's spec, checks, and parts are written when it's chosen (the open questions below are where it would come from).
+Opened 2026-11-23 and planned in two parts, one session each. **It must land before Tycho's rebuild is deployed** (Tycho's PLAN, "Ship the rebuild").
+
+**Why** (root `docs/DECISIONS.md`, "Hosting", 2026-11-23): Tycho is being rebuilt as a public tool with a connection policy and views saved in the browser, and an origin shared with a showcase ties each app's policy, storage, pause switch, and deploys to the other's. Kirkwood moves from `tycho.seiza.io/kirkwood` to **`kirkwood.seiza.io`**, and the 2026-11-10 decision that put it under Tycho is marked *Superseded* when this closes.
+
+**What moves.** The page is built at `/`, not `/kirkwood/` (`web/src/base.ts`'s `BASE`, which the build, the Worker, and the checks read). The Worker (`kirkwood`) serves the new hostname as a custom domain, as Tycho's does, with the same bucket and objects: nothing is put again. The hint's fold is a key in `localStorage`, and a new origin starts without it: a visitor who folded the hint sees it once more, which is fine.
+
+**What stays at the old address.** `tycho.seiza.io/kirkwood` and every path under it answer a 301 to the same path on the new host, the query kept (`/kirkwood/?roll=0` to `/?roll=0`), for as long as Tycho's hostname is ours: links to the old address are in the open. Which piece answers it is part A's decision: the `kirkwood` Worker keeping its old route and answering only redirects there, or a redirect rule in the zone with no Worker at all. The lean is the zone's rule, which leaves nothing of Kirkwood's running on Tycho's hostname when Tycho's rebuild deploys.
+
+**Its own switch and guards.** `just kirkwood pause` and `resume` set its Worker's `DATA_PAUSED`, and `just tycho pause` goes back to Tycho's Worker alone. The new hostname gets its own rows in the zone's WAF rules (the path allowlist and the rate limit; their text in the gitignored root `docs/private/zone.md`) before the deploy; Tycho's rule keeps the old paths only as far as the redirect needs them.
+
+**Left out:** any change to what the page shows, and the bucket's name (`kirkwood-data` never named Tycho).
+
+**Split into parts,** one session each:
+
+- **Part A: the code, local.** The redirect's place decided; the base at `/`; the Worker on its custom domain in `wrangler.toml`; its own pause recipe; the Worker's tests, the checks, and the deploy's check (`worker/scripts/check.ts`) for the new host and the redirect. Closes A1 to A4. Nothing deployed.
+- **Part B: in the open, and the close.** The WAF's rows, the deploy, the redirect and the guards checked in production, a security look and the rate limit right after, every doc that gives the address, and the close. Closes B1 to B5. *The owner sets the zone's rules and confirms the deploy.* A part that runs `see --worker` whole (about 30 minutes) asks first whether a code review runs before it (root `CLAUDE.md`, "Working agreements").
+
+**Done when:**
+
+- [ ] **A1. The redirect's place is decided:** the zone's redirect rule or the Worker's old route, written in `docs/DECISIONS.md`, "Hosting", with what each leaves on Tycho's hostname and what Tycho's rebuild must keep for it.
+- [ ] **A2. The build runs at the root behind the Worker:** `BASE` is `/`; `just kirkwood worker` serves the release build at `http://127.0.0.1:8788/`; `just kirkwood see --worker` passes; nothing under `/kirkwood/` is asked for. The Worker's unit tests cover the new paths (and, if the Worker answers it, the redirect: the path and the query kept, a 301).
+- [ ] **A3. The switch is Kirkwood's own:** `just kirkwood pause` and `resume` set its Worker's secret alone, and `just tycho pause` Tycho's alone; `see --only paused` passes behind the local Worker.
+- [ ] **A4. `just kirkwood lint` and `just kirkwood test` pass.**
+- [ ] **B1. The guards are in place before the deploy:** the new hostname's rows in the zone's WAF rules and its rate limit (`docs/private/zone.md` updated), and the old paths still allowed as far as the redirect needs.
+- [ ] **B2. It's deployed:** `kirkwood.seiza.io` opens, and `just kirkwood deployed` passes against it whole (every file the page asks for, COOP and COEP, the encodings and bytes, the WAF's 403s, the pause's 503).
+- [ ] **B3. The old address redirects:** `tycho.seiza.io/kirkwood`, `/kirkwood/`, `/kirkwood/?roll=0`, and a path under it each answer a 301 to the same place on the new host; Tycho's own pages are as they were (`just tycho check`, and Tycho's check against production).
+- [ ] **B4. The Worker is sound on its new host:** a security review of what changed (`/security-review`), probes in production (paths outside its own, other methods, the old hostname's paths), and the rate limit looked at against a visit's requests; each finding fixed or written down.
+- [ ] **B5. The docs give the new address:** every file that names `tycho.seiza.io/kirkwood` or the `/kirkwood/` base (the root `CLAUDE.md` and README, `.claude/rules/`, Kirkwood's `CLAUDE.md` files, README, `docs/`, Tycho's `docs/hosting.md` and justfile), the redirect excepted; history (`docs/milestones.md`, `LESSONS.md`, the decisions' text) left as written. The root decision of 2026-11-10 marked *Superseded*; Tycho's PLAN's "Ship the rebuild" and its open question 3 no longer wait on Kirkwood.
 
 ---
 
@@ -69,8 +97,6 @@ Rules from the `CLAUDE.md` files that a check could hold instead of a sentence (
 
 ## Open questions
 
-- **Taking over the Gaia fetch and prep from Tycho.** *Next: a session of its own, after Tycho's reset's part A and before its part B, which deletes those scripts ([its PLAN](../tycho/PLAN.md)).* Tycho's rebuild drops its Gaia sample, which leaves Kirkwood as the only reader of the local Gaia Parquet: `data/stars.ts` builds `stars.bin` from the file `just tycho data gaia` makes and from its entry in Tycho's `MANIFEST.json`. Decided 2026-11-23 (Tycho's `docs/DECISIONS.md`, "Sample data"): they move here. The session moves the Gaia fetch, prep, and manifest entry into `data/` behind a `just kirkwood` recipe, with the Parquet already built (nothing is fetched again); `stars.ts --check` passes against the same hash, so `stars.bin` is unchanged; and `data/CLAUDE.md`, `docs/data.md`, and the root `CLAUDE.md`'s line about a new Gaia sample follow. In the same session, the asteroid scripts stop pointing at Tycho: `data/survey.ts` compares the fetch with Tycho's raw asteroid pages, and `data/fetch.ts` names its columns as Tycho's sample's; Tycho's asteroid files move to the observatory in its part B, so the comparison is repointed there or retired, and the comment reworded.
-- **A subdomain of its own.** Decided 2026-11-23 (root `docs/DECISIONS.md`, "Hosting"): Kirkwood leaves `tycho.seiza.io/kirkwood`. The next milestone, not opened yet: its own route and hostname, a redirect from the old path, a pause switch of its own (today `just tycho pause` flips both Workers), its rows in the zone's WAF rules, a look at security and the rate limit right after the deploy, and every doc that gives the address (the root `CLAUDE.md` and README among them). *It must land before Tycho's rebuild is deployed.*
 - **The furniture's targets outlive it:** a published target (`__seizaTargets`) is never withdrawn, so after the dots fly back the chips', names', line's, and count's bounds still read as they were landed. Only scripts read them, and the checks that ask what's drawn do so on a fresh page. Whether `shared/`'s targets get a way to withdraw one, or the host publishes empty bounds when a piece isn't drawn. *Before a check needs it on a page that has landed.*
 - **A found row riding with Jupiter, and on the axes:** a find lets both go (`docs/DECISIONS.md`, "Interface"), so a press on a Hilda's row while riding stops the ride, and a press on a row while the dots are landed takes the chart away. Kept through them, the mark and the follow would be drawn in the turning frame's camera and on the row's a and e. *Not placed in a milestone yet; with a shape drawn in a against e.*
 - **The page's text arrives in pieces:** on a first load the lines at the top stagger in and grow as each part's state comes (the count as the belt fills, the stars' sentence with the sky, the legend), seen by the owner in Firefox and Safari (2026-11-15). Either each line eases in, or the lines hold their room from the first frame and what isn't known yet waits and comes in together: whichever costs the first paint nothing and moves nothing under it. *A session of its own, before or with part D.*

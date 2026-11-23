@@ -13,6 +13,24 @@ const root = import.meta.dirname;
 const DATA: Record<string, string> = { 'elements.bin': 'prep.ts', 'rows.bin': 'prep.ts', 'stars.bin': 'stars.ts' };
 
 /**
+ * The manifest as the page imports it: each served file's bytes and nothing
+ * else. The page reads only those (`main.ts`); the rest (the layouts, the
+ * notes, the Gaia sample's entry, which no page asks for) would ride in the
+ * entry JS before first paint.
+ */
+function manifestBytes(): Plugin {
+  return {
+    name: 'kirkwood:manifest',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!id.split('?')[0]!.endsWith('/data/MANIFEST.json')) return;
+      const manifest = JSON.parse(code) as Record<string, { bytes: number }>;
+      return { code: JSON.stringify(Object.fromEntries(Object.keys(DATA).map((name) => [name, { bytes: manifest[name]!.bytes }]))), map: null };
+    },
+  };
+}
+
+/**
  * Serves those files at `data/` under the app's base, as they are (or, asked, compressed), in dev and preview: nothing
  * else of `data/` (never `data/raw/`). They aren't part of the build: 97 MB
  * that a deploy puts where it serves data from.
@@ -94,6 +112,6 @@ export default defineConfig(
       // the data, which is asked for after the first frame.
       preload: ['kirkwood_bg.wasm', 'IBMPlexSans-Regular.ttf'],
     },
-    { root, base: BASE, plugins: [serveData(), preloadUnlessPhone()] },
+    { root, base: BASE, plugins: [manifestBytes(), serveData(), preloadUnlessPhone()] },
   ),
 );

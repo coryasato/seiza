@@ -46,6 +46,18 @@ deploy *args: build
 deployed *args:
     node {{app_dir}}/worker/scripts/check.ts {{args}}
 
+# The Gaia sample the sky is built from, data/gaia-dr3-bright.parquet, and
+# its manifest entry (data/gaia.ts), then the sky, data/stars.bin, from it
+# (data/stars.ts). The first run reads ~90 GB from AWS Open Data
+# (docs/data.md), keeping its extracts in data/raw/gaia/; a rerun reads
+# nothing. Flags go to gaia.ts: --check (both scripts build again and fail
+# unless the bytes are the manifest's; nothing kept), --refresh, --jobs,
+# --cut. Installs native DuckDB (data/package.json, its own lockfile) first.
+gaia *args:
+    npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
+    node {{app_dir}}/data/gaia.ts {{args}}
+    node {{app_dir}}/data/stars.ts {{ if args =~ "--check" { "--check" } else { "" } }}
+
 # Compile the crate alone (`-p`: Cargo unifies features across the packages
 # in one build) and generate its JS bindings into web/pkg/.
 wasm profile="debug":

@@ -78,4 +78,4 @@ On the page, the same three are at the foot of the list the ? button opens (and 
 
 ## For contributors
 
-Run it: build the data files once ([`docs/data.md`](docs/data.md), "Commands": the fetch, then prep, then the sky's file from Tycho's Gaia sample), then `just kirkwood dev` from the repo root. What's next: [`PLAN.md`](PLAN.md). Why it's built this way: [`docs/DECISIONS.md`](docs/DECISIONS.md) and the research, [`docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md).
+Run it: build the data files once ([`docs/data.md`](docs/data.md), "Commands": the fetch, then prep, then `just kirkwood gaia`, the Gaia sample and the sky's file from it), then `just kirkwood dev` from the repo root. What's next: [`PLAN.md`](PLAN.md). Why it's built this way: [`docs/DECISIONS.md`](docs/DECISIONS.md) and the research, [`docs/research/asteroid-belt.md`](../../docs/research/asteroid-belt.md).

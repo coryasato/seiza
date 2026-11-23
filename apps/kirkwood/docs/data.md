@@ -6,7 +6,7 @@ Where Kirkwood's rows come from, what the fetch holds, the two files built from 
 
 - **Source:** the JPL Small-Body Database Query API (`ssd-api.jpl.nasa.gov/sbdb_query.api`), every asteroid (`sb-kind=a`), at full precision (`full-prec=1`: without it the API rounds every number for display, a to a thousandth of an au). `data/fetch.ts` pulls the catalog in pages of 100,000 into `data/raw/asteroids/` (gitignored) as the API's own JSON, one request at a time, and writes `fetch.json` last: the query, the fields returned, the date, and the API's count. A rerun reuses the pages; `--refresh` fetches again. The catalog can change between pages, so the fetch fails if any page reports a different count, if its distinct `spkid`s aren't that count (a row that moved across a page boundary), if a kept page isn't a page of the size asked for, or if its pages were fetched more than 6 hours apart (one date names the dataset); readers keep one row per `spkid`.
 - **Fetched 2026-11-11:** 1,580,272 rows in 16 pages (505 MB of JSON), every page reporting the same count, every `spkid` once.
-- **Fields:** the 18 columns of Tycho's asteroid sample, in its order (`spkid`, `full_name`, `pdes`, `name`, `neo`, `pha`, `class`, `H`, `diameter`, `albedo`, `a`, `e`, `i`, `q`, `per_y`, `first_obs`, `last_obs`, `n_obs_used`), then `om`, `w`, `ma`, `epoch`, `equinox`, `n`, `tp`, `orbit_id`.
+- **Fields:** each row's own 18 columns (`fetch.ts`'s `ROW_FIELDS`: `spkid`, `full_name`, `pdes`, `name`, `neo`, `pha`, `class`, `H`, `diameter`, `albedo`, `a`, `e`, `i`, `q`, `per_y`, `first_obs`, `last_obs`, `n_obs_used`), then `om`, `w`, `ma`, `epoch`, `equinox`, `n`, `tp`, `orbit_id`.
 - **Credit:** "Asteroid data: NASA/JPL Small-Body Database, fetched 2026-11-11."
 
 ## The elements: units and frame
@@ -30,13 +30,13 @@ So the elements are heliocentric, in the ecliptic of J2000 (IAU 1976 obliquity),
 
 ## What the fetch holds
 
-`data/survey.ts` prints these (and, given the raw pages of Tycho's sample, how the two differ: `DECISIONS.md`, "Data").
+`data/survey.ts` prints these.
 
 - **Gaps:** a, e, i, the node, the argument of perihelion, the epoch, `n`, and `tp` are on every row. One row has no mean anomaly: (2002 PD153), 5 observations over two days, fitted as a circle (e exactly 0) with its perihelion at its epoch, so its mean anomaly there is 0. 509 rows have no H.
 - **No ellipse:** 7 rows have e past 1 and a below 0 (class HYA, 'Oumuamua among them).
 - **Epochs:** 1,483,888 rows (93.9%) are at JD 2461200.5 (2026-06-09). The other 96,384 are spread over 6,376 epochs from 1927-06-20 to 2026-11-11, half of them more than 6.6 years before the commonest (21,235 at 2025-11-21, the commonest before it). They are the rows seen briefly: a median of 14 observations over 6 days, against 112 over 6,748 days for the rest, and 73,896 of them have their epoch within 60 days of their last observation.
 - **The two-body relations hold in JPL's own numbers:** `n` is the Gaussian constant over a^1.5 to 2.7 parts in 10^8 at the 99th percentile (worst, 3.2 in 10^4: a far object with a kept to few digits), and `ma` is `n` times the days from `tp` to the epoch within 10^-7 of a degree on every row. `q` is a(1 − e) to 1.5 parts in 10^8 at the 99th percentile (worst, 1 in 10^7), and `per_y` is the period that mean motion gives, in years of 365.25 days, to 2.7 in 10^8 (the same worst row as `n`).
-- **How the API rounds without `full-prec`** (Tycho's sample, found by trying rules against this fetch): a to 4 significant digits with trailing zeros dropped, e to 4 decimals, i and H to 2, q, the diameter, and the albedo to 3, the period to 3 significant digits.
+- **How the API rounds without `full-prec`** (found by trying rules on Tycho's old asteroid sample against this fetch, a comparison since retired: `DECISIONS.md`, "Data"): a to 4 significant digits with trailing zeros dropped, e to 4 decimals, i and H to 2, q, the diameter, and the albedo to 3, the period to 3 significant digits.
 
 ## The two files
 
@@ -143,8 +143,9 @@ Jupiter isn't a row, so it isn't in the files. `data/jupiter.ts` holds its six o
 
 `data/stars.bin` (gitignored; pinned in `data/MANIFEST.json` with its source and credit) is the scene's backdrop: Gaia DR3's stars brighter than G 10.5, 779,012 of them. They aren't rows of the asteroid table, and the crate never holds them: the page fetches the file after the rows file and hands it to the scene (`web/src/sky.ts`). Why there's a sky: `DECISIONS.md`, "Look"; why it's built this way, "Data".
 
-- **Source:** Tycho's Gaia sample, `apps/tycho/data/gaia-dr3-bright.parquet` (Gaia DR3 `gaia_source`, G under 14.5, fetched 2026-10-07; `just tycho data gaia` builds it). `data/stars.ts` reads it with native DuckDB and fails unless it is the file Tycho's `MANIFEST.json` pins (its bytes and SHA-256, which the sky's entry records).
-- **Reproducible:** the stars are written brightest first, ties by `source_id`, so a second run writes the same bytes; `stars.ts --check` builds again and fails unless they are the manifest's and the disk's. `prep.ts` carries the entry through when it rewrites the manifest.
+- **Source:** the Gaia sample, `data/gaia-dr3-bright.parquet` (gitignored, 1.57 GB, pinned in `data/MANIFEST.json`): Gaia DR3 `gaia_source`, its 25,067,889 stars under G 14.5, fetched 2026-10-07, eleven columns (`source_id`, `ra`, `dec`, `parallax`, `distance_pc`, `pmra`, `pmdec`, `phot_g_mean_mag`, `bp_rp`, `radial_velocity`, `teff_gspphot`), sorted by `source_id`, in row groups of 61,440. Tycho built it first, as its big sample. `data/stars.ts` reads it with native DuckDB and fails unless it is the file the manifest pins (its bytes and SHA-256, which the sky's entry records).
+- **The sample's fetch:** `data/gaia.ts` reads Gaia DR3 as HATS-partitioned Parquet on AWS Open Data (`s3://stpubdata/gaia/`, us-east-1, no AWS account), with the filter pushed down. It can't skip data: the 2,016 partitions are sorted by `source_id`, so every row group holds every magnitude, and the fetch reads ten columns of all 1.8 billion rows (~90 GB, ~50 min at 8 jobs). It keeps one extract per partition (G under 15, 36.9 M stars, 1.9 GB) in `data/raw/gaia/`, so a rerun, or a new cut below 15, reads nothing. `data/gaia.sql` builds the sample from the extracts and fails unless its count is the ESA archive's for the cut (asked once, kept in `raw/gaia/archive-counts.json`); two partitions hold 17,842 identical copies of stars under 14.5, which it drops. A rebuild from the extracts is the pinned file byte for byte (`gaia.ts --check`, ~15 s), and nothing in it is the sky's choice: the cut, the columns, and the row groups are Tycho's, kept so the bytes stay the same.
+- **Reproducible:** the stars are written brightest first, ties by `source_id`, so a second run writes the same bytes; `stars.ts --check` builds again and fails unless they are the manifest's and the disk's. `prep.ts` carries this entry and the sample's through when it rewrites the manifest.
 - **Layout:** little-endian, each section on a 4-byte boundary. An 8-byte header (`KWS1`, the star count as a u32); then each star's direction, three i16s, a unit vector times 32,767; then, on the next 4-byte boundary, each star's light, two u8s: G in twentieths of a magnitude, and bp_rp plus one in fiftieths, 255 for a star with none (469 of them, drawn in the Sun's tint).
 - **Frame:** the ecliptic and equinox of J2000, the elements' own: ICRS turned about x by the obliquity, 23.4392911°. A reader turns it into its own axes.
 - **What it isn't:** each direction is where Gaia saw the star at its epoch, J2016.0, with no proper motion applied, and it doesn't move with the clock. The sample's brightest star is G 1.73 (150 are under G 3, 6,764 under 6, 62,723 under 8), so the sky's very brightest stars, Sirius among them, aren't drawn.
@@ -157,10 +158,12 @@ From the repo root:
 
 ```
 node apps/kirkwood/data/fetch.ts [--refresh] [--page-size 100000]   # the catalog into data/raw/asteroids/ (~3 min, once)
-node --max-old-space-size=12000 apps/kirkwood/data/survey.ts [<tycho's data/raw/asteroids>]   # the numbers above as JSON; with Tycho's raw pages, the sample against the fetch
+node --max-old-space-size=12000 apps/kirkwood/data/survey.ts   # the numbers above as JSON
 node --max-old-space-size=12000 apps/kirkwood/data/prep.ts [--check] [--sizes]   # data/elements.bin, data/rows.bin, data/MANIFEST.json, data/fixture.json (~1.5 min); --check: builds again, fails unless the bytes are the manifest's and the fixture is the same, writes nothing; --sizes: each file and section raw and at brotli 11, each of the elements' columns alone, and the elements file at other block sizes (~4 min more)
-npm install --prefix apps/kirkwood/data   # native DuckDB, which only stars.ts needs
-node apps/kirkwood/data/stars.ts <gaia-dr3-bright.parquet> [--check]   # data/stars.bin and its entry in data/MANIFEST.json, from Tycho's Gaia sample (seconds); --check: builds again, fails unless the bytes are the manifest's, writes nothing
+just kirkwood gaia [--check] [--refresh] [--jobs 8] [--cut 14.5]   # native DuckDB installed, then the two below in turn; --check goes to both
+npm install --prefix apps/kirkwood/data   # native DuckDB, which only gaia.ts and stars.ts need
+node apps/kirkwood/data/gaia.ts [--check] [--refresh] [--jobs 8] [--cut 14.5]   # data/gaia-dr3-bright.parquet and its entry in data/MANIFEST.json, from the extracts in data/raw/gaia/ (fetching what's missing: ~90 GB the first time); --check: builds again, fails unless the bytes are the manifest's, keeps nothing
+node apps/kirkwood/data/stars.ts [<gaia-dr3-bright.parquet>] [--check]   # data/stars.bin and its entry in data/MANIFEST.json, from the Gaia sample (seconds); --check: builds again, fails unless the bytes are the manifest's, writes nothing
 node --max-old-space-size=12000 apps/kirkwood/data/precision.ts [--only error,bytes]   # the elements file's precision, weighed: each way of storing the elements, its error against 64-bit floats and its bytes (~7 min; DECISIONS.md, "Data")
 node apps/kirkwood/data/horizons.ts   # data/horizons.json again from JPL Horizons (7 requests; a refetch changes the pinned reference, so not without a reason)
 node apps/kirkwood/data/places.ts [--date 2026-06-09] [--only bodies,jupiter,trojans,hildas]   # the built files' places against Horizons', and the Trojans and Hildas against Jupiter (a few seconds; DECISIONS.md, "Scene")

@@ -35,7 +35,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | `crate/` | The engine and the interface (`host.rs`), and what passes to and from the scene | `crate/CLAUDE.md` |
 | `web/` | The host and the scene: the files' arrival, Three.js, the camera, the look, the sky | `web/CLAUDE.md` |
 | `checks/` | `see.ts`, what the release build shows, and the gotchas of writing a check | `checks/CLAUDE.md` |
-| `data/` | The fetch, the three files and their manifest, the places against Horizons | `data/CLAUDE.md` |
+| `data/` | The fetches (the asteroids, the Gaia sample), the three files and their manifest, the places against Horizons | `data/CLAUDE.md` |
 | `worker/` | The Worker under `/kirkwood/` on Tycho's hostname, its bucket, and the build behind it locally | `worker/CLAUDE.md` |
 
 ## When something outside a folder changes it
@@ -74,5 +74,6 @@ just kirkwood deploy | deployed       # deploy to tycho.seiza.io/kirkwood and ch
 just kirkwood test                    # native tests, the real files' among them (crate), then the Worker's (worker)
 just kirkwood see [flags]             # what the release build shows, in headless Chromium; run `build` first (checks)
 just kirkwood lint     # check-terms, fmt, clippy (wasm32 and native), tsc (the host, the checks, the data's scripts, the Worker)
-node apps/kirkwood/data/<script>.ts   # fetch, prep, stars, places (data; every command in docs/data.md)
+just kirkwood gaia [--check]          # the Gaia sample, then the sky from it (data)
+node apps/kirkwood/data/<script>.ts   # fetch, prep, places (data; every command in docs/data.md)
 ```

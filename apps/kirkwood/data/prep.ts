@@ -343,9 +343,10 @@ const manifest = {
     ],
   },
 };
-// The sky's file is stars.ts's, built from another source: its entry is kept as it is.
-const sky = existsSync(manifestPath) ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>)['stars.bin'] : undefined;
-const manifestText = `${JSON.stringify({ ...manifest, ...(sky ? { 'stars.bin': sky } : {}) }, null, 2)}\n`;
+// Every other entry is another script's (the sky's is stars.ts's, the Gaia
+// sample's gaia.ts's), built from another source: each is kept as it is.
+const others = Object.entries(existsSync(manifestPath) ? (JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>) : {}).filter(([name]) => !(name in manifest));
+const manifestText = `${JSON.stringify({ ...manifest, ...Object.fromEntries(others) }, null, 2)}\n`;
 const fixtureText = fixture(catalog);
 const files = [['elements.bin', elements], ['rows.bin', rowsBuilt]] as const;
 

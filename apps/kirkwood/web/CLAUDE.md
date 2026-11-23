@@ -99,7 +99,7 @@ Four of the crate's gotchas have a half here (`crate/CLAUDE.md`): `RIDE_LIGHT` c
     public/phone/   #   that page's pictures of the app (`see --only stills`)
     src/alpha.ts    #   GPUI's canvas composited by its alpha
     src/base.ts     #   the app's base path, read by the Vite config, the Worker, and the checks
-    vite.config.ts  #   the base; the preloads' media, a phone's page asking for neither; the three files served at data/ under it from data/, in dev and preview; at brotli 11 when `KIRKWOOD_DATA=br` (the slow-link check)
+    vite.config.ts  #   the base; the manifest the page imports, cut to the served files' bytes; the preloads' media, a phone's page asking for neither; the three files served at data/ under it from data/, in dev and preview; at brotli 11 when `KIRKWOOD_DATA=br` (the slow-link check)
 ```
 
 ## Commands

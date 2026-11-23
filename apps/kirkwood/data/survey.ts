@@ -1,18 +1,15 @@
 // What the fetch holds, in numbers: the orbit fields' gaps, their frame, the
 // epochs' spread, and how JPL's own mean motion and mean anomaly sit against
-// the ones computed from a, the epoch, and the perihelion passage. With the
-// raw pages of Tycho's asteroid sample, also how the two differ: the rows the
-// fetch no longer has under their key, the new ones, and how far a, e, and i
-// moved past what the sample's rounding explains.
+// the ones computed from a, the epoch, and the perihelion passage.
 //
-// Usage: node apps/kirkwood/data/survey.ts [<tycho's data/raw/asteroids>]
+// Usage: node --max-old-space-size=12000 apps/kirkwood/data/survey.ts
 //
 // Prints one JSON object. Its numbers are the ones docs/data.md and
 // docs/DECISIONS.md ("Data") quote.
 
 import { readFileSync } from 'node:fs';
 import { number, readRows, type Cell } from './catalog.ts';
-import { FIELDS, SAMPLE_FIELDS, fetchInfoPath, rawDir, type FetchInfo } from './fetch.ts';
+import { FIELDS, fetchInfoPath, rawDir, type FetchInfo } from './fetch.ts';
 
 const quantiles = (values: number[], at: number[]): number[] => {
   // Only the numbers: a row without the value has no place in its spread. A quantile of 1 is the largest.
@@ -158,94 +155,5 @@ const report: Record<string, unknown> = {
     periodRelative: { rows: periodOff.filter(Number.isFinite).length, ...Object.fromEntries(quantiles(periodOff, [0.5, 0.99, 1]).map((value, index) => [['p50', 'p99', 'max'][index], value])) },
   },
 };
-
-// --- Against Tycho's sample.
-const sampleDir = process.argv[2];
-if (sampleDir) {
-  const sample = readRows(sampleDir, SAMPLE_FIELDS);
-  // A provisional object that was numbered since has a new spkid; its old
-  // designation stays in the new full name's parentheses.
-  const byDesignation = new Map<string, number>();
-  for (const [spkid, row] of rows) {
-    const inside = /\(([^)]+)\)\s*$/.exec(String(row[at('full_name')]))?.[1];
-    if (inside) byDesignation.set(inside, spkid);
-    byDesignation.set(String(row[at('pdes')]), spkid);
-  }
-  let gone = 0;
-  let rekeyed = 0;
-  const goneExamples: Cell[][] = [];
-  for (const [spkid, row] of sample) {
-    if (rows.has(spkid)) continue;
-    gone++;
-    if (byDesignation.has(String(row[2]))) rekeyed++;
-    else if (goneExamples.length < 5) goneExamples.push(row.slice(0, 3));
-  }
-  let added = 0;
-  for (const spkid of rows.keys()) if (!sample.has(spkid)) added++;
-
-  // How the API rounds for display, found by trying each rule on every row
-  // of the sample against the fetch (the rule below reproduces the sample's
-  // text on all but the rows counted as moved): a to 4 significant digits
-  // with trailing zeros dropped, so its printed digits don't say; e to 4
-  // decimals; i and H to 2; the diameter and the albedo to 3. A value has
-  // moved when the fetch's is farther from the sample's than half the last
-  // digit the rule keeps, by more than a tie's rounding either way.
-  const halfDigit = (name: string, before: number, after: number): number => {
-    const decimals = { e: 4, i: 2, H: 2, diameter: 3, albedo: 3 }[name];
-    if (decimals !== undefined) return 0.5 * 10 ** -decimals;
-    const size = Math.max(Math.abs(before), Math.abs(after));
-    return 0.5 * 10 ** (Math.floor(Math.log10(size)) - 3);
-  };
-  const hasMoved = (name: string, before: number, after: number): boolean => Math.abs(after - before) > halfDigit(name, before, after) * (1 + 1e-6);
-  const moved: Record<string, unknown> = {};
-  const movedRow = new Set<number>();
-  for (const name of ['a', 'e', 'i'] as const) {
-    const past: number[] = [];
-    let compared = 0;
-    for (const [spkid, old] of sample) {
-      const now = rows.get(spkid);
-      if (!now) continue;
-      const [before, after] = [number(old[at(name)]), number(now[at(name)])];
-      if (!Number.isFinite(before) || !Number.isFinite(after)) continue;
-      compared++;
-      const off = Math.abs(after - before);
-      if (hasMoved(name, before, after)) {
-        past.push(off);
-        movedRow.add(spkid);
-      }
-    }
-    moved[name] = {
-      compared,
-      moved: past.length,
-      by: Object.fromEntries(quantiles(past, [0.5, 0.9, 0.99, 1]).map((value, index) => [['p50', 'p90', 'p99', 'max'][index], value])),
-    };
-  }
-  const changed: Record<string, number> = {};
-  for (const name of ['full_name', 'pdes', 'name', 'neo', 'pha', 'class', 'H', 'diameter', 'albedo', 'first_obs', 'last_obs', 'n_obs_used']) {
-    let differs = 0;
-    for (const [spkid, old] of sample) {
-      const now = rows.get(spkid);
-      if (!now) continue;
-      const [before, after] = [old[at(name)], now[at(name)]];
-      const same = ['H', 'diameter', 'albedo'].includes(name)
-        ? before == null || after == null
-          ? before == null && after == null
-          : !hasMoved(name, number(before), number(after))
-        : String(before).trim() === String(after).trim();
-      if (!same) differs++;
-    }
-    changed[name] = differs;
-  }
-  let joined = 0;
-  for (const spkid of sample.keys()) if (rows.has(spkid)) joined++;
-  report.sample = {
-    rows: sample.size,
-    joined,
-    gone: { rows: gone, numberedSince: rekeyed, unexplained: gone - rekeyed, examples: goneExamples },
-    newInFetch: added,
-    moved: { ...moved, rowsWithAnyMoved: movedRow.size },
-    otherColumnsChanged: changed,
-  };
-}
 
 console.log(JSON.stringify(report, null, 2));

@@ -43,7 +43,6 @@ These rules are triggered by a change in one place but apply in another, which n
 - **A change to a component's paging numbers or cell text, or to an engine's page SQL,** changes what both of the observatory's contenders must match: read `.claude/rules/comparison-protocol.md` first, and run `just observatory fixtures` after.
 - **A bump of gpui-kit, React, TanStack Virtual, Arrow, DuckDB-Wasm, or Chromium** re-measures the observatory's scenarios it touches or labels their numbers with the versions they came from, decided per bump (`.claude/rules/comparison-protocol.md`).
 - **A change to how the tall table paints with `tokens.background`** (`components/tall-table/src/paint.rs`, `text_over`) is read against Kirkwood's transparent background (`apps/kirkwood/crate/CLAUDE.md`, "The transparent `tokens.background`").
-- **A new Gaia sample in Tycho** (`just tycho data gaia`) is a new `apps/kirkwood/data/stars.bin`: build it again with Kirkwood's `data/stars.ts` (`apps/kirkwood/data/CLAUDE.md`).
 
 ## Tiers
 

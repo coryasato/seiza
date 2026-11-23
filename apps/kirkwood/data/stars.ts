@@ -1,5 +1,5 @@
-// Builds the sky's file, data/stars.bin (gitignored), from Tycho's Gaia
-// sample: its stars brighter than G 10.5, each as a direction, a brightness,
+// Builds the sky's file, data/stars.bin (gitignored), from the Gaia sample
+// gaia.ts builds: its stars brighter than G 10.5, each as a direction, a brightness,
 // and a tint. data/MANIFEST.json (committed) pins it by its bytes, beside
 // the two files prep.ts builds, with the sample it was read from and the
 // credit. Its layout, and how to read it: docs/data.md.
@@ -7,16 +7,16 @@
 // The stars aren't rows of the asteroid table: they're the scene's backdrop
 // (docs/DECISIONS.md, "Look").
 //
-// Usage: node apps/kirkwood/data/stars.ts <gaia-dr3-bright.parquet> [--check]
+// Usage: node apps/kirkwood/data/stars.ts [<gaia-dr3-bright.parquet>] [--check]
 //
 //   (nothing)  writes the file and its entry in the manifest
 //   --check    builds it again and fails unless its bytes are the manifest's
 //              and the disk's; writes nothing
 //
-// The sample is Tycho's (`just tycho data gaia` builds it), and must be the
-// file Tycho's own manifest pins, which is read from beside it. Reading
-// Parquet needs native DuckDB, this directory's one dependency, installed
-// apart: npm install --prefix apps/kirkwood/data
+// The sample is data/gaia-dr3-bright.parquet unless another path is given
+// (`just kirkwood gaia` builds it), and must be the file pinned by the
+// manifest beside it. Reading Parquet needs native DuckDB, this directory's
+// one dependency, installed apart: npm install --prefix apps/kirkwood/data
 
 import { createHash } from 'node:crypto';
 import { createReadStream, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -38,8 +38,7 @@ const manifestPath = join(dataDir, 'MANIFEST.json');
 const starsPath = join(dataDir, 'stars.bin');
 
 const check = process.argv.includes('--check');
-const sample = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
-if (!sample) throw new Error('usage: node stars.ts <gaia-dr3-bright.parquet> [--check]');
+const sample = process.argv.slice(2).find((arg) => !arg.startsWith('--')) ?? join(dataDir, 'gaia-dr3-bright.parquet');
 
 const sha256 = (bytes: Buffer) => createHash('sha256').update(bytes).digest('hex');
 async function sha256Of(path: string): Promise<string> {
@@ -48,7 +47,7 @@ async function sha256Of(path: string): Promise<string> {
   return hash.digest('hex');
 }
 
-// The sample is the one Tycho's manifest pins.
+// The sample is the one the manifest beside it pins.
 type Pinned = { rows: number; bytes: number; sha256: string; source: string; fetched: string };
 const pinned = (JSON.parse(readFileSync(join(dirname(sample), 'MANIFEST.json'), 'utf8')) as Record<string, Pinned | undefined>)[basename(sample)];
 if (!pinned) throw new Error(`the manifest beside ${basename(sample)} doesn't name it`);
@@ -57,7 +56,7 @@ const sampleSha = await sha256Of(sample);
 if (sampleSha !== pinned.sha256) throw new Error(`${basename(sample)} isn't the file its manifest pins (sha256 ${sampleSha})`);
 
 // Native DuckDB, named by a string so the data's typecheck doesn't need it
-// installed: only this script reads Parquet.
+// installed: only this script and gaia.ts read Parquet.
 interface DuckDB {
   DuckDBInstance: { create(path: string): Promise<{ connect(): Promise<{ runAndReadAll(sql: string): Promise<{ getColumns(): unknown[][] }> }> }> };
 }
@@ -102,7 +101,7 @@ for (let star = 0; star < stars; star++) {
 const under = (limit: number) => g.filter((magnitude) => magnitude < limit).length;
 const entry = {
   stars,
-  source: `Gaia DR3 gaia_source (${pinned.source}), through Tycho's sample ${basename(sample)}`,
+  source: `Gaia DR3 gaia_source (${pinned.source}), through the sample ${basename(sample)}`,
   sample: { rows: pinned.rows, bytes: pinned.bytes, sha256: pinned.sha256 },
   fetched: pinned.fetched,
   cut: `phot_g_mean_mag < ${CUT}`,

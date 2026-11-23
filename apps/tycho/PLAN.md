@@ -79,12 +79,12 @@ Touches no data.
 
 ### Between A and B: Kirkwood takes the Gaia fetch
 
-A Kirkwood session, in [its PLAN](../kirkwood/PLAN.md) ("Open questions"): the Gaia fetch, prep, and manifest entry move to `apps/kirkwood/data/`. Part B deletes them here, so it doesn't start until that session has run.
+A Kirkwood session: the Gaia fetch, prep, and manifest entry move to `apps/kirkwood/data/`. Part B deletes them here, so it doesn't start until that session has run. *Done 2026-11-23:* `just kirkwood gaia` builds the sample from Kirkwood's own extracts, byte for byte the pinned file, and `stars.bin` is unchanged (Kirkwood's `docs/DECISIONS.md`, "Data"). The Parquet file and `raw/gaia/` were cloned into Kirkwood, so Tycho's copies and its Gaia scripts and manifest entries are still here for B2 to delete; until then `just tycho data gaia` works as before.
 
 ### Part B: the old samples out
 
 - [ ] **B1. The asteroids are the observatory's:** the asteroid fetch, prep, and manifest entry move to `apps/observatory/data/`, where `prep.ts` reads its own folder. `just observatory data` passes and the file it builds has the hash it had, so the comparison's data is unchanged. The observatory's `data/CLAUDE.md` follows.
-- [ ] **B2. Gaia and the asteroids are out of Tycho:** their buttons, the code only they used, their scripts and manifest entries in `data/`, and their `just tycho data` recipes. The test files stay.
+- [ ] **B2. Gaia and the asteroids are out of Tycho:** their buttons, the code only they used, their scripts and manifest entries in `data/` (the `bench/` entries too), and their `just tycho data` recipes. The files built from them go too, with the owner's OK for each deletion: `gaia-dr3-bright.parquet` and `raw/gaia/` (3.4 GB; Kirkwood has its own copies, which APFS clones share until one changes, so this frees little). The test files stay.
 - [ ] **B3. Locally, the bucket holds DuckDB-Wasm's two wasm bundles and nothing else** (`docs/DECISIONS.md`, "Hosting", 2026-11-21): the Worker's data path, the deploy's upload, and the local R2 that `just tycho data` fills are cut down to what the bundles need. Not deployed.
 - [ ] **B4. The folders' `CLAUDE.md` files follow** (`data/`, `worker/`, `web/`, `crate/`), and `just tycho check` and the smoke check pass.
 
