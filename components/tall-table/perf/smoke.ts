@@ -114,6 +114,19 @@
 // selecting its range; with `select`, a right press inside a block
 // keeping it and outside selecting its cell; in Chromium, a long press
 // by touch (CDP's touch events) a `Context`, its tap dropped. Built with
+// `clicks`, `sort`, `resize`, and `header-icon`, it runs the narrow shape
+// twice more, by touch: with the host's `?header-tap` (the table's
+// `set_header_tap_is_press`), each as touch `PointerEvent`s the page's
+// script makes, in every browser: a tap on an arrow a `press` on its
+// column, the sort unchanged; a tap on a band a `press` on the header
+// under it, the widths unchanged; a tap on an icon the icon's press and no
+// `press`; a cell's long press a `Context`, its tap dropped; an arrow's
+// long press a `Context` on its column; a pan up in the body the view
+// moved, nothing reported; then the arrow's tap by Playwright's real tap
+// (a context with `hasTouch`) in every browser, and in Chromium the
+// arrow's long press and the pan by CDP's touch events; without
+// `?header-tap` (the control), a made-up tap on the arrow sorts and a real
+// tap sorts again, each pointerdown of type touch. Built with
 // `group-headers`, every run is at the host's default groups (two levels;
 // the reorder runs at `?groups=0`, since a drag is held to its group), and
 // it runs both shapes again: the header's rows, and the group cells
@@ -201,7 +214,12 @@
 // (`referenceScreens`) and keeps them under this tree's commit; with
 // `--screens <commit>`, it compares them with that commit's.
 //
-// Usage: node components/tall-table/perf/smoke.ts [--browsers chromium,firefox,webkit] [--screens save|<commit>]
+// With `--only <text>`, it runs only the runs whose label (`<browser>
+// <shape> …`, as printed) contains the text, for a part's quick look, and
+// fails if none does; a check runs them all. Not with `--screens`, whose
+// set is whole.
+//
+// Usage: node components/tall-table/perf/smoke.ts [--browsers chromium,firefox,webkit] [--only <text>] [--screens save|<commit>]
 // Run `just tall-table build [features]` first (with `density` or `format`,
 // a smoke run of the base build first, in the same browsers, for its
 // screens).
@@ -246,6 +264,8 @@ const hide = builtFeatures().includes('hide');
 const find = builtFeatures().includes('find');
 const popover = builtFeatures().includes('popover');
 const headerIcon = builtFeatures().includes('header-icon');
+/** The touch runs need every header target a finger meets. */
+const tapping = clicks && sort && resize && headerIcon;
 /** The popover runs' button label and long text (`?popover=`,
  *  `?popover-long=`): under the cap, longer than the popover shows. */
 const POPOVER_LABEL = 'Open row';
@@ -2829,6 +2849,194 @@ async function checkClicks(page: Page, label: string, opened: Layout, opening: S
   return `, ${notes.join('; ')}`;
 }
 
+/** A made-up touch's pointer id: each touch its own. */
+let touchId = 100;
+
+/** A touch the page's script makes, as touch `PointerEvent`s dispatched on
+ *  the canvas (gpui-pre-web reads their type and position, nothing that
+ *  needs a trusted event): a tap, a hold of `LONG_PRESS_MS`, or a pan to
+ *  `to` in 12 moves 16 ms apart. */
+async function madeTouch(page: Page, kind: 'tap' | 'hold' | 'pan', at: { x: number; y: number }, to = at): Promise<void> {
+  await page.evaluate(
+    async ({ kind, at, to, hold, id }) => {
+      const canvas = document.querySelector('canvas')!;
+      const send = (type: string, x: number, y: number) =>
+        canvas.dispatchEvent(new PointerEvent(type, { pointerType: 'touch', pointerId: id, isPrimary: true, bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, button: type === 'pointermove' ? -1 : 0, buttons: type === 'pointerup' ? 0 : 1, width: 1, height: 1, pressure: type === 'pointerup' ? 0 : 0.5 }));
+      const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
+      send('pointerdown', at.x, at.y);
+      if (kind === 'hold') await sleep(hold);
+      if (kind === 'pan') {
+        for (let step = 1; step <= 12; step++) {
+          await sleep(16);
+          send('pointermove', at.x + ((to.x - at.x) * step) / 12, at.y + ((to.y - at.y) * step) / 12);
+        }
+      }
+      send('pointerup', to.x, to.y);
+    },
+    { kind, at, to, hold: LONG_PRESS_MS, id: touchId++ },
+  );
+}
+
+/** A touch step waits out the last pan's momentum: a touch that lands on a
+ *  running fling catches it and is never a tap or a long press. */
+const MOMENTUM_MS = 3_000;
+
+/** The touch runs (`?header-tap`, or without it the control): the table's
+ *  answer to a finger on each header target, a cell, and the body. */
+async function checkHeaderTap(page: Page, label: string, layout: Layout, start: Shown, on: boolean, chromiumPage: boolean): Promise<string> {
+  const notes: string[] = [];
+  const view = start;
+  // The first column in full view with an arrow, a band, and an icon.
+  const place = layout.columns.findIndex((column, at) => column.arrow && column.icon && screenLeft(layout, at, view.scrollX) + column.width + 10 < layout.cellsWidth);
+  if (place < 0) return failed(`${label}: no column in view with an arrow and an icon`) ?? '';
+  const arrow = arrowAt(layout, place, view.scrollX)!;
+  const sortNow = async () => (await shown(page)).shown.sort ?? null;
+  if (!on) {
+    // The control: a finger's tap on the arrow sorts.
+    await madeTouch(page, 'tap', arrow);
+    const sorted = await page
+      .waitForFunction(() => !!(globalThis as { __tallTable?: Shown }).__tallTable?.sort, null, { timeout: 10_000, polling: 10 })
+      .then(() => true)
+      .catch(() => false);
+    if (!sorted) return failed(`${label}: without the setting, a tap on column ${place}'s arrow sorted nothing`) ?? '';
+    const madeUp = await sortNow();
+    // Playwright's real tap, a trusted touch: the next step of the cycle.
+    await page.waitForTimeout(APART_MS);
+    await page.touchscreen.tap(arrow.x, arrow.y);
+    const next = await page
+      .waitForFunction((was) => JSON.stringify((globalThis as { __tallTable?: Shown }).__tallTable?.sort ?? null) !== was, JSON.stringify(madeUp), { timeout: 10_000, polling: 10 })
+      .then(() => true)
+      .catch(() => false);
+    if (!next) return failed(`${label}: without the setting, a real tap on column ${place}'s arrow didn't sort again (still ${JSON.stringify(madeUp)})`) ?? '';
+    const types = (await pointersSeen(page)).map(({ type }) => type);
+    if (types.length !== 2 || types.some((type) => type !== 'touch')) failed(`${label}: pointerdowns ${JSON.stringify(types)}, not two of type touch`);
+    return `, without the setting a made-up tap on column ${place}'s arrow sorted ${JSON.stringify(madeUp)}, a real tap ${JSON.stringify(await sortNow())} (pointerdowns: ${JSON.stringify(types)})`;
+  }
+  type Want = Pick<Click, 'kind' | 'target' | 'row' | 'column'>;
+  const header: Want = { kind: 'press', target: 'column', row: null, column: place };
+  /** The next report after `count`: `want` at `at`. */
+  const expect = async (what: string, count: number, want: Want, at: { x: number; y: number }): Promise<boolean> => {
+    const click = await clickAfter(page, count);
+    if (!click) return !!failed(`${label}: ${what}: nothing reported`);
+    const off = Math.max(Math.abs(click.x - at.x), Math.abs(click.y - at.y));
+    if (click.count !== count + 1 || click.kind !== want.kind || click.target !== want.target || click.row !== want.row || click.column !== want.column || off > 1)
+      return !!failed(`${label}: ${what}: reported ${JSON.stringify(click)}, not ${JSON.stringify(want)} at (${at.x.toFixed(1)}, ${at.y.toFixed(1)})`);
+    return true;
+  };
+  const quiet = async (what: string, count: number): Promise<boolean> => {
+    const click = await clickAfter(page, count, QUIET_MS);
+    if (click) failed(`${label}: ${what}: reported ${JSON.stringify(click)}`);
+    return !click;
+  };
+  const unsorted = async (what: string): Promise<boolean> => {
+    const sort = await sortNow();
+    if (sort) failed(`${label}: ${what}: sorted ${JSON.stringify(sort)}`);
+    return !sort;
+  };
+  const widths = (laid: Layout) => JSON.stringify(laid.columns.map(({ width }) => width));
+  const done: string[] = [];
+
+  // A tap on the arrow: its header's press, nothing sorted.
+  {
+    const count = await clickCount(page);
+    await madeTouch(page, 'tap', arrow);
+    if ((await expect("a tap on the arrow", count, header, arrow)) && (await quiet("a tap on the arrow, after its press", count + 1)) && (await unsorted('a tap on the arrow'))) done.push('a tap on the arrow its column\'s press, unsorted');
+    await page.waitForTimeout(APART_MS);
+  }
+  // A tap on the band's left half: the press of the header under it.
+  {
+    const band = bandAt(layout, place, view.scrollX);
+    const at = { x: band.x - 3, y: band.y };
+    const before = widths((await shown(page)).layout);
+    const count = await clickCount(page);
+    await madeTouch(page, 'tap', at);
+    const pressed = await expect('a tap on the band', count, header, at);
+    await page.waitForTimeout(QUIET_MS);
+    const after = widths((await shown(page)).layout);
+    if (after !== before) failed(`${label}: a tap on the band changed the widths: ${before} → ${after}`);
+    else if (pressed) done.push("a tap on the band its header's press, the widths unchanged");
+    await page.waitForTimeout(APART_MS);
+  }
+  // A tap on the icon: the icon's press, and no `press`.
+  {
+    const { icon } = layout.columns[place]!;
+    const at = { x: layout.left + screenLeft(layout, place, view.scrollX) + icon!.x + icon!.width / 2, y: layout.top - layout.rowHeight / 2 };
+    const [count, icons] = [await clickCount(page), await iconPressCount(page)];
+    await madeTouch(page, 'tap', at);
+    const press = await iconPressAfter(page, icons);
+    if (!press || press.column !== place) failed(`${label}: a tap on the icon: its press ${JSON.stringify(press)}, not column ${place}'s`);
+    else if (await quiet('a tap on the icon', count)) done.push("a tap on the icon the icon's press alone");
+    await page.waitForTimeout(APART_MS);
+  }
+  // A cell's long press: `Context` at its start, its tap dropped.
+  {
+    const at = cellAt(layout, view, view.first + 5, place);
+    const count = await clickCount(page);
+    await madeTouch(page, 'hold', at);
+    if ((await expect("a cell's long press", count, { kind: 'context', target: 'cell', row: view.first + 5, column: place }, at)) && (await quiet("a cell's long press's tap", count + 1))) done.push("a cell's long press its context press, the tap dropped");
+    await page.waitForTimeout(APART_MS);
+  }
+  // The arrow's long press: its header's `Context`.
+  {
+    const count = await clickCount(page);
+    await madeTouch(page, 'hold', arrow);
+    if ((await expect("the arrow's long press", count, { ...header, kind: 'context' }, arrow)) && (await quiet("the arrow's long press's tap", count + 1)) && (await unsorted("the arrow's long press"))) done.push("the arrow's long press its column's context press");
+    await page.waitForTimeout(APART_MS);
+  }
+  // A pan up in the body: the view moved, nothing reported.
+  {
+    const from = cellAt(layout, view, view.first + 10, place);
+    const to = { x: from.x, y: from.y - 200 };
+    const [count, top] = [await clickCount(page), (await shown(page)).shown.top];
+    await madeTouch(page, 'pan', from, to);
+    await page.waitForTimeout(MOMENTUM_MS);
+    const moved = (await shown(page)).shown.top;
+    if (!(moved > top)) failed(`${label}: a pan up in the body didn't move the view (top ${top} → ${moved})`);
+    else if (await quiet('a pan in the body', count)) done.push(`a pan up in the body the view moved (top ${top.toFixed(1)} → ${moved.toFixed(1)}), nothing reported`);
+  }
+  notes.push(`made-up touches: ${done.join('; ')}`);
+
+  // Playwright's real tap on the arrow, in every browser: a trusted touch.
+  {
+    const { layout: now, shown: at } = await shown(page);
+    const real = arrowAt(now, place, at.scrollX)!;
+    const count = await clickCount(page);
+    await page.touchscreen.tap(real.x, real.y);
+    if ((await expect("a real tap on the arrow", count, header, real)) && (await unsorted('a real tap on the arrow'))) notes.push("a real tap on the arrow its column's press, unsorted");
+    await page.waitForTimeout(APART_MS);
+  }
+  // Chromium's CDP touches: the arrow's long press, and a pan.
+  if (chromiumPage) {
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', points: { x: number; y: number }[]) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points });
+    const { layout: now, shown: here } = await shown(page);
+    const real = arrowAt(now, place, here.scrollX)!;
+    let count = await clickCount(page);
+    await touch('touchStart', [real]);
+    await page.waitForTimeout(LONG_PRESS_MS);
+    await touch('touchEnd', []);
+    const held = (await expect("CDP's long press on the arrow", count, { ...header, kind: 'context' }, real)) && (await quiet("CDP's long press's tap", count + 1)) && (await unsorted("CDP's long press on the arrow"));
+    await page.waitForTimeout(APART_MS);
+    const from = cellAt(now, here, here.first + 10, place);
+    const top = here.top;
+    count = await clickCount(page);
+    await touch('touchStart', [from]);
+    for (let step = 1; step <= 12; step++) {
+      await page.waitForTimeout(16);
+      await touch('touchMove', [{ x: from.x, y: from.y - (200 * step) / 12 }]);
+    }
+    await touch('touchEnd', []);
+    await page.waitForTimeout(MOMENTUM_MS);
+    const moved = (await shown(page)).shown.top;
+    if (!(moved > top)) failed(`${label}: CDP's pan up didn't move the view (top ${top} → ${moved})`);
+    else if (held && (await quiet("CDP's pan", count))) notes.push(`CDP's long press on the arrow its column's context press; its pan moved the view (top ${top.toFixed(1)} → ${moved.toFixed(1)}), nothing reported`);
+    await cdp.detach();
+  } else notes.push('no CDP touches (Chromium only)');
+  const types = (await pointersSeen(page)).map(({ type }) => type);
+  if (types.some((type) => type !== 'touch')) failed(`${label}: pointerdowns of type ${JSON.stringify([...new Set(types)])}, not touch alone`);
+  return `, column ${place}: ${notes.join('; ')}`;
+}
+
 /** The sideways room `checkPin` narrows the viewport for, where it has
  *  less. */
 const PIN_ROOM_PX = 150;
@@ -3052,6 +3260,7 @@ async function referenceScreens(against: string | null): Promise<void> {
 
 const failures: string[] = [];
 const browsers = (option('browsers') ?? 'chromium,firefox,webkit').split(',');
+const only = option('only');
 const server = await serveApp(undefined, { webDir: hostWebDir, port: PORT });
 // `--screens` needs its value: alone or before another flag, it's refused
 // rather than read as missing (the full run) or as a commit.
@@ -3062,6 +3271,15 @@ if (screensGiven && (screensOption === undefined || screensOption.startsWith('--
   await server.close();
   process.exit(1);
 }
+// The reference screens are a whole set: `--only` would save or compare a
+// part of one.
+if (screensGiven && only !== undefined) {
+  console.error('FAIL\n  --only runs a part of the check, never of the reference screens');
+  await server.close();
+  process.exit(1);
+}
+/** The runs `--only` let through: none is a failure, not an empty pass. */
+let ran = 0;
 if (screensOption !== undefined) {
   try {
     await referenceScreens(screensOption === 'save' ? null : screensOption);
@@ -3086,7 +3304,7 @@ try {
       failures.push(`unknown browser ${name}`);
       continue;
     }
-    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false, popping: false, setting: undefined as 'stripe' | 'fill' | undefined, iconing: false };
+    const quiet = { cells: undefined as CellStyle | undefined, feed: false, flash: false, tail: false, resizing: false, selecting: false, copying: undefined as CopyRun | undefined, sorting: undefined as SortRun | undefined, pinning: false, densities: undefined as DensityRun | undefined, formatting: undefined as FormatRun | undefined, reordering: undefined as ReorderRun | undefined, clicking: false, grouping: false, replacing: false, hiding: false, finding: false, popping: false, setting: undefined as 'stripe' | 'fill' | undefined, iconing: false, touching: undefined as 'on' | 'off' | undefined };
     const runs = SHAPES.flatMap((shape) => [{ ...quiet, shape }, ...painted.map((cells) => ({ ...quiet, shape, cells }))]);
     if (live) runs.push({ ...quiet, shape: 'narrow', feed: true });
     if (flashing) runs.push({ ...quiet, shape: 'narrow', feed: true, flash: true });
@@ -3116,10 +3334,13 @@ try {
     // Its settings, over a striped row and (`custom-cells`) over a fill.
     if (popover) runs.push(...SHAPES.flatMap((shape) => (painted.length ? (['stripe', 'fill'] as const) : (['stripe'] as const)).map((setting) => ({ ...quiet, shape, setting }))));
     if (headerIcon) runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, iconing: true })));
+    if (tapping) runs.push(...(['on', 'off'] as const).map((touching) => ({ ...quiet, shape: 'narrow' as const, touching })));
     // In every build: the base's `replace_rows`.
     runs.push(...SHAPES.map((shape) => ({ ...quiet, shape, replacing: true })));
-    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding, popping, setting, iconing } of runs) {
-      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}${popping ? ' popover' : ''}${setting ? ` popover settings ${setting}` : ''}${iconing ? ' icons' : ''}`;
+    for (const { shape, cells, feed, flash, tail, resizing, selecting, copying, sorting, pinning, densities, formatting, reordering, clicking, grouping, replacing, hiding, finding, popping, setting, iconing, touching } of runs) {
+      const label = `${name} ${shape}${cells ? ` ${cells}` : ''}${feed ? ` live=${LIVE_RATE}` : ''}${flash ? ' flash' : ''}${tail ? ` append=${TAIL_RATE}` : ''}${resizing ? ' resize' : ''}${selecting ? ' select' : ''}${copying ? ` copy ${copying}` : ''}${sorting ? ` sort ${sorting}` : ''}${pinning ? ' pin' : ''}${densities ? ` density ${densities}` : ''}${formatting ? ` format ${formatting}` : ''}${reordering ? ` reorder ${reordering}` : ''}${clicking ? ' clicks' : ''}${grouping ? ' groups' : ''}${replacing ? ' replace' : ''}${hiding ? ' hide' : ''}${finding ? ' find' : ''}${popping ? ' popover' : ''}${setting ? ` popover settings ${setting}` : ''}${iconing ? ' icons' : ''}${touching ? ` touch ${touching === 'on' ? 'header-tap' : 'control'}` : ''}`;
+      if (only !== undefined && !label.includes(only)) continue;
+      ran++;
       const params: Record<string, string> = { shape };
       if (densities === 'control') params.density = '30,14';
       // The format runs: the cells probed, at the base's 14 px text (the
@@ -3134,6 +3355,7 @@ try {
       if (popping) Object.assign(params, { popover: POPOVER_LABEL, 'popover-long': String(POPOVER_LONG) });
       // The settings runs read the fade's lengths at the base's 14 px text.
       if (setting) Object.assign(params, { popover: POPOVER_LABEL, 'popover-long': String(POPOVER_LONG), 'popover-cells': 'cut', 'popover-fade': '', 'popover-icons': '', 'popover-fill': '', ...(setting === 'fill' ? { cells: 'heat' } : {}), ...(density ? { density: '30,14' } : {}) });
+      if (touching === 'on') params['header-tap'] = '';
       if (reordering === 'reverse') params.order = 'reverse';
       // A drag is held to its group (`group-headers`): the reorder runs'
       // moves are the ungrouped table's; the group runs drag groups.
@@ -3152,7 +3374,7 @@ try {
         if (copying === 'insecure') lanServer ??= await serveApp(undefined, { webDir: hostWebDir, port: PORT + 1, lan: true });
         const url = copying === 'insecure' ? lanServer!.url : server.url;
         // Inside the try: a browser that fails to launch is a failure, and the rest still run.
-        session = await open(engine, url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : densities ? [firstDrawProbe, workRecorder] : clicking ? [firstDrawProbe, recordPointers] : [firstDrawProbe] });
+        session = await open(engine, url, { params, init: tail ? [firstDrawProbe, presentingTaskRecorder, tailRecorder] : feed ? [firstDrawProbe, presentingTaskRecorder] : resizing ? [firstDrawProbe, widthsRecorder] : densities ? [firstDrawProbe, workRecorder] : clicking || touching ? [firstDrawProbe, recordPointers] : [firstDrawProbe], hasTouch: !!touching });
         const { page } = session;
         // The clipboard's permissions, which a real Chrome grants a focused
         // page (the write); none to grant in an insecure context.
@@ -3167,6 +3389,13 @@ try {
           mkdirSync(BASE_SCREENS, { recursive: true });
           writeFileSync(baseScreen(name, shape), Buffer.from(await settledScreen(page), 'base64'));
           writeFileSync(`${baseScreen(name, shape)}.json`, fromHere);
+        }
+        // The touch runs check their own, from the first screen.
+        if (touching) {
+          const touched = await checkHeaderTap(page, label, layout, start, touching === 'on', engine === chromium);
+          if (session.problems.length) failures.push(`${label}: ${session.problems.join('; ')}`);
+          console.log(`${label}: first frame ${first.toFixed(0)} ms, filled ${filled.toFixed(0)} ms (${api})${touched}`);
+          continue;
         }
         // The icon runs check their own, from the first screen.
         if (iconing) {
@@ -3313,6 +3542,7 @@ try {
   await server.close();
   await lanServer?.close();
 }
+if (only !== undefined && !ran) failures.push(`--only ${JSON.stringify(only)}: no run's label contains it`);
 if (failures.length) {
   console.error(`FAIL\n  ${failures.join('\n  ')}`);
   process.exit(1);

@@ -152,10 +152,11 @@ export interface Browsing {
 export async function open(
   engine: BrowserType,
   url: string,
-  options: { profile?: Profile | null; block?: RegExp; params?: Record<string, string>; init?: (() => void)[] } = {},
+  options: { profile?: Profile | null; block?: RegExp; params?: Record<string, string>; init?: (() => void)[]; hasTouch?: boolean } = {},
 ): Promise<Browsing> {
   const browser = await engine.launch(engine === chromium ? { channel: 'chromium' } : {});
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: engine === chromium ? 2 : 1 });
+  // `hasTouch`: Playwright's `touchscreen.tap` works only in such a context.
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: engine === chromium ? 2 : 1, hasTouch: options.hasTouch ?? false });
   if (engine === chromium) await context.addInitScript(hideDevicePixelContentBox);
   for (const script of options.init ?? []) await context.addInitScript(script);
   if (options.block) await context.route(options.block, (route) => route.abort());

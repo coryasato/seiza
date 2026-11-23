@@ -376,6 +376,14 @@ impl<D: TallTableDelegate> TallTableState<D> {
                         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                             cx.stop_propagation();
                             window.focus(&this.focus_handle, cx);
+                            // A finger's, under the setting: its header's
+                            // press, counted there, no resize (`clicks`).
+                            #[cfg(feature = "clicks")]
+                            if this.tap_is_headers(window) {
+                                this.hide_tooltip(cx);
+                                this.press(event, window, cx);
+                                return;
+                            }
                             // The table's count, which a right press
                             // doesn't add to (`clicks`).
                             #[cfg(feature = "clicks")]
@@ -385,7 +393,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             this.press_band(index, event.position.x, clicks, window, cx);
                         }),
                     )
-                    .map(super::click_stops)
+                    .map(|band| super::header_click_stops(band, cx))
                     .child(
                         div()
                             .absolute()

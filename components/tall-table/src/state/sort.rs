@@ -528,10 +528,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
                     }))
                     .on_mouse_down(
                         MouseButton::Left,
-                        cx.listener(move |this, _: &MouseDownEvent, window, cx| {
+                        cx.listener(move |this, event: &MouseDownEvent, window, cx| {
                             cx.stop_propagation();
                             this.hide_tooltip(cx);
                             window.focus(&this.focus_handle, cx);
+                            // A finger's, under the setting: its header's
+                            // press, nothing held (`clicks`).
+                            #[cfg(feature = "clicks")]
+                            if this.arrow_tap_is_headers(window) {
+                                this.press(event, window, cx);
+                                return;
+                            }
+                            #[cfg(not(feature = "clicks"))]
+                            let _ = event;
                             this.sort_state.pressed = Some(index);
                         }),
                     )
@@ -551,7 +560,7 @@ impl<D: TallTableDelegate> TallTableState<D> {
                             }
                         }),
                     )
-                    .map(super::click_stops)
+                    .map(|arrow| super::header_click_stops(arrow, cx))
                     .child(mark),
             ));
         }

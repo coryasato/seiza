@@ -709,6 +709,12 @@ impl Host {
                 table.set_order(order, cx);
             });
         }
+        // A finger's tap on a header's arrow or band its header's press
+        // (`clicks`, `?header-tap`), from the first frame.
+        #[cfg(all(feature = "clicks", target_family = "wasm"))]
+        if seiza::url::has_param("header-tap") {
+            table.update(cx, |table, _| table.set_header_tap_is_press(true));
+        }
         // A term set before the first frame (`find`, `?find=<term>`): its
         // matches drawn; a step is a script's.
         #[cfg(all(feature = "find", target_family = "wasm"))]

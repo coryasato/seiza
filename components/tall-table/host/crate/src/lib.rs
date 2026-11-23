@@ -58,8 +58,9 @@
 //! column is movable, `?order=reverse` draws them reversed from the first
 //! frame, each order is published, and with `?perf` the scripts get a
 //! value's exact text and the table's `move_columns` and `set_order`. With
-//! `clicks`, every press is reported; with `?perf` each is published
-//! (`__tallTableClick`) and the scripts get the table's
+//! `clicks`, every press is reported; `?header-tap` turns on the table's
+//! `set_header_tap_is_press` before the first frame; with `?perf` each
+//! press is published (`__tallTableClick`) and the scripts get the table's
 //! `set_ctrl_press_is_context` (off at open). With `group-headers`,
 //! `?groups=<outer>[,<inner>]` puts the columns in groups of `outer`, each
 //! cut into groups of `inner` (by default 50,10 in the wide shape and 6,3

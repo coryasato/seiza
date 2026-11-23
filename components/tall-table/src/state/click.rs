@@ -8,6 +8,9 @@
 //! press and a long press (`stops_context`), so nothing is reported there
 //! and a host's `ContextMenuExt` round the table doesn't open over them.
 //! The event follows what the press did to the selection (`select`).
+//! With the host's `set_header_tap_is_press` on, a finger's press on an
+//! arrow or a band is its header's: their listeners hand it to `press`, and
+//! their long press is reported as the header's (`stops_header_context`).
 //! Nothing is drawn (`docs/DECISIONS.md`, "Features").
 
 use gpui_kit::*;
@@ -37,6 +40,22 @@ pub(super) struct ClicksState {
     long_press: bool,
     /// The press being handled is that tap: it's dropped.
     tap: bool,
+    /// A finger's press on `sort`'s arrow or `resize`'s band is its
+    /// header's (the host's setting).
+    header_tap_is_press: bool,
+    #[cfg(all(test, feature = "sort"))]
+    pub(crate) control: Control,
+}
+
+/// The window tests' negative control (tests only, with `sort`: the arrow
+/// is what it breaks).
+#[cfg(all(test, feature = "sort"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub(crate) enum Control {
+    #[default]
+    None,
+    /// `sort`'s arrow ignores `header_tap_is_press`: a finger's tap sorts.
+    ArrowIgnoresSetting,
 }
 
 impl<D: TallTableDelegate> TallTableState<D> {
@@ -51,6 +70,44 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// `Press` whose modifiers say Ctrl, and `select` ignores it.
     pub fn set_ctrl_press_is_context(&mut self, on: bool) {
         self.clicks_state.ctrl_press_is_context = on;
+    }
+
+    /// Whether a finger's press on a header is always its header's: off by
+    /// default.
+    pub fn header_tap_is_press(&self) -> bool {
+        self.clicks_state.header_tap_is_press
+    }
+
+    /// Whether a finger's press on a header is always its header's (off by
+    /// default). On, a tap on `sort`'s arrow or `resize`'s band sorts and
+    /// resizes nothing: it's reported as a press on the header under it
+    /// (`Press`, a second tap `Double`, selecting its column with `select`),
+    /// and a long press there is its header's `Context`. A mouse's press on
+    /// them works as before: each press is judged by the pointer GPUI says
+    /// it came from. For a host whose menu, opened from `Clicked`, holds
+    /// the sort; a host with `sort` and no menu leaves it off, so a finger
+    /// still sorts on the arrow. A header's icon (`header-icon`) keeps its
+    /// tap either way. Nothing is redrawn and no event is emitted.
+    pub fn set_header_tap_is_press(&mut self, on: bool) {
+        self.clicks_state.header_tap_is_press = on;
+    }
+
+    /// Whether a left press on a band or an arrow is its header's: the
+    /// setting is on and the press came from a touch.
+    #[cfg(any(feature = "sort", feature = "resize"))]
+    pub(super) fn tap_is_headers(&self, window: &Window) -> bool {
+        self.clicks_state.header_tap_is_press && window.last_input_was_touch()
+    }
+
+    /// [`Self::tap_is_headers`] for `sort`'s arrow, which its control
+    /// makes ignore the setting (tests only).
+    #[cfg(feature = "sort")]
+    pub(super) fn arrow_tap_is_headers(&self, window: &Window) -> bool {
+        #[cfg(test)]
+        if self.clicks_state.control == Control::ArrowIgnoresSetting {
+            return false;
+        }
+        self.tap_is_headers(window)
     }
 
     /// A press of any button on the table, in the root's bubble phase (the
@@ -317,6 +374,50 @@ fn inside(selection: TallTableSelection, target: Target) -> bool {
                 && selection.contains(0, end - 1)
         }
     }
+}
+
+/// [`stops_context`] for a header's band or arrow: a right press is
+/// stopped, and a long press too unless the host's `header_tap_is_press`
+/// is on, where it's the header's context press, reported as the root's
+/// would be (the band and the arrow occlude, so the root's canvas never
+/// sees it). During a drag it's nothing, and stopped.
+#[cfg(any(feature = "sort", feature = "resize"))]
+pub(super) fn stops_header_context<E, D>(element: E, entity: Entity<TallTableState<D>>) -> E
+where
+    E: InteractiveElement + ParentElement,
+    D: TallTableDelegate,
+{
+    element
+        .on_mouse_down(MouseButton::Right, |_, _, cx| cx.stop_propagation())
+        .child(
+            canvas(
+                |bounds, window, _| window.insert_hitbox(bounds, HitboxBehavior::Normal),
+                move |_, hitbox, window, _| {
+                    window.on_mouse_event(move |event: &LongPressEvent, phase, window, cx| {
+                        if phase == DispatchPhase::Bubble
+                            && event.phase == TouchPhase::Started
+                            && hitbox.is_hovered(window)
+                        {
+                            // Reported only if nothing claimed it first, as
+                            // the root's; else stopped, as without the
+                            // setting.
+                            let claimed = window.default_prevented();
+                            let reported = !claimed
+                                && entity.update(cx, |this, cx| {
+                                    this.clicks_state.header_tap_is_press
+                                        && this.long_press(event.start_position, window, cx)
+                                });
+                            if !reported {
+                                window.prevent_default();
+                                cx.stop_propagation();
+                            }
+                        }
+                    });
+                },
+            )
+            .absolute()
+            .size_full(),
+        )
 }
 
 /// `element` (a scrollbar, a band, an arrow) stops a right press and a long

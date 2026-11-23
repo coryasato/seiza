@@ -17,7 +17,7 @@ target_dir := root / "target/wasm32-unknown-unknown"
 # `?hidden=<n>`; `find`: `?find=<term>`; `popover`: `?popover=<label>`,
 # `?popover-fill`, `?popover-cue=off`, `?popover-icons`, `?popover-fade`,
 # `?popover-cells=cut`, `?popover-long=<chars>`; `header-icon`: `?icons=off`;
-# the rest:
+# `clicks`: `?header-tap`; the rest:
 # host/crate/src/lib.rs).
 dev features="": (wasm "debug" features)
     npm run dev --workspace @seiza/tall-table-host
@@ -233,7 +233,9 @@ smoke *args:
 # format in a window, the host's format and page decimals, and again with
 # `resize`, its fit; `reorder`: the move fixture and its controls, the move's
 # rules, and the order in a window; `clicks`: the count, and the presses'
-# kinds and targets in a window; `group-headers`: the runs, the group
+# kinds and targets in a window, and with `sort`, `resize`, `select`, and
+# `header-icon` a finger's header taps under `set_header_tap_is_press`;
+# `group-headers`: the runs, the group
 # fixture's drawing half and its controls, the group rows in a window, and
 # the host's `?groups=`; `hide`: a hidden column in a window, its setters
 # and events; `find`: `find.json` and its controls, the steps, the

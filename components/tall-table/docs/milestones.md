@@ -1904,3 +1904,57 @@ The code review of 2026-11-22, run after the popover's settings closed, found fi
 - [x] **A cue is decided again at a new scale factor.** A scale change goes through no layout. The viewport's change forgets the hover, so the hovered cell's cue was already decided again; the active cell's and the open popover's cell's weren't. The decisions now carry the scale they were made at and are cleared when the window's differs. Window test `cut_text_decides_again_at_a_new_scale_factor` (a 252 px text in a 267.4 px column, its box 251.5 px at a scale of 2 and 252.3 px at 1.3, on the open popover's cell with an open mark: a cue, none, a cue again); with the comparison switched off it fails at the second ("whole at the new scale").
 - [x] **"canceled" in the settings check** (a comment, a variable, a failure message) and in the copy run's comment. The copy run's `'cancelled'` beside it stays: it's the reason the bridge publishes for a canceled copy, which the observatory's contract and page read.
 - [x] **The native runs:** `just tall-table lint` and `just tall-table test` (every feature off, each on, all on, and the host's) pass on the fixes. No paging changed, so no soak. The one new `cfg` naming two features is the scale test's `any(resize, density)`, the gate of the test before it, in `popover`'s fixtures: it compiles with `popover` and either, which `test` builds only all-on, so `cargo test -p seiza-tall-table` was run with `popover,resize` and with `popover,density` (both pass). The whole of `just tall-table pairs` wasn't run.
+
+## M24: touch presses, a header's tap as one press (closed 2026-11-22)
+
+Tycho's third ask for its first release (2026-11-20, [its decisions](../../../apps/tycho/docs/DECISIONS.md), "Scope"; its "Waiting on" row). Researched 2026-11-22: root [`docs/research/tall-table-features.md`](../../../docs/research/tall-table-features.md), "Touch presses"; the spike, [`perf/results/2026-11-22-m24-a-spike.md`](../perf/results/2026-11-22-m24-a-spike.md); the decisions, [`docs/DECISIONS.md`](DECISIONS.md), "Features", 2026-11-22.
+
+**What it adds:** a setting of `clicks`, no feature of its own. With it on, a finger's tap anywhere on a header reports the header's press: `sort`'s arrow and `resize`'s band are no targets of their own for a touch. A mouse's press on them works as before. A header's icon keeps its tap.
+
+**What the research found already built** (so nothing here builds it): a tap arrives as a left press and its release together at the lift, in the three browsers; a finger that moves pans and reports nothing; a long press is `Context` at its start, with its position; a tap on a header's icon is `HeaderIconPressed`.
+
+**The API** (with `clicks`):
+
+- `set_header_tap_is_press(&mut self, on: bool)` and `header_tap_is_press(&self) -> bool`, off by default. No event: the host set it. Nothing is redrawn.
+
+**The rules,** with the setting on:
+
+1. **Which press:** one GPUI says came from a touch (`Window::last_input_was_touch()` while the press is handled). Every other press, and every press with the setting off, is as today.
+2. **On `sort`'s arrow:** the arrow isn't pressed or held and nothing sorts. The press goes through the root's `press` as a press on the header under it: counted, `select`'s and `reorder`'s rules applied, `Clicked` reported (`Press`, or `Double` at a second tap) on `Column`, at the tap's position.
+3. **On `resize`'s band:** no resize starts and a second tap fits nothing. The press goes through the root's `press` the same way, on the header `target_at` finds at the tap (a band straddles two).
+4. **A long press on the arrow or the band:** a context press on its header (`Context` on `Column`, `select`'s context rule, the lifted finger's tap dropped), in place of today's stop. During a drag it's still nothing, and stopped.
+5. **A header's icon** (`header-icon`): unchanged. Its tap reports `HeaderIconPressed`; a long press on it is its header's, as today.
+6. **Everything else** (a cell, a row's number, the corner, a blank, the scrollbars; `group-headers`' cells): unchanged.
+
+**How it's built:** the arrow and the band occlude, so the root's listener doesn't see their presses: each one's own left-press listener hands a touch press to `press` and does nothing of its own, and `stops_context`'s long-press listener reports where it stopped. Two sites gated on two features (`clicks` with `sort`, `clicks` with `resize`): `pairs` runs before the code review. The paging isn't touched: no soak.
+
+**Host's part:** the menu it opens from `Clicked` and `HeaderIconPressed`; when the setting is on (always, for a host whose menu holds the sort).
+
+**Parts,** one session each:
+
+- **A. Research and spec** (no shipped code). Done 2026-11-22.
+- **B. The setting, built and tested, with its cost and the close:** the setting, its window tests, the bare host's switch (`?header-tap`, with `clicks`), the smoke check's touch run, the size reading, the README, and the close. The research found it small (a flag and a branch in three listeners), so there's no part C unless the build finds one.
+
+**Done when:**
+
+- [x] **A1. The research and the spec:** the research section says what arrives in each browser and how it was read (the pinned sources, and a spike in Chromium, Firefox, and WebKit by three ways of sending a touch: [its note](../perf/results/2026-11-22-m24-a-spike.md)); four decisions are in `docs/DECISIONS.md` ("Features", 2026-11-22), the reach, the icon, the band and `select`, and the header's pan each settled with the owner; the API, the rules, and the checks are here. Not read on a phone: B3's.
+- [x] **B1. Off by default, the base and `clicks` unchanged:** `just tall-table test`, `lint`, and `pairs` pass; `clicks`', `sort`'s, `resize`'s, and `header-icon`'s window tests pass untouched; `size --against <M24's parent>` reports the base's wasm byte for byte the same, and no symbol of the setting in a build without `clicks`.
+
+  *Evidence (2026-11-22):* `test`, `lint`, and `pairs` (151 of 151) pass, after the code review's fixes; `clicks`', `sort`'s, `resize`'s, and `header-icon`'s window tests unchanged and passing. `size --against 173e0c1` (HEAD: part A built no code) passes, the base 9,849.3 KiB after wasm-opt at both; to the byte, 10,085,638 at both, 7 bytes apart, each a panic location's line number moved by the lines added above it (`host.rs` +6, `state.rs` +16). An unstripped `sort,resize` build holds none of the setting's symbols, the `clicks,sort,resize` build 48 (the control). [Its note](../perf/results/2026-11-22-m24-b.md).
+- [x] **B2. The setting, natively:** window tests that send a raw touch (started, then ended), so GPUI's recognizer makes the tap, with `clicks`, `sort`, `resize`, `select`, and `header-icon` built:
+  - on: a tap on an arrow reports `Press` on its `Column` once, sorts nothing (no `Sorted`, the delegate's `sort` never called), and selects the column; a second tap at once reports `Double`;
+  - on: a tap on a band reports `Press` on the header at the tap, starts no resize, and two taps emit no `ColumnWidthsChanged`;
+  - on: a long press on an arrow and on a band reports `Context` on its `Column`, and the lifted finger's tap reports nothing;
+  - on: a mouse's press on the arrow sorts and on the band starts a resize, after a touch and before one (the pointer's kind is read a press at a time);
+  - on: a tap on an icon reports `HeaderIconPressed` and no `Clicked`;
+  - off: each tap above as today (the arrow sorts, the band reports nothing, a double tap fits, a long press on either reports nothing);
+  - a long press on a header and on a cell reports `Context` with its target and its start position, on and off;
+  - a control: the arrow's listener made to ignore the setting fails the first test.
+
+  *Evidence (2026-11-22):* `src/state/fixtures/header_tap.rs`, 8 tests, each a raw `TouchEvent` started then ended (a long press: the clock advanced 501 ms between), all passing with `clicks,sort,resize,select,header-icon`; the control (`click::Control::ArrowIgnoresSetting`) sorts on the tap, its first test's events not the ones the first test wants. `just tall-table test` passes.
+- [x] **B3. On touch, in the browsers:** the smoke check's touch run, with the bare host's setting on: a header's tap on its arrow (`press` on the column, the sort unchanged), a tap on a band (`press`, the widths unchanged), an icon's tap (the icon's count, no `Clicked`), a cell's long press (`context`, its tap dropped), an arrow's long press (`context` on its column), and a pan in the body (the view moved, nothing reported), each sent as script-made touch pointer events in Chromium, Firefox, and WebKit; the arrow's tap also by Playwright's real tap in all three, and the long press and the pan by CDP in Chromium; with the setting off, the arrow's tap sorts. And once by hand on a phone (Safari on iOS or Chrome on Android, named in the note): each of those gestures, and a mouse's press on the arrow still sorting where a mouse is at hand.
+
+  *Evidence (2026-11-22):* the browsers' half passes: the smoke check's two touch runs, every gesture above in Chromium, Firefox, and WebKit, the arrow's real tap in all three, CDP's long press and pan in Chromium, and without the setting the arrow's made-up and real taps sorting; the whole smoke check (57 runs) passes on the final build ([its note](../perf/results/2026-11-22-m24-b.md)). By hand, an iPhone 13 in Safari and Chrome: every gesture as above, and without the setting the arrow's tap sorting (the note's "On a phone"); every sort froze the table a noticeable while, the bare host's main-thread sort, not the setting's.
+- [x] **B4. Its cost and the README:** the bytes the setting adds to `clicks` alone and to `clicks,sort,resize` in a `perf/results/` note (no frame reading: nothing is drawn and no listener is added); the README's "Presses" (the setting, what a finger's gestures report, with and without it), its Features table's `clicks` row, and its Canvas tradeoffs (no resize, move, or drag-select by a finger; a pan from the header scrolls nothing; an unclaimed long press pans if the finger moves; the touch gap's "To close it" for the header); Tycho's "Waiting on" row flipped to *Ready*.
+
+  *Evidence (2026-11-22):* the setting's bytes, +424 after wasm-opt over `clicks` alone and +1,436 over `clicks,sort,resize`, brotli within its swing ([its note](../perf/results/2026-11-22-m24-b.md)); the README's "Presses" (a finger, and the setting), the Features table's `clicks` row, its Limits (an unclaimed long press pans; a pan from the header scrolls nothing), and its Canvas tradeoffs (no resize, move, or drag-select by a finger; a header tap opens a touch's menu; the popover's touch gap's "Today" and "To close it"). Tycho's "Waiting on" row *Ready* (2026-11-22).

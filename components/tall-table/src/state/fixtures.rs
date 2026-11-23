@@ -103,6 +103,15 @@ mod popover;
 /// window, and each built feature's rule.
 #[cfg(feature = "header-icon")]
 mod header_icon;
+// `clicks`' header tap, with the header's other targets and `select`.
+#[cfg(all(
+    feature = "clicks",
+    feature = "sort",
+    feature = "resize",
+    feature = "select",
+    feature = "header-icon"
+))]
+mod header_tap;
 
 /// `replace_rows`, in every build: what it clears and keeps, the targets,
 /// the swap, and its meeting with each feature built.

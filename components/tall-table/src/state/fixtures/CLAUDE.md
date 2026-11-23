@@ -15,6 +15,7 @@ A file a feature, each built with its feature (`flash.rs` with `live` and `custo
 - **`click.rs` hangs a gpui-kit `ContextMenuExt` round the table** in its host view, as a host would, and counts the menus its builder makes: the check that a stopped right or long press opens none.
 - **Cmd+C and Ctrl+C are bound only with `copy` or `popover`,** so `select.rs` doesn't test them; `popover.rs` puts gpui-base's `TextSelectionLayer` in its host view, as `Root` draws it, to select and copy a part of the popover's text.
 - **The test app's asset source loads nothing,** so an icon set at `new` never draws: `header_icon.rs` opens the table with no columns, gives the state its own source (`icon_state.assets`, as `sort.rs` does for `set_sort_icons`), then sets the columns. Its presses are made at the points the frame drew each icon's target, so the target is checked with the press. `popover.rs` does the same for the cue's open mark (`popover_state.assets`, set before `set_popover_cue`, which loads the path), and reads which mark a cell painted from `DrawnText::mark_look`.
+- **A finger is a raw `TouchEvent`** (started, then ended; each touch its own `TouchId`): `header_tap.rs` sends it so GPUI's recognizer makes the tap or, after `advance_clock` past 500 ms, the long press, and the window's pointer reads touch; a mouse's press there is moved to first, so it reads mouse. Two taps within 16 px and 400 ms (wall time: the recognizer reads `Instant::now`) are a double tap.
 - **A popover covers the rows under its cell:** a hover there is the popover's, not a cell's, so `popover.rs` hovers a row above the open one.
 - **`DrawnText::glyphs` (with `popover`) is each painted glyph's x and alpha,** what the fade's tests read; a cell's whole record compared with its record at rest is the check that nothing else moved.
 - **A value planted in `find.rs`'s source after the first page is read isn't drawn** until a page is read again: a drawing test plants, then reloads (`replace_rows`); its finds answer only when the test calls `answer`, so a test can leave one out across a cancel.
@@ -22,7 +23,7 @@ A file a feature, each built with its feature (`flash.rs` with `live` and `custo
 ## Files
 
 ```
-src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs, groups.rs, click.rs, hide.rs, find.rs, popover.rs, header_icon.rs and replace.rs (no fixture of their own: the window's checks only; `hide`'s `hidden` cases run in each fixture's own file; `replace.rs` in every build, its reads pinned by `paging.json`)
+src/state/fixtures/ # paint.rs, live.rs, flash.rs, follow.rs, resize.rs, select.rs, sort.rs, pin.rs, density.rs, format.rs, copy.rs, reorder.rs, groups.rs, click.rs, hide.rs, find.rs, popover.rs, header_icon.rs, header_tap.rs (`clicks`' header tap, with `sort`, `resize`, `select`, and `header-icon`) and replace.rs (no fixture of their own: the window's checks only; `hide`'s `hidden` cases run in each fixture's own file; `replace.rs` in every build, its reads pinned by `paging.json`)
 ```
 
 ## Commands

@@ -958,3 +958,13 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The fill check that couldn't fail did fail, in the narrow shape, where the column beside the long text is a text with no fill; the wide shape's neighbor is a filled float. One shape's control passing hid that the other's compared two fills. A control is run in every shape the check runs in.
 - A `--cue` run's file also recorded a fling and the popover's wheels it never ran, not only the selection's two keys the review named: the protocol was written from what was built, not from what ran. The first correction then removed `scroll` too, which the run's `cue-scroll` does use: "skipped `scrollAndFlings`" was read as "sent no scroll", and the second review caught it.
 - "cancelled" in the smoke check's copy run is a value, not prose: the bridge publishes it as a copy's reason, and the observatory's contract and page read it. A spelling rule stops at a published string.
+
+## M24: a header's tap as one press, built (part B, 2026-11-22)
+
+**Results:** [`perf/results/2026-11-22-m24-b.md`](../perf/results/2026-11-22-m24-b.md) (the setting's bytes, the base against HEAD, the smoke check's touch runs).
+
+**Surprises:**
+- GPUI's test window takes a raw `TouchEvent` and runs the web's recognizer on it, so the native tests send a finger, not a mouse press with a flag: seven of eight passed at the first run, and the eighth was the test's own mistake (two taps 6 px apart are a double tap, as they should be).
+- The recognizer counts a double tap by wall time, not by the test clock: everything else in the fixtures moves only when `advance_clock` says, and a draw between two taps would have let a loaded machine split them. The review caught it; nothing had failed.
+- "The base byte for byte the same" isn't what a change to a host's file gives: the base was the same size and the same code, 7 bytes apart, each a panic location's line number moved by lines added above it in `host.rs` and `state.rs`. `size --against` reads KiB to a decimal and passed; `cmp` is what found them, and the panic locations are what explained them. A byte-for-byte check reads the differing bytes before it fails or passes a change.
+- An edit that replaced a line by its text matched two places: `--only` filtered the reference screens' loop too, which the review found. A text replacement in a long script is checked for how many places it matched.

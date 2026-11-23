@@ -3485,6 +3485,22 @@ fn click_stops<E: InteractiveElement + ParentElement>(element: E) -> E {
     element
 }
 
+/// [`click_stops`] for a header's band or arrow, whose long press is its
+/// header's under `clicks`' `header_tap_is_press`.
+#[cfg(any(feature = "sort", feature = "resize"))]
+fn header_click_stops<E: InteractiveElement + ParentElement, D: TallTableDelegate>(
+    element: E,
+    cx: &mut Context<TallTableState<D>>,
+) -> E {
+    #[cfg(feature = "clicks")]
+    return click::stops_header_context(element, cx.entity());
+    #[cfg(not(feature = "clicks"))]
+    {
+        let _ = cx;
+        element
+    }
+}
+
 /// `1567523` → `1,567,523`: the row numbers' format.
 pub(crate) fn format_count(value: u64) -> String {
     let digits = value.to_string();
