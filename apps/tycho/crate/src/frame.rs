@@ -5,8 +5,17 @@
 //! what the frame shows as one [`FrameView`], published to the page each
 //! time it changes, and the page's presses come back through the
 //! `#[wasm_bindgen]` calls below.
+//!
+//! The command bar and the log are the page's to draw and the app's to
+//! run: the page sends the bar's text (`command`, `complete`) and the log's
+//! way back (`back_to`), and the frame's state carries the log and the
+//! bar's last answer (`docs/DECISIONS.md`, "Scope", 2026-11-24, "The
+//! thread's two proposed items are taken").
+
+use serde::Serialize;
 
 use crate::dataset::{FileSummary, format_bytes, format_count};
+use crate::log::LogView;
 
 /// What the frame shows, as the page reads it (`web/src/frame/state.ts`,
 /// `FrameState`, spells the same fields).
@@ -23,6 +32,26 @@ pub struct FrameView {
     /// The perf panel is open: it draws on the canvas, under the first
     /// screen's ghost of a table, which steps aside for it.
     pub panel: bool,
+    /// The open file's log (`crate::log`); empty with none open.
+    pub log: LogView,
+    /// The command bar's last answer.
+    pub answer: Option<Answer>,
+}
+
+/// What the bar answered on Enter (`web/src/frame/state.ts`, `Answer`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Answer {
+    /// Counts answers, so the same words twice are two.
+    pub seq: u32,
+    /// `done` (the steps that ran, `text` the reply), `refused`,
+    /// `sentence`, `later`, `open`, `nofile`, `undone`, or `nothing` (no
+    /// step to undo).
+    pub kind: &'static str,
+    pub text: String,
+    /// The steps that ran, in plain words.
+    pub steps: Vec<String>,
+    /// A fault, in the error color.
+    pub error: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -101,6 +130,8 @@ mod web {
 
     use super::{FrameView, Line};
     use crate::Workbench;
+    use crate::command::Catalog;
+    use crate::log::Origin;
 
     #[wasm_bindgen]
     extern "C" {
@@ -138,6 +169,10 @@ mod web {
         static LINK: RefCell<Option<Link>> = const { RefCell::new(None) };
         /// The page's calls made before the workbench existed.
         static PENDING: RefCell<Vec<Call>> = const { RefCell::new(Vec::new()) };
+        /// The open file's view, which [`complete`] reads: it answers at
+        /// once, outside GPUI's turn, so the workbench leaves it here
+        /// ([`set_catalog`]) each time it changes.
+        static CATALOG: RefCell<Option<Catalog>> = const { RefCell::new(None) };
     }
 
     /// Where [`publish`] sends the frame's state: from `start`.
@@ -205,6 +240,19 @@ mod web {
         });
     }
 
+    /// What [`complete`] completes against: the open file's view, or none.
+    pub fn set_catalog(catalog: Option<Catalog>) {
+        CATALOG.set(catalog);
+    }
+
+    /// `value` as the page reads it: through JSON, as `globalThis.__tychoView`.
+    fn json(value: &impl serde::Serialize) -> JsValue {
+        serde_json::to_string(value)
+            .ok()
+            .and_then(|json| js_sys::JSON::parse(&json).ok())
+            .unwrap_or(JsValue::NULL)
+    }
+
     /// Sends `view` to the page.
     pub fn publish(view: &FrameView) {
         SINK.with_borrow(|sink| {
@@ -254,6 +302,17 @@ mod web {
             ("busy", text(view.busy)),
             ("message", view.message.as_ref().map_or(JsValue::NULL, line)),
             ("panel", JsValue::from_bool(view.panel)),
+            (
+                "log",
+                object(&[
+                    ("entries", json(&*view.log.entries)),
+                    (
+                        "current",
+                        view.log.current.map_or(JsValue::NULL, JsValue::from),
+                    ),
+                ]),
+            ),
+            ("answer", view.answer.as_ref().map_or(JsValue::NULL, json)),
         ])
     }
 
@@ -265,12 +324,50 @@ mod web {
         crate::theme::apply(dark, cx);
     }
 
-    /// A file dropped on the page or chosen in its dialog, at `at` (ms from
-    /// `timeOrigin`); `more` counts the other files of the same drop.
+    /// A file dropped on the page or chosen in its dialog (`from`: `drop`
+    /// or `pick`), at `at` (ms from `timeOrigin`); `more` counts the other
+    /// files of the same drop.
     #[wasm_bindgen]
-    pub fn open_file(file: web_sys::File, at: f64, more: u32) {
+    pub fn open_file(file: web_sys::File, at: f64, more: u32, from: String) {
+        let from = match from.as_str() {
+            "drop" => Origin::Drop,
+            _ => Origin::Pick,
+        };
         send(on_workbench(move |workbench, window, cx| {
-            workbench.file_chosen(file, at, more, window, cx)
+            workbench.file_chosen(file, at, more, from, window, cx)
+        }));
+    }
+
+    /// The command bar's Enter: `text` typed or pasted (`source`: `typed`,
+    /// `pasted`, or `click`, an item of the bar's list). Its answer comes
+    /// in the frame's state, and its entry in the log.
+    #[wasm_bindgen]
+    pub fn command(text: String, source: String) {
+        let origin = Origin::named(&source);
+        send(on_workbench(move |workbench, window, cx| {
+            workbench.command(&text, origin, window, cx)
+        }));
+    }
+
+    /// The bar's completion for `text` with its caret at `caret` (UTF-16
+    /// units), at once: the part being typed, what matches, and what Enter
+    /// would do (`crate::command::Completion`).
+    #[wasm_bindgen]
+    pub fn complete(text: String, caret: u32) -> JsValue {
+        CATALOG.with_borrow(|catalog| {
+            json(&crate::command::complete(
+                &text,
+                caret as usize,
+                catalog.as_ref(),
+            ))
+        })
+    }
+
+    /// The log's way back on entry `entry`.
+    #[wasm_bindgen]
+    pub fn back_to(entry: u32) {
+        send(on_workbench(move |workbench, window, cx| {
+            workbench.back_to(entry, window, cx)
         }));
     }
 
@@ -304,7 +401,7 @@ mod web {
 }
 
 #[cfg(target_family = "wasm")]
-pub use web::{first_theme, set_sink};
+pub use web::{first_theme, set_catalog, set_sink};
 
 #[cfg(test)]
 mod tests {

@@ -24,6 +24,38 @@ export interface FileState {
   notes: Line[];
 }
 
+/** Where a log entry came from (`crate/src/log.rs`, `Origin`). */
+export type Origin = 'drop' | 'pick' | 'sample' | 'typed' | 'pasted' | 'click';
+
+/** A log entry (`crate/src/log.rs`, `EntryView`). */
+export interface LogEntry {
+  /** Counts across files: the way back names it (`App.back_to`). */
+  id: number;
+  /** Its command lines, one a step; null for a drag. */
+  command: string | null;
+  /** Its plain words, a line a step. */
+  words: string;
+  reply: string;
+  replyKind: 'rows' | 'answer' | 'error';
+  origin: Origin;
+  /** Wall-clock ms since the epoch. */
+  at: number;
+  /** It has a way back. */
+  back: boolean;
+}
+
+/** The command bar's last answer (`crate/src/frame.rs`, `Answer`). */
+export interface Answer {
+  /** Counts answers: the same words twice are two. */
+  seq: number;
+  kind: 'done' | 'refused' | 'sentence' | 'later' | 'open' | 'nofile' | 'undone' | 'nothing';
+  text: string;
+  /** The steps that ran, in plain words. */
+  steps: string[];
+  /** A fault, in the error color. */
+  error: boolean;
+}
+
 export interface FrameState {
   engine: { state: 'loading' | 'ready' | 'failed' | 'stopped'; text: string };
   /** The file whose rows are shown; null on the first screen. */
@@ -34,6 +66,29 @@ export interface FrameState {
   message: Line | null;
   /** The perf panel is open (on the canvas, under the first screen). */
   panel: boolean;
+  /** The open file's log; empty with none open. `current` is the entry
+   *  whose state is shown. */
+  log: { entries: LogEntry[]; current: number | null };
+  /** The command bar's last answer. */
+  answer: Answer | null;
+}
+
+/** What `App.complete` returns (`crate/src/command/complete.rs`). */
+export interface Completion {
+  /** What the caret is in. */
+  part: 'none' | 'verb' | 'column' | 'row';
+  /** The text an item replaces, in UTF-16 offsets. */
+  from: number;
+  to: number;
+  items: { text: string; label: string; detail: string; later: boolean }[];
+  /** What Enter would do with the whole line. */
+  preview: {
+    kind: 'empty' | 'command' | 'action' | 'typing' | 'refused' | 'sentence' | 'later' | 'open' | 'nofile';
+    /** Each step's plain words (`command`, `action`). */
+    steps: string[];
+    text: string | null;
+    error: boolean;
+  };
 }
 
 /** What the page is before the app's first word: the prerendered page. */
@@ -43,6 +98,8 @@ export const INITIAL: FrameState = {
   busy: null,
   message: null,
   panel: false,
+  log: { entries: [], current: null },
+  answer: null,
 };
 
 let state = INITIAL;

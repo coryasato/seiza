@@ -9,13 +9,20 @@
 //! `crate::csv`). A new file replaces the current one, whether it's still
 //! opening or already showing rows: its queries are cancelled, its answers
 //! ignored, and a CSV's tables dropped.
+//!
+//! The command bar's actions run here too (`crate::frame::command`):
+//! parsed and checked by `crate::command`, run on the controller and then
+//! the table, and each kept in the open file's log (`crate::log`), as each
+//! drag in the table is.
 
 use gpui_kit::*;
 
+use crate::command::Catalog;
 use crate::dataset::{FileSummary, format_count};
 #[cfg(target_family = "wasm")]
 use crate::dataset::{format_bytes, sample};
-use crate::frame::{EngineView, FileView, FrameView, Line};
+use crate::frame::{Answer, EngineView, FileView, FrameView, Line};
+use crate::log::{Log, Origin};
 use crate::table::RowTable;
 use crate::view::{Controller, ViewState};
 #[cfg(target_family = "wasm")]
@@ -371,6 +378,20 @@ pub struct Workbench {
     /// The view last published to `globalThis.__tychoView` (while
     /// measuring), and whether one has been.
     shown_view: Option<Option<ViewState>>,
+    /// The open file's log: opened, each command, each drag.
+    log: Log,
+    /// The bar's last answer, and how many it has given (the page tells a
+    /// new answer from the same words again by its count).
+    answer: Option<Answer>,
+    answers: u32,
+    /// Where the file opening now came from, for its log entry.
+    origin: Origin,
+    /// Each column's width as drawn, by index, after the table's last
+    /// change: a resize's entry says which way it went.
+    drawn: Vec<f32>,
+    /// What completion last read (`crate::frame::set_catalog`), and
+    /// whether it has.
+    shown_catalog: Option<Option<Catalog>>,
     _engine_status: Subscription,
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
@@ -445,6 +466,12 @@ impl Workbench {
             focus_handle: cx.focus_handle(),
             shown_frame: None,
             shown_view: None,
+            log: Log::default(),
+            answer: None,
+            answers: 0,
+            origin: Origin::Pick,
+            drawn: Vec::new(),
+            shown_catalog: None,
             _engine_status: cx.observe_global_in::<EngineStatus>(window, Self::engine_changed),
             _panel: cx.observe_global::<seiza::PerfOverlay>(|this, cx| {
                 if this.shown_frame.as_ref().map(|shown| shown.panel)
@@ -503,6 +530,7 @@ impl Workbench {
         self.close_current(window, cx);
         self.sniffing = None;
         self.notice = None;
+        self.origin = Origin::Sample;
         self.opens += 1;
         let open = self.opens;
         let url = cx.global::<sample::Url>().0.clone();
@@ -547,15 +575,16 @@ impl Workbench {
         cx.notify();
     }
 
-    /// A file was dropped or picked at `at`. Its first and last bytes decide
-    /// first: a file Tycho can't open gets a message and leaves the current
-    /// file where it is.
+    /// A file was dropped or picked (`from`) at `at`. Its first and last
+    /// bytes decide first: a file Tycho can't open gets a message and
+    /// leaves the current file where it is.
     #[cfg(target_family = "wasm")]
     pub(crate) fn file_chosen(
         &mut self,
         file: web_sys::File,
         at: f64,
         more: u32,
+        from: Origin,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -606,6 +635,7 @@ impl Workbench {
                     .into(),
                     error: false,
                 });
+                this.origin = from;
                 if kind == Ok(Kind::Csv) {
                     this.open_csv(name, file, open, at, window, cx);
                     return;
@@ -684,6 +714,9 @@ impl Workbench {
         self.reregistered_at = None;
         self.reregistrations = 0;
         self.reregister_later = None;
+        self.log.clear();
+        self.answer = None;
+        self.drawn.clear();
     }
 
     /// Registers `source` as `sql_name` and reads its summary, then shows its
@@ -793,6 +826,7 @@ impl Workbench {
                             }
                         }
                     };
+                    this.start_log();
                     cx.notify();
                 });
             })
@@ -999,6 +1033,7 @@ impl Workbench {
             view: Box::new(view),
             csv: Some(load),
         };
+        self.start_log();
         self.show_csv_stats(cx);
         cx.notify();
     }
@@ -1157,17 +1192,22 @@ impl Workbench {
             // they change.
             if current {
                 crate::table::publish(event);
-                let pinned = table.read(cx).pinned();
-                if let Load::Open { view, .. } = &mut this.load
-                    && view.take(event, pinned)
-                {
-                    this.publish_view();
+                if matches!(
+                    event,
+                    TallTableEvent::ColumnWidthsChanged(_)
+                        | TallTableEvent::ColumnsMoved { .. }
+                        | TallTableEvent::Pinned(_)
+                ) {
+                    this.table_changed(&table, event, cx);
                 }
             }
             match event {
                 // Delivered in the task that presents the frame (the table
                 // emits it while rendering), so the mark lands right after it.
                 TallTableEvent::Filled { first: true } => {
+                    if current {
+                        this.drawn = drawn_widths(&table, cx);
+                    }
                     let first_rows = seiza::mark_after_current_task(crate::table::FIRST_ROWS_MARK);
                     cx.spawn(async move |this, cx| {
                         let shown_ms = first_rows.await;
@@ -1519,6 +1559,8 @@ impl Workbench {
             busy,
             message: self.message(cx),
             panel: seiza::perf::is_visible(cx),
+            log: self.log.view(),
+            answer: self.answer.clone(),
         }
     }
 
@@ -1541,6 +1583,292 @@ impl Workbench {
             self.publish_view();
         }
         true
+    }
+
+    /// The open file's view, for completion and for checking an action.
+    fn catalog(&self) -> Option<Catalog> {
+        let Load::Open { view, csv, .. } = &self.load else {
+            return None;
+        };
+        Some(Catalog {
+            view: (**view).clone(),
+            loading: csv
+                .as_ref()
+                .is_some_and(|load| load.state == IngestState::Loading),
+        })
+    }
+
+    /// Gives completion the open file's view when it changed: compared in
+    /// place, since this runs every render.
+    fn publish_catalog(&mut self) {
+        let same = match (&self.shown_catalog, &self.load) {
+            (Some(Some(shown)), Load::Open { view, csv, .. }) => {
+                shown.view == **view
+                    && shown.loading
+                        == csv
+                            .as_ref()
+                            .is_some_and(|load| load.state == IngestState::Loading)
+            }
+            (Some(None), Load::Open { .. }) | (None, _) | (Some(Some(_)), _) => false,
+            (Some(None), _) => true,
+        };
+        if same {
+            return;
+        }
+        let catalog = self.catalog();
+        #[cfg(target_family = "wasm")]
+        crate::frame::set_catalog(catalog.clone());
+        self.shown_catalog = Some(catalog);
+    }
+
+    /// The log starts again with the file just opened.
+    #[cfg(target_family = "wasm")]
+    fn start_log(&mut self) {
+        if let Load::Open { summary, view, .. } = &self.load {
+            self.log
+                .open(&summary.name, view, self.origin, crate::log::now());
+        }
+    }
+
+    /// The shown table changed its widths, order, or pins: the view takes
+    /// it, from the table as it is now, and a change the table made by
+    /// itself (a drag; a command's own calls come back as none) is an
+    /// entry in the log.
+    #[cfg(target_family = "wasm")]
+    fn table_changed(
+        &mut self,
+        table: &Entity<RowTable>,
+        event: &TallTableEvent,
+        cx: &mut Context<Self>,
+    ) {
+        let (order, pinned) = {
+            let table = table.read(cx);
+            (table.order().to_vec(), table.pinned())
+        };
+        let Load::Open { view, .. } = &mut self.load else {
+            return;
+        };
+        let before = (**view).clone();
+        if view.take(event, &order, pinned) {
+            self.log
+                .table_changed(&before, view, &self.drawn, crate::log::now());
+            self.publish_view();
+            cx.notify();
+        }
+        self.drawn = drawn_widths(table, cx);
+    }
+
+    /// A command from the bar, typed or pasted (`crate::frame::command`):
+    /// run all or none, answered in the bar, and kept in the log (but a
+    /// sentence, `open`, and `undo`, which the bar answers alone). Only an
+    /// action needs a file open: the rest are answered as completion's
+    /// preview answers them.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn command(
+        &mut self,
+        text: &str,
+        origin: Origin,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::command::{Parsed, Step, plan};
+        use crate::log::Reply;
+
+        let parsed = crate::command::parse(text);
+        if parsed == Parsed::Empty {
+            return;
+        }
+        let catalog = self.catalog();
+        let open = catalog.is_some();
+        let at = crate::log::now();
+        let written = shorten(text.trim());
+        match parsed {
+            Parsed::Empty => {}
+            Parsed::Sentence => self.say("sentence", plan::SENTENCE.into(), Vec::new(), false, cx),
+            Parsed::Open => self.say("open", plan::OPEN.into(), Vec::new(), false, cx),
+            Parsed::Later { verb, goal, step } => {
+                let answer = plan::later(verb, goal, step);
+                if !open {
+                    self.say("later", answer, Vec::new(), false, cx);
+                    return;
+                }
+                self.log.note(
+                    Some(written.clone()),
+                    written,
+                    Reply::Answer(answer.clone()),
+                    origin,
+                    at,
+                );
+                self.say("later", answer, Vec::new(), false, cx);
+            }
+            Parsed::Error(why) if !open => self.say("refused", why, Vec::new(), true, cx),
+            Parsed::Error(why) => {
+                self.log.note(
+                    Some(written.clone()),
+                    written,
+                    Reply::Error(why.clone()),
+                    origin,
+                    at,
+                );
+                self.say("refused", why, Vec::new(), true, cx);
+            }
+            Parsed::Action { steps, .. } => match catalog {
+                None => self.say("nofile", plan::NO_FILE.into(), Vec::new(), false, cx),
+                Some(_) if steps == [Step::Undo] => self.undo(window, cx),
+                Some(catalog) => match plan::plan(&steps, &catalog) {
+                    Err(refusal) => {
+                        let lines = steps.iter().map(Step::written).collect::<Vec<_>>();
+                        let words = steps.iter().map(Step::words).collect::<Vec<_>>();
+                        let answer = refusal.to_string();
+                        let reply = if refusal.error {
+                            Reply::Error(answer.clone())
+                        } else {
+                            Reply::Answer(answer.clone())
+                        };
+                        self.log
+                            .note(Some(lines.join("\n")), words.join("\n"), reply, origin, at);
+                        self.say("refused", answer, Vec::new(), refusal.error, cx);
+                    }
+                    Ok(plan) => self.run(plan, origin, at, window, cx),
+                },
+            },
+        }
+    }
+
+    /// Runs a checked action: the controller first, then the table, whose
+    /// events come back as no change; then the row brought into view and
+    /// focus on the table.
+    #[cfg(target_family = "wasm")]
+    fn run(
+        &mut self,
+        plan: crate::command::Plan,
+        origin: Origin,
+        at: f64,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::log::Reply;
+
+        let Load::Open { table, view, .. } = &mut self.load else {
+            return;
+        };
+        let table = table.clone();
+        let lines = plan
+            .steps
+            .iter()
+            .map(|step| step.line.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let steps: Vec<String> = plan.steps.iter().map(|step| step.words.clone()).collect();
+        let words = steps.join("\n");
+        let reply = if plan.changed {
+            let columns = !view.same_columns(&plan.view);
+            **view = plan.view;
+            let calls = view.calls();
+            // After any pin Tycho makes, the table's count into the view.
+            let pinned = table.update(cx, |table, cx| {
+                calls.arrange(columns, table, cx);
+                table.pinned()
+            });
+            view.set_pinned(pinned);
+            let reply = Reply::of(view);
+            self.log
+                .step(Some(lines), words, reply.clone(), origin, at, view.view());
+            self.publish_view();
+            reply
+        } else {
+            // A jump alone, or steps that undo each other (`pin x`, then
+            // `unpin x`): no state to keep.
+            let reply = Reply::Answer(match plan.jump {
+                Some(row) => format!("Row {} is in view", format_count(row + 1)),
+                None => "The view is as it was.".into(),
+            });
+            self.log.note(Some(lines), words, reply.clone(), origin, at);
+            reply
+        };
+        if let Some(row) = plan.jump {
+            table.update(cx, |table, cx| table.jump_to(row, cx));
+        }
+        let focus = table.read(cx).focus_handle().clone();
+        window.focus(&focus, cx);
+        self.say("done", reply.text(), steps, false, cx);
+    }
+
+    /// `undo`: the state of the log's entry the current one was taken
+    /// from, current once it's given back. It adds no entry.
+    #[cfg(target_family = "wasm")]
+    fn undo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.log.undo_target() {
+            Some(target) => {
+                if self.restore(&target.view, window, cx) {
+                    self.log.go(&target);
+                    let text = format!("Back to: {}", target.words);
+                    self.say("undone", text, Vec::new(), false, cx);
+                }
+            }
+            None => self.say("nothing", "Nothing to undo.".into(), Vec::new(), false, cx),
+        }
+    }
+
+    /// The way back on log entry `id` (`crate::frame::back_to`): its state,
+    /// current again. It adds no entry; an entry with no state, or of a
+    /// file since replaced, does nothing.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn back_to(&mut self, id: u32, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(target) = self.log.back_target(id)
+            && self.restore(&target.view, window, cx)
+        {
+            self.log.go(&target);
+            cx.notify();
+        }
+    }
+
+    /// Gives the controller, then the table, a log entry's state. Whether
+    /// it could: an entry of this file's always can, so a refusal is said.
+    #[cfg(target_family = "wasm")]
+    fn restore(&mut self, state: &ViewState, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Load::Open { table, view, .. } = &mut self.load else {
+            return false;
+        };
+        let before = (**view).clone();
+        if let Err(refused) = view.restore(state) {
+            let text = format!("Couldn't go back: {refused}.");
+            self.say("refused", text, Vec::new(), true, cx);
+            return false;
+        }
+        let table = table.clone();
+        let columns = !view.same_columns(&before);
+        let calls = view.calls();
+        let pinned = table.update(cx, |table, cx| {
+            calls.arrange(columns, table, cx);
+            table.pinned()
+        });
+        view.set_pinned(pinned);
+        self.publish_view();
+        let focus = table.read(cx).focus_handle().clone();
+        window.focus(&focus, cx);
+        true
+    }
+
+    /// The bar's answer.
+    #[cfg(target_family = "wasm")]
+    fn say(
+        &mut self,
+        kind: &'static str,
+        text: String,
+        steps: Vec<String>,
+        error: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.answers += 1;
+        self.answer = Some(Answer {
+            seq: self.answers,
+            kind,
+            text,
+            steps,
+            error,
+        });
+        cx.notify();
     }
 
     /// Publishes the open file's view to `globalThis.__tychoView` when it
@@ -1573,6 +1901,26 @@ impl Workbench {
     }
 }
 
+/// Each column's width as drawn, by index.
+#[cfg(target_family = "wasm")]
+fn drawn_widths(table: &Entity<RowTable>, cx: &App) -> Vec<f32> {
+    let table = table.read(cx);
+    (0..table.columns().len())
+        .map(|index| table.column_width(index).map_or(0.0, f32::from))
+        .collect()
+}
+
+/// A line kept in the log as written, cut at 200 characters (a pasted
+/// text can be long).
+#[cfg(target_family = "wasm")]
+fn shorten(text: &str) -> String {
+    const MOST: usize = 200;
+    match text.char_indices().nth(MOST) {
+        Some((at, _)) => format!("{}…", &text[..at]),
+        None => text.to_owned(),
+    }
+}
+
 impl Render for Workbench {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         #[cfg(target_family = "wasm")]
@@ -1582,6 +1930,7 @@ impl Render for Workbench {
         }
         self.publish(window, cx);
         self.publish_view();
+        self.publish_catalog();
         self.publish_frame(cx);
 
         div()

@@ -1,4 +1,4 @@
-import { getState, subscribe } from './state.ts';
+import { type Completion, getState, subscribe } from './state.ts';
 
 /**
  * What the frame does before React and without it: plain TypeScript in the
@@ -11,11 +11,17 @@ import { getState, subscribe } from './state.ts';
 
 /** The app's calls (`crate/src/frame.rs`, its `#[wasm_bindgen]` functions). */
 export interface App {
-  open_file(file: File, at: number, more: number): void;
+  open_file(file: File, at: number, more: number, from: 'drop' | 'pick'): void;
   open_sample(at: number): void;
   retry_engine(): void;
   set_theme(dark: boolean): void;
   toggle_perf(): void;
+  /** The command bar's Enter; its answer comes in the frame's state. */
+  command(text: string, source: 'typed' | 'pasted' | 'click'): void;
+  /** At once: the bar's completion, the caret in UTF-16 units. */
+  complete(text: string, caret: number): Completion;
+  /** The log's way back on an entry. */
+  back_to(entry: number): void;
 }
 
 let app: App | null = null;
@@ -46,7 +52,7 @@ function fileInput(): HTMLInputElement {
   input.accept = '.parquet,.parq,.pq,.csv,.tsv,text/csv,text/tab-separated-values';
   input.hidden = true;
   input.addEventListener('change', () => {
-    if (input.files) chosen(input.files);
+    if (input.files) chosen(input.files, 'pick');
     // So picking the same file again still fires `change`.
     input.value = '';
   });
@@ -56,11 +62,11 @@ function fileInput(): HTMLInputElement {
 
 /** A drop's or the dialog's files: the first opens, and the app says so if
  *  there were more. */
-function chosen(files: FileList): void {
+function chosen(files: FileList, from: 'drop' | 'pick'): void {
   // Read now: the dialog's list is emptied in place when its input is
   // cleared, before a queued call runs.
   const [file, at, more] = [files[0], performance.now(), files.length - 1];
-  if (file) call((app) => app.open_file(file, at, more));
+  if (file) call((app) => app.open_file(file, at, more, from));
 }
 
 const ACTIONS: Record<string, () => void> = {
@@ -170,7 +176,7 @@ export function bindFrame(): void {
     event.preventDefault();
     depth = 0;
     root.removeAttribute('data-dragging');
-    if (event.dataTransfer?.files.length) chosen(event.dataTransfer.files);
+    if (event.dataTransfer?.files.length) chosen(event.dataTransfer.files, 'drop');
   });
 
   focusFirstScreen();

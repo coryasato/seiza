@@ -14,9 +14,11 @@
 //! (`docs/DECISIONS.md`, "Scope", 2026-11-21, "A link to a view of a
 //! dropped file").
 //!
-//! Until the command bar, the table's events are its one driver, and
-//! `globalThis.__tychoView` publishes it read-only (`docs/DECISIONS.md`,
-//! "Scope", 2026-11-23).
+//! Two drivers write it: the table's events (a drag, a pin made in the
+//! table) and the command bar's actions (`crate::command`), which change
+//! the controller first and then give the table its calls
+//! ([`TableCalls::arrange`]). `globalThis.__tychoView` publishes it
+//! read-only (`docs/DECISIONS.md`, "Scope", 2026-11-23).
 
 use std::fmt;
 
@@ -192,6 +194,31 @@ impl TableCalls {
         table.set_order(self.order, cx);
         table.set_pinned(self.pinned, cx);
     }
+
+    /// Gives `table` the view with the least it needs: its columns only
+    /// when `columns` says their widths or formats changed
+    /// ([`Controller::same_columns`]; `set_columns` resets the order and
+    /// the table's other per-column state), then the order and the count.
+    pub fn arrange<D: TallTableDelegate>(
+        self,
+        columns: bool,
+        table: &mut TallTableState<D>,
+        cx: &mut Context<TallTableState<D>>,
+    ) {
+        if columns {
+            table.set_columns(self.columns, cx);
+        }
+        table.set_order(self.order, cx);
+        table.set_pinned(self.pinned, cx);
+    }
+}
+
+/// Why `pin` or `unpin` left a column where it was: it's on that side of
+/// the pinned run already. An answer, not an error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PinRefused {
+    AlreadyPinned,
+    NotPinned,
 }
 
 /// The view of the open file, held by the table's column indices: the
@@ -290,6 +317,81 @@ impl Controller {
         })
     }
 
+    /// The file's columns, in its own order: the table's indices.
+    pub fn columns(&self) -> &[ColumnInfo] {
+        &self.file
+    }
+
+    /// `order()[place]` is the file's column drawn there.
+    pub fn order(&self) -> &[usize] {
+        &self.order
+    }
+
+    /// The count of leading columns pinned, as asked for.
+    pub fn pinned(&self) -> usize {
+        self.pinned
+    }
+
+    /// Column `index`'s set width, none while it's its kind's.
+    pub fn width(&self, index: usize) -> Option<f32> {
+        self.widths.get(index).copied().flatten()
+    }
+
+    /// Whether `other` gives the table the same columns: the file's, at the
+    /// same widths and formats (the order and the pins aside).
+    pub fn same_columns(&self, other: &Self) -> bool {
+        self.file == other.file && self.widths == other.widths && self.formats == other.formats
+    }
+
+    /// Where column `index` is drawn.
+    pub fn place(&self, index: usize) -> usize {
+        self.order
+            .iter()
+            .position(|&drawn| drawn == index)
+            .unwrap_or(index)
+    }
+
+    /// Whether column `index` is in the pinned run.
+    pub fn is_pinned(&self, index: usize) -> bool {
+        self.place(index) < self.pinned
+    }
+
+    /// Pins column `index`: moves it to the end of the pinned run and pins
+    /// one more (`docs/DECISIONS.md`, "Scope", 2026-11-24).
+    pub fn pin(&mut self, index: usize) -> Result<(), PinRefused> {
+        let place = self.place(index);
+        if place < self.pinned {
+            return Err(PinRefused::AlreadyPinned);
+        }
+        self.order.remove(place);
+        self.order.insert(self.pinned, index);
+        self.pinned += 1;
+        Ok(())
+    }
+
+    /// Unpins column `index`: moves it to just past the pinned run and pins
+    /// one fewer.
+    pub fn unpin(&mut self, index: usize) -> Result<(), PinRefused> {
+        let place = self.place(index);
+        if place >= self.pinned {
+            return Err(PinRefused::NotPinned);
+        }
+        self.order.remove(place);
+        self.order.insert(self.pinned - 1, index);
+        self.pinned -= 1;
+        Ok(())
+    }
+
+    /// Takes `view` (a log entry's) over this file, keeping the rows there
+    /// are now: a CSV still loading has more than when it was written. The
+    /// controller is left as it was if the view is refused.
+    pub fn restore(&mut self, view: &ViewState) -> Result<(), Refused> {
+        let mut restored = Self::new(view, &self.file)?;
+        restored.source.rows = self.source.rows;
+        *self = restored;
+        Ok(())
+    }
+
     /// The view as it's written down.
     pub fn view(&self) -> ViewState {
         ViewState {
@@ -333,9 +435,15 @@ impl Controller {
 
     /// What the table reported, taken into the view: a width (`resize`),
     /// the order and the count after a move (`reorder`), or the count after
-    /// a pin (`pin`: the event carries the run in effect, so the count is
-    /// the table's, `pinned`). Whether the view changed.
-    pub fn take(&mut self, event: &TallTableEvent, pinned: usize) -> bool {
+    /// a pin (`pin`). The order and the count are the table's as it is
+    /// when the event is heard (`order`, `pinned`), not the event's: events
+    /// are heard after the update that sent them, so a command's
+    /// `set_order` then `set_pinned` would report a count already stale,
+    /// and `Pinned` carries the run in effect, not the count. A command
+    /// changes the controller before the table, so what it sends the table
+    /// comes back as no change, and only the table's own changes (a drag)
+    /// do. Whether the view changed.
+    pub fn take(&mut self, event: &TallTableEvent, order: &[usize], pinned: usize) -> bool {
         match event {
             TallTableEvent::ColumnWidthsChanged(widths) if widths.len() == self.file.len() => {
                 let widths: Vec<_> = widths.iter().map(|width| width.map(f32::from)).collect();
@@ -343,14 +451,10 @@ impl Controller {
                 self.widths = widths;
                 changed
             }
-            TallTableEvent::ColumnsMoved {
-                order,
-                pinned: count,
-                ..
-            } if order.len() == self.file.len() => {
-                let changed = *order != self.order || *count != self.pinned;
-                self.order.clone_from(order);
-                self.pinned = *count;
+            TallTableEvent::ColumnsMoved { .. } if order.len() == self.file.len() => {
+                let changed = order != self.order || pinned != self.pinned;
+                self.order = order.to_vec();
+                self.pinned = pinned;
                 changed
             }
             TallTableEvent::Pinned(_) => self.set_pinned(pinned),
@@ -703,6 +807,9 @@ mod tests {
     struct Shell {
         table: Entity<Table>,
         controller: Rc<RefCell<Controller>>,
+        /// The events that changed the view: the workbench logs each as a
+        /// drag.
+        changes: Rc<std::cell::Cell<usize>>,
         _subscription: gpui_kit::Subscription,
     }
 
@@ -731,13 +838,21 @@ mod tests {
                 .new(|cx| TallTableState::new(Memory, calls.columns, 1000, Paging::default(), cx));
             let controller = Rc::new(RefCell::new(controller));
             let taking = controller.clone();
+            let changes = Rc::new(std::cell::Cell::new(0));
+            let counting = changes.clone();
             let subscription = cx.subscribe(&table, move |_, table, event: &TallTableEvent, cx| {
-                let pinned = table.read(cx).pinned();
-                taking.borrow_mut().take(event, pinned);
+                let table = table.read(cx);
+                if taking
+                    .borrow_mut()
+                    .take(event, table.order(), table.pinned())
+                {
+                    counting.set(counting.get() + 1);
+                }
             });
             Shell {
                 table,
                 controller,
+                changes,
                 _subscription: subscription,
             }
         });
@@ -858,5 +973,111 @@ mod tests {
             assert_eq!(table.pinned(), 1);
             assert_eq!(table.column_width(2), Some(px(120.)));
         });
+    }
+
+    /// Runs `text` as the workbench does: planned on the controller, which
+    /// takes it, then given to the table, the count read back.
+    fn command(text: &str, shell: &Entity<Shell>, cx: &mut VisualTestContext) {
+        use crate::command::{Catalog, Parsed, parse, plan};
+
+        let (table, controller) = shell.read_with(cx, |shell, _| {
+            (shell.table.clone(), shell.controller.clone())
+        });
+        let Parsed::Action { steps, .. } = parse(text) else {
+            panic!("{text:?} isn't an action");
+        };
+        let catalog = Catalog {
+            view: controller.borrow().clone(),
+            loading: false,
+        };
+        let plan = plan(&steps, &catalog).unwrap();
+        let columns = !catalog.view.same_columns(&plan.view);
+        *controller.borrow_mut() = plan.view;
+        let calls = controller.borrow().calls();
+        let pinned = table.update(cx, |table, cx| {
+            calls.arrange(columns, table, cx);
+            table.pinned()
+        });
+        controller.borrow_mut().set_pinned(pinned);
+        draw(cx);
+    }
+
+    #[gpui_kit::test]
+    fn pin_and_unpin_move_the_tables_columns(cx: &mut TestAppContext) {
+        let (shell, cx) = open(cx);
+        let (table, controller, changes) = shell.read_with(cx, |shell, _| {
+            (
+                shell.table.clone(),
+                shell.controller.clone(),
+                shell.changes.clone(),
+            )
+        });
+        command("pin mass", &shell, cx);
+        command("pin LAUNCHED", &shell, cx);
+        table.read_with(cx, |table, _| {
+            assert_eq!(table.order(), [2, 3, 0, 1]);
+            assert_eq!((table.pinned(), table.pinned_in_effect()), (2, 2));
+        });
+        command("unpin mass", &shell, cx);
+        table.read_with(cx, |table, _| {
+            assert_eq!(table.order(), [3, 2, 0, 1]);
+            assert_eq!(table.pinned(), 1);
+        });
+        let view = controller.borrow().view();
+        let names: Vec<_> = view
+            .columns
+            .iter()
+            .map(|column| column.name.as_str())
+            .collect();
+        assert_eq!(names, ["launched", "mass", "id", "name"]);
+        assert_eq!(view.pinned, 1);
+        // The table's events for the command's own calls came back as no
+        // change: no drag in the log.
+        assert_eq!(changes.get(), 0);
+        // A drag still is one.
+        table.update(cx, |table, cx| table.move_columns(3..4, 1, cx));
+        draw(cx);
+        assert_eq!(changes.get(), 1);
+        assert_eq!(controller.borrow().order(), [3, 1, 2, 0]);
+    }
+
+    #[gpui_kit::test]
+    fn a_log_entrys_state_is_given_back(cx: &mut TestAppContext) {
+        let (shell, cx) = open(cx);
+        let (table, controller, changes) = shell.read_with(cx, |shell, _| {
+            (
+                shell.table.clone(),
+                shell.controller.clone(),
+                shell.changes.clone(),
+            )
+        });
+        let opened = controller.borrow().view();
+        // A width from a drag, then a pin.
+        table.update(cx, |_, cx| {
+            cx.emit(TallTableEvent::ColumnWidthsChanged(vec![
+                None,
+                Some(px(240.)),
+                None,
+                None,
+            ]));
+        });
+        draw(cx);
+        command("pin name", &shell, cx);
+        assert_eq!(changes.get(), 1);
+        // The way back to the opening: the widths too, so its columns.
+        let before = controller.borrow().clone();
+        controller.borrow_mut().restore(&opened).unwrap();
+        let columns = !controller.borrow().same_columns(&before);
+        assert!(columns);
+        let calls = controller.borrow().calls();
+        table.update(cx, |table, cx| calls.arrange(columns, table, cx));
+        draw(cx);
+        assert_eq!(controller.borrow().view(), opened);
+        table.read_with(cx, |table, _| {
+            assert_eq!(table.order(), [0, 1, 2, 3]);
+            assert_eq!(table.pinned(), 0);
+        });
+        // Nothing of it was read as a drag.
+        assert_eq!(changes.get(), 1);
     }
 }

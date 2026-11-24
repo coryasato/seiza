@@ -344,3 +344,17 @@ No results note: the part's one number, the wasm's size (2834.9 KiB brotli again
 - **Playwright reaches DuckDB's blob worker in Firefox and WebKit too,** so a throw inside it stops the engine in every browser, where the old check ran in Chromium alone.
 - **WebKit's import error ends in a period,** so the frame's line read "failed.. Retry" until the message was trimmed.
 - **Firefox's cancel takes about 100 ms where Chromium's and WebKit's take under 10,** in every run: within the self-test's 200 ms, but half of it.
+
+## M13 part A: the grammar, the commands, and the log, in Rust (2026-11-24)
+
+No results note: the part's one number, the wasm's size (2854.5 KiB brotli against the 2854.8 baseline, +19.6 on M12's close), is in PLAN's evidence.
+
+**Surprises:**
+- **The view's events had to be read from the table, not their payloads.** M12 found two events from one `set_columns` harmless, the last one winning; a command that calls `set_order` and then `set_pinned` sends a `ColumnsMoved` carrying the count before the pin, and the log would have taken it for a drag. Reading the table's order and count when the event is heard made a command's own events no change, with no flag, and made "a change is a drag" true.
+- **`set_columns` is too blunt to give a view back each time.** It resets the order, a selection, a drag, and the sort's column, so the bar calls it only when a width or a format differs, which for `pin` and `unpin` is never.
+- **Completion can't wait for GPUI's turn,** where every other page call runs. It reads a copy of the open file's view the workbench leaves beside the calls when it changes, compared in place each render, since the table renders every frame of a scroll.
+- **Plain edit distance missed the commonest typo:** `pni` is two edits from `pin`, so a swap of neighbors counts as one.
+- **A swap of two neighbors reads as either one moving,** and the log can't see which was dragged; the one that crossed the pinned run's edge is told, the rest is the left one moved.
+- **The code review found `undo` stepping across a branch.** Undo by the list's order gave back, after a way back and a new step, a state the step never started from; each entry keeps where it was taken from now. It also found the log moving its current entry before the state was given back, and a plan that changed nothing answered as a jump to row 1: the native tests had covered each piece, not the seams between the log and the workbench.
+- **Nothing calls the new page calls yet,** so the browser checks still pass unchanged, and the calls' JS side is checked only by `tsc` until the bar is drawn.
+
