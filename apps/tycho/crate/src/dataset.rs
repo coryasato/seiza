@@ -6,6 +6,21 @@
 use seiza_duckdb::sql::ColumnInfo;
 use seiza_duckdb::tall_table::ParquetSummary;
 
+/// The sample: GCAT, every object launched to orbit (`docs/data.md`),
+/// built by `just tycho data` and served by the host as a hashed asset,
+/// whose URL it passes to `start`.
+pub mod sample {
+    /// The name the header shows.
+    pub const NAME: &str = "gcat.parquet";
+    /// Its button's label and element id (the Playwright checks click by it).
+    pub const LABEL: &str = "Try the sample: GCAT, every object launched to orbit";
+    pub const TARGET: &str = "try-sample";
+
+    /// The sample's URL, from the host.
+    pub struct Url(pub gpui_kit::SharedString);
+    impl gpui_kit::Global for Url {}
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct FileSummary {
     pub name: String,

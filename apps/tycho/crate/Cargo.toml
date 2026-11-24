@@ -38,6 +38,7 @@ web-sys = { workspace = true, features = [
     "FileList",
     "HtmlElement",
     "HtmlInputElement",
+    "Response",
     "Window",
 ] }
 

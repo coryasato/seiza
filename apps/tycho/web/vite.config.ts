@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { duckdb } from '@seiza/duckdb/vite';
 import { PLACEHOLDER_ID } from '@seiza/web/placeholder';
@@ -32,8 +35,9 @@ const titleBar = `
  * for a few hundred ms at most, too short to read a different line, which
  * only looked like one more jump. The button ("Open a file…") is a skeleton,
  * gpui-kit's look: the browser and GPUI draw glyphs differently, and the
- * label jumped at the swap. Its width is GPUI's, which measures text its own
- * way and lays out in whole pixels; read it from `__seizaTargets` (`?bench`)
+ * label jumped at the swap; the sample's button (its label in `crate/src/dataset.rs`,
+ * `sample::LABEL`) is one too. Their widths are GPUI's, which measures text its own
+ * way and lays out in whole pixels; read them from `__seizaTargets` (`?bench`)
  * after a label change.
  */
 const emptyState = `
@@ -45,10 +49,29 @@ const emptyState = `
   <div class="sz-empty-content">
     <div class="sz-row">
       <span class="sz-skeleton sz-skeleton-button" style="width: 99px"></span>
+      <span class="sz-skeleton sz-skeleton-button" style="width: 350px"></span>
     </div>
     <div class="sz-text-xs sz-muted">Engine loading…</div>
   </div>
 </div></div>`;
+
+/**
+ * The sample (`src/main.ts` imports it) is built by `just tycho data` and
+ * gitignored: refuse to build or serve without it, or with a file that isn't
+ * the one `data/MANIFEST.json` records.
+ */
+function checkSample() {
+  const path = fileURLToPath(new URL('../data/gcat.parquet', import.meta.url));
+  const manifest = JSON.parse(readFileSync(new URL('../data/MANIFEST.json', import.meta.url), 'utf8')) as Record<string, { sha256?: string }>;
+  const pinned = manifest['gcat.parquet']?.sha256;
+  if (!existsSync(path)) throw new Error(`apps/tycho/data/gcat.parquet is missing: build it with \`just tycho data\``);
+  if (!pinned) throw new Error(`apps/tycho/data/MANIFEST.json records no gcat.parquet: build it with \`just tycho data\`, which records it`);
+  const found = createHash('sha256').update(readFileSync(path)).digest('hex');
+  if (found !== pinned) {
+    throw new Error(`apps/tycho/data/gcat.parquet has SHA-256 ${found}, but data/MANIFEST.json records ${pinned}: build it again with \`just tycho data\``);
+  }
+}
+checkSample();
 
 export default defineConfig(
   seizaViteConfig(

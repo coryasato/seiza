@@ -125,5 +125,100 @@
     "sha256": "e7f61c4a8e6e36c7cb700312cf97fa500a6ced5a29527b80b4711c0beb6f0cef",
     "source": "drop_files.ts: generated values too wide for their columns",
     "writer": "DuckDB v1.4.5, ZSTD"
+  },
+  "gcat.parquet": {
+    "rows": 71431,
+    "bytes": 1784227,
+    "sha256": "9b822934d552a860498e1a0e752e8f1ce598137a16f888884506c0251f003252",
+    "source": "GCAT 1.8.9, data update 2026-11-23 (https://planet4589.org/space/gcat): satcat, satcat100k, psatcat, psatcat100k, launch, orgs, sites",
+    "credit": "Data from GCAT (J. McDowell, planet4589.org/space/gcat) · CC BY 4.0",
+    "citation": "McDowell, Jonathan C., 2020. General Catalog of Artificial Space Objects, Release 1.8.9, https://planet4589.org/space/gcat",
+    "license": "CC BY 4.0",
+    "release": "1.8.9",
+    "dataUpdate": "2026-11-23",
+    "fetched": "2026-11-24",
+    "sources": [
+      {
+        "file": "index.html",
+        "url": "https://planet4589.org/space/gcat/",
+        "bytes": 12850,
+        "sha256": "b6962ddcd2642fdfc012ccf355ba1e1dc914863ccda1f698000a5dea122f10d5"
+      },
+      {
+        "file": "satcat.tsv",
+        "url": "https://planet4589.org/space/gcat/tsv/cat/satcat.tsv",
+        "bytes": 19298756,
+        "sha256": "6929bd83abb87f6721ccdd270cfe903417dcddcfe7157a706fa8942281b30d96"
+      },
+      {
+        "file": "satcat100k.tsv",
+        "url": "https://planet4589.org/space/gcat/tsv/cat/satcat100k.tsv",
+        "bytes": 417688,
+        "sha256": "fe2fe5d5fba2c351c528d5b210f9a6a41007e5100460000fe8aafee711c71a40"
+      },
+      {
+        "file": "psatcat.tsv",
+        "url": "https://planet4589.org/space/gcat/tsv/cat/psatcat.tsv",
+        "bytes": 5233801,
+        "sha256": "49299a89dfc772db0603a1f5b2c2ab91aa4db69ccfee0fedf8187050cf9ae112"
+      },
+      {
+        "file": "psatcat100k.tsv",
+        "url": "https://planet4589.org/space/gcat/tsv/cat/psatcat100k.tsv",
+        "bytes": 181516,
+        "sha256": "74f38bf3b3af65dc8d2ba1e85383fd2d45dbf289783a4b165655480cafda4e34"
+      },
+      {
+        "file": "launch.tsv",
+        "url": "https://planet4589.org/space/gcat/tsv/launch/launch.tsv",
+        "bytes": 13818818,
+        "sha256": "456f6acdb9b5ef78a0629153ccd890fb4d0fcb3153ef9d7b264672da33926a1f"
+      },
+      {
+        "file": "orgs.tsv",
+        "url": "https://planet4589.org/space/gcat/tsv/tables/orgs.tsv",
+        "bytes": 712172,
+        "sha256": "7a221d045ac16213120e110782f586e0ea29e4761daeb733cf68cf879fa2c96c"
+      },
+      {
+        "file": "sites.tsv",
+        "url": "https://planet4589.org/space/gcat/tsv/tables/sites.tsv",
+        "bytes": 125822,
+        "sha256": "82588d9aef69112dcadfaf03ef78a8c9b8fac4c81345a4d24af14a0a1835ac4a"
+      }
+    ],
+    "dropped": [
+      "S04494",
+      "S04925",
+      "S05703",
+      "S05820",
+      "S07965",
+      "S09633",
+      "S100239",
+      "S100681",
+      "S10909",
+      "S10910",
+      "S11006",
+      "S11411",
+      "S11412",
+      "S11725",
+      "S12587",
+      "S13405",
+      "S13749",
+      "S13752",
+      "S19811",
+      "S19813",
+      "S21021",
+      "S21310",
+      "S23280",
+      "S24845",
+      "S24848",
+      "S25591",
+      "S44908",
+      "S62390",
+      "S63396"
+    ],
+    "rowGroups": 3,
+    "writer": "DuckDB v1.4.5, ZSTD, ROW_GROUP_SIZE 30720, sorted by launch_date then jcat"
   }
 }

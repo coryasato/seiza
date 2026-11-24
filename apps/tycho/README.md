@@ -6,9 +6,9 @@
 
 > **Version 2 is being built:** a workbench for a file too big for a spreadsheet, to open it, understand it, check what you need, and export the part you want, with nothing uploaded ([`PLAN.md`](PLAN.md)). Until a section below is rewritten by the work that changes it, it describes version 1, the app that's live.
 
-Tycho is a local-first data workbench in the browser. Drop a CSV or Parquet file, or click a sample, and scroll every row. DuckDB-Wasm queries the data in your tab, and GPUI (via GPUI Kit) draws it on a canvas with WebGPU, or WebGL2 where WebGPU isn't available. Nothing is uploaded.
+Tycho is a local-first data workbench in the browser. Drop a CSV or Parquet file, or open the sample, and scroll every row. DuckDB-Wasm queries the data in your tab, and GPUI (via GPUI Kit) draws it on a canvas with WebGPU, or WebGL2 where WebGPU isn't available. Nothing is uploaded.
 
-- **Two samples, served by range:** every known asteroid (1.57 M rows, NASA/JPL) and Gaia DR3's 25.1 M brightest stars (ESA). Only the row groups you scroll to are downloaded.
+- **The sample:** GCAT, Jonathan McDowell's catalog of every object launched to orbit since 1957 (71,431 rows: satellites, rocket stages, and debris, with their launches, owners, orbits, and fates). It's 1.7 MiB, downloaded whole when you open it.
 - **Your own files:** Parquet up to 10 GB, read where it lies; CSV up to 6 GB, loaded in chunks while you scroll the rows already in.
 - **Jump to row:** Cmd/Ctrl+G.
 - **Observation panel:** the title bar's "Observation panel" button, Cmd/Ctrl+Shift+P, or `?perf` in the URL. It shows the page-load waterfall, frame times and work per frame, memory, bytes read against the file size, and cache hits, live.
@@ -25,7 +25,7 @@ Tycho doesn't measure itself: it's a tool, and the [observatory](../observatory/
 - **A narrow bridge.** Rust and DuckDB's JS API talk through three calls: register a file, run a query, cancel a query. Schemas, row counts, and metadata are SQL. Results cross as Arrow IPC bytes, read by a small hand-rolled reader (arrow-rs cost 127 KiB more). The engine and its bridge are their own package, [`engines/duckdb/`](../../engines/duckdb/), which other apps can use.
 - **Query per viewport.** The table asks only for the rows on screen plus a little ahead, in 1024-row pages read by row-group range from Parquet. Its scroll position is an f64 row index, because pixel-based lists lose precision past ~16 M px (25 M rows is 640 M px).
 - **CSV loads in chunks.** A CSV has no index, so it's cut at record boundaries and each chunk becomes its own compressed in-memory table. The first rows show in ~0.2 s while the rest loads.
-- **One origin.** A Cloudflare Worker serves the app, DuckDB's bundles, and the samples (by byte range from R2, cached at the edge), with the cross-origin isolation headers DuckDB needs.
+- **One origin.** A Cloudflare Worker serves the app, DuckDB's bundles, and the sample, with the cross-origin isolation headers DuckDB needs.
 
 The reasoning and the measurements behind each choice are in [`docs/DECISIONS.md`](docs/DECISIONS.md) and [`docs/LESSONS.md`](docs/LESSONS.md).
 
@@ -59,6 +59,7 @@ Install the prerequisites in the [root README](../../README.md#getting-started) 
 
 ```sh
 just setup              # npm install (once)
+just tycho data         # the sample, data/gcat.parquet: fetched from GCAT, decoded, checked (once; dev and build need it)
 just tycho dev          # debug build + Vite with COOP/COEP → http://localhost:5173
 just tycho build        # release build; prints raw/gzip/brotli asset sizes and the page's weight before first paint
 just tycho preview      # serve the release build → http://localhost:4173
@@ -80,12 +81,9 @@ The smoke check needs Playwright's browsers: run `npx playwright install chromiu
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why Tycho is built the way it is, by area, with the numbers behind each choice. |
 | [`docs/LESSONS.md`](docs/LESSONS.md) | What surprised us, milestone by milestone. |
 | [`docs/milestones.md`](docs/milestones.md) | The specs and evidence of each milestone. |
-| [`docs/data.md`](docs/data.md), [`docs/hosting.md`](docs/hosting.md) | The samples, and how the app is served. |
+| [`docs/data.md`](docs/data.md), [`docs/hosting.md`](docs/hosting.md) | The sample and the test files, and how the app is served. |
 | [`perf/budgets.json`](perf/budgets.json), [`perf/results/`](perf/results/) | The wasm-size budget, and version 1's measurements, dated: a JSON per run and a note per milestone. |
 
 ## Data credits
 
-The samples are re-hosted copies of public data, rewritten as Parquet:
-
-- **Asteroids:** NASA/JPL Small-Body Database.
-- **Stars:** This work has made use of data from the European Space Agency (ESA) mission Gaia, processed by the Gaia Data Processing and Analysis Consortium (DPAC).
+The sample is a re-hosted copy of public data, rewritten as Parquet: data from GCAT (J. McDowell, [planet4589.org/space/gcat](https://planet4589.org/space/gcat)), CC BY 4.0. Full citation: McDowell, Jonathan C., 2020. General Catalog of Artificial Space Objects, Release 1.8.9, https://planet4589.org/space/gcat. The live site, version 1, still serves its two old samples, from the NASA/JPL Small-Body Database and ESA's Gaia mission (processed by the Gaia Data Processing and Analysis Consortium, DPAC), until version 2 replaces it.

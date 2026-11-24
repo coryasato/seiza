@@ -6,6 +6,10 @@ import init, { start } from '../pkg/tycho.js';
 // `init` fetch one URL (instantiateStreaming needs `application/wasm`).
 import wasmUrl from '../pkg/tycho_bg.wasm?url';
 import { createBridge } from '@seiza/duckdb/bridge';
+// The sample, built by `just tycho data` (gitignored), emitted as a hashed
+// asset; vite.config.ts checks it against data/MANIFEST.json. Fetched only
+// when its button is pressed.
+import sampleUrl from '../../data/gcat.parquet?url';
 
 const bridge = createBridge();
 // `?bench`: the perf scripts query the same engine the app uses (row counts,
@@ -19,4 +23,4 @@ const instantiate = async () => {
   if (bench) (globalThis as { __tychoWasmMemory?: WebAssembly.Memory }).__tychoWasmMemory = exports.memory;
   return exports;
 };
-void boot({ init: instantiate, start: (font) => start(font, bridge), fontUrl, wasmUrl });
+void boot({ init: instantiate, start: (font) => start(font, bridge, sampleUrl), fontUrl, wasmUrl });

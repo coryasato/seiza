@@ -56,6 +56,13 @@ paused value:
 extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{web}}/public
 
+# The sample, data/gcat.parquet (gitignored): GCAT fetched into data/raw/gcat/
+# (reused on a rerun; --refresh fetches again), decoded, checked, and
+# recorded in data/MANIFEST.json (data/gcat.ts). `dev` and `build` refuse to
+# run without it, or with a file MANIFEST.json doesn't record.
+data *args: data-deps
+    node {{app_dir}}/data/gcat.ts {{args}}
+
 # The test files: the CSV fixture (data/fixtures/asteroids.csv), and the
 # drop-test files (data/drop/), all gitignored, from the observatory's full
 # asteroid sample (`just observatory data --only asteroids` first): the
@@ -93,7 +100,7 @@ check: lint build
 home-paths: build
     node {{root}}/shared-web/perf/home-paths.ts {{web}}/dist/assets/tycho_bg-*.wasm --control tycho
 
-# fmt, clippy (wasm target and native host; Tycho, seiza, the DuckDB engine, and the table component), TypeScript (host, perf, data, and worker scripts, shared-web scripts, the DuckDB engine's package), plus no milestone references outside the history files (check-terms).
+# fmt, clippy (wasm target and native host; Tycho, seiza, the DuckDB engine, and the table component), TypeScript (host, perf, data, and worker scripts, shared-web scripts, the DuckDB engine's package), the sample's date parser's tests, plus no milestone references outside the history files (check-terms).
 lint:
     cd {{root}} && node shared-web/scripts/check-terms.ts
     cargo fmt --all --check
@@ -101,6 +108,7 @@ lint:
     cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-tall-table --all-features --all-targets -- -D warnings
     npm run typecheck --workspace @seiza/tycho-web
     @if [ -d {{app_dir}}/data/node_modules ]; then npx tsc -p {{app_dir}}/data; else echo "skipped data/ typecheck: its deps install with \`just tycho data-deps\`"; fi
+    node --test {{app_dir}}/data/gcat-dates.test.ts
 
 # Compile the crate and generate JS bindings into web/pkg/.
 wasm profile="debug":

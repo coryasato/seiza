@@ -18,7 +18,7 @@ The crate publishes these and no script reads them; the checks the rebuild write
 
 `?bench` exposes the bridge as `globalThis.__tychoBridge` and the app's `WebAssembly.Memory` as `globalThis.__tychoWasmMemory`; `?page=`, `?prefetch=`, and `?budget_mib=` override the table's paging (`crate/src/table.rs`, `paging`). With `?perf` or `?bench`: the table publishes what it shows to `globalThis.__tychoTable` (`marked` is the row a jump landed on, 0-based; `top` and `scrollX` the scroll position; `tooltip` the shown tooltip's text), where the cells are to `globalThis.__tychoTableLayout`, and what the workbench shows (state, file, rows, notice, a CSV's `ingest`, `readBytes`, `chunks`, the jump input's `jumpText` and `jumpRefusal`, and `focused`) to `globalThis.__tychoWorkbench`. With `?cells` too, every drawn cell's exact and shown text goes to `globalThis.__tychoCells` each frame. `?selftest` runs the engine self-test once DuckDB is ready, into the panel and `globalThis.__tychoSelftest`.
 
-Marks: `tycho:first-rows` always; with `?perf` or `?bench`, `tycho:viewport-filled` after each frame that fills the viewport, `tycho:csv-rows` on each frame showing a CSV's count grow, and `tycho:csv-done`. Canvas controls publish their bounds from `crate/src/targets.rs` (`jump-input`, `jump-refusal`, …), clicked with `shared-web/perf/`'s `clickTarget`.
+Marks: `tycho:first-rows` always; with `?perf` or `?bench`, `tycho:viewport-filled` after each frame that fills the viewport, `tycho:csv-rows` on each frame showing a CSV's count grow, and `tycho:csv-done`. Canvas controls publish their bounds from `crate/src/targets.rs` (`jump-input`, `jump-refusal`, `open-file`, `try-sample`, …), clicked with `shared-web/perf/`'s `clickTarget`.
 
 ## Files
 

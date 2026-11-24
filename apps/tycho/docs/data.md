@@ -1,39 +1,54 @@
 # Sample data
 
-Tycho's two samples, where they come from, and how `just tycho data` builds them. Paths are relative to `apps/tycho/`. Why each choice was made is in [`DECISIONS.md`](DECISIONS.md), "Sample data".
+Tycho's one sample, where it comes from, and how `just tycho data` builds it; and the test files beside it. Paths are relative to `apps/tycho/`. Why GCAT, its columns, and the build's spec are in [the sample's research](../../../docs/research/tycho-sample.md); the decisions in [`DECISIONS.md`](DECISIONS.md), "Sample data".
 
-**Decided 2026-09-22.** Both datasets are space-themed: asteroids are the default, and Gaia stars are the big one. Both are re-hosted on our origin.
+## The sample: GCAT, every object launched to orbit
 
-## Default: every known asteroid (NASA/JPL Small-Body Database)
+- **What:** Jonathan McDowell's General Catalog of Artificial Space Objects ([planet4589.org/space/gcat](https://planet4589.org/space/gcat)), one row per catalogued object that reached Earth orbit since 1957: payloads, rocket stages, components, and debris. CC BY 4.0.
+- **The file:** `data/gcat.parquet`, 71,431 rows and 36 columns, 1.70 MiB (GCAT 1.8.9, data update 2026-11-23, fetched 2026-11-24). ZSTD, 30,720-row groups (3), sorted by `launch_date` then `jcat`. `data/MANIFEST.json` holds its rows, bytes, SHA-256, each input's SHA-256, the release, and the 29 dropped IDs.
+- **Credit:** in the file's key/value metadata (`tycho.credit`, `tycho.fetched`, and `tycho.license`, `tycho.citation`, `tycho.release`, `tycho.data_update`, `tycho.source`), which the header strip reads: "Data from GCAT (J. McDowell, planet4589.org/space/gcat) · CC BY 4.0, fetched <date>." Where the rebuilt page shows it: `DECISIONS.md`, "Scope", 2026-11-21.
+- **How the app gets it:** the host imports the file as a hashed asset (`web/src/main.ts`, `/assets/gcat-<hash>.parquet`, immutable) and passes its URL to the wasm. The sample button downloads it whole after the click and opens it from memory, as a dropped file opens (`crate/src/files.rs`, `download`); nothing reads it by range. `web/vite.config.ts` refuses to build or serve without the file, or with one whose SHA-256 isn't `MANIFEST.json`'s.
 
-- **Rows:** about 1.5 million: every asteroid with a known orbit. Confirm the count with `just tycho data`, since Rubin discoveries grow it every day.
-- **Source:** the JPL SBDB Query API (`ssd-api.jpl.nasa.gov/sbdb_query.api`), which returns JSON (`fields` + `data` arrays). `data/fetch_asteroids.ts` (run by Node directly, like the `perf/` scripts) pulls the full catalog in pages (`limit` / `limit-from`) and writes raw JSON. `prep.sql` then turns that into Parquet. Record the fetch date. The catalog can change between pages, so dedupe on `spkid`.
-- **Columns:** `full_name`, `pdes`, `name`, `neo`, `pha`, `class`, `H`, `diameter`, `albedo`, `a`, `e`, `i`, `q`, `per_y`, `first_obs`, `last_obs`, `n_obs_used`, plus `spkid` as the key. Many physical fields are null, which is realistic and a good test of how the table renders nulls.
-- **Sort:** by `spkid`, so row 1 is **(1) Ceres**, then Pallas, Juno, Vesta… Scrolling top to bottom goes from the oldest discoveries to last week's.
-- **Credit in the UI:** "Asteroid data: NASA/JPL Small-Body Database, fetched <date>."
+**The columns and their nulls,** as the build printed them (each column's source and meaning: the research's "The table"):
 
-## Big: Gaia DR3 stars (ESA)
+| Column | Type | Null | Column | Type | Null |
+|---|---|---|---|---|---|
+| `jcat` | VARCHAR | 0 | `owner` | VARCHAR | 0 |
+| `satcat_no` | INTEGER | 0.9% | `country` | VARCHAR | 0 |
+| `cospar` | VARCHAR | 0 | `manufacturer` | VARCHAR | 33.1% |
+| `launch_tag` | VARCHAR | 0 | `status` | VARCHAR | 0 |
+| `name` | VARCHAR | 0 | `end_date` | DATE | 48.6% |
+| `object_type` | VARCHAR | 0 | `end_date_precision` | VARCHAR | 48.6% |
+| `object_detail` | VARCHAR | 47.6% | `end_date_uncertain` | BOOLEAN | 48.6% |
+| `crewed` | BOOLEAN | 0 | `days_in_orbit` | INTEGER | 51.1% |
+| `megaconstellation` | BOOLEAN | 0 | `orbit`, `orbit_class` | VARCHAR | 0.1% |
+| `purpose`, `sector` | VARCHAR | 59.2% | `perigee_km`, `apogee_km`, `inclination_deg` | DOUBLE | 0.0% |
+| `launch_date` | DATE | 0 | `mass_kg`, `mass_estimated` | DOUBLE, BOOLEAN | 45.0% |
+| `launch_time` | TIMESTAMP | 0 | `span_m` | DOUBLE | 45.0% |
+| `launch_time_precision` | VARCHAR | 0 | `bus` | VARCHAR | 44.5% |
+| `vehicle`, `launch_site`, `launch_agency` | VARCHAR | 0 | `shape` | VARCHAR | 45.0% |
+| | | | `alt_names` | VARCHAR | 93.7% |
 
-- **Rows:** a slice of Gaia DR3's ~1.8 billion sources. Target **~25 million rows**, then tune once the file-size ceiling is measured. Pick the cut by brightness (`phot_g_mean_mag < X`) and choose X in `prep.sql` to hit the target. Chosen: **G < 14.5, 25,067,889 stars** (the ESA archive's count, which prep checks); `prep.ts`'s `--cut` moves it without a refetch, down from G < 15 (36.9 M).
-- **Source:** Gaia DR3 as HATS-partitioned Parquet on AWS Open Data (`s3://stpubdata/gaia/`, us-east-1, no AWS account needed). Read it with native DuckDB (`@duckdb/node-api`, `httpfs`, anonymous S3) and push the filter down. In practice the pushdown can't skip data. The 2,016 partitions are sorted by `source_id`, so every row group holds every magnitude, and the fetch reads the ten columns of all 1.8 billion rows (~90 GB, ~50 min at 8 jobs). `fetch_gaia.ts` keeps one extract per partition (G < 15, 2.3 GB) in `data/raw/gaia/`, so a rerun or a new cut reads nothing. Two partitions hold 17,842 identical duplicate rows at G < 14.5; prep drops them.
-- **Columns:** `source_id`, `ra`, `dec`, `parallax`, `distance_pc` (1000/parallax where parallax > 0; label it approximate), `pmra`, `pmdec`, `phot_g_mean_mag`, `bp_rp`, `radial_velocity`, `teff_gspphot`.
-- **Sort:** by `source_id`. That ID encodes a HEALPix sky position, so scrolling sweeps across the sky, and neighboring rows compress well.
-- **Role:** this is the scale test. It gives the paging and the file-size ceiling real work, and it sets up v1.1 charts (a GPU star map).
-- **Credit in the UI (required):** "This work has made use of data from the European Space Agency (ESA) mission Gaia, processed by the Gaia Data Processing and Analysis Consortium (DPAC)."
+Where the file differs from the research's table, decided when it was built (`DECISIONS.md`, "Sample data", 2026-11-23): `launch_date` is the date of the launch list's `launch_time`, not the object's own `LDate`; `end_date_precision` also takes `quarter` and `decade`; `days_in_orbit` is filled only for a return dated to the day and not before the launch.
 
-## `just tycho data` produces
+## How `just tycho data` builds it
 
-The data scripts are TypeScript run by Node, like `perf/`. `prep.sql` stays plain SQL, run by a small TS runner on `@duckdb/node-api` (pinned, in its own npm workspace at `data/` so its native binary stays out of the web host's install).
+`data/gcat.ts` (its header says each step), on native DuckDB (`@duckdb/node-api`, in `data/`'s own lockfile):
 
-- `data/raw/`: raw API/S3 fetches (asteroid JSON pages, Gaia extracts). Gitignored.
-- `asteroids.parquet`: default button. ZSTD compression, `ROW_GROUP_SIZE` 30,720 (was 122,880; see `DECISIONS.md`, "Table and paging").
-- `gaia-dr3-bright.parquet`: "big" button. ZSTD, **`ROW_GROUP_SIZE` 61,440** (same bytes per page as 30,720, half the per-group cost; see `DECISIONS.md`, "Sample data"), 1.57 GB, 409 row groups. `just tycho data gaia` builds it; `--bench` writes row-group variants to `data/bench/`.
-- `data/fixtures/asteroids.csv`: the asteroid table as CSV, with the rows from `data/fixtures-src/tricky_rows.csv` appended by prep. `tricky_rows.csv` is hand-written and committed, and holds rows with quoted commas and newlines in the name field. The generated `asteroids.csv` is gitignored. This is the CSV checks' fixture. It also gives the "drop a CSV" demo a matching file people can download and try.
-- `data/MANIFEST.json`: for each file, the row count, byte size, SHA-256, source, fetch date, and the Gaia magnitude cut used. **Committed**, so every benchmark names the exact files it ran against.
-- All other generated files are gitignored. Upload them to R2 with the S3-compatible API (rclone or `aws s3 cp` with the R2 endpoint), because Gaia is too big for `wrangler r2 object put`.
+1. **Fetch** seven TSV files and GCAT's index page (release and data update) into `data/raw/gcat/` (gitignored), with `fetch.json` written last; a rerun reuses them after checking their hashes, and `--refresh` fetches again.
+2. **Read** every column as text, then cast. `-` and blank are null; 0 is null in mass and span only (32,157 and 32,118 rows).
+3. **Decode:** dates through `data/gcat-dates.ts` (GCAT's Vague Dates, unit-tested by `just tycho lint`), codes through `data/gcat-codes.ts` (each table linked to its GCAT page), names through GCAT's orgs and sites tables, with a short table of our own ("United States", "Soviet Union", "United Kingdom", "Kennedy Space Center", "Cape Canaveral"). An uncovered date form, code, or org, a repeated key, an object with no launch or a launch with no date, or a catalog number that is neither a number nor `NNA` (none assigned, null) fails the build and is printed.
+4. **Drop** type Z (spurious), a blank type, and status ERR: 29 rows, their IDs printed and in `MANIFEST.json`.
+5. **Write and check:** more than 70,000 rows, `jcat` unique, under 25 MiB, the never-null columns full, "Roadster" one row that left for deep space, Starlink over 800 payloads a year from 2020 (the current year held to its share), a United States and a Soviet Union payload every year from 1958 to 1969, and 1999-025 the launch with the most debris. The checks run on a temporary file, which replaces `gcat.parquet` only once they pass: a failed rebuild leaves the last good one.
 
-## Why re-host instead of linking the sources
+The build is reproducible: a rerun on the same raw files writes the same bytes. A newer GCAT is `just tycho data --refresh`, then a build; nothing refreshes it on a schedule.
 
-- Under `COEP: require-corp`, every cross-origin fetch needs CORS or CORP headers that we don't control. Serving from the same origin avoids the problem.
-- Rewriting the files lets us **control row-group size and sort order**, and the paging strategy depends on both.
-- Pinned files make every benchmark reproducible.
+## The test files
+
+Files a visitor could drop, built by `just tycho drop-files` from the observatory's asteroid sample (`data/CLAUDE.md`): the CSV fixture (`data/fixtures/asteroids.csv`, with the hand-written `data/fixtures-src/tricky_rows.csv` appended), and Parquet and CSV files of about 100 MB to 10 GB in `data/drop/`. All gitignored; `MANIFEST.json` records each one.
+
+## Why served from our origin
+
+- Under `COEP: require-corp`, a cross-origin fetch needs CORS or CORP headers we don't control; same-origin avoids the problem.
+- Rebuilding the file lets us pick its columns, words, sort, and row groups.
+- A pinned file makes what the app shows reproducible.

@@ -290,6 +290,33 @@ pub(crate) async fn read(file: &web_sys::File, start: f64, end: f64) -> Result<V
     Ok(Uint8Array::new(&buffer).to_vec())
 }
 
+/// Downloads `url` whole and hands it back as a `File` named `name`, held in
+/// memory, so it opens as a file from this device does: the sample is read
+/// from memory, never by range over the network (`docs/DECISIONS.md`,
+/// "Sample data", 2026-11-17).
+pub(crate) async fn download(url: &str, name: &str) -> Result<web_sys::File, String> {
+    let error = |error: JsValue| {
+        error
+            .dyn_ref::<js_sys::Error>()
+            .map(|error| String::from(error.message()))
+            .or_else(|| error.as_string())
+            .unwrap_or_else(|| "the download failed".into())
+    };
+    let window = web_sys::window().ok_or("no window")?;
+    let response: web_sys::Response = JsFuture::from(window.fetch_with_str(url))
+        .await
+        .map_err(error)?
+        .dyn_into()
+        .map_err(error)?;
+    if !response.ok() {
+        return Err(format!("the server answered {}", response.status()));
+    }
+    let blob = JsFuture::from(response.blob().map_err(error)?)
+        .await
+        .map_err(error)?;
+    web_sys::File::new_with_blob_sequence(&js_sys::Array::of1(&blob), name).map_err(error)
+}
+
 /// A CSV by name or MIME type, compressed or not.
 pub fn csv_kind(name: &str, mime: &str) -> Option<Kind> {
     let name = name.to_ascii_lowercase();

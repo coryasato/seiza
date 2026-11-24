@@ -18,7 +18,7 @@ use gpui_kit::component::{
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::dataset::{FileSummary, format_bytes, format_count};
+use crate::dataset::{FileSummary, format_bytes, format_count, sample};
 use crate::table::RowTable;
 use seiza_duckdb::EngineStatus;
 use seiza_tall_table::TallTable;
@@ -129,6 +129,11 @@ enum Load {
     /// loading, the bridge holds the calls until it's ready.
     Opening {
         name: SharedString,
+        /// The sample, downloading or opening (its button spins, not the
+        /// file button).
+        sample: bool,
+        /// The sample's download, before it's registered.
+        downloading: bool,
         /// Dropping it stops the open at its next await. None for a CSV,
         /// whose task runs on to drop its tables (`csv`).
         #[cfg(target_family = "wasm")]
@@ -154,8 +159,9 @@ enum Load {
 }
 
 impl Load {
-    fn opening(&self) -> bool {
-        matches!(self, Self::Opening { .. })
+    /// Whether the sample (`true`) or a file from this device is opening.
+    fn opening(&self, which_sample: bool) -> bool {
+        matches!(self, Self::Opening { sample, .. } if *sample == which_sample)
     }
 }
 
@@ -491,6 +497,66 @@ impl Workbench {
     #[cfg(not(target_family = "wasm"))]
     fn pick_file(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
 
+    /// Downloads the sample whole, then opens it from memory as a dropped
+    /// file opens. A file opened meanwhile replaces it (dropping the
+    /// download's task with the state); a dropped file Tycho refuses leaves
+    /// it running, as it leaves an open file.
+    #[cfg(target_family = "wasm")]
+    fn open_sample(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.load.opening(true) {
+            return;
+        }
+        let at = seiza::marks::now();
+        self.close_current(window, cx);
+        self.sniffing = None;
+        self.notice = None;
+        self.opens += 1;
+        let open = self.opens;
+        let url = cx.global::<sample::Url>().0.clone();
+        let task = cx.spawn_in(window, async move |this, cx| {
+            let file = crate::files::download(&url, sample::NAME).await;
+            // Still this download's state: anything that replaced it dropped
+            // this task.
+            let _ = this.update_in(cx, |this, window, cx| {
+                match file {
+                    Ok(file) => {
+                        this.open(
+                            sample::NAME.into(),
+                            format!("sample-{open}.parquet"),
+                            seiza_duckdb::FileSource::File(file),
+                            at,
+                            window,
+                            cx,
+                        );
+                        if let Load::Opening { sample, .. } = &mut this.load {
+                            *sample = true;
+                        }
+                    }
+                    Err(message) => {
+                        this.load = Load::Failed {
+                            name: "the sample".into(),
+                            message: message.into(),
+                            engine_stopped: false,
+                        };
+                    }
+                }
+                cx.notify();
+            });
+        });
+        self.load = Load::Opening {
+            name: "the sample".into(),
+            sample: true,
+            downloading: true,
+            _task: Some(task),
+            sent: Default::default(),
+            csv: None,
+        };
+        cx.notify();
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    fn open_sample(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
+
     /// A file was dropped or picked at `at`. Its first and last bytes decide
     /// first: a file Tycho can't open gets a message and leaves the current
     /// file where it is.
@@ -697,6 +763,8 @@ impl Workbench {
         };
         self.load = Load::Opening {
             name,
+            sample: false,
+            downloading: false,
             _task: Some(task),
             sent,
             csv: None,
@@ -803,6 +871,8 @@ impl Workbench {
         }
         self.load = Load::Opening {
             name,
+            sample: false,
+            downloading: false,
             _task: None,
             sent: Default::default(),
             csv: Some(stop),
@@ -1307,6 +1377,21 @@ impl Workbench {
                 format!("The engine stopped ({message}). Retry starts a new one.").into(),
                 theme.danger,
             ),
+            // A file refused while the sample downloads says why.
+            (
+                _,
+                Load::Opening {
+                    downloading: true, ..
+                },
+                Some(notice),
+            ) if notice.error => (notice.text.clone(), theme.danger),
+            (
+                _,
+                Load::Opening {
+                    downloading: true, ..
+                },
+                _,
+            ) => ("Downloading the sample…".into(), theme.muted_foreground),
             (EngineStatus::Loading, Load::Opening { .. }, _) => (
                 "Waiting for the engine to load…".into(),
                 theme.muted_foreground,
@@ -1378,15 +1463,29 @@ impl Workbench {
                                 Button::new("open-file")
                                     .primary()
                                     .label("Open a file…")
-                                    .loading(self.load.opening())
+                                    .loading(self.load.opening(false))
                                     .disabled(engine_down)
                                     // The web's pointer, only while it can
                                     // be pressed (gpui-kit keeps the arrow).
-                                    .when(!engine_down && !self.load.opening(), |button| {
+                                    .when(!engine_down && !self.load.opening(false), |button| {
                                         button.cursor_pointer()
                                     })
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.pick_file(window, cx)
+                                    })),
+                            ))
+                            .child(Self::published(
+                                sample::TARGET,
+                                Button::new(sample::TARGET)
+                                    .outline()
+                                    .label(sample::LABEL)
+                                    .loading(self.load.opening(true))
+                                    .disabled(engine_down)
+                                    .when(!engine_down && !self.load.opening(true), |button| {
+                                        button.cursor_pointer()
+                                    })
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.open_sample(window, cx)
                                     })),
                             )),
                     )

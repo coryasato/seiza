@@ -8,9 +8,9 @@ The project's claim, as Tycho takes it: the canvas for the GPUI components, the 
 
 ---
 
-**Tycho is being rebuilt** as a public data workbench (`PLAN.md`; the research, `docs/research/tycho-workbench.md` at the repo root; who it's for, `docs/personas.md`). Until the plan's reset lands, this file and each folder's describe the app as built, its measurements excepted (retired, below): follow `PLAN.md` where the two differ.
+**Tycho is being rebuilt** as a public data workbench (`PLAN.md`; the research, `docs/research/tycho-workbench.md` at the repo root; who it's for, `docs/personas.md`). The reset is done: this file and each folder's describe the app as it stands, the ground the plan's goals replace piece by piece. Follow `PLAN.md` where the two differ.
 
-This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the samples and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; the one budget, the wasm's size, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here too, but for rules 1 and 3 and the measurement protocol: Tycho is exempt from them, records no measurement, and its `check` times nothing (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17). Paint before heavy loads (rule 2), the canvas tradeoffs (rule 4), and `shared/`'s conventions bind it, and so do `.claude/rules/` (the GPUI Kit gotchas, the perf harness, Cloudflare). Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
+This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the sample and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; the one budget, the wasm's size, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here too, but for rules 1 and 3 and the measurement protocol: Tycho is exempt from them, records no measurement, and its `check` times nothing (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17). Paint before heavy loads (rule 2), the canvas tradeoffs (rule 4), and `shared/`'s conventions bind it, and so do `.claude/rules/` (the GPUI Kit gotchas, the perf harness, Cloudflare). Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
 
 ---
 
@@ -19,9 +19,9 @@ This is Tycho's context. What's next is in `PLAN.md`; why things are built this 
 These add to the repo-wide rules.
 
 1. **Never block the shell on DuckDB.** Paint first. Start loading the engine from `shared/`'s post-paint callback. The UI must stay usable (and say "engine loading…") until DuckDB is ready.
-2. **Keep the bridge narrow.** Three calls cross the Rust ↔ JS boundary (`registerFile`, `query`, `cancel`): the engine's rule, `engines/duckdb/CLAUDE.md`, rule 2. Get schema, row count, and metadata with SQL through `query`.
+2. **Keep the bridge narrow.** Three calls cross the Rust ↔ JS boundary (`registerFile`, `query`, `cancel`): the engine's rule, `engines/duckdb/CLAUDE.md`, rule 2. Get schema, row count, and metadata with SQL through `query`. What comes in goes through `registerFile`: a dropped file, the sample (downloaded whole, then registered as a `File`), and a URL (it takes one already, for "Open from a URL"). Export is the first thing that needs bytes to come *out* of DuckDB: if it needs a fourth call, that goal changes the engine's rule, in the engine's files, before it's built.
 3. **Query per viewport.** The table fetches only the visible rows plus a buffer. The app never loads the whole result into memory.
-4. **Scope grows through `PLAN.md`.** What Tycho builds next is what `PLAN.md` holds: the table's features as each is ready ("Waiting on"), then its long-term goals. Anything it doesn't hold (a SQL editor, GROUP BY, …) goes into `PLAN.md` as a goal first. If one seems necessary mid-milestone, stop and ask.
+4. **Scope grows through `PLAN.md`.** What Tycho builds next is what `PLAN.md` holds: its goals in order, each opened as a milestone, and the table's features as each is ready ("Waiting on"). Anything it doesn't hold goes into `PLAN.md` as a goal first, and a goal marked *proposed* in the research is reviewed when its goal opens. If one seems necessary mid-milestone, stop and ask.
 
 ## Where the detail is
 
@@ -32,7 +32,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | `crate/` | The app: title bar, workbench, the table's source, the engine's events, files, CSV, jump to row, errors and limits | `crate/CLAUDE.md` |
 | `web/` | The Vite host: the bridge, the engine's plugin, the placeholder shell | `web/CLAUDE.md` |
 | `worker/` | Hosting: the Worker, R2 (DuckDB's two wasm bundles), the deploy, production's pause switch | `worker/CLAUDE.md` |
-| `data/` | The test files, built from the observatory's asteroid sample | `data/CLAUDE.md` |
+| `data/` | The sample's build (GCAT), and the test files built from the observatory's asteroid sample | `data/CLAUDE.md` |
 | `perf/` | The checks that stay (the wasm's size, smoke), the 1 GB memory check by hand, the probes the crate still publishes; `results/`, version 1's measurements, as history | `perf/CLAUDE.md` |
 
 A new folder whose detail only its own work needs gets its own `CLAUDE.md` and a row here.
@@ -50,7 +50,7 @@ apps/tycho/
   crate/            # Rust, package `tycho` (crate/CLAUDE.md)
   web/              # the Vite host (web/CLAUDE.md)
   worker/           # the Cloudflare Worker (worker/CLAUDE.md)
-  data/             # the test files and their MANIFEST.json (data/CLAUDE.md)
+  data/             # the sample's build (gcat.ts), the test files, and their MANIFEST.json (data/CLAUDE.md)
   perf/             # the wasm's size gate and the smoke check, budgets.json, baseline.json, results/ (history) (perf/CLAUDE.md)
   docs/             # DECISIONS.md (by area), LESSONS.md (surprises, per milestone), milestones.md (finished specs), data.md, hosting.md, personas.md (who Tycho is for and what each needs); private/ is gitignored
   README.md         # for visitors: the rebuild's note, canvas tradeoffs, file size limits, how to run it
@@ -64,7 +64,7 @@ apps/tycho/
 One line each; each recipe's line is in its folder's `CLAUDE.md` (in brackets), what it covers and its flags in its script's header and the justfile.
 
 ```
-just tycho data-deps | drop-files                      # data/'s native DuckDB, the test files (data)
+just tycho data | data-deps | drop-files               # the sample, data/'s native DuckDB, the test files (data)
 just tycho extensions                                   # the DuckDB extensions the engine pins, into web/public/duckdb-ext/ (web)
 just tycho worker-check | deploy | pause | resume       # the Worker's checks, the deploy, production's pause switch (worker)
 just tycho smoke [url] | home-paths                     # checks (perf)

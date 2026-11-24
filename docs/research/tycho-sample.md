@@ -129,7 +129,7 @@ Five files are read, all tab-separated, under `https://planet4589.org/space/gcat
 
 ## The build
 
-**Proposed,** for the step that builds the sample (PLAN's reset); reviewed there before it's written. It follows the asteroid sample's pattern in `apps/tycho/data/`: TypeScript run by Node, native DuckDB through `@duckdb/node-api`, a fetch that keeps its raw files so prep reruns without the network, and an entry in `MANIFEST.json`.
+**Decided** (reviewed by the owner and built 2026-11-23, as `apps/tycho/data/gcat.ts`; what the data asked for beyond this spec, the table's differences included, is in Tycho's `docs/DECISIONS.md`, "Sample data", 2026-11-23, and the file as built in its `docs/data.md`). It follows the asteroid sample's pattern in `apps/tycho/data/`: TypeScript run by Node, native DuckDB through `@duckdb/node-api`, a fetch that keeps its raw files so prep reruns without the network, and an entry in `MANIFEST.json`.
 
 1. **Fetch** the seven files above into `data/raw/gcat/` (gitignored), with each one's bytes and SHA-256, the fetch date, and the release and data-update line from GCAT's index page. A rerun reuses them; `--refresh` fetches again.
 2. **Parse** every column as text, then cast, so one bad value can't shift a column. `-` and blank become NULL; 0 becomes NULL in mass and span only, and the script prints how many it nulled.
@@ -150,6 +150,6 @@ A newer GCAT is a rerun of the fetch and prep and a deploy. Nothing refreshes it
 
 ## Open
 
-- **Where the credit shows.** CC BY needs it visible to a visitor, not only in the file's metadata. The old app shows a sample's credit in its header strip; the new first screen and frame have no place drawn for it.
-- **How the file reaches the build.** Tycho's Parquet files are generated and gitignored today, with only the manifest committed, and were uploaded to R2. A static asset has to exist when the host is built: either the few-MiB file is committed, or the build runs the prep.
+- **Where the credit shows.** *Decided 2026-11-21:* with the file's facts, in the menu under its name, and on the first screen's sample row (Tycho's `docs/DECISIONS.md`, "Scope"). Until that page is built, the old header strip shows it from the file's metadata.
+- **How the file reaches the build.** *Decided 2026-11-23:* `just tycho data` builds it, gitignored, and the web build refuses a missing file or one `MANIFEST.json` doesn't record (Tycho's `docs/DECISIONS.md`, "Sample data").
 - **Later, with "More than one file, and joins":** whether the launches, organizations, and sites are served as tables of their own to join. A launches table would hold the orbital launches only, not the 76,035-row list.

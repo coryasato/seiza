@@ -283,3 +283,16 @@ No results note: the part measured nothing.
 - **Without the samples, nothing local needed `wrangler dev`.** Dev and preview ran it only to proxy `/data/*`; the local bucket had never held the bundles at all, since Vite serves them, so `worker-check` now puts them there from the build.
 - **A headless screenshot at DPR 2 isn't GPUI's first frame:** Chromium's GPUI drew at DPR 1 there (the harness's DPR trap), so the placeholder was compared with the first frame at DPR 1.
 - **A flag that repins everything was one step from deleting what can't be fetched again** (the code review's catch): `--repin` meant "take today's download" for GHCN, and the asteroids' fetch deletes its pages first. A source whose pinned bytes exist only on disk repins on its own `--only`.
+
+## M11 part C: the new sample, and the close (2026-11-23)
+
+No results note: the part measured nothing.
+
+**Surprises:**
+- **GCAT's joins were clean and its dates weren't.** Every launch, org, and site code matched, with no key repeated, so the build fails on any miss instead of a threshold. The end dates held forms the research hadn't counted: decades (`1990s?`, 17 rows), quarters (`2010 Q3?`, 2), a one-space day, a lowercase month.
+- **An object's own launch date isn't always its launch's.** `LDate` agreed with the launch list on all but 94 rows: a year alone for debris of unknown origin, a date years later for cargo deployed from a station, and a day early for one Starlink batch launched just after midnight UTC. Taking the launch list's date kept `launch_date` whole and in step with `launch_time`; two rows that would have returned before their launch get no `days_in_orbit`.
+- **Zero is written two ways.** Mass's unknown is `0` and span's is `0.0`, so a text match nulled every mass and no span; the build compares numbers now (32,157 and 32,118).
+- **GCAT's English short names aren't always the friendly ones.** They read "USA", "USSR", and "KY" (Kapustin Yar), and a site's short name "Canaveral", so the build takes English names for countries and organizations, short names for sites, and five names of our own.
+- **The file is a sixth of the guess.** 1.70 MiB against the research's "a few MiB at most"; the 25 MiB limit is far off.
+- **No new bridge call was needed to read from memory.** A fetched `Blob` wrapped as a `File` registers as a dropped file does, so "read from memory" cost a few lines in `files.rs`, and no change to the engine.
+- **DuckDB's `SUMMARIZE` failed on the finished table** ("STDDEV_SAMP is out of range") on a numeric column. The build counts its nulls itself.
