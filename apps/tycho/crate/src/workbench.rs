@@ -405,7 +405,7 @@ impl Workbench {
             });
         }
         // When the focused element stops rendering (the table of a file that
-        // another replaced, or a failed open's empty state), nothing has
+        // another replaced, or of an open that failed), nothing has
         // focus, key dispatch starts at the window's root, and the
         // workbench's bindings stop firing. Put focus back on the nearest
         // focusable ancestor that's still there: the workbench.
@@ -459,7 +459,7 @@ impl Workbench {
 
     /// The engine's status changed. If its worker stopped, what's open or
     /// opening went with it (its registration and tables are gone): the
-    /// empty state says so, with Retry. A held file never reached the
+    /// frame says so, with Retry. A held file never reached the
     /// engine, so it stays held, and opens once Retry's engine is ready.
     fn engine_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(target_family = "wasm")]
@@ -1408,7 +1408,11 @@ impl Workbench {
         let line = |text: String, error: bool| Some(Line { text, error });
         match (&engine, &self.load, &self.notice) {
             (EngineStatus::Failed(message), _, _) => line(
-                format!("The engine didn't load: {message}. Retry loads it again."),
+                // WebKit's import error ends in a period of its own.
+                format!(
+                    "The engine didn't load: {}. Retry loads it again.",
+                    message.trim_end_matches('.')
+                ),
                 true,
             ),
             (

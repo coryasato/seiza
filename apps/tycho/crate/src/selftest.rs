@@ -1,8 +1,8 @@
 //! `?selftest`: checks the bridge end to end, from Rust, in the real app.
 //!
-//! Runs once the engine is ready. Each check becomes an overlay row, and the
-//! whole report is published to `globalThis.__tychoSelftest`, which no
-//! script reads today:
+//! Runs once the engine is ready and its lockdown has settled, again after
+//! each Retry. Each check becomes an overlay row, and the whole report is
+//! published to `globalThis.__tychoSelftest`, which `perf/engine.ts` reads:
 //!
 //! - `SELECT 42 AS x` decodes to an int with x = 42.
 //! - A row of every type the table shows decodes to the text DuckDB means.

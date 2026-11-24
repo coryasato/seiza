@@ -2,7 +2,7 @@
 
 > *Tycho Brahe catalogued a thousand stars in a lifetime. Tycho scrolls 25 million before your coffee cools.*
 
-**Tycho** is a local-first data workbench in the browser. Drop a CSV or Parquet file and scroll through every row instantly. The data is queried locally with DuckDB-Wasm and drawn by GPUI (via GPUI Kit) on a canvas with WebGPU, or WebGL2 where WebGPU isn't available. Nothing is uploaded.
+**Tycho** is a local-first data workbench in the browser. Drop a CSV or Parquet file and scroll through every row instantly. The data is queried locally with DuckDB-Wasm, locked down to the files Tycho registers, and the table is drawn by GPUI (via GPUI Kit) on a canvas with WebGPU, or WebGL2 where WebGPU isn't available; the page's frame around it is HTML. Nothing is uploaded.
 
 The project's claim, as Tycho takes it: the canvas for the GPUI components, the heavy parts; the DOM where text lives (root `CLAUDE.md`). Tycho is a utility app (root `CLAUDE.md`, "Tiers"): a tool people use, which grows features as it needs them. Its DuckDB layer is the repo's first engine, `engines/duckdb/`, and its table the first component, `components/tall-table/`.
 
@@ -33,7 +33,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | `web/` | The Vite host and the page's frame (React, prerendered): the top bar, the first screen, the status bar, the token file, the canvas's slot | `web/CLAUDE.md` |
 | `worker/` | Hosting: the Worker, R2 (DuckDB's two wasm bundles), the deploy, production's pause switch | `worker/CLAUDE.md` |
 | `data/` | The sample's build (GCAT), and the test files built from the observatory's asteroid sample | `data/CLAUDE.md` |
-| `perf/` | The checks that stay (the wasm's size, smoke), the 1 GB memory check by hand, the probes the crate still publishes; `results/`, version 1's measurements, as history | `perf/CLAUDE.md` |
+| `perf/` | The checks (the wasm's size, smoke, the lockdown, the engine end to end, the view state), the 1 GB memory check by hand, the probes the crate publishes; `results/`, version 1's measurements, as history | `perf/CLAUDE.md` |
 
 A new folder whose detail only its own work needs gets its own `CLAUDE.md` and a row here.
 
@@ -52,7 +52,7 @@ apps/tycho/
   web/              # the Vite host (web/CLAUDE.md)
   worker/           # the Cloudflare Worker (worker/CLAUDE.md)
   data/             # the sample's build (gcat.ts), the test files, and their MANIFEST.json (data/CLAUDE.md)
-  perf/             # the wasm's size gate and the smoke check, budgets.json, baseline.json, results/ (history) (perf/CLAUDE.md)
+  perf/             # the wasm's size gate, the browser checks, budgets.json, baseline.json, results/ (history) (perf/CLAUDE.md)
   docs/             # DECISIONS.md (by area), LESSONS.md (surprises, per milestone), milestones.md (finished specs), data.md, hosting.md, personas.md (who Tycho is for and what each needs); private/ is gitignored
   README.md         # for visitors: the rebuild's note, canvas tradeoffs, file size limits, how to run it
   CLAUDE.md         # this file: context and rules
@@ -68,7 +68,7 @@ One line each; each recipe's line is in its folder's `CLAUDE.md` (in brackets), 
 just tycho data | data-deps | drop-files               # the sample, data/'s native DuckDB, the test files (data)
 just tycho extensions                                   # the DuckDB extensions the engine pins, into web/public/duckdb-ext/ (web)
 just tycho worker-check | deploy | pause | resume       # the Worker's checks, the deploy, production's pause switch (worker)
-just tycho smoke [url] | lockdown [url] | view [url] | home-paths   # checks (perf)
+just tycho smoke [url] | lockdown [url] | engine [url] | view [url] | home-paths   # checks (perf)
 ```
 
 ```

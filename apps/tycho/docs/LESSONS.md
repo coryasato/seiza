@@ -334,3 +334,13 @@ No results note: the part's one number, the wasm's size (2834.9 KiB brotli again
 - **`ColumnsMoved` can't be built outside the table (`non_exhaustive`),** so its half of the native tests drives a real table in GPUI's test app, a memory delegate under it, which was also the more honest test.
 - **The layout probe is in the canvas's pixels,** and the canvas has sat in a slot under the top bar since part B: the check's first drags missed the header by the bar's height. It adds the canvas's offset now.
 - **WebKit pressed before it hovered** on a drag that started at a column's edge, as the harness's rule says; two frames after the move fixed it.
+
+## M12 part D: the engine's checks, and the close (2026-11-24)
+
+No results note: the part's one number, the wasm's size (2834.9 KiB brotli against the 2854.8 baseline), is in the milestone's evidence.
+
+**Surprises:**
+- **The new page needed nothing for the engine's error states.** The status bar's Retry, the frame's lines, and `?selftest` after every lock all worked on the first run in three browsers; the one failure was the check's own, which read the state `failed` left over from the stop as the reopen's answer.
+- **Playwright reaches DuckDB's blob worker in Firefox and WebKit too,** so a throw inside it stops the engine in every browser, where the old check ran in Chromium alone.
+- **WebKit's import error ends in a period,** so the frame's line read "failed.. Retry" until the message was trimmed.
+- **Firefox's cancel takes about 100 ms where Chromium's and WebKit's take under 10,** in every run: within the self-test's 200 ms, but half of it.

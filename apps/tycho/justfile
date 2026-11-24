@@ -132,6 +132,14 @@ smoke url="http://localhost:5173/" *args:
 lockdown url="http://localhost:5173/":
     node {{app_dir}}/perf/lockdown.ts {{url}}
 
+# The engine end to end in Chromium, Firefox, and WebKit: its self-test,
+# the engine's chunk refused, its worker stopped under an open file, and
+# Retry after each (the lock reported again, the self-test passing again, a
+# file opening). Against the dev server by default; pass the preview's URL
+# for the release build; --only names browsers.
+engine url="http://localhost:5173/" *args:
+    node {{app_dir}}/perf/engine.ts {{url}} {{args}}
+
 # The controller's view state in Chromium, Firefox, and WebKit: a column
 # dragged, widened, and pinned, read back from `__tychoView` and checked
 # against what the table draws; and a CSV's column widened to text keeping
