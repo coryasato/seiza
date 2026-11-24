@@ -13,7 +13,7 @@ Tycho is a local-first data workbench in the browser. Drop a CSV or Parquet file
 - **The table's columns:** drag a header to move a column, and its edge to resize it. Tycho keeps the arrangement as the file's view, so a CSV column that turns out to be text partway through the load keeps its place and width. Columns can't be pinned yet.
 - **Observation panel:** Cmd/Ctrl+Shift+P, or `?perf` in the URL. It shows the page-load waterfall, frame times and work per frame, memory, bytes read against the file size, and cache hits, live.
 
-Tycho is seiza's first utility app: a tool meant to grow with its users, not a fixed demo. Version 1's milestones are in [`docs/milestones.md`](docs/milestones.md). Jump to row left with version 1's canvas title bar; what's next is in [`PLAN.md`](PLAN.md). Its table and its DuckDB layer are now reusable pieces, a [table component](../../components/tall-table/) and a [DuckDB engine](../../engines/duckdb/), which the [observatory](../observatory/) measures against a DOM equivalent built with React and TanStack Virtual. What's next is in [`PLAN.md`](PLAN.md).
+Tycho is seiza's first utility app: a tool meant to grow with its users, not a fixed demo. Version 1's milestones are in [`docs/milestones.md`](docs/milestones.md). Jump to row left with version 1's canvas title bar; what's next is in [`PLAN.md`](PLAN.md). Its table and its DuckDB layer are now reusable pieces, a [table component](../../components/tall-table/) and a [DuckDB engine](../../engines/duckdb/), which the [observatory](../observatory/) measures against a DOM equivalent built with React and TanStack Virtual.
 
 ## Measurements
 

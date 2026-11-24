@@ -21,6 +21,7 @@
 // Against the dev server by default (`just tycho dev`); pass the preview's
 // URL for the release build.
 // Usage: node apps/tycho/perf/engine.ts [url] [--only chromium,firefox,webkit]
+// (or --only=…; any other flag is refused)
 
 import { chromium, firefox, webkit, type BrowserContext, type BrowserType, type Page, type Worker } from '@playwright/test';
 import { waitMark } from '../../../shared-web/perf/harness.ts';
@@ -53,8 +54,27 @@ interface Selftest {
 type CheckGlobal = {
   __tychoWorkbench?: { state: string; name: string | null; rows: number | null; engine: string; message: string | null; status: string | null };
   __tychoSelftest?: Selftest;
-  __tychoTable?: { rows: number; first: number; end: number; loaded: number; pending: number };
+  __tychoTable?: { rows: number; first: number; end: number; loaded: number; pending: number; failed: number };
+  /** Error events the page's workers have dispatched, counted by `countWorkerErrors`. */
+  __checkWorkerErrors?: number;
 };
+
+/** Counts the error events every worker the page makes dispatches to the
+ *  page, so the stopped run presses End once the page has heard the throw,
+ *  not after a fixed wait. */
+function countWorkerErrors() {
+  const g = globalThis as CheckGlobal;
+  g.__checkWorkerErrors = 0;
+  const Base = globalThis.Worker;
+  globalThis.Worker = class extends Base {
+    constructor(...args: ConstructorParameters<typeof Worker>) {
+      super(...args);
+      this.addEventListener('error', () => {
+        g.__checkWorkerErrors = (g.__checkWorkerErrors ?? 0) + 1;
+      });
+    }
+  };
+}
 
 const workbench = (page: Page) => page.evaluate(() => (globalThis as CheckGlobal).__tychoWorkbench ?? null);
 
@@ -183,8 +203,9 @@ async function stoppedRun(page: Page): Promise<Outcome[]> {
     });
   });
   // The app hears of it at its next call: End's page reads, in the table,
-  // which has focus once the sample opens.
-  await page.waitForTimeout(200);
+  // which has focus once the sample opens. End waits until the page has the
+  // worker's error, so its read can't still be answered by the old worker.
+  await page.waitForFunction(() => ((globalThis as CheckGlobal).__checkWorkerErrors ?? 0) > 0, null, { timeout: TIMEOUT });
   await page.keyboard.press('End');
   outcomes.push(await retryShown(page, 'stopped'));
   const closed = await workbench(page);
@@ -201,17 +222,26 @@ async function stoppedRun(page: Page): Promise<Outcome[]> {
   const atEnd = await page
     .waitForFunction(() => {
       const table = (globalThis as CheckGlobal).__tychoTable;
-      return !!table && table.pending === 0 && table.loaded > 0 && table.end === table.rows;
+      return !!table && table.pending === 0 && table.failed === 0 && table.loaded > 0 && table.end === table.rows;
     }, null, { timeout: TIMEOUT })
     .then(() => true)
     .catch(() => false);
   const table = await page.evaluate(() => (globalThis as CheckGlobal).__tychoTable ?? null);
-  outcomes.push({ what: 'End reads the new engine to the last row', ok: atEnd, detail: table ? `rows ${table.first}–${table.end} of ${table.rows}, ${table.pending} pending` : 'no table' });
+  outcomes.push({ what: 'End reads the new engine to the last row', ok: atEnd, detail: table ? `rows ${table.first}–${table.end} of ${table.rows}, ${table.pending} pending, ${table.failed} failed` : 'no table' });
   return outcomes;
 }
 
-/** `--only firefox,webkit`: those browsers alone. */
-const only = process.argv[process.argv.indexOf('--only') + 1]?.split(',');
+/** `--only firefox,webkit` or `--only=firefox,webkit`: those browsers alone.
+ *  Any other flag is refused, so a misspelled one never runs all three. */
+const onlyAt = process.argv.findIndex((arg) => arg === '--only' || arg.startsWith('--only='));
+const onlyGiven = onlyAt >= 0;
+const onlyArg = !onlyGiven ? undefined : process.argv[onlyAt]!.startsWith('--only=') ? process.argv[onlyAt]!.slice('--only='.length) : process.argv[onlyAt + 1];
+const only = onlyArg && !onlyArg.startsWith('-') ? onlyArg.split(',').filter(Boolean) : undefined;
+const stray = process.argv.slice(2).filter((arg, at) => arg.startsWith('-') && at + 2 !== onlyAt);
+if (stray.length) {
+  console.error(`unknown flag ${stray.join(', ')}; takes [url] [--only chromium,firefox,webkit]`);
+  process.exit(2);
+}
 const ENGINES_ALL: { name: string; type: BrowserType }[] = [
   { name: 'chromium', type: chromium },
   { name: 'firefox', type: firefox },
@@ -230,8 +260,8 @@ const print = (browser: string, part: string, outcome: Outcome) => {
   console.log(`${browser.padEnd(9)}${part.padEnd(9)}${outcome.ok ? 'ok  ' : 'FAIL'}  ${outcome.what}: ${outcome.detail}`);
 };
 
-const ENGINES = ENGINES_ALL.filter(({ name }) => !process.argv.includes('--only') || only?.includes(name));
-const unknown = process.argv.includes('--only') ? (only ?? ['(none)']).filter((name) => !ENGINES_ALL.some((engine) => engine.name === name)) : [];
+const ENGINES = ENGINES_ALL.filter(({ name }) => !onlyGiven || only?.includes(name));
+const unknown = onlyGiven ? (only ?? ['(none)']).filter((name) => !ENGINES_ALL.some((engine) => engine.name === name)) : [];
 if (unknown.length || !ENGINES.length) {
   console.error(`--only takes chromium, firefox, webkit; got ${unknown.join(', ') || 'none'}`);
   process.exit(2);
@@ -252,6 +282,7 @@ for (const { name, type } of ENGINES) {
           const where = message.location().url;
           pageErrors.push(`${message.text()}${where ? ` (${where.split('/').pop()}:${message.location().lineNumber})` : ''}`);
         });
+        await context.addInitScript(countWorkerErrors);
         await before?.(context);
         await page.goto(url.href);
         for (const outcome of await run(page)) print(name, part, outcome);
