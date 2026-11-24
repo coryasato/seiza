@@ -1,8 +1,7 @@
-//! The workbench: Tycho's one window. Empty until a file or sample is
-//! opened; then a header strip describes the file, above its rows.
+//! The workbench: Tycho's one window. Empty until a file is opened; then a
+//! header strip describes the file, above its rows.
 //!
-//! A file comes from a drop anywhere on the page, the file dialog, or the
-//! sample button. A Parquet file goes through one pipeline (register, read
+//! A file comes from a drop anywhere on the page or the file dialog. A Parquet file goes through one pipeline (register, read
 //! the footer's metadata, page rows); a CSV through another (cut into
 //! chunks, each copied into a table, the rows growing as they come;
 //! `crate::csv`). A new file replaces the current one, whether it's still
@@ -19,7 +18,7 @@ use gpui_kit::component::{
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::dataset::{ASTEROIDS, FileSummary, GAIA, Sample, format_bytes, format_count};
+use crate::dataset::{FileSummary, format_bytes, format_count};
 use crate::table::RowTable;
 use seiza_duckdb::EngineStatus;
 use seiza_tall_table::TallTable;
@@ -44,33 +43,14 @@ pub fn init(cx: &mut App) {
     ]);
 }
 
-/// What's being opened or shown: a sample, or a file from this device.
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Origin {
-    Sample(Sample),
-    Device,
-}
-
-impl Origin {
-    /// The `performance.mark`s and panel steps an open reports under.
-    #[cfg(target_family = "wasm")]
-    fn marks(self) -> Marks {
-        match self {
-            Self::Sample(_) => Marks {
-                start: "tycho:sample-click",
-                shown: "tycho:sample-shown",
-                schema_step: "Sample → schema",
-                first_rows_step: "Sample → first rows",
-            },
-            Self::Device => Marks {
-                start: "tycho:file-open",
-                shown: "tycho:file-shown",
-                schema_step: "File → schema",
-                first_rows_step: "File → first rows",
-            },
-        }
-    }
-}
+/// The `performance.mark`s and panel steps an open reports under.
+#[cfg(target_family = "wasm")]
+const FILE_MARKS: Marks = Marks {
+    start: "tycho:file-open",
+    shown: "tycho:file-shown",
+    schema_step: "File → schema",
+    first_rows_step: "File → first rows",
+};
 
 #[cfg(target_family = "wasm")]
 #[derive(Clone, Copy)]
@@ -148,7 +128,6 @@ enum Load {
     /// Registering the file and reading its metadata. If the engine is still
     /// loading, the bridge holds the calls until it's ready.
     Opening {
-        origin: Origin,
         name: SharedString,
         /// Dropping it stops the open at its next await. None for a CSV,
         /// whose task runs on to drop its tables (`csv`).
@@ -161,14 +140,12 @@ enum Load {
         csv: Option<crate::csv::Stop>,
     },
     Open {
-        origin: Origin,
         summary: FileSummary,
         table: Entity<RowTable>,
         /// A CSV's load, which runs on after its first rows show.
         csv: Option<CsvLoad>,
     },
     Failed {
-        origin: Origin,
         name: SharedString,
         message: SharedString,
         /// The engine stopped under it, rather than the file failing.
@@ -177,8 +154,8 @@ enum Load {
 }
 
 impl Load {
-    fn opening(&self, which: Origin) -> bool {
-        matches!(self, Self::Opening { origin, .. } if *origin == which)
+    fn opening(&self) -> bool {
+        matches!(self, Self::Opening { .. })
     }
 }
 
@@ -433,17 +410,14 @@ impl Workbench {
     fn engine_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(target_family = "wasm")]
         if let Some(EngineStatus::Stopped(message)) = cx.try_global::<EngineStatus>().cloned() {
-            let origin_name = match &self.load {
-                Load::Open {
-                    origin, summary, ..
-                } => Some((*origin, SharedString::from(summary.name.clone()))),
-                Load::Opening { origin, name, .. } => Some((*origin, name.clone())),
+            let name = match &self.load {
+                Load::Open { summary, .. } => Some(SharedString::from(summary.name.clone())),
+                Load::Opening { name, .. } => Some(name.clone()),
                 Load::Idle | Load::Failed { .. } => None,
             };
-            if let Some((origin, name)) = origin_name {
+            if let Some(name) = name {
                 self.close_current(window, cx);
                 self.load = Load::Failed {
-                    origin,
                     name,
                     message: format!("the engine stopped ({message})").into(),
                     engine_stopped: true,
@@ -508,30 +482,6 @@ impl Workbench {
         self.jump
             .update(cx, |state, cx| state.set_value("", window, cx));
     }
-
-    /// Opens a sample by URL.
-    #[cfg(target_family = "wasm")]
-    fn open_sample(&mut self, sample: Sample, window: &mut Window, cx: &mut Context<Self>) {
-        use seiza_duckdb::FileSource;
-
-        if self.load.opening(Origin::Sample(sample)) {
-            return;
-        }
-        self.sniffing = None;
-        self.notice = None;
-        self.open(
-            Origin::Sample(sample),
-            sample.name.into(),
-            sample.name.into(),
-            FileSource::Url(sample.url.into()),
-            seiza::marks::now(),
-            window,
-            cx,
-        );
-    }
-
-    #[cfg(not(target_family = "wasm"))]
-    fn open_sample(&mut self, _sample: Sample, _window: &mut Window, _cx: &mut Context<Self>) {}
 
     #[cfg(target_family = "wasm")]
     fn pick_file(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
@@ -606,7 +556,6 @@ impl Workbench {
                 }
                 let sql_name = format!("file-{open}.parquet");
                 this.open(
-                    Origin::Device,
                     name,
                     sql_name,
                     seiza_duckdb::FileSource::File(file),
@@ -665,13 +614,8 @@ impl Workbench {
     /// file's: `read_parquet` would expand a name like `data[1].parquet` as a
     /// glob. `started_at` is the click, drop, or choice.
     #[cfg(target_family = "wasm")]
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the one place every open goes through"
-    )]
     fn open(
         &mut self,
-        origin: Origin,
         name: SharedString,
         sql_name: String,
         source: seiza_duckdb::FileSource,
@@ -685,7 +629,7 @@ impl Workbench {
         use seiza_duckdb::Engine;
 
         self.close_current(window, cx);
-        let marks = origin.marks();
+        let marks = FILE_MARKS;
         self.opened_at = started_at;
         seiza::marks::mark_at(marks.start, started_at);
         marks.start(started_at, cx);
@@ -721,7 +665,6 @@ impl Workbench {
                             let focus = table.read(cx).focus_handle().clone();
                             window.focus(&focus, cx);
                             Load::Open {
-                                origin,
                                 summary,
                                 table,
                                 csv: None,
@@ -739,7 +682,6 @@ impl Workbench {
                             this.notice = None;
                             marks.fail(started_at, cx);
                             Load::Failed {
-                                origin,
                                 name,
                                 engine_stopped: matches!(
                                     error,
@@ -754,7 +696,6 @@ impl Workbench {
             })
         };
         self.load = Load::Opening {
-            origin,
             name,
             _task: Some(task),
             sent,
@@ -781,7 +722,7 @@ impl Workbench {
         use seiza_duckdb::{Engine, EngineError};
 
         self.close_current(window, cx);
-        let marks = Origin::Device.marks();
+        let marks = FILE_MARKS;
         self.opened_at = started_at;
         seiza::marks::mark_at(marks.start, started_at);
         marks.start(started_at, cx);
@@ -813,7 +754,6 @@ impl Workbench {
                             marks.fail(started_at, cx);
                             seiza::perf::set_metric(cx, CSV_LOAD_METRIC, "failed");
                             this.load = Load::Failed {
-                                origin: Origin::Device,
                                 name,
                                 engine_stopped: matches!(error, EngineError::Stopped(_)),
                                 message: error.to_string().into(),
@@ -862,7 +802,6 @@ impl Workbench {
             .detach();
         }
         self.load = Load::Opening {
-            origin: Origin::Device,
             name,
             _task: None,
             sent: Default::default(),
@@ -888,7 +827,7 @@ impl Workbench {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let marks = Origin::Device.marks();
+        let marks = FILE_MARKS;
         let summary = FileSummary {
             name: name.to_string(),
             bytes: Some(ingest.size() as u64),
@@ -930,7 +869,6 @@ impl Workbench {
         }
         self.mark_shown = Some(marks);
         self.load = Load::Open {
-            origin: Origin::Device,
             summary,
             table,
             csv: Some(load),
@@ -1373,17 +1311,6 @@ impl Workbench {
                 "Waiting for the engine to load…".into(),
                 theme.muted_foreground,
             ),
-            (
-                _,
-                Load::Opening {
-                    origin: Origin::Sample(_),
-                    ..
-                },
-                _,
-            ) => (
-                "Reading the file's metadata…".into(),
-                theme.muted_foreground,
-            ),
             (_, Load::Opening { name, .. }, _) => {
                 (format!("Reading {name}…").into(), theme.muted_foreground)
             }
@@ -1394,18 +1321,6 @@ impl Workbench {
                 } else {
                     theme.muted_foreground
                 },
-            ),
-            (
-                _,
-                Load::Failed {
-                    origin: Origin::Sample(_),
-                    message,
-                    ..
-                },
-                _,
-            ) => (
-                format!("Couldn't open the sample: {message}").into(),
-                theme.danger,
             ),
             (_, Load::Failed { name, message, .. }, _) => (
                 format!("Couldn't open {name}: {message}").into(),
@@ -1463,36 +1378,17 @@ impl Workbench {
                                 Button::new("open-file")
                                     .primary()
                                     .label("Open a file…")
-                                    .loading(self.load.opening(Origin::Device))
+                                    .loading(self.load.opening())
                                     .disabled(engine_down)
                                     // The web's pointer, only while it can
                                     // be pressed (gpui-kit keeps the arrow).
-                                    .when(
-                                        !engine_down && !self.load.opening(Origin::Device),
-                                        |button| button.cursor_pointer(),
-                                    )
+                                    .when(!engine_down && !self.load.opening(), |button| {
+                                        button.cursor_pointer()
+                                    })
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.pick_file(window, cx)
                                     })),
-                            ))
-                            .children([ASTEROIDS, GAIA].map(|sample| {
-                                Self::published(
-                                    sample.target,
-                                    Button::new(sample.target)
-                                        .outline()
-                                        .label(sample.label)
-                                        .loading(self.load.opening(Origin::Sample(sample)))
-                                        .disabled(engine_down)
-                                        .when(
-                                            !engine_down
-                                                && !self.load.opening(Origin::Sample(sample)),
-                                            |button| button.cursor_pointer(),
-                                        )
-                                        .on_click(cx.listener(move |this, _, window, cx| {
-                                            this.open_sample(sample, window, cx)
-                                        })),
-                                )
-                            })),
+                            )),
                     )
                     .child(self.render_status(cx)),
             )

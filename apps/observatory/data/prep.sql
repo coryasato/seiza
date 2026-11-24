@@ -1,5 +1,5 @@
--- The Observatory's asteroid file: Tycho's asteroids.parquet (prep.ts checks
--- its SHA-256 against Tycho's MANIFEST.json first) with fewer columns, small
+-- The Observatory's asteroid file: the full sample, raw/asteroids/sbdb.parquet
+-- (prep-sbdb.sql; prep.ts checks its SHA-256 against its pin first), with fewer columns, small
 -- enough for a Workers static asset (25 MiB per file). Every row is kept, in
 -- the same order. prep.ts substitutes ${source} (the source file's path) and
 -- ${fetched} (its fetch date; COPY options must be constants).

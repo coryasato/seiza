@@ -59,8 +59,6 @@ Install the prerequisites in the [root README](../../README.md#getting-started) 
 
 ```sh
 just setup              # npm install (once)
-just tycho data         # fetch the asteroid catalog (~2.5 min, network, once), build the sample Parquet + CSV fixture, load local R2
-just tycho data gaia    # the big sample: the first run reads ~90 GB from AWS Open Data (~50 min)
 just tycho dev          # debug build + Vite with COOP/COEP → http://localhost:5173
 just tycho build        # release build; prints raw/gzip/brotli asset sizes and the page's weight before first paint
 just tycho preview      # serve the release build → http://localhost:4173

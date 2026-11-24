@@ -373,8 +373,9 @@ readout-cost *args:
     node {{app_dir}}/perf/readout-cost.ts {{args}}
 
 # Build the data files (gitignored) and write data/MANIFEST.json:
-# asteroids.parquet from Tycho's pinned asteroid sample (`just tycho data`
-# first), ghcn-2025-tmax.parquet from NOAA's GHCN-Daily, its sources kept in
+# asteroids.parquet from the full asteroid sample, data/raw/asteroids/sbdb.parquet
+# (built from the JPL Small-Body Database's pages, fetched once into
+# data/raw/asteroids/, and checked against its pin), ghcn-2025-tmax.parquet from NOAA's GHCN-Daily, its sources kept in
 # data/raw/ghcn/ and checked against their pins (a missing one downloaded),
 # market-instruments.parquet from the feed's instruments
 # (contenders/market/feed.ts; it fails if a symbol is listed on a US
@@ -388,8 +389,9 @@ readout-cost *args:
 # data/raw/countries/ and checked against their pins (downloaded when
 # missing). Installs data/'s native DuckDB (its own lockfile). Flags:
 # --only asteroids|ghcn|market|wall|nasa|countries; --repin (download GHCN's
-# sources and the Wikidata query's result again and pin them: a new file,
-# so regenerate cells.json).
+# sources and the Wikidata query's result again and pin them: a new file, so
+# regenerate cells.json; the asteroids only with `--only asteroids --repin`,
+# since their pinned pages can't be fetched again).
 data *args:
     npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
     node {{app_dir}}/data/prep.ts {{args}}

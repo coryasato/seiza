@@ -1,11 +1,14 @@
 // Fetches every known asteroid from the JPL Small-Body Database Query API
-// into data/raw/asteroids/ as raw JSON pages. prep.sql turns them into Parquet.
+// into data/raw/asteroids/ as raw JSON pages. prep-sbdb.sql turns them into
+// the full sample, raw/asteroids/sbdb.parquet, which prep.sql cuts down.
 //
-// Usage: node apps/tycho/data/fetch_asteroids.ts [--refresh] [--page-size 100000]
+// Usage: node apps/observatory/data/fetch_asteroids.ts [--refresh] [--page-size 100000]
 //
 // Pages already on disk are kept, so an interrupted fetch resumes, and a rerun
-// reuses the same data: the fetch date is part of the dataset (it's in the UI
-// credit and MANIFEST.json). --refresh deletes the pages and fetches again.
+// reuses the same data: the fetch date is part of the dataset (it's in the
+// credit and MANIFEST.json). --refresh deletes the pages, and the sample built
+// from them, and fetches again; prep.ts takes a new fetch only with
+// `--only asteroids --repin`.
 //
 // JPL asks for one request at a time, so pages are fetched in order. The
 // catalog can change between pages (new discoveries, newly numbered objects
@@ -17,8 +20,9 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync, renameSync
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const API = 'https://ssd-api.jpl.nasa.gov/sbdb_query.api';
-/** The columns docs/data.md names, `spkid` first (the key). */
+/** The SBDB Query API, the sample's source. */
+export const API = 'https://ssd-api.jpl.nasa.gov/sbdb_query.api';
+/** The sample's columns, `spkid` first (the key). */
 export const FIELDS = [
   'spkid', 'full_name', 'pdes', 'name', 'neo', 'pha', 'class', 'H', 'diameter', 'albedo',
   'a', 'e', 'i', 'q', 'per_y', 'first_obs', 'last_obs', 'n_obs_used',
@@ -62,7 +66,7 @@ async function fetchPage(offset: number, limit: number): Promise<Page> {
   url.searchParams.set('limit-from', String(offset));
   for (let attempt = 1; ; attempt++) {
     try {
-      const response = await fetch(url, { headers: { 'User-Agent': 'seiza-tycho-data-prep' } });
+      const response = await fetch(url, { headers: { 'User-Agent': 'seiza-observatory-data-prep' } });
       if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
       const page = (await response.json()) as Page;
       if (page.fields?.join(',') !== FIELDS.join(',')) throw new Error(`unexpected fields: ${page.fields?.join(',')}`);
@@ -88,7 +92,7 @@ export async function fetchAsteroids(options: { refresh?: boolean; pageSize?: nu
   mkdirSync(rawDir, { recursive: true });
   try {
     const info = JSON.parse(readFileSync(fetchInfoPath, 'utf8')) as FetchInfo;
-    console.log(`asteroids: using the fetch from ${info.fetched} (${info.count} rows, ${info.pages} pages); --refresh to fetch again`);
+    console.log(`asteroids: using the fetch from ${info.fetched} (${info.count} rows, ${info.pages} pages); --refresh (prep.ts: --only asteroids --repin) to fetch again`);
     return info;
   } catch {
     // Not fetched yet, or interrupted: fetch the missing pages.

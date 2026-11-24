@@ -2,9 +2,15 @@
 // "Data") and writes MANIFEST.json (committed) with each one's rows, bytes,
 // SHA-256, row groups, source, credit, and terms:
 //
-// - asteroids.parquet, the base level's, from Tycho's pinned asteroid sample
-//   (apps/tycho/data/asteroids.parquet, its SHA-256 in Tycho's
-//   MANIFEST.json), by prep.sql;
+// - asteroids.parquet, the base level's, from the full asteroid sample
+//   (raw/asteroids/sbdb.parquet, gitignored), by prep.sql. The sample is
+//   built by prep-sbdb.sql from the JPL Small-Body Database's pages
+//   (fetch_asteroids.ts, kept in data/raw/asteroids/) and checked against
+//   the SHA-256 MANIFEST.json pins: the catalog grows, so a new fetch
+//   differs, and only `--only asteroids --repin` takes one (a bare `--repin`
+//   leaves the asteroids as pinned: their pages can't be fetched again).
+//   Tycho's data/drop_files.ts builds
+//   its test files from the same sample;
 // - ghcn-2025-tmax.parquet, the wide sheet's, from NOAA's GHCN-Daily
 //   (prep-ghcn.sql), its three sources kept in data/raw/ghcn/ (gitignored)
 //   and checked against the SHA-256s MANIFEST.json pins. NOAA appends late
@@ -36,8 +42,7 @@
 // Each is checked to fit a Workers static asset.
 //
 // Usage: node apps/observatory/data/prep.ts [--only asteroids|ghcn|market|wall|nasa|countries] [--repin]
-//        (`just observatory data`). The asteroids need Tycho's file first:
-//        `just tycho data`.
+//        (`just observatory data`).
 
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
@@ -51,16 +56,19 @@ import { DESK_ROWS } from '../contenders/wall/desks.ts';
 import { WALL_INSTRUMENTS } from '../contenders/wall/instruments.ts';
 import { DESKS } from '../contenders/wall/names.ts';
 import { countries as countryRows, untar } from './countries.ts';
+import { API as SBDB_API, fetchAsteroids, rawDir as asteroidsRaw } from './fetch_asteroids.ts';
 import { DATA_FILE as NASA, FILE_ROWS as NASA_ROWS, SPAN_S as NASA_SPAN_S, WHOLE_FILE as NASA_WHOLE } from '../contenders/tail/data.ts';
 
 /** Cloudflare's per-file limit for Workers static assets. */
 const STATIC_ASSET_LIMIT = 25 * 2 ** 20;
 
 const dataDir = dirname(fileURLToPath(import.meta.url));
-const tychoData = join(dataDir, '../../tycho/data');
 const manifestPath = join(dataDir, 'MANIFEST.json');
 
 const ASTEROIDS = 'asteroids.parquet';
+/** The full asteroid sample asteroids.parquet is cut from, in raw/asteroids/:
+ *  37.7 MB, over the static-asset limit, so never served. */
+const SBDB = 'sbdb.parquet';
 const GHCN = 'ghcn-2025-tmax.parquet';
 const MARKET = 'market-instruments.parquet';
 const WALL = 'wall-instruments.parquet';
@@ -215,7 +223,7 @@ function writeManifest(): void {
   writeFileSync(manifestPath, `${JSON.stringify(ordered, null, 2)}\n`);
 }
 if (only === undefined || only === 'asteroids') {
-  manifest[ASTEROIDS] = await asteroids();
+  manifest[ASTEROIDS] = await asteroids(manifest[ASTEROIDS]);
   writeManifest();
 }
 if (only === undefined || only === 'ghcn') {
@@ -257,31 +265,48 @@ function fits(name: string, fix: string): number {
   return bytes;
 }
 
-async function asteroids(): Promise<ManifestFile> {
-  const source = join(tychoData, ASTEROIDS);
-  const pinned = (JSON.parse(readFileSync(join(tychoData, 'MANIFEST.json'), 'utf8')) as Record<string, ManifestFile>)[ASTEROIDS];
-  if (!pinned) throw new Error("Tycho's MANIFEST.json has no asteroids.parquet");
-  let sourceHash: string;
-  try {
-    sourceHash = await sha256(source);
-  } catch {
-    throw new Error(`${source} is missing: build it with \`just tycho data\``);
+async function asteroids(previous: ManifestFile | undefined): Promise<ManifestFile> {
+  // Only `--only asteroids --repin` fetches the pages again (deleting the
+  // pinned ones, which no download brings back) and rebuilds the sample. A
+  // bare --repin, for GHCN's or Wikidata's sake, leaves them as pinned.
+  const repinHere = repin && only === 'asteroids';
+  if (repin && !repinHere) console.log('asteroids: kept as pinned (only `--only asteroids --repin` fetches them again)');
+  const source = join(asteroidsRaw, SBDB);
+  if (repinHere || !existsSync(source)) {
+    // Missing pages are fetched; pages on disk are reused.
+    const info = await fetchAsteroids({ refresh: repinHere });
+    await conn.run(`SET VARIABLE api_count = ${info.count}`);
+    await runSql('prep-sbdb.sql', { fetched: sqlText(info.fetched), out: sqlText(source) });
   }
-  if (sourceHash !== pinned.sha256)
-    throw new Error(`${source}: SHA-256 ${sourceHash}, but Tycho's MANIFEST.json pins ${pinned.sha256}; rebuild it with \`just tycho data\``);
+  // The fetch date is the sample's own (its metadata), not the pages': a
+  // sample on disk is used as it is, with no fetch.
+  const fetched = String(
+    await value(conn, `SELECT decode(value) FROM parquet_kv_metadata('${sqlText(source)}') WHERE decode(key) = 'tycho.fetched'`),
+  );
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fetched)) throw new Error(`data/raw/asteroids/${SBDB} holds no fetch date (tycho.fetched): ${fetched}`);
+  const found: PinnedSource = { file: SBDB, url: SBDB_API, bytes: statSync(source).size, sha256: await sha256(source) };
+  const pin = repinHere ? undefined : previous?.sources?.find((candidate) => candidate.file === SBDB);
+  if (pin && found.sha256 !== pin.sha256)
+    throw new Error(
+      `data/raw/asteroids/${SBDB}: SHA-256 ${found.sha256}, but MANIFEST.json pins ${pin.sha256}. The catalog grows, so a new fetch differs ` +
+        '(the pinned pages are the data/raw/asteroids/ they were pinned in; raw/ is gitignored): take this one with `--only asteroids --repin` ' +
+        "(a new file: regenerate the tall table's fixtures with `just observatory fixtures` and cells.json with `just observatory cell-fixture`).",
+    );
+  const sourceRows = Number(await value(conn, `SELECT num_rows FROM parquet_file_metadata('${sqlText(source)}')`));
 
-  await runSql('prep.sql', { source: sqlText(source), fetched: sqlText(pinned.fetched ?? '') });
+  await runSql('prep.sql', { source: sqlText(source), fetched: sqlText(fetched) });
   const bytes = fits(ASTEROIDS, 'drop a column in prep.sql');
   const rows = Number(await value(conn, `SELECT count(*) FROM '${ASTEROIDS}'`));
-  if (rows !== pinned.rows) throw new Error(`${ASTEROIDS} has ${rows} rows; its source has ${pinned.rows}`);
+  if (rows !== sourceRows) throw new Error(`${ASTEROIDS} has ${rows} rows; its source has ${sourceRows}`);
   const entry: ManifestFile = {
     rows,
     bytes,
     sha256: await sha256(join(dataDir, ASTEROIDS)),
-    source: `apps/tycho/data/asteroids.parquet (sha256 ${pinned.sha256.slice(0, 12)}…), from ${pinned.source}`,
+    source: `data/raw/asteroids/${SBDB} (every known asteroid, 18 columns), from ${SBDB_API}`,
     credit: CREDIT,
     terms: TERMS,
-    fetched: pinned.fetched,
+    fetched,
+    sources: [found],
     rowGroups: Number(await value(conn, `SELECT num_row_groups FROM parquet_file_metadata('${ASTEROIDS}')`)),
     writer: `DuckDB ${await value(conn, 'SELECT version()')}, ZSTD, ROW_GROUP_SIZE 30720, sorted by spkid`,
     notes: [`columns: ${await columns(ASTEROIDS)}`],
@@ -317,7 +342,7 @@ async function ghcn(previous: ManifestFile | undefined): Promise<ManifestFile> {
     if (pins && found.sha256 !== pin?.sha256)
       throw new Error(
         `data/raw/ghcn/${file}: SHA-256 ${found.sha256}, but MANIFEST.json pins ${pin?.sha256}. NOAA appends late reports to a year's file, so a new download differs: ` +
-          'build from the pinned copy, or take this one with `--repin` (a new file and SHA-256: regenerate cells.json with `just observatory cell-fixture`).',
+          'build from the pinned copy, or take this one with `--only ghcn --repin` (a new file and SHA-256: regenerate cells.json with `just observatory cell-fixture`).',
       );
     sources.push(found);
   }
@@ -569,7 +594,7 @@ async function countries(previous: ManifestFile | undefined): Promise<ManifestFi
     throw new Error(
       `data/raw/countries/${WIKIDATA.file}: SHA-256 ${wikidata.sha256}, but MANIFEST.json pins ${pin.sha256}. The query is live, so a new download differs ` +
         '(the pinned copy is the data/raw/countries/ it was pinned in; raw/ is gitignored): take this one with `--only countries --repin` ' +
-        '(a new file: regenerate cells.json with `just observatory cell-fixture`; `--repin` without `--only` repins GHCN too).',
+        '(a new file: regenerate cells.json with `just observatory cell-fixture`; `--repin` without `--only` repins GHCN too, never the asteroids).',
     );
   const fetched = repin || !previous?.fetched ? new Date().toISOString().slice(0, 10) : previous.fetched;
 

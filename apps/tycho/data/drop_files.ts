@@ -2,13 +2,23 @@
 // they're opened from disk, never R2: by hand for the 1 GB memory check
 // (perf/CLAUDE.md), and by the checks the rebuild writes again.
 //
-// Row-group layouts, from asteroids.parquet: the asteroid table repeated k times, in file
+// The source: the full asteroid sample, the observatory's
+// data/raw/asteroids/sbdb.parquet (`just observatory data --only asteroids`),
+// checked against the SHA-256 its MANIFEST.json pins (the asteroids'
+// `sources`). The observatory owns the sample's fetch and prep; these files
+// are a second reader of it.
+//
+// The CSV fixture, fixtures/asteroids.csv: the sample's rows as CSV, then
+// the hand-written tricky rows (fixtures-src/tricky_rows.csv: quoted commas,
+// newlines, and quotes in names), cast to the sample's types.
+//
+// Row-group layouts, from the sample: the asteroid table repeated k times, in file
 // order, to ~100 MB and ~1 GB. The 1 GB file comes in three row-group
 // layouts, since a dropped file's layout isn't ours to choose and a page read
 // decodes whole row groups: our samples' 30,720 rows, DuckDB's default
 // 122,880, and pyarrow's 1,048,576.
 //
-// The CSV, from fixtures/asteroids.csv (tricky rows included): its header once,
+// The CSV, from the fixture (tricky rows included): its header once,
 // then its body 6 times, byte for byte, to ~1 GB. The row count is DuckDB's
 // (quoted newlines make it differ from the line count), with the quote set:
 // DuckDB's sniffer reads only the head, sees no quotes, and picks none, and
@@ -26,11 +36,11 @@
 // has no 128-bit integer: DuckDB writes a HUGEINT as DOUBLE), doubles that
 // round (long, huge, tiny, negative), FLOAT, and DECIMAL(38,0) and (38,10).
 //
-// Each file's rows, bytes, row groups, and SHA-256 go into MANIFEST.json
-// under `drop/`.
+// Each file's rows, bytes, row groups, and SHA-256 go into MANIFEST.json,
+// the fixture's under `fixtures/`, the rest under `drop/`.
 //
 // Usage: node apps/tycho/data/drop_files.ts [name-substring…]
-// (needs asteroids.parquet and the fixture: `just tycho data`)
+// (the CSV files build the fixture first when it's missing)
 
 import { createHash } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -41,11 +51,12 @@ import { DuckDBInstance } from '@duckdb/node-api';
 
 const dataDir = dirname(fileURLToPath(import.meta.url));
 const manifestPath = join(dataDir, 'MANIFEST.json');
-const source = join(dataDir, 'asteroids.parquet');
-const csvSource = join(dataDir, 'fixtures/asteroids.csv');
-for (const file of [source, csvSource]) {
-  if (!existsSync(file)) throw new Error(`${file} is missing: run \`just tycho data\` first`);
-}
+const observatoryData = join(dataDir, '../../observatory/data');
+/** The full asteroid sample, and its file name in the observatory's pins. */
+const SBDB = 'sbdb.parquet';
+const source = join(observatoryData, 'raw/asteroids', SBDB);
+const FIXTURE = 'fixtures/asteroids.csv';
+const csvSource = join(dataDir, FIXTURE);
 /** With arguments, only the files whose names contain one of them. */
 const only = process.argv.slice(2);
 const wanted = (name: string) => only.length === 0 || only.some((part) => name.includes(part));
@@ -78,15 +89,57 @@ async function sha256(path: string): Promise<string> {
   return hash.digest('hex');
 }
 
+const sql = (text: string) => text.replaceAll("'", "''");
+
+/** The sample's SHA-256 as the observatory pins it, after checking the file
+ *  against it: once, and only when a file built from it is wanted. */
+let sourceSha: string | undefined;
+async function pinnedSource(): Promise<string> {
+  if (sourceSha) return sourceSha;
+  const pins = (JSON.parse(readFileSync(join(observatoryData, 'MANIFEST.json'), 'utf8')) as Record<string, { sources?: { file: string; sha256: string }[] }>)[
+    'asteroids.parquet'
+  ]?.sources;
+  const pin = pins?.find((candidate) => candidate.file === SBDB)?.sha256;
+  if (!pin) throw new Error(`the observatory's MANIFEST.json pins no ${SBDB}`);
+  if (!existsSync(source)) throw new Error(`${source} is missing: run \`just observatory data --only asteroids\` first`);
+  const found = await sha256(source);
+  if (found !== pin) throw new Error(`${source}: SHA-256 ${found}, but the observatory's MANIFEST.json pins ${pin}; rebuild it with \`just observatory data --only asteroids\``);
+  return (sourceSha = pin);
+}
+
 mkdirSync(join(dataDir, 'drop'), { recursive: true });
+mkdirSync(join(dataDir, 'fixtures'), { recursive: true });
 const instance = await DuckDBInstance.create(':memory:');
 const conn = await instance.connect();
 const writer = `DuckDB ${(await conn.runAndReadAll('SELECT version()')).getRows()[0]?.[0]}`;
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
-const sourceSha = (manifest['asteroids.parquet'] as { sha256: string }).sha256;
+
+// The fixture, when it's wanted, or missing and a CSV file built from it is.
+if (wanted(FIXTURE) || (!existsSync(csvSource) && Object.keys(CSV_FILES).some(wanted))) {
+  const pin = await pinnedSource();
+  await conn.run(`CREATE TEMP TABLE fixture AS SELECT *, 0 AS part FROM read_parquet('${sql(source)}')`);
+  // INSERT casts the tricky rows' text to the sample's types.
+  await conn.run(
+    `INSERT INTO fixture BY NAME SELECT *, 1 AS part FROM read_csv('${sql(join(dataDir, 'fixtures-src/tricky_rows.csv'))}', header = true, all_varchar = true)`,
+  );
+  const reused = Number((await conn.runAndReadAll('SELECT count(*) - count(DISTINCT spkid) FROM fixture')).getRows()[0]![0]);
+  if (reused > 0) throw new Error('a tricky row reuses an spkid');
+  await conn.run(`COPY (SELECT * EXCLUDE (part) FROM fixture ORDER BY part, spkid) TO '${sql(csvSource)}' (FORMAT csv, HEADER true)`);
+  const rows = Number((await conn.runAndReadAll('SELECT count(*) FROM fixture')).getRows()[0]![0]);
+  await conn.run('DROP TABLE fixture');
+  manifest[FIXTURE] = {
+    rows,
+    bytes: statSync(csvSource).size,
+    sha256: await sha256(csvSource),
+    source: `${SBDB} (sha256 ${pin.slice(0, 12)}…), then fixtures-src/tricky_rows.csv`,
+    writer: `${writer}, CSV with header`,
+  };
+  console.log(`${FIXTURE}: ${(statSync(csvSource).size / 2 ** 20).toFixed(1)} MiB, ${rows} rows`);
+}
 
 for (const [name, [copies, rowGroup]] of Object.entries(FILES)) {
   if (!wanted(name)) continue;
+  const pin = await pinnedSource();
   const path = join(dataDir, name);
   const started = performance.now();
   // `copy` outer, file order inner: the asteroid table k times over, in order.
@@ -100,16 +153,26 @@ for (const [name, [copies, rowGroup]] of Object.entries(FILES)) {
     rows: Number(meta[0]),
     bytes: statSync(path).size,
     sha256: await sha256(path),
-    source: `asteroids.parquet (sha256 ${sourceSha.slice(0, 12)}…) × ${copies}`,
+    source: `${SBDB} (sha256 ${pin.slice(0, 12)}…) × ${copies}`,
     rowGroups: Number(meta[1]),
     writer: `${writer}, ZSTD, ROW_GROUP_SIZE ${rowGroup}`,
   };
   console.log(`${name}: ${(statSync(path).size / 2 ** 20).toFixed(1)} MiB, ${meta[0]} rows, ${meta[1]} row groups (${((performance.now() - started) / 1000).toFixed(1)} s)`);
 }
-const sql = (text: string) => text.replaceAll("'", "''");
-const csvSha = (manifest['fixtures/asteroids.csv'] as { sha256: string }).sha256;
+/** The fixture's SHA-256 as MANIFEST.json records it, after checking the
+ *  file against it: once, and only when a CSV file built from it is wanted. */
+let csvSha: string | undefined;
+async function pinnedFixture(): Promise<string> {
+  if (csvSha) return csvSha;
+  const recorded = (manifest[FIXTURE] as { sha256?: string } | undefined)?.sha256;
+  if (!recorded) throw new Error(`MANIFEST.json has no ${FIXTURE}: build it with \`just tycho drop-files fixtures/\``);
+  const found = await sha256(csvSource);
+  if (found !== recorded) throw new Error(`${FIXTURE}: SHA-256 ${found}, but MANIFEST.json records ${recorded}: build it again with \`just tycho drop-files fixtures/\``);
+  return (csvSha = recorded);
+}
 for (const [name, copies] of Object.entries(CSV_FILES)) {
   if (!wanted(name)) continue;
+  const fixtureSha = await pinnedFixture();
   const path = join(dataDir, name);
   const started = performance.now();
   const fixture = readFileSync(csvSource);
@@ -126,7 +189,7 @@ for (const [name, copies] of Object.entries(CSV_FILES)) {
     rows,
     bytes: statSync(path).size,
     sha256: await sha256(path),
-    source: `fixtures/asteroids.csv (sha256 ${csvSha.slice(0, 12)}…): header, then its body × ${copies}`,
+    source: `${FIXTURE} (sha256 ${fixtureSha.slice(0, 12)}…): header, then its body × ${copies}`,
     writer: 'drop_files.ts, byte for byte; rows counted by ' + writer,
   };
   console.log(`${name}: ${(statSync(path).size / 2 ** 20).toFixed(1)} MiB, ${rows} rows (${((performance.now() - started) / 1000).toFixed(1)} s)`);

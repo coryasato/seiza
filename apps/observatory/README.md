@@ -2,7 +2,7 @@
 
 > *Where the instruments are compared.*
 
-**Live at [seiza.io/observatory](https://seiza.io/observatory/).** To run it locally: `just tycho data` (the asteroid sample), `just observatory data`, `just observatory script-fonts` (the admin table's fonts toggle), `just observatory builds`, then `just observatory preview`.
+**Live at [seiza.io/observatory](https://seiza.io/observatory/).** To run it locally: `just observatory data`, `just observatory script-fonts` (the admin table's fonts toggle), `just observatory builds`, then `just observatory preview`.
 
 The Observatory is seiza's comparison page. For each component in the repo, it runs the component, drawn by GPUI on a canvas from WebAssembly, against a DOM equivalent, and measures what each costs over a session of use. The first comparison is **GPUI | TanStack**: [the tall table](../../components/tall-table/) against React + TanStack Virtual, in six scenarios:
 

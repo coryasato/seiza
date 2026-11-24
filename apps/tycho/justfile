@@ -8,10 +8,9 @@ target_dir := root / "target/wasm32-unknown-unknown"
 
 worker_scripts := app_dir / "worker/scripts"
 
-# Build wasm (debug) and start the Vite dev server with COOP/COEP, plus the
-# Worker (`wrangler dev`, local R2) that Vite proxies /data/* to.
+# Build wasm (debug) and start the Vite dev server with COOP/COEP.
 dev: (wasm "debug") extensions
-    node {{worker_scripts}}/with-worker.ts npm run dev --workspace @seiza/tycho-web
+    npm run dev --workspace @seiza/tycho-web
 
 # Release wasm (+ wasm-opt), Vite build, then report asset sizes, and the
 # page's weight before first paint (the document, the entry JS, the app wasm,
@@ -21,21 +20,25 @@ build: (wasm "release") extensions
     npm run build --workspace @seiza/tycho-web
     node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist --r2 duckdb-eh --r2 duckdb-mvp --first-paint index.html --first-paint assets/index- --first-paint tycho_bg --first-paint IBMPlexSans-Regular
 
-# Serve the release build with the same headers, plus the Worker for /data/*.
+# Serve the release build with the same headers.
 preview:
-    node {{worker_scripts}}/with-worker.ts npm run preview --workspace @seiza/tycho-web
+    npm run preview --workspace @seiza/tycho-web
 
-# Deploy to Cloudflare: release build, then upload changed samples and
-# the oversize DuckDB wasm to R2, `wrangler deploy`, and check production
-# (worker/scripts/deploy.ts). Needs `wrangler login` and TYCHO_R2_PROFILE (an
+# Deploy to Cloudflare: release build, then upload the oversize DuckDB wasm
+# to R2 if changed, `wrangler deploy`, and check production
+# (worker/scripts/deploy.ts). Not until the rebuild ships: production keeps
+# the deployed app and its samples (docs/DECISIONS.md, "Hosting", 2026-11-23),
+# so it refuses without --rebuild-ships, that deploy's flag (--dry-run aside). Needs `wrangler login` and TYCHO_R2_PROFILE (an
 # AWS CLI profile with the R2 bucket's S3 keys). Flags: --dry-run, --skip-check.
 deploy *args: build
     node {{worker_scripts}}/deploy.ts {{args}}
 
-# Production: pause the samples (docs/hosting.md, "Abuse guards"). Every
-# /data/* request answers 503 and the page says to drop a file instead, so
-# nothing reads R2; the page and dropped files keep working. A Worker secret:
-# it takes effect in seconds and survives deploys. Needs `wrangler login`.
+# Production: pause the samples (docs/hosting.md, "Abuse guards"): sets the
+# Worker secret DATA_PAUSED. Only production's Worker, the app as deployed
+# until the rebuild ships, reads it: its /data/* answers 503 and its page
+# says to drop a file instead, so nothing reads R2. A Worker from this tree
+# doesn't read it (it serves no /data/*), so after the rebuild deploys this
+# does nothing. Takes effect in seconds, survives deploys. Needs `wrangler login`.
 # Tycho's Worker alone: Kirkwood has its own switch (`just kirkwood pause`).
 pause: (paused "1")
 
@@ -53,46 +56,25 @@ paused value:
 extensions:
     node {{root}}/engines/duckdb/web/scripts/extensions.ts {{web}}/public
 
-# Build a sample (fetch once, then prep → Parquet + MANIFEST.json) and load
-# it into the local R2 that `wrangler dev` serves. `asteroids` (the default)
-# also writes the CSV fixture; `gaia` reads ~90 GB from AWS Open Data on its
-# first run (docs/data.md), keeping ~1.5 GB of extracts in data/raw/gaia/, and takes
-# `--cut` and `--bench` (data/prep.ts). `--refresh` fetches again. Native
-# DuckDB (data/package.json, its own lockfile) is installed here, not by
-# `just setup`.
-#
-# Targets can come anywhere among the flags, as prep.ts reads them; the
-# upload list follows the same rule (no target means asteroids).
-data *args: data-deps
-    #!/usr/bin/env bash
-    set -euo pipefail
-    node {{app_dir}}/data/prep.ts {{args}}
-    cd {{app_dir}}/data
-    args=" {{args}} "
-    files=()
-    [[ "$args" == *" gaia "* ]] && files+=(gaia-dr3-bright.parquet)
-    [[ "$args" == *" gaia "* && "$args" == *" --bench "* ]] && files+=(bench/gaia-rg*.parquet)
-    [[ "$args" == *" asteroids "* || "$args" != *" gaia "* ]] && files+=(asteroids.parquet)
-    for file in "${files[@]}"; do
-        {{root}}/node_modules/.bin/wrangler r2 object put "tycho-data/$file" --file "$PWD/$file" --local --cwd {{app_dir}}/worker
-    done
-
-# The drop-test files (data/drop/, gitignored): asteroids.parquet repeated
-# to ~100 MB and ~1 GB, the 1 GB one in three row-group layouts, and the
-# CSV fixture repeated to ~1 GB. Local only: dropped from disk, like a
+# The test files: the CSV fixture (data/fixtures/asteroids.csv), and the
+# drop-test files (data/drop/), all gitignored, from the observatory's full
+# asteroid sample (`just observatory data --only asteroids` first): the
+# sample repeated to ~100 MB and ~1 GB, the 1 GB one in three row-group
+# layouts, and the CSV fixture repeated to ~1 GB. Local only: dropped from disk, like a
 # visitor's file, by hand (the 1 GB memory check, perf/CLAUDE.md) and by the
 # checks the rebuild writes again. Pass name parts to build only some, e.g.
 # `just tycho drop-files csv`.
 drop-files *args: data-deps
     node {{app_dir}}/data/drop_files.ts {{args}}
 
-# Install the data scripts' dependencies (native DuckDB, tens of MB).
+# Install drop-files' dependencies (native DuckDB, tens of MB).
 data-deps:
     npm install --prefix {{app_dir}}/data --no-audit --no-fund --silent
 
-# /data/* byte-range checks: the Worker's unit tests (a strict fake R2), then
-# against `wrangler dev` (HEAD, 206s, 416s, 404s, headers, and the whole
-# file's SHA-256 against MANIFEST.json).
+# The Worker's checks: its unit tests (fakes of the build and the bucket),
+# then against `wrangler dev` on the release build (`just tycho build`
+# first), its local R2 filled with the build's two DuckDB wasm bundles: each
+# served whole, byte for byte, with its headers; /data/* a 404.
 worker-check:
     node --test {{app_dir}}/worker/test/index.test.ts
     node {{worker_scripts}}/check.ts
@@ -118,7 +100,7 @@ lint:
     cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-tall-table --target wasm32-unknown-unknown -- -D warnings
     cargo clippy -p tycho -p seiza -p seiza-duckdb -p seiza-tall-table --all-features --all-targets -- -D warnings
     npm run typecheck --workspace @seiza/tycho-web
-    @if [ -d {{app_dir}}/data/node_modules ]; then npx tsc -p {{app_dir}}/data; else echo "skipped data/ typecheck: its deps install with \`just tycho data\` (or \`just tycho data-deps\`)"; fi
+    @if [ -d {{app_dir}}/data/node_modules ]; then npx tsc -p {{app_dir}}/data; else echo "skipped data/ typecheck: its deps install with \`just tycho data-deps\`"; fi
 
 # Compile the crate and generate JS bindings into web/pkg/.
 wasm profile="debug":

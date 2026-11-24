@@ -6,34 +6,6 @@
 use seiza_duckdb::sql::ColumnInfo;
 use seiza_duckdb::tall_table::ParquetSummary;
 
-/// A sample dataset hosted on our origin (`/data/*`, served by the Worker).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Sample {
-    /// What SQL calls it once registered.
-    pub name: &'static str,
-    pub url: &'static str,
-    /// Its button's element id, which the Playwright checks click by.
-    pub target: &'static str,
-    pub label: &'static str,
-}
-
-/// The default sample: every known asteroid (docs/data.md).
-pub const ASTEROIDS: Sample = Sample {
-    name: "asteroids.parquet",
-    url: "/data/asteroids.parquet",
-    target: "try-sample-asteroids",
-    label: "Try sample: every known asteroid",
-};
-
-/// The big sample: Gaia DR3's 25 M brightest stars (docs/data.md).
-/// Its ESA credit is in the file's metadata, like the asteroids'.
-pub const GAIA: Sample = Sample {
-    name: "gaia-dr3-bright.parquet",
-    url: "/data/gaia-dr3-bright.parquet",
-    target: "try-sample-gaia",
-    label: "Big: 25M Gaia stars",
-};
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct FileSummary {
     pub name: String,
@@ -44,12 +16,12 @@ pub struct FileSummary {
     pub row_groups: Option<u64>,
     pub columns: Vec<ColumnInfo>,
     /// From the file's own key/value metadata ([`CREDIT_KEY`],
-    /// [`FETCHED_KEY`]), which `data/prep.sql` writes. Files from elsewhere
-    /// have none.
+    /// [`FETCHED_KEY`]), which a sample's build writes. Files from
+    /// elsewhere have none.
     pub credit: Option<String>,
 }
 
-/// The Parquet metadata keys `data/prep.sql` writes the data's credit and
+/// The Parquet metadata keys a sample's build writes the data's credit and
 /// the date it was fetched under.
 const CREDIT_KEY: &str = "tycho.credit";
 const FETCHED_KEY: &str = "tycho.fetched";

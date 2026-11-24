@@ -271,3 +271,15 @@ No results note: the part measured nothing.
 - **The placeholder rule wasn't Tycho's alone.** "Each app's check compares them" stayed true for the observatory's contender, so the rule names the exception rather than dropping the check.
 - **Retiring the timings took rule 2's only check with them** (the code review found it): the cold-load script was also what failed a request before first paint, and the tall table's `Filled` mark and the engine's error states had no other end-to-end check either. A pass/fail request check moved into smoke; the other two are planned where they belong.
 - **The wasm grew 102 KiB since it was last measured** (2840.2 KiB at the M9 suite, 2942.5 now), every feature adopted since then without a cold-load run to show it; still under the 3283 KiB limit.
+
+## M11 part B: the old samples out (2026-11-23)
+
+No results note: the part measured nothing.
+
+**Surprises:**
+- **The asteroid sample had a second reader the plan didn't list:** Tycho's own test files (the drop files and the CSV fixture) were built from it. They read the observatory's copy now, against its pin.
+- **The move was byte-exact.** Built in the observatory from the same pages, the full sample matched Tycho's pin (`4ee7f31e…`), the observatory's file its own (`805f18fa…`), and the CSV fixture and a drop file the bytes they had: the writer's settings and DuckDB's version decide the bytes, not the folder.
+- **The sample's origin was a type with one variant left.** With the buttons gone, `Origin` held only `Device`, and clippy's dead-code check walked the removal through every field that carried it; it went whole, the device's marks a constant.
+- **Without the samples, nothing local needed `wrangler dev`.** Dev and preview ran it only to proxy `/data/*`; the local bucket had never held the bundles at all, since Vite serves them, so `worker-check` now puts them there from the build.
+- **A headless screenshot at DPR 2 isn't GPUI's first frame:** Chromium's GPUI drew at DPR 1 there (the harness's DPR trap), so the placeholder was compared with the first frame at DPR 1.
+- **A flag that repins everything was one step from deleting what can't be fetched again** (the code review's catch): `--repin` meant "take today's download" for GHCN, and the asteroids' fetch deletes its pages first. A source whose pinned bytes exist only on disk repins on its own `--only`.

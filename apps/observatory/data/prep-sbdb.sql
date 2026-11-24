@@ -1,23 +1,25 @@
--- Turns the raw SBDB pages (fetch_asteroids.ts) into Tycho's asteroid sample:
--- asteroids.parquet (the "Try sample" button) and fixtures/asteroids.csv (the
--- CSV fixture). prep.ts runs this with native DuckDB (@duckdb/node-api, 1.4.x
--- like the wasm engine) from apps/tycho/data/. From raw/asteroids/fetch.json
--- it sets the variable api_count (rows the API reported) and substitutes
--- ${fetched} (the fetch date, YYYY-MM-DD; COPY options must be constants).
--- The writer settings: ZSTD, and 30,720-row groups, chosen by measured
--- page latency and bytes (perf/results/2026-09-25-m4.md): the table reads one
--- page with a file_row_number filter, which DuckDB answers from one group.
+-- Turns the raw SBDB pages (fetch_asteroids.ts) into the full asteroid
+-- sample, raw/asteroids/sbdb.parquet: every known asteroid, 18 columns.
+-- prep.sql cuts it down to asteroids.parquet, and Tycho's data/drop_files.ts
+-- builds its test files from it. prep.ts runs this with native DuckDB
+-- (@duckdb/node-api, 1.4.x like the wasm engine) from apps/observatory/data/.
+-- From raw/asteroids/fetch.json it sets the variable api_count (rows the API
+-- reported) and substitutes ${fetched} (the fetch date, YYYY-MM-DD; COPY
+-- options must be constants) and ${out} (the file's path).
+-- The writer settings: ZSTD, and 30,720-row groups (Tycho's paging chose
+-- them). The file is pinned by its SHA-256 (MANIFEST.json, the asteroids'
+-- `sources`), so its bytes don't change: not its settings, and not its
+-- metadata keys, which are still named for Tycho, where it was first built.
 
 -- One row per raw API row. Each page is {fields, data: [[...], ...], count}.
 CREATE TEMP TABLE raw AS
 SELECT unnest(data) AS r, filename AS page
 FROM read_json('raw/asteroids/page-*.json', columns = {data: 'JSON[]'}, filename = true, maximum_object_size = 200000000);
 
--- Typed columns, in docs/data.md's order, spkid first (the key and the sort).
+-- Typed columns, in fetch_asteroids.ts's order, spkid first (the key and the sort).
 -- The API sends numbers as strings; every non-null value must cast (checked
 -- below). full_name comes left-padded to align numbers; trimmed here.
--- first_obs is sometimes year-only ('2015-??-??'); those become NULL and are
--- counted in MANIFEST.json.
+-- first_obs is sometimes year-only ('2015-??-??'); those become NULL.
 CREATE TEMP TABLE typed AS
 SELECT
     (r->>0)::BIGINT AS spkid,
@@ -68,17 +70,17 @@ QUALIFY row_number() OVER (PARTITION BY spkid ORDER BY page DESC) = 1
 ORDER BY spkid;
 
 SELECT CASE WHEN (SELECT count(*) FROM asteroids) <> getvariable('api_count')
-    THEN error('prep: ' || (SELECT count(*) FROM asteroids) || ' unique rows, but the API reported ' || getvariable('api_count') || '; fetch again with --refresh')
+    THEN error('prep: ' || (SELECT count(*) FROM asteroids) || ' unique rows, but the API reported ' || getvariable('api_count') || '; fetch again with --only asteroids --repin')
 END;
 
--- Row 1 is (1) Ceres, as the sample promises.
+-- Row 1 is (1) Ceres.
 SELECT CASE WHEN (SELECT full_name FROM asteroids ORDER BY spkid LIMIT 1) <> '1 Ceres (A801 AA)'
     THEN error('prep: the first row isn''t Ceres')
 END;
 
 -- The Parquet file. The fetch date and credit ride along as key/value
--- metadata, so the app reads them with parquet_kv_metadata, no extra file.
-COPY (SELECT * FROM asteroids ORDER BY spkid) TO 'asteroids.parquet' (
+-- metadata.
+COPY (SELECT * FROM asteroids ORDER BY spkid) TO '${out}' (
     FORMAT parquet,
     COMPRESSION zstd,
     ROW_GROUP_SIZE 30720,
@@ -88,14 +90,3 @@ COPY (SELECT * FROM asteroids ORDER BY spkid) TO 'asteroids.parquet' (
         'tycho.fetched': '${fetched}'
     }
 );
-
--- The CSV fixture: the same rows as CSV, then the hand-written tricky rows
--- (quoted commas, newlines, and quotes in names). INSERT casts their text
--- to the table's types.
-CREATE TEMP TABLE fixture AS SELECT *, 0 AS part FROM asteroids;
-INSERT INTO fixture BY NAME
-SELECT *, 1 AS part FROM read_csv('fixtures-src/tricky_rows.csv', header = true, all_varchar = true);
-
-SELECT CASE WHEN count(*) <> count(DISTINCT spkid) THEN error('prep: a tricky row reuses an spkid') END FROM fixture;
-
-COPY (SELECT * EXCLUDE (part) FROM fixture ORDER BY part, spkid) TO 'fixtures/asteroids.csv' (FORMAT csv, HEADER true);

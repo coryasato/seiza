@@ -2,7 +2,7 @@
 
 > *Tycho Brahe catalogued a thousand stars in a lifetime. Tycho scrolls 25 million before your coffee cools.*
 
-**Tycho** is a local-first data workbench in the browser. Drop a CSV or Parquet file, or click a sample, and scroll through every row instantly. The data is queried locally with DuckDB-Wasm and drawn by GPUI (via GPUI Kit) on a canvas with WebGPU, or WebGL2 where WebGPU isn't available. Nothing is uploaded.
+**Tycho** is a local-first data workbench in the browser. Drop a CSV or Parquet file and scroll through every row instantly. The data is queried locally with DuckDB-Wasm and drawn by GPUI (via GPUI Kit) on a canvas with WebGPU, or WebGL2 where WebGPU isn't available. Nothing is uploaded.
 
 The project's claim, as Tycho takes it: the canvas for the GPUI components, the heavy parts; the DOM where text lives (root `CLAUDE.md`). Tycho is a utility app (root `CLAUDE.md`, "Tiers"): a tool people use, which grows features as it needs them. Its DuckDB layer is the repo's first engine, `engines/duckdb/`, and its table the first component, `components/tall-table/`.
 
@@ -30,9 +30,9 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | Folder | What it is | Its file |
 |---|---|---|
 | `crate/` | The app: title bar, workbench, the table's source, the engine's events, files, CSV, jump to row, errors and limits | `crate/CLAUDE.md` |
-| `web/` | The Vite host: the bridge, the engine's plugin, the `/data/*` proxy, the placeholder shell | `web/CLAUDE.md` |
-| `worker/` | Hosting: the Worker, R2, the deploy, the pause switch | `worker/CLAUDE.md` |
-| `data/` | The samples' fetch and prep, the test files | `data/CLAUDE.md` |
+| `web/` | The Vite host: the bridge, the engine's plugin, the placeholder shell | `web/CLAUDE.md` |
+| `worker/` | Hosting: the Worker, R2 (DuckDB's two wasm bundles), the deploy, production's pause switch | `worker/CLAUDE.md` |
+| `data/` | The test files, built from the observatory's asteroid sample | `data/CLAUDE.md` |
 | `perf/` | The checks that stay (the wasm's size, smoke), the 1 GB memory check by hand, the probes the crate still publishes; `results/`, version 1's measurements, as history | `perf/CLAUDE.md` |
 
 A new folder whose detail only its own work needs gets its own `CLAUDE.md` and a row here.
@@ -50,7 +50,7 @@ apps/tycho/
   crate/            # Rust, package `tycho` (crate/CLAUDE.md)
   web/              # the Vite host (web/CLAUDE.md)
   worker/           # the Cloudflare Worker (worker/CLAUDE.md)
-  data/             # the samples' prep, the test files, MANIFEST.json (data/CLAUDE.md)
+  data/             # the test files and their MANIFEST.json (data/CLAUDE.md)
   perf/             # the wasm's size gate and the smoke check, budgets.json, baseline.json, results/ (history) (perf/CLAUDE.md)
   docs/             # DECISIONS.md (by area), LESSONS.md (surprises, per milestone), milestones.md (finished specs), data.md, hosting.md, personas.md (who Tycho is for and what each needs); private/ is gitignored
   README.md         # for visitors: the rebuild's note, canvas tradeoffs, file size limits, how to run it
@@ -64,23 +64,21 @@ apps/tycho/
 One line each; each recipe's line is in its folder's `CLAUDE.md` (in brackets), what it covers and its flags in its script's header and the justfile.
 
 ```
-just tycho data | data gaia | data-deps | drop-files   # the samples into local R2, data/'s native DuckDB, the test files (data)
+just tycho data-deps | drop-files                      # data/'s native DuckDB, the test files (data)
 just tycho extensions                                   # the DuckDB extensions the engine pins, into web/public/duckdb-ext/ (web)
-just tycho worker-check | deploy | pause | resume       # the Worker's byte-range checks, the deploy, production's pause switch (worker)
+just tycho worker-check | deploy | pause | resume       # the Worker's checks, the deploy, production's pause switch (worker)
 just tycho smoke [url] | home-paths                     # checks (perf)
 ```
 
 ```
 just setup              # npm install for every app host (run once)
-just tycho dev          # build wasm (debug) + Vite dev server with COOP/COEP (http://localhost:5173), with `wrangler dev` behind /data/*
+just tycho dev          # build wasm (debug) + Vite dev server with COOP/COEP (http://localhost:5173)
 just tycho build        # release wasm (+ wasm-opt), Vite build, report asset sizes and the page's weight before first paint (ungated)
-just tycho preview      # serve the release build (web/dist) with the same headers, with `wrangler dev` behind /data/*
+just tycho preview      # serve the release build (web/dist) with the same headers
 just tycho wasm [debug|release]   # cargo build + wasm-bindgen into web/pkg/ (+ wasm-opt for release)
 just tycho check        # lint + release build + no home-directory path in the shipped wasm + the wasm's size (brotli ≤ baseline +15% unless noted in perf/budget-notes.md)
 just tycho lint         # cargo fmt --check, clippy on wasm32 and native with -D warnings, tsc, and `check-terms` (fails on a milestone ID outside the history files)
 ```
-
-`dev`, `preview`, and `worker-check` need the local R2 `just tycho data` fills.
 
 The perf panel ("Observation panel": load waterfall, frame interval and work per frame, memory, bytes read, rows/s, cache hits, pages) is on with `?perf` in the URL; toggle it with the title bar's button or Cmd/Ctrl+Shift+P. (Firefox on macOS keeps Cmd+Shift+P for a private window; use Ctrl+Shift+P or `?perf` there.)
 

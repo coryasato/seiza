@@ -1,16 +1,17 @@
-// Checks /data/* byte-range handling end to end: HEAD, single ranges (closed,
-// open, suffix, clamped), 416s (past the end, multiple ranges, reversed),
-// 404s, headers (isolation, Accept-Ranges, no Content-Encoding), and that the
-// whole file matches MANIFEST.json's SHA-256. With --url, also the deployed
-// assets (`checkAssets`): every web/dist file, the oversize ones from R2, and
-// the WAF's 403s (`--no-waf` for an origin without the zone's rules).
+// Checks the Worker's R2 half end to end: DuckDB's oversize wasm bundles
+// come from the bucket whole (GET and HEAD), byte for byte web/dist's, with
+// their type, the isolation headers, and `immutable`; a missing asset and
+// anything under /data/ are 404s. With --url, the deployed build instead
+// (`checkAssets`): every web/dist file, the oversize ones from R2, and the
+// WAF's 403s (`--no-waf` for an origin without the zone's rules).
 //
 // Usage: node apps/tycho/worker/scripts/check.ts [--url <origin> [--no-waf]]
-// With no --url it starts `wrangler dev` (local R2); deploy.ts runs the same
-// checks on production.
+// With no --url it starts `wrangler dev` on the release build in web/dist
+// (`just tycho build` first), its local R2 filled from it; deploy.ts runs
+// `checkAssets` on production.
 
 import { createHash } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { get as httpsGet } from 'node:https';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,127 +19,42 @@ import { oversizeAssets, walk } from './assets.ts';
 import { startWorkerDev } from './dev.ts';
 
 const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const manifest = JSON.parse(readFileSync(join(workerDir, '../data/MANIFEST.json'), 'utf8')) as Record<string, { bytes: number; sha256: string }>;
 
-/** The one failure while the samples are paused (`just tycho pause`): every
- *  other /data check would fail too, and it lasts until `resume`. */
-export const PAUSED = '/data/*: the samples are paused (`just tycho resume`)';
-
-/**
- * Returns one line per failed check; empty means all passed. `behindWaf`:
- * production, where the WAF allowlist (docs/hosting.md, "Abuse guards")
- * answers a POST and a path that resolves outside /data/ with 403 before the
- * Worker could answer 405 or 404.
- */
-export async function checkDataEndpoint(origin: string, options: { file?: string; viaProxy?: boolean; edgeCache?: boolean; behindWaf?: boolean } = {}): Promise<string[]> {
-  const file = options.file ?? 'asteroids.parquet';
-  const expected = manifest[file];
-  if (!expected) return [`MANIFEST.json has no ${file}`];
-  const size = expected.bytes;
-  const url = `${origin}/data/${file}`;
+/** The oversize bundles from `origin`, against `dist`'s copies; one line per failed check. */
+export async function checkBundles(origin: string, dist: string): Promise<string[]> {
   const failures: string[] = [];
   const expect = (name: string, ok: boolean, detail: string) => {
     if (!ok) failures.push(`${name}: ${detail}`);
   };
-  const request = async (init: RequestInit & { range?: string }, target = url) => {
-    const headers = new Headers(init.headers);
-    if (init.range) headers.set('Range', init.range);
-    headers.set('Accept-Encoding', 'br, gzip');
-    const response = await fetch(target, { ...init, headers });
+  const oversize = oversizeAssets(dist);
+  expect('web/dist', oversize.length === 2, `${oversize.length} files over the asset limit (${oversize.join(', ')}), expected DuckDB's two wasm bundles: run \`just tycho build\``);
+  for (const path of oversize) {
+    const local = readFileSync(join(dist, path));
+    // A `.br` beside a bundle (a deploy's, `--dry-run` included) would be
+    // served from static assets ahead of R2, which then goes untested.
+    expect(path, !existsSync(join(dist, `${path}.br`)), `web/dist holds ${path}.br, which the Worker would serve ahead of R2: run \`just tycho build\``);
+    // identity: Node's fetch asks for br by default, which takes the `.br` path.
+    const response = await fetch(`${origin}/${path}`, { headers: { 'Accept-Encoding': 'identity' } });
     const body = new Uint8Array(await response.arrayBuffer());
-    return { response, body, header: (name: string) => response.headers.get(name) };
-  };
-  const commonHeaders = (name: string, header: (name: string) => string | null) => {
-    expect(name, header('Content-Encoding') === null, `Content-Encoding ${header('Content-Encoding')} (Parquet must go out as stored)`);
-    expect(name, header('Cross-Origin-Resource-Policy') === 'same-origin', `CORP ${header('Cross-Origin-Resource-Policy')}`);
-    expect(name, header('Cross-Origin-Embedder-Policy') === 'require-corp', `COEP ${header('Cross-Origin-Embedder-Policy')}`);
-  };
-
-  {
-    const { response, header } = await request({ method: 'HEAD' });
-    if (header('X-Tycho-Paused') === '1') return [PAUSED];
-    expect('HEAD', response.status === 200, `status ${response.status}`);
-    expect('HEAD', header('Content-Length') === String(size), `Content-Length ${header('Content-Length')}, expected ${size}`);
-    expect('HEAD', header('Accept-Ranges') === 'bytes', `Accept-Ranges ${header('Accept-Ranges')}`);
-    commonHeaders('HEAD', header);
+    const header = (name: string) => response.headers.get(name);
+    expect(path, response.status === 200, `status ${response.status}`);
+    expect(path, createHash('sha256').update(body).digest('hex') === createHash('sha256').update(local).digest('hex'), `${body.length} bytes differ from web/dist's ${local.length}`);
+    expect(path, header('Content-Type') === 'application/wasm', `Content-Type ${header('Content-Type')}`);
+    expect(path, header('Cache-Control')?.includes('immutable') ?? false, `Cache-Control ${header('Cache-Control')}`);
+    expect(path, header('Cross-Origin-Embedder-Policy') === 'require-corp', `COEP ${header('Cross-Origin-Embedder-Policy')}`);
+    expect(path, header('Cross-Origin-Resource-Policy') === 'same-origin', `CORP ${header('Cross-Origin-Resource-Policy')}`);
+    const head = await fetch(`${origin}/${path}`, { method: 'HEAD', headers: { 'Accept-Encoding': 'identity' } });
+    await head.body?.cancel();
+    expect(`HEAD ${path}`, head.status === 200 && head.headers.get('Content-Length') === String(local.length), `status ${head.status}, Content-Length ${head.headers.get('Content-Length')}`);
   }
-
-  {
-    // DuckDB-Wasm sizes HTTP files this way; without a 206 it downloads the whole file.
-    const { response, header } = await request({ method: 'HEAD', range: 'bytes=0-' });
-    expect('HEAD bytes=0-', response.status === 206, `status ${response.status}`);
-    expect('HEAD bytes=0-', header('Content-Length') === String(size), `Content-Length ${header('Content-Length')}, expected ${size}`);
-    expect('HEAD bytes=0-', header('Content-Range') === `bytes 0-${size - 1}/${size}`, `Content-Range ${header('Content-Range')}`);
-    const past = await request({ method: 'HEAD', range: `bytes=${size}-` });
-    expect(`HEAD bytes=${size}-`, past.response.status === 416, `status ${past.response.status}, expected 416`);
-  }
-
-  const ranges: [range: string, offset: number, length: number][] = [
-    ['bytes=0-0', 0, 1],
-    ['bytes=0-3', 0, 4],
-    ['bytes=-8', size - 8, 8],
-    [`bytes=${size - 4}-`, size - 4, 4],
-    [`bytes=${size - 5}-${size + 100}`, size - 5, 5],
-    [`bytes=-${size + 100}`, 0, size],
-  ];
-  const whole = await request({});
-  for (const [range, offset, length] of ranges) {
-    const { response, body, header } = await request({ range });
-    const name = `GET ${range}`;
-    expect(name, response.status === 206, `status ${response.status}`);
-    expect(name, header('Content-Range') === `bytes ${offset}-${offset + length - 1}/${size}`, `Content-Range ${header('Content-Range')}`);
-    expect(name, body.length === length, `${body.length} bytes, expected ${length}`);
-    expect(name, Buffer.compare(body, whole.body.subarray(offset, offset + length)) === 0, 'bytes differ from the same range of the whole file');
-    commonHeaders(name, header);
-  }
-  {
-    const { body } = await request({ range: 'bytes=0-3' });
-    expect('Parquet magic', new TextDecoder().decode(body) === 'PAR1', `first bytes ${JSON.stringify(new TextDecoder().decode(body))}`);
-  }
-
-  if (options.edgeCache) {
-    // Production keeps range reads at the edge (src/index.ts, serveData). The
-    // first read's copy is stored after it answers, so give it a moment.
-    const range = 'bytes=1000-1999';
-    const first = await request({ range });
-    let again = first;
-    for (let attempt = 0; attempt < 10 && again.header('X-Tycho-Cache') !== 'hit'; attempt++) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      again = await request({ range });
-    }
-    expect('edge cache', again.header('X-Tycho-Cache') === 'hit', `a repeated ${range} read as ${again.header('X-Tycho-Cache')}, expected hit`);
-    expect('edge cache', again.response.status === 206 && again.header('Content-Range') === `bytes 1000-1999/${size}`, `status ${again.response.status}, Content-Range ${again.header('Content-Range')}`);
-    expect('edge cache', Buffer.compare(again.body, whole.body.subarray(1000, 2000)) === 0, 'cached bytes differ from the file');
-    commonHeaders('edge cache', again.header);
-  }
-
-  for (const range of [`bytes=${size}-`, `bytes=${size + 10}-${size + 20}`, 'bytes=0-1,4-5', 'bytes=5-2', 'bytes=-0', 'items=0-1', 'bytes=x-y']) {
-    const { response, header } = await request({ range });
-    expect(`GET ${range}`, response.status === 416, `status ${response.status}, expected 416`);
-    expect(`GET ${range}`, header('Content-Range') === `bytes */${size}`, `Content-Range ${header('Content-Range')}`);
-  }
-
-  expect('GET whole', whole.response.status === 200, `status ${whole.response.status}`);
-  expect('GET whole', whole.body.length === size, `${whole.body.length} bytes, expected ${size}`);
-  const sha256 = createHash('sha256').update(whole.body).digest('hex');
-  expect('GET whole', sha256 === expected.sha256, `SHA-256 ${sha256} doesn't match MANIFEST.json; rerun \`just tycho data\``);
-  commonHeaders('GET whole', whole.header);
-
-  for (const [name, target, init] of [
-    ['missing file', `${origin}/data/missing.parquet`, {}],
-    ['missing file, ranged', `${origin}/data/missing.parquet`, { range: 'bytes=0-0' }],
-    // A proxy (Vite's) normalizes dot segments before the Worker sees them.
-    ...(options.viaProxy ? [] : [['dot segments', `${origin}/data/%2e%2e/secret`, {}] as const]),
-  ] as const) {
-    const { response } = await request(init, target);
-    // Cloudflare resolves the dot segments to /secret, outside the allowlist.
-    const status = options.behindWaf && name === 'dot segments' ? 403 : 404;
-    expect(name, response.status === status, `status ${response.status}, expected ${status}`);
-  }
-  {
-    const { response } = await request({ method: 'POST' });
-    const status = options.behindWaf ? 403 : 405;
-    expect('POST', response.status === status, `status ${response.status}, expected ${status}`);
+  for (const [name, target] of [
+    ['missing asset', `${origin}/assets/missing-00000000.wasm`],
+    ['a retired sample', `${origin}/data/asteroids.parquet`],
+    ...oversize.map((path) => [`${path} under /data/`, `${origin}/data/${path}`]),
+  ]) {
+    const response = await fetch(target!);
+    await response.body?.cancel();
+    expect(name!, response.status === 404, `status ${response.status}, expected 404`);
   }
   return failures;
 }
@@ -241,15 +157,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const given = index > 0 ? process.argv[index + 1] : undefined;
   // Any --url is production, behind the WAF, unless --no-waf says otherwise.
   const behindWaf = Boolean(given) && !process.argv.includes('--no-waf');
-  const worker = given ? null : await startWorkerDev({ port: 8788, requireObject: 'asteroids.parquet' });
+  const dist = join(workerDir, '../web/dist');
+  const worker = given ? null : await startWorkerDev({ port: 8788 });
   try {
-    const failures = await checkDataEndpoint(given ?? worker!.url, { edgeCache: Boolean(given), behindWaf });
-    if (given) failures.push(...(await checkAssets(given, join(workerDir, '../web/dist'), undefined, { behindWaf })));
+    const failures = given ? await checkAssets(given, dist, undefined, { behindWaf }) : await checkBundles(worker!.url, dist);
     if (failures.length > 0) {
       console.error(`FAIL\n${failures.map((failure) => `  ${failure}`).join('\n')}`);
       process.exitCode = 1;
     } else {
-      console.log(`PASS: /data range handling${given ? ', assets' : ''}`);
+      console.log(`PASS: ${given ? 'the deployed build' : "the bundles from the local bucket"}`);
     }
   } finally {
     await worker?.close();
