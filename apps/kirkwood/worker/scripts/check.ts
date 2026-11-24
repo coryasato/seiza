@@ -80,6 +80,15 @@ export async function checkDeployed(origin: string, options: { behindWaf?: boole
     if (!ok) failures.push(`${name}: ${detail}`);
   };
   const base = `${origin}${BASE}`;
+  // An origin that can't be reached is one failure, not an uncaught error
+  // halfway through. (A custom domain the deploy just made can stay
+  // unresolved on a machine that asked for it before: the zone's negative
+  // TTL, .claude/rules/cloudflare.md.)
+  try {
+    await ask(base, { method: 'HEAD' });
+  } catch (error) {
+    return [`${origin}: unreachable (${error instanceof Error ? error.message : String(error)})`];
+  }
   const isolated = (name: string, answer: Answer) => {
     expect(name, answer.header('Cross-Origin-Opener-Policy') === 'same-origin', `COOP ${answer.header('Cross-Origin-Opener-Policy')}`);
     expect(name, answer.header('Cross-Origin-Embedder-Policy') === 'require-corp', `COEP ${answer.header('Cross-Origin-Embedder-Policy')}`);

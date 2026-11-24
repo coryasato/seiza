@@ -30,7 +30,7 @@ What's next for Kirkwood: milestone status, the active milestone's "done when" c
 | M5 | A camera a hand moves | Done 2026-11-12 ([`docs/milestones.md`](docs/milestones.md)) |
 | M6 | The scene and the table, each moving the other | Done 2026-11-13 ([`docs/milestones.md`](docs/milestones.md)) |
 | M7 | In the open: deployed under Tycho | Done 2026-11-15 ([`docs/milestones.md`](docs/milestones.md)) |
-| M8 | A subdomain of its own: `kirkwood.seiza.io` | Active: opened 2026-11-23, in two parts (below); part A done 2026-11-23 |
+| M8 | A subdomain of its own: `kirkwood.seiza.io` | Done 2026-11-23 ([`docs/milestones.md`](docs/milestones.md)) |
 
 A milestone's spec, "done when" checks, and parts are written when the milestone before it closes, from what that one found. M8 was specced from an open question when Tycho's rebuild made the move a deadline; what's left after it is the open questions below.
 
@@ -46,36 +46,9 @@ Nothing else. The tall table's `sort`, `select`, `format`, and `density` are bui
 
 ---
 
-## Active milestone: M8, a subdomain of its own
+## Active milestone
 
-Opened 2026-11-23 and planned in two parts, one session each. **It must land before Tycho's rebuild is deployed** (Tycho's PLAN, "Ship the rebuild").
-
-**Why** (root `docs/DECISIONS.md`, "Hosting", 2026-11-23): Tycho is being rebuilt as a public tool with a connection policy and views saved in the browser, and an origin shared with a showcase ties each app's policy, storage, pause switch, and deploys to the other's. Kirkwood moves from `tycho.seiza.io/kirkwood` to **`kirkwood.seiza.io`**, and the 2026-11-10 decision that put it under Tycho is marked *Superseded* when this closes.
-
-**What moves.** The page is built at `/`, not `/kirkwood/` (`web/src/base.ts`'s `BASE`, which the build, the Worker, and the checks read). The Worker (`kirkwood`) serves the new hostname as a custom domain, as Tycho's does, with the same bucket and objects: nothing is put again. The hint's fold is a key in `localStorage`, and a new origin starts without it: a visitor who folded the hint sees it once more, which is fine.
-
-**What stays at the old address.** `tycho.seiza.io/kirkwood` and every path under it answer a 301 to the same path on the new host, the query kept (`/kirkwood/?roll=0` to `/?roll=0`), for as long as Tycho's hostname is ours: links to the old address are in the open. Which piece answers it is part A's decision: the `kirkwood` Worker keeping its old route and answering only redirects there, or a redirect rule in the zone with no Worker at all. The lean is the zone's rule, which leaves nothing of Kirkwood's running on Tycho's hostname when Tycho's rebuild deploys.
-
-**Its own switch and guards.** `just kirkwood pause` and `resume` set its Worker's `DATA_PAUSED`, and `just tycho pause` goes back to Tycho's Worker alone. The new hostname gets its own rows in the zone's WAF rules (the path allowlist and the rate limit; their text in the gitignored root `docs/private/zone.md`) before the deploy; Tycho's rule keeps the old paths only as far as the redirect needs them.
-
-**Left out:** any change to what the page shows, and the bucket's name (`kirkwood-data` never named Tycho).
-
-**Split into parts,** one session each:
-
-- **Part A: the code, local.** The redirect's place decided; the base at `/`; the Worker on its custom domain in `wrangler.toml`; its own pause recipe; the Worker's tests, the checks, and the deploy's check (`worker/scripts/check.ts`) for the new host and the redirect. Closes A1 to A4. Nothing deployed.
-- **Part B: in the open, and the close.** The WAF's rows, the deploy, the redirect and the guards checked in production, a security look and the rate limit right after, every doc that gives the address, and the close. Closes B1 to B5. *The owner sets the zone's rules and confirms the deploy.* A part that runs `see --worker` whole (about 30 minutes) asks first whether a code review runs before it (root `CLAUDE.md`, "Working agreements").
-
-**Done when:**
-
-- [x] **A1. The redirect's place is decided:** the zone's redirect rule or the Worker's old route, written in `docs/DECISIONS.md`, "Hosting", with what each leaves on Tycho's hostname and what Tycho's rebuild must keep for it. *The zone's rule (`docs/DECISIONS.md`, "Hosting", 2026-11-23): Single Redirects run before the WAF's rules and any Worker, so nothing of Kirkwood's stays on Tycho's hostname; the Worker answers the old paths 404 (its unit tests), and `worker/scripts/check.ts` checks the 301s against production (B3). That the old paths need no row in Tycho's allowlist is confirmed when the rule is set (B1).*
-- [x] **A2. The build runs at the root behind the Worker:** `BASE` is `/`; `just kirkwood worker` serves the release build at `http://127.0.0.1:8788/`; `just kirkwood see --worker` passes; nothing under `/kirkwood/` is asked for. The Worker's unit tests cover the new paths (and, if the Worker answers it, the redirect: the path and the query kept, a 301). *2026-11-23, on the reviewed code: `see --worker` whole passed every part from `paint` through `sort`, then stopped in `ride` on the clock's end (`checks/CLAUDE.md`'s busy-machine gotcha, `"ended":true`); `ride` alone passed, and `gap` through `phone` passed. `paint` (base `/`) fails on any request off the origin or under `/kirkwood`, and found none. The local Worker: `/` and `/?roll=0` 200; `/kirkwood`, `/kirkwood/`, `/kirkwood/?roll=0`, `//index.html`, `/data/put.json` 404; POST 405. The Worker answers no redirect (the zone does, A1); its 12 unit tests cover the page at the root and the old paths' 404s.*
-- [x] **A3. The switch is Kirkwood's own:** `just kirkwood pause` and `resume` set its Worker's secret alone, and `just tycho pause` Tycho's alone; `see --only paused` passes behind the local Worker. *`just --dry-run`: `kirkwood pause` runs `wrangler secret put DATA_PAUSED` in `apps/kirkwood/worker` alone, `tycho pause` in `apps/tycho/worker` alone (neither run against production). `see --only paused`: first frame 563 ms, told "The data is paused for now: try again later.", 0 bytes held, `elements.bin 503`, `stars.bin 503`, at the Worker's root.*
-- [x] **A4. `just kirkwood lint` and `just kirkwood test` pass.** *2026-11-23: lint clean; the crate's 77 tests (the ignored ones included) and the Worker's 12.*
-- [ ] **B1. The guards are in place before the deploy:** the new hostname's rows in the zone's WAF rules and its rate limit (`docs/private/zone.md` updated), and the old paths still allowed as far as the redirect needs.
-- [ ] **B2. It's deployed:** `kirkwood.seiza.io` opens, and `just kirkwood deployed` passes against it whole (every file the page asks for, COOP and COEP, the encodings and bytes, the WAF's 403s, the pause's 503).
-- [ ] **B3. The old address redirects:** `tycho.seiza.io/kirkwood`, `/kirkwood/`, `/kirkwood/?roll=0`, and a path under it each answer a 301 to the same place on the new host; Tycho's own pages are as they were (`just tycho check`, and Tycho's check against production).
-- [ ] **B4. The Worker is sound on its new host:** a security review of what changed (`/security-review`), probes in production (paths outside its own, other methods, the old hostname's paths), and the rate limit looked at against a visit's requests; each finding fixed or written down.
-- [ ] **B5. The docs give the new address:** every file that names `tycho.seiza.io/kirkwood` or the `/kirkwood/` base (the root `CLAUDE.md` and README, `.claude/rules/`, Kirkwood's `CLAUDE.md` files, README, `docs/`, Tycho's `docs/hosting.md` and justfile), the redirect excepted; history (`docs/milestones.md`, `LESSONS.md`, the decisions' text) left as written. The root decision of 2026-11-10 marked *Superseded*; Tycho's PLAN's "Ship the rebuild" and its open question 3 no longer wait on Kirkwood.
+None. The next one is specced from the open questions below, when the owner picks one.
 
 ---
 

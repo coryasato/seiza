@@ -7,7 +7,7 @@ This file holds the rules for every app. Each app's own `apps/<app>/CLAUDE.md` (
 **Apps**
 - `apps/tycho/`: Tycho, a local-first data workbench (DuckDB-Wasm + the tall table on the canvas, the rest of the page in the DOM), being rebuilt. A utility app, at tycho.seiza.io.
 - `apps/observatory/`: the Observatory, the comparison page and both its contenders, at seiza.io/observatory.
-- `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it, at tycho.seiza.io/kirkwood.
+- `apps/kirkwood/`: Kirkwood, a showcase: the asteroid belt as a scene whose every dot is a row of the table beside it, at kirkwood.seiza.io.
 
 The apex site (seiza.io: the observatory's page now, a landing page later) shares one shell, `site/ui/` (`.claude/rules/apex-site.md`).
 
@@ -52,7 +52,7 @@ The decisions behind these are in `docs/DECISIONS.md`, "Repo structure".
 - **Engines** (`engines/<name>/`, with `crate/` and/or `web/`): non-UI data layers that GPUI and DOM consumers share. An adapter between an engine and a component lives in the engine, behind an optional feature named for the component.
 - **Utility apps** (`apps/<star>/`): tools people use, star-named, each on its own subdomain. They turn on component features as they need them, and usually get a feature first.
 - **The observatory** (`apps/observatory/`): compares each component's base level, in a minimal GPUI host, with a 1:1 DOM equivalent (`.claude/rules/comparison-protocol.md`). It only consumes components and engines: it may ask one to expose what its metrics need, but never to change how a utility app behaves, and a change to a component's internals for it stays small, defaults unchanged.
-- **A showcase** (`apps/kirkwood/`): an app for fun around the tall table, not a tool and not a comparison, at a path on Tycho's subdomain (`docs/DECISIONS.md`, "Hosting"); the first is Kirkwood (its `PLAN.md`; the research, `docs/research/asteroid-belt.md`). It's exempt from rule 1's budgets, rule 3, and the measurement protocol; it still paints something first and loads its heavy parts after (rule 2). Its scene may be JS (Three.js) with Rust as its engine.
+- **A showcase** (`apps/kirkwood/`): an app for fun around the tall table, not a tool and not a comparison, on a subdomain of its own (`docs/DECISIONS.md`, "Hosting"); the first is Kirkwood (its `PLAN.md`; the research, `docs/research/asteroid-belt.md`). It's exempt from rule 1's budgets, rule 3, and the measurement protocol; it still paints something first and loads its heavy parts after (rule 2). Its scene may be JS (Three.js) with Rust as its engine.
 - **Dependencies run one way:** `shared/` ← components, engines ← apps. Code starts in an app and moves out once a second consumer needs it: foundation to `shared/`, UI to a component, a data layer to an engine. Don't build abstractions for apps that don't exist yet. Code goes in `shared/` only if it knows no app: no DuckDB, no app types, no app strings.
 - **Build each wasm on its own** (`cargo build -p <crate>`). Cargo unifies features across the packages in one build, so a workspace-wide build would compile one app's features into another's. Clippy and tests may run workspace-wide.
 

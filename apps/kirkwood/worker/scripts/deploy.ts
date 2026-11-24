@@ -25,6 +25,11 @@
 // allowlist (the page, the build's top-level names, data/), the rate limit,
 // and the old address's redirect rule (the gitignored root
 // docs/private/zone.md). The check after the deploy reads all three.
+// On a hostname's first deploy, which makes its DNS record, switch the
+// redirect on just before running this, and don't ask for the hostname
+// first: a resolver keeps a miss for the zone's negative TTL (30 min), and
+// the old links point at it until the deploy is done
+// (.claude/rules/cloudflare.md).
 //
 // Usage: node apps/kirkwood/worker/scripts/deploy.ts [--dry-run] [--skip-check] [--prune]
 // --dry-run: says what would be put (and pruned), and `wrangler deploy --dry-run`.
@@ -84,6 +89,13 @@ function readNote(): Record<string, string> {
 }
 
 if (!existsSync(join(dist, 'index.html'))) throw new Error('web/dist has no build; run `just kirkwood build`');
+// The old address's links stay whole: the zone's rule sends them here before
+// any route or Worker. Asked before anything is put, so a deploy it refuses
+// leaves the bucket as it was.
+if (!dryRun) {
+  const why = await oldAddressNotRedirected();
+  if (why) throw new Error(`the zone's redirect rule for the old address isn't in place (the gitignored root docs/private/zone.md): ${why}`);
+}
 // Every file read against the manifest before anything is put, so a file
 // built again without its manifest can't leave the bucket half changed.
 const files = dataFiles();
@@ -119,14 +131,6 @@ try {
   }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
-}
-
-// The old address's links stay whole: the zone's rule sends them here before
-// any route or Worker, so it must answer before the deploy drops a route the
-// Worker once had there.
-if (!dryRun) {
-  const why = await oldAddressNotRedirected();
-  if (why) throw new Error(`the zone's redirect rule for the old address isn't in place (the gitignored root docs/private/zone.md): ${why}`);
 }
 
 execFileSync(wrangler, ['deploy', ...(dryRun ? ['--dry-run'] : [])], { cwd: workerDir, stdio: 'inherit', env: wranglerEnv() });

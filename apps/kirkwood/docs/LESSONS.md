@@ -386,3 +386,13 @@ Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Interface", "Planning".
 - **A zone's redirect needs no room in the old hostname's allowlist:** Single Redirects run in the zone's first request phase, before the WAF's rules and any Worker (Cloudflare's phases list). Confirmed in production when the rule is set.
 
 Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting".
+
+## M8 part B: in the open on its own hostname, and the close (2026-11-23)
+
+- **`wrangler deploy` doesn't remove a route its config dropped.** Part A expected the deploy to leave nothing on Tycho's hostname; the route stayed, unseen from outside because the redirect answers first. Only the dashboard showed it, and the owner removed it.
+- **A probe before the deploy broke the check after it.** Asking for `kirkwood.seiza.io` while it didn't exist cached the miss on this machine for the zone's negative TTL (30 min): Cloudflare's resolver had the name, Node didn't, and the check threw. Resolving through 1.1.1.1 got past it without `sudo`; the check now says "unreachable" in one line.
+- **"Preserve query string" is off by default** on a Single Redirect, and the deploy's own guard (`/kirkwood/?roll=0` must 301 to `/?roll=0`) caught it before anything deployed.
+- **A redirect rule's `substring` worked as written** in a dynamic target, so one rule covers every path under the old base, and a second takes the bare `/kirkwood`.
+- **Tycho's check against production can't run against a newer local build:** its byte comparison reads `web/dist`, which is master's, not the deployed one. Its own page's assets were checked by hand instead.
+
+Numbers and decisions: [`DECISIONS.md`](DECISIONS.md), "Hosting".

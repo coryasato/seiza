@@ -17,7 +17,7 @@ The repo holds four kinds of thing:
 |---|---|---|
 | [**Tycho**](apps/tycho/) | Local-first data workbench. Drop a CSV or Parquet file (or click a sample) and scroll every row. Queried in the tab with DuckDB-Wasm; nothing is uploaded. | v1 live at [tycho.seiza.io](https://tycho.seiza.io); v2, a workbench to open, understand, check, and export a large file, is being built |
 | [**Observatory**](apps/observatory/) | The comparison page: a component in GPUI against a DOM equivalent (GPUI \| TanStack), same engine, same data, measured over a session of use. | Live at [seiza.io/observatory](https://seiza.io/observatory/): six scenarios (Big file, Wide sheet, Market watch, Live tail, Admin table, Monitoring wall), both contenders, the window's numbers, the meter |
-| [**Kirkwood**](apps/kirkwood/) | A showcase: the asteroid belt as a scene to fly through, every dot a row of the table beside it. | Live at [tycho.seiza.io/kirkwood](https://tycho.seiza.io/kirkwood/): the belt on its orbits, colored by orbit size in front of Gaia's stars, and the table over 1.58 million rows, each moving the other |
+| [**Kirkwood**](apps/kirkwood/) | A showcase: the asteroid belt as a scene to fly through, every dot a row of the table beside it. | Live at [kirkwood.seiza.io](https://kirkwood.seiza.io/): the belt on its orbits, colored by orbit size in front of Gaia's stars, and the table over 1.58 million rows, each moving the other |
 
 Headline numbers, local release builds under the protocol below (each app's README has its full tables, production included). Tycho records none: it's a tool, not a measurement, and the observatory measures what it's built from.
 

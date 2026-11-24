@@ -250,6 +250,11 @@ const jobs = Number(option('jobs') ?? 8);
 if (!Number.isInteger(jobs) || jobs < 1) throw new Error(`--jobs ${option('jobs')}: a whole number of jobs, at least 1`);
 if (!Number.isFinite(cut)) throw new Error(`--cut ${option('cut')}: a G magnitude, at most ${RAW_CUT}`);
 if (check && process.argv.includes('--refresh')) throw new Error('--check and --refresh: a check fetches nothing');
+// A check compares against the pinned file at its end: asked first, so a
+// missing one fails now, not after minutes of building.
+if (check && !statSync(join(dataDir, NAME), { throwIfNoEntry: false })) {
+  throw new Error(`--check compares against data/${NAME}, which isn't there: build it with \`just kirkwood gaia\`, or copy it from where it was built`);
+}
 const info = await fetchGaia(process.argv.includes('--refresh'), jobs, check);
 if (!(cut <= info.rawCut)) throw new Error(`--cut ${cut} is above the extracts' G < ${info.rawCut}`);
 

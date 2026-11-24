@@ -10,7 +10,9 @@
 // from Resource Timing, on the marks' clock; its workers' (DuckDB's wasm)
 // from Playwright's network events. On the dev server, whose module graph
 // isn't the build's, this part is skipped and says so. --control starts a
-// request as the page loads (an init script's fetch): Chromium must fail.
+// request as the page loads (an init script's fetch): Chromium must fail,
+// and on that request alone (its 404's console error and every other check
+// don't count), so the control shows the early-request check catching it.
 // Usage: node apps/tycho/perf/smoke.ts [url] [--out <dir>] [--control]
 
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -28,6 +30,9 @@ const outIndex = process.argv.indexOf('--out');
 const outDir = outIndex > 0 ? process.argv[outIndex + 1] : undefined;
 if (outDir) mkdirSync(outDir, { recursive: true });
 const control = process.argv.includes('--control');
+/** The control's request: no such file, so its 404 logs a console error,
+ *  which `--control` leaves out of the verdict. */
+const CONTROL_PATH = '/assets/engine-control.js';
 
 const RESIZES = [
   { width: 1440, height: 900 },
@@ -166,7 +171,7 @@ async function run({ name, type, launch, deviceScaleFactor }: (typeof ENGINES)[n
   const browser = await type.launch(launch);
   try {
     const context = await browser.newContext({ viewport: RESIZES[0], deviceScaleFactor });
-    if (control) await context.addInitScript(() => void fetch('/assets/engine-control.js').catch(() => {}));
+    if (control) await context.addInitScript((path) => void fetch(path).catch(() => {}), CONTROL_PATH);
     const page = await context.newPage();
     page.on('console', (message) => {
       if (message.type() === 'error') result.consoleErrors.push(message.text());
@@ -223,20 +228,25 @@ for (const engine of ENGINES) {
 
 let failed = false;
 for (const r of results) {
-  const ok =
-    !r.error &&
-    r.firstFrameMs !== null &&
-    r.crossOriginIsolated &&
-    r.consoleErrors.length === 0 &&
-    r.blankFrames.length === 0 &&
-    r.sizeMismatches.length === 0 &&
-    (r.earlyRequests ?? []).length === 0;
+  // --control: a run fails only where the early-request check caught the
+  // control's request (Chromium); a browser that doesn't run it passes.
+  const caught = (r.earlyRequests ?? []).some((request) => request.startsWith(`${CONTROL_PATH} `));
+  const ok = control
+    ? !caught
+    : !r.error &&
+      r.firstFrameMs !== null &&
+      r.crossOriginIsolated &&
+      r.consoleErrors.length === 0 &&
+      r.blankFrames.length === 0 &&
+      r.sizeMismatches.length === 0 &&
+      (r.earlyRequests ?? []).length === 0;
   failed ||= !ok;
   console.log(
     `${ok ? 'PASS' : 'FAIL'} ${r.browser.padEnd(8)} dpr=${r.dpr} backing=${r.backingRatio}x first-frame=${r.firstFrameMs?.toFixed(0) ?? '—'}ms ` +
       `crossOriginIsolated=${r.crossOriginIsolated} consoleErrors=${r.consoleErrors.length} ` +
       `blankFrames=${r.blankFrames.length} sizeMismatches=${r.sizeMismatches.length}` +
-      (r.browser === 'chromium' ? ` requestsBeforeFirstFrame=${r.earlyRequests === null ? 'skipped (not a release build)' : r.earlyRequests.length}` : ''),
+      (r.browser === 'chromium' ? ` requestsBeforeFirstFrame=${r.earlyRequests === null ? 'skipped (not a release build)' : r.earlyRequests.length}` : '') +
+      (control && r.browser === 'chromium' ? ` control=${caught ? 'caught' : 'missed'}` : ''),
   );
   if (r.error) console.log(`    error: ${r.error}`);
   for (const error of r.consoleErrors) console.log(`    console: ${error}`);
