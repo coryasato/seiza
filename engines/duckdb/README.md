@@ -31,6 +31,8 @@ The Rust side installs the engine, starts it after first paint, and queries it:
 ```rust
 seiza_duckdb::init(cx, bridge);                  // at startup: the Engine global, EngineStatus::Loading
 seiza_duckdb::start(cx, |event, cx| { /* … */ }); // after first paint: warm-up, then the Parquet prefetch
+// or, locked down to the files registered under one directory:
+seiza_duckdb::start_locked(cx, Lockdown::new("app").before("ATTACH …"), |event, cx| { /* … */ });
 
 let engine = cx.global::<seiza_duckdb::Engine>().clone();
 let (id, result) = engine.query("SELECT count(*) FROM 'a.parquet'");
@@ -41,6 +43,7 @@ let (id, result) = engine.query("SELECT count(*) FROM 'a.parquet'");
 
 - `init(cx, bridge)`: installs the `Engine` and `EngineStatus` globals.
 - `start(cx, on_event)`: starts the engine (call it after first paint). `on_event` hears each `EngineEvent`: `Loading`, `Ready`, `Failed`, `ParquetReady`, `ParquetFailed`, each with its times in ms from `performance.timeOrigin`, for the host's load steps and marks.
+- `start_locked(cx, lockdown, on_event)`: `start`, then the `Lockdown` once the Parquet extension has loaded: the host's statements (`Lockdown::before`: what it can't send once locked, each safe to run twice), `allowed_directories` set to its directory, external access off, the configuration locked. `EngineStatus::Ready` waits for it, with `EngineEvent::Locked`; a failed load or step is `EngineStatus::Failed` with `EngineEvent::LockFailed`, and `retry` runs the steps that didn't finish. Name every file `Lockdown::path(name)`: a locked engine reads nothing else.
 - `retry(cx)`: starts a new engine after `EngineStatus::Failed` or `Stopped`. Calls fail without reaching the bridge until then.
 - `Engine::query(sql)`: sends now; returns its `RequestId` and a future of the decoded result. `Engine::cancel(id)` stops it.
 - `Engine::register_file(name, FileSource::File | Url)`: makes a dropped file or a same-origin URL readable from SQL as `name`. Its `FileInfo` carries the size and a live `ReadCounter`.
@@ -92,6 +95,7 @@ The JS side loads after first paint and costs no first-paint bytes: the engine c
 - **One query runs at a time;** pending ones share the worker round-robin, and a started read can't be cancelled.
 - **Registered files stay registered** for the session, and each Parquet file's parsed footer stays in memory (~2.2 MiB per open of a 1,378-group file; [Tycho's measurement](../../apps/tycho/perf/results/2026-10-08-m7-footers.json)).
 - **In-memory tables stop storing anything past ~2.1 GiB** in a browser tab, silently ([`CLAUDE.md`](CLAUDE.md), gotchas).
+- **Locked (`start_locked`), a query reaches the directory's files and nothing else:** a URL, a file outside it, a `../` path, `COPY` outside it or to a URL, `ATTACH` of a file or URL, `LOAD` of an extension not yet loaded, and every `SET` and `RESET` are refused. Still allowed, since none reaches outside: `ATTACH ':memory:'`, an `ATTACH` or `COPY` inside the directory, `LOAD` of a loaded extension, and `INSTALL` (DuckDB-Wasm fetches at `LOAD`). Checked in Chromium, Firefox, and WebKit by Tycho's `perf/lockdown.ts`.
 
 ## Docs
 

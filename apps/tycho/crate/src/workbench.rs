@@ -125,8 +125,9 @@ impl Marks {
 )]
 enum Load {
     Idle,
-    /// Registering the file and reading its metadata. If the engine is still
-    /// loading, the bridge holds the calls until it's ready.
+    /// Registering the file and reading its metadata; or, before the engine
+    /// is locked down, held unregistered in [`Workbench::held`] until it is
+    /// ([`Workbench::hold`]): nothing reaches the engine before the lock.
     Opening {
         name: SharedString,
         /// The sample, downloading or opening (its button spins, not the
@@ -163,6 +164,64 @@ impl Load {
     fn opening(&self, which_sample: bool) -> bool {
         matches!(self, Self::Opening { sample, .. } if *sample == which_sample)
     }
+}
+
+/// An open held until the engine is locked down ([`Workbench::held`]).
+#[cfg(target_family = "wasm")]
+enum Held {
+    Parquet {
+        name: SharedString,
+        sql_name: String,
+        source: seiza_duckdb::FileSource,
+        started_at: f64,
+    },
+    Csv {
+        name: SharedString,
+        file: web_sys::File,
+        open: u64,
+        started_at: f64,
+    },
+}
+
+#[cfg(target_family = "wasm")]
+impl Held {
+    fn name(&self) -> SharedString {
+        match self {
+            Self::Parquet { name, .. } | Self::Csv { name, .. } => name.clone(),
+        }
+    }
+
+    /// Starts the open it held: the sample's still shows as the sample.
+    fn open(self, workbench: &mut Workbench, window: &mut Window, cx: &mut Context<Workbench>) {
+        let sample = workbench.load.opening(true);
+        match self {
+            Self::Parquet {
+                name,
+                sql_name,
+                source,
+                started_at,
+            } => workbench.open(name, sql_name, source, started_at, window, cx),
+            Self::Csv {
+                name,
+                file,
+                open,
+                started_at,
+            } => workbench.open_csv(name, file, open, started_at, window, cx),
+        }
+        if let Load::Opening { sample: shown, .. } = &mut workbench.load {
+            *shown = sample;
+        }
+    }
+}
+
+/// Whether the engine takes files: with Tycho's lockdown, `Ready` only once
+/// it's on (`seiza_duckdb::start_locked`).
+#[cfg(target_family = "wasm")]
+fn engine_ready(cx: &App) -> bool {
+    matches!(
+        cx.try_global::<EngineStatus>(),
+        Some(EngineStatus::Ready { .. })
+    )
 }
 
 /// Where a CSV's load is.
@@ -283,6 +342,11 @@ pub struct Workbench {
     /// choice replaces it.
     #[cfg(target_family = "wasm")]
     sniffing: Option<Task<()>>,
+    /// An open chosen before the engine was locked down: nothing reaches
+    /// the engine until it is (`engine::lockdown`), so it waits here, shown
+    /// as opening, and starts when the engine is ready.
+    #[cfg(target_family = "wasm")]
+    held: Option<Held>,
     /// When the current open started (ms from `timeOrigin`), and, until the
     /// first render showing its summary, the marks to set then.
     #[cfg(target_family = "wasm")]
@@ -386,6 +450,8 @@ impl Workbench {
             #[cfg(target_family = "wasm")]
             sniffing: None,
             #[cfg(target_family = "wasm")]
+            held: None,
+            #[cfg(target_family = "wasm")]
             opened_at: 0.0,
             #[cfg(target_family = "wasm")]
             mark_shown: None,
@@ -412,10 +478,19 @@ impl Workbench {
 
     /// The engine's status changed. If its worker stopped, what's open or
     /// opening went with it (its registration and tables are gone): the
-    /// empty state says so, with Retry.
+    /// empty state says so, with Retry. A held file never reached the
+    /// engine, so it stays held, and opens once Retry's engine is ready.
     fn engine_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         #[cfg(target_family = "wasm")]
-        if let Some(EngineStatus::Stopped(message)) = cx.try_global::<EngineStatus>().cloned() {
+        if engine_ready(cx)
+            && let Some(held) = self.held.take()
+        {
+            held.open(self, window, cx);
+        }
+        #[cfg(target_family = "wasm")]
+        if let Some(EngineStatus::Stopped(message)) = cx.try_global::<EngineStatus>().cloned()
+            && self.held.is_none()
+        {
             let name = match &self.load {
                 Load::Open { summary, .. } => Some(SharedString::from(summary.name.clone())),
                 Load::Opening { name, .. } => Some(name.clone()),
@@ -522,7 +597,7 @@ impl Workbench {
                     Ok(file) => {
                         this.open(
                             sample::NAME.into(),
-                            format!("sample-{open}.parquet"),
+                            crate::engine::path(&format!("sample-{open}.parquet")),
                             seiza_duckdb::FileSource::File(file),
                             at,
                             window,
@@ -620,7 +695,7 @@ impl Workbench {
                     this.open_csv(name, file, open, at, window, cx);
                     return;
                 }
-                let sql_name = format!("file-{open}.parquet");
+                let sql_name = crate::engine::path(&format!("file-{open}.parquet"));
                 this.open(
                     name,
                     sql_name,
@@ -633,11 +708,33 @@ impl Workbench {
         }));
     }
 
+    /// Holds `held` until the engine is ready, in place of what was open
+    /// or opening: the file shows as opening, "waiting for the engine".
+    #[cfg(target_family = "wasm")]
+    /// A drop or a pick is never the sample, whatever it replaced: the
+    /// sample's download marks its own hold as the sample once `open` returns
+    /// (`open_sample`), as it marks a real open.
+    fn hold(&mut self, held: Held, window: &mut Window, cx: &mut Context<Self>) {
+        let name = held.name();
+        self.close_current(window, cx);
+        self.held = Some(held);
+        self.load = Load::Opening {
+            name,
+            sample: false,
+            downloading: false,
+            _task: None,
+            sent: Default::default(),
+            csv: None,
+        };
+        cx.notify();
+    }
+
     /// Stops whatever is loading or showing, so a new file can take over.
     #[cfg(target_family = "wasm")]
     fn close_current(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.reset_jump(window, cx);
         let engine = cx.global::<seiza_duckdb::Engine>().clone();
+        self.held = None;
         match std::mem::replace(&mut self.load, Load::Idle) {
             Load::Opening { sent, csv, .. } => {
                 // The task is dropped with the state; its sent queries go on
@@ -694,6 +791,16 @@ impl Workbench {
 
         use seiza_duckdb::Engine;
 
+        if !engine_ready(cx) {
+            let held = Held::Parquet {
+                name,
+                sql_name,
+                source,
+                started_at,
+            };
+            self.hold(held, window, cx);
+            return;
+        }
         self.close_current(window, cx);
         let marks = FILE_MARKS;
         self.opened_at = started_at;
@@ -789,6 +896,16 @@ impl Workbench {
         use crate::csv::Ingest;
         use seiza_duckdb::{Engine, EngineError};
 
+        if !engine_ready(cx) {
+            let held = Held::Csv {
+                name,
+                file,
+                open,
+                started_at,
+            };
+            self.hold(held, window, cx);
+            return;
+        }
         self.close_current(window, cx);
         let marks = FILE_MARKS;
         self.opened_at = started_at;

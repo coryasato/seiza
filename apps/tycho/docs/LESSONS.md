@@ -296,3 +296,16 @@ No results note: the part measured nothing.
 - **The file is a sixth of the guess.** 1.70 MiB against the research's "a few MiB at most"; the 25 MiB limit is far off.
 - **No new bridge call was needed to read from memory.** A fetched `Blob` wrapped as a `File` registers as a dropped file does, so "read from memory" cost a few lines in `files.rs`, and no change to the engine.
 - **DuckDB's `SUMMARIZE` failed on the finished table** ("STDDEV_SAMP is out of range") on a numeric column. The build counts its nulls itself.
+
+## M12 part A: the lockdown (2026-11-23)
+
+No results note: the part measured nothing.
+
+**Surprises:**
+- **The browser corrected the Node test twice.** `ATTACH ':memory:'` runs on a locked engine (the research had ATTACH refused; a file or a URL is), and so do `INSTALL` and a `LOAD` of an extension already loaded, all without I/O. The check's list was written from the research and failed on its first run; a refusal list needs a run before it's trusted.
+- **Everything Tycho reads is a registered name, so the lock cost nothing in the app.** A dropped file's `BROWSER_FILEREADER` handle, a CSV's chunk slices, a re-read under a new name, and the sample read under `tycho/` in all three browsers; the only statement Tycho sent that the lock refuses was the CSV database's `ATTACH`, moved into the lockdown.
+- **Holding a file was cheaper than refusing it.** The workbench already showed "Waiting for the engine to load…" for a file opened during the load (the bridge used to queue its calls); keeping it in the workbench instead, unregistered, kept that line and sent the engine nothing.
+- **A check can see every call the app makes without a probe in the app:** an init script wraps `?bench`'s bridge as `main.ts` assigns it, and wasm-bindgen looks the method up on each call. It also made `LOAD parquet` fail on demand, which the worker's own requests (invisible to Playwright) couldn't.
+- **The sample and a dropped copy of it share a name,** so a check waiting on the probe's name passed before the drop was read (Firefox, once). It waits for a new `tycho:file-open` mark now.
+- **A remote file read under the directory in Firefox and WebKit, and got a 416 in Chromium** on a URL the page had already downloaded whole. Recorded for "Open from a URL", not chased: no remote file opens before it.
+- **SUMMARIZE's failure on GCAT is infinity:** 51 escape trajectories' `apogee_km` (`docs/DECISIONS.md`, "Sample data").

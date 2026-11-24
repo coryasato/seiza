@@ -10,26 +10,28 @@ Tycho's measurements are retired (`docs/DECISIONS.md`, "Perf tooling and budgets
 - **The page's weight before first paint,** printed by `just tycho build` (`shared-web/scripts/asset-sizes.ts`'s `--first-paint` row: the document, the entry JS, the app wasm, the UI font). Reported, not gated. A file renamed out of that set fails the build until the justfile's parts name it again.
 - **The home-path check,** in `check`, and its control, `just tycho home-paths` (`.claude/rules/toolchain.md`, "Release profile").
 - **The smoke check** (`just tycho smoke`): in Chromium, Firefox, and WebKit, a first frame appears (its time printed, stored nowhere), the page is cross-origin isolated, no console errors, and the canvas follows each resize. On a release build, Chromium also holds Tycho to rule 2: no request outside the first-paint set starts before `gpui:first-frame` (`--control` must fail it). Against the dev server by default, where that part is skipped; pass the preview's URL (`just tycho preview`) for the release build. Run it on the release build after a change to what loads when.
+- **The engine's lockdown** (`just tycho lockdown [url]`, `perf/lockdown.ts`): in Chromium, Firefox, and WebKit, through the app's own bridge (wrapped by an init script, so every call Rust makes is logged with its time): nothing registered and nothing queried but the lockdown's statements before `tycho:engine-locked`; each refusal in its list refused; the sample, a dropped Parquet file, and a dropped CSV open, and `SUMMARIZE`, `parquet_metadata`, a re-read, and a file registered after the lock read; and, with `LOAD parquet` failed on purpose, a file dropped while the engine loads waits unregistered until Retry locks it. What it tried for later goals (a remote file, `COPY` inside the directory) is printed, not judged. Run it on the release build after a change to the engine's start or to the names Tycho registers.
 - **Memory at a 1 GB drop, by hand,** when a change could make the engine copy a dropped file: build the files (`just tycho drop-files x3.parquet x27.parquet`: ~100 MB and ~1 GB), open the release build (`just tycho preview`) in Chrome with `?perf`, drop each in a fresh tab, press End and Home, and read the panel's Memory row and Chrome's task manager (the tab and DuckDB's worker). The 1 GB file's peak stays within a few MiB of the 100 MB file's; a copy of the file would show as its size. Version 1's numbers: `results/2026-09-27-m5.md`.
 
 ## The probes
 
-The crate publishes these and no script reads them; the checks the rebuild writes start from this list, and a change to one in `crate/` changes it.
+The crate publishes these; the checks the rebuild writes start from this list, and a change to one in `crate/` changes it. `lockdown.ts` reads `__tychoBridge`, `__tychoWorkbench`, the `tycho:engine-locked` and `tycho:file-shown` marks, and the `try-sample` and `retry-engine` targets; no script reads the rest.
 
 `?bench` exposes the bridge as `globalThis.__tychoBridge` and the app's `WebAssembly.Memory` as `globalThis.__tychoWasmMemory`; `?page=`, `?prefetch=`, and `?budget_mib=` override the table's paging (`crate/src/table.rs`, `paging`). With `?perf` or `?bench`: the table publishes what it shows to `globalThis.__tychoTable` (`marked` is the row a jump landed on, 0-based; `top` and `scrollX` the scroll position; `tooltip` the shown tooltip's text), where the cells are to `globalThis.__tychoTableLayout`, and what the workbench shows (state, file, rows, notice, a CSV's `ingest`, `readBytes`, `chunks`, the jump input's `jumpText` and `jumpRefusal`, and `focused`) to `globalThis.__tychoWorkbench`. With `?cells` too, every drawn cell's exact and shown text goes to `globalThis.__tychoCells` each frame. `?selftest` runs the engine self-test once DuckDB is ready, into the panel and `globalThis.__tychoSelftest`.
 
-Marks: `tycho:first-rows` always; with `?perf` or `?bench`, `tycho:viewport-filled` after each frame that fills the viewport, `tycho:csv-rows` on each frame showing a CSV's count grow, and `tycho:csv-done`. Canvas controls publish their bounds from `crate/src/targets.rs` (`jump-input`, `jump-refusal`, `open-file`, `try-sample`, …), clicked with `shared-web/perf/`'s `clickTarget`.
+Marks: `tycho:engine-locked` when the lockdown is on (the engine takes files from then); `tycho:first-rows` always; with `?perf` or `?bench`, `tycho:viewport-filled` after each frame that fills the viewport, `tycho:csv-rows` on each frame showing a CSV's count grow, and `tycho:csv-done`. Canvas controls publish their bounds from `crate/src/targets.rs` (`jump-input`, `jump-refusal`, `open-file`, `try-sample`, …), clicked with `shared-web/perf/`'s `clickTarget`.
 
 ## Files
 
 ```
-perf/             # size.ts (the wasm's size gate), smoke.ts, budgets.json (the one budget), baseline.json, budget-notes.md, results/ (history)
+perf/             # size.ts (the wasm's size gate), smoke.ts, lockdown.ts, budgets.json (the one budget), baseline.json, budget-notes.md, results/ (history)
 ```
 
 ## Commands
 
 ```
 just tycho smoke [url]         # a first frame, cross-origin isolated, no console errors, resizes, in three browsers; on a release build, no request before first paint but its own (--control)
+just tycho lockdown [url]      # the engine's lockdown in three browsers: refused, still read, held before the lock
 just tycho home-paths          # the home-path check's control: a build without `trim-paths` must fail it
 ```
 

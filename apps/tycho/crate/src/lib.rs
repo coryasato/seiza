@@ -2,8 +2,7 @@
 
 pub mod csv;
 pub mod dataset;
-#[cfg(target_family = "wasm")]
-mod engine;
+pub mod engine;
 #[cfg(target_family = "wasm")]
 mod files;
 pub mod jump;

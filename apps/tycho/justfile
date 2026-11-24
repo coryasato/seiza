@@ -123,3 +123,10 @@ wasm profile="debug":
 # before the first frame (Chromium). --control must fail that part.
 smoke url="http://localhost:5173/" *args:
     node {{app_dir}}/perf/smoke.ts {{url}} {{args}}
+
+# The engine's lockdown in Chromium, Firefox, and WebKit: what a locked
+# engine refuses and still reads, nothing sent before the lock but the
+# lockdown, and a file dropped before it held until Retry locks it. Against
+# the dev server by default; pass the preview's URL for the release build.
+lockdown url="http://localhost:5173/":
+    node {{app_dir}}/perf/lockdown.ts {{url}}

@@ -67,7 +67,7 @@ One line each; each recipe's line is in its folder's `CLAUDE.md` (in brackets), 
 just tycho data | data-deps | drop-files               # the sample, data/'s native DuckDB, the test files (data)
 just tycho extensions                                   # the DuckDB extensions the engine pins, into web/public/duckdb-ext/ (web)
 just tycho worker-check | deploy | pause | resume       # the Worker's checks, the deploy, production's pause switch (worker)
-just tycho smoke [url] | home-paths                     # checks (perf)
+just tycho smoke [url] | lockdown [url] | home-paths    # checks (perf)
 ```
 
 ```

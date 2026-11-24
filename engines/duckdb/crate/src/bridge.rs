@@ -14,7 +14,7 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::JsFuture;
 
 use crate::arrow::{self, QueryResult, Value};
-use crate::{EngineError, EngineEvent, EngineStatus};
+use crate::{EngineError, EngineEvent, EngineStatus, Lockdown};
 
 #[wasm_bindgen]
 extern "C" {
@@ -154,6 +154,12 @@ pub struct Engine {
     /// on its next call, and that must be the retry's, not a stray page read
     /// or a file dropped meanwhile.
     down: Rc<Cell<bool>>,
+    /// The host's lockdown, if it asked for one ([`start_locked`]).
+    lockdown: Rc<RefCell<Option<Lockdown>>>,
+    /// How many of the lockdown's steps this worker has run. A retry after
+    /// a failed step runs on from it, on the same worker; a new worker (a
+    /// failed load, a stopped one) starts again from none.
+    locked_steps: Rc<Cell<usize>>,
 }
 
 /// The handler [`start`] was given for [`EngineEvent`]s.
@@ -190,6 +196,8 @@ impl Engine {
             host: Rc::default(),
             prefetch_settled: Rc::default(),
             down: Rc::default(),
+            lockdown: Rc::default(),
+            locked_steps: Rc::default(),
         }
     }
 
@@ -240,6 +248,7 @@ impl Engine {
             self.generation.set(generation.wrapping_add(1));
             self.down.set(true);
             *self.parquet.borrow_mut() = ParquetLoad::Idle;
+            self.locked_steps.set(0);
             let message = message.clone();
             self.update_later(move |cx, _| cx.set_global(EngineStatus::Stopped(message.into())));
         }
@@ -288,6 +297,17 @@ impl Engine {
                     .map_err(engine_error),
             }
         }
+    }
+
+    /// Runs the lockdown's steps this worker hasn't run yet, in order,
+    /// stopping at the first that fails.
+    async fn lock(&self, lockdown: &Lockdown) -> Result<(), EngineError> {
+        let steps = lockdown.steps();
+        while let Some(step) = steps.get(self.locked_steps.get()) {
+            self.query(step).1.await?;
+            self.locked_steps.set(self.locked_steps.get() + 1);
+        }
+        Ok(())
     }
 
     /// When the Parquet extension loaded (ms from `timeOrigin`), if it has.
@@ -440,7 +460,30 @@ pub fn init(cx: &mut App, bridge: Bridge) {
 /// sets [`EngineStatus`], then prefetches the Parquet extension. `on_event`
 /// hears each step ([`EngineEvent`]), now and after a [`retry`].
 pub fn start(cx: &mut App, on_event: impl Fn(&EngineEvent, &mut App) + 'static) {
+    start_with(cx, None, on_event);
+}
+
+/// [`start`], and then the [`Lockdown`]: once the Parquet extension has
+/// loaded, its steps run, and only then is [`EngineStatus::Ready`] set
+/// ([`EngineEvent::Locked`]). If the extension doesn't load or a step
+/// fails, the engine is [`EngineStatus::Failed`] ([`EngineEvent::LockFailed`])
+/// and [`retry`] goes on from there: an engine that stays unlocked is never
+/// reported ready.
+pub fn start_locked(
+    cx: &mut App,
+    lockdown: Lockdown,
+    on_event: impl Fn(&EngineEvent, &mut App) + 'static,
+) {
+    start_with(cx, Some(lockdown), on_event);
+}
+
+fn start_with(
+    cx: &mut App,
+    lockdown: Option<Lockdown>,
+    on_event: impl Fn(&EngineEvent, &mut App) + 'static,
+) {
     let engine = cx.global::<Engine>().clone();
+    *engine.lockdown.borrow_mut() = lockdown;
     *engine.host.borrow_mut() = Some(Host {
         cx: cx.to_async(),
         on_event: Rc::new(on_event),
@@ -451,6 +494,8 @@ pub fn start(cx: &mut App, on_event: impl Fn(&EngineEvent, &mut App) + 'static) 
 fn run(cx: &mut App) {
     let engine = cx.global::<Engine>().clone();
     let started = now();
+    // `check_stopped` moves it on when the worker stops under this start.
+    let generation = engine.generation.get();
     engine.emit(EngineEvent::Loading { at: started }, cx);
     cx.spawn(async move |cx| {
         let status = match warm_up(&engine).await {
@@ -461,9 +506,12 @@ fn run(cx: &mut App) {
             },
             Err(error) => {
                 engine.down.set(true);
+                // The bridge forgot this worker: the next one starts unlocked.
+                engine.locked_steps.set(0);
                 EngineStatus::Failed(error.to_string().into())
             }
         };
+        let lockdown = engine.lockdown.borrow().clone();
         // The JS side marks when it actually began loading: this attempt's
         // mark, not an earlier one's (a retry can fail before it sets one).
         let started = mark_time(ENGINE_START_MARK)
@@ -481,7 +529,10 @@ fn run(cx: &mut App) {
                 },
             };
             engine.emit(event, cx);
-            cx.set_global(status.clone());
+            // Locked, it's ready only once the lockdown is on (below).
+            if lockdown.is_none() || status.is_down() {
+                cx.set_global(status.clone());
+            }
         });
         if !matches!(status, EngineStatus::Ready { .. }) {
             return;
@@ -489,14 +540,54 @@ fn run(cx: &mut App) {
         // A load that an open started can finish before the prefetch's
         // answer comes back, or after it failed: either way it's reported
         // here, after Ready, and loads that finish later report themselves.
-        let failed = engine.load_parquet().await.is_err().then(now);
+        // A retry after a failed lockdown step runs on the same worker, whose
+        // extension is still loaded: it's ready as this start is, not when
+        // an earlier start loaded it.
+        let loaded_before = engine.parquet_loaded_at().is_some();
+        let ready_ms = match status {
+            EngineStatus::Ready { ready_ms } => ready_ms,
+            _ => now(),
+        };
+        let loaded = engine.load_parquet().await;
+        let failed = loaded.is_err().then(now);
         cx.update(|cx| {
             engine.prefetch_settled.set(true);
             if let Some(at) = failed {
                 engine.emit(EngineEvent::ParquetFailed { at }, cx);
             }
             if let Some(at) = engine.parquet_loaded_at() {
+                let at = if loaded_before { ready_ms } else { at };
                 engine.emit(EngineEvent::ParquetReady { at }, cx);
+            }
+        });
+        let Some(lockdown) = lockdown else {
+            return;
+        };
+        let locked = match loaded {
+            Ok(()) => engine.lock(&lockdown).await,
+            Err(error) => Err(EngineError::Engine(format!(
+                "the Parquet extension didn't load ({error})"
+            ))),
+        };
+        cx.update(|cx| match locked {
+            // The worker stopped under it (during the load or a step): the
+            // lock failed, and `check_stopped` has set the status.
+            _ if engine.generation.get() != generation => {
+                engine.emit(EngineEvent::LockFailed { at: now() }, cx);
+            }
+            Ok(()) => {
+                cx.set_global(status);
+                engine.emit(EngineEvent::Locked { at: now() }, cx);
+            }
+            Err(EngineError::Stopped(_)) => {
+                engine.emit(EngineEvent::LockFailed { at: now() }, cx);
+            }
+            Err(error) => {
+                engine.down.set(true);
+                engine.emit(EngineEvent::LockFailed { at: now() }, cx);
+                cx.set_global(EngineStatus::Failed(
+                    format!("couldn't lock the engine down: {error}").into(),
+                ));
             }
         });
     })
@@ -519,7 +610,9 @@ pub fn retry(cx: &mut App) {
         .set(engine.generation.get().wrapping_add(1));
     engine.down.set(false);
     engine.prefetch_settled.set(false);
-    *engine.parquet.borrow_mut() = ParquetLoad::Idle;
+    // A load the old worker made went with it (`check_stopped`, or a load
+    // that failed before any). On the same worker, after a lockdown step
+    // failed, it's still loaded, and `LOAD` may be refused by then.
     cx.set_global(EngineStatus::Loading);
     run(cx);
 }

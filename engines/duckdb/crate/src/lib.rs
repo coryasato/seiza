@@ -26,11 +26,79 @@ use arrow::DecodeError;
 #[cfg(target_family = "wasm")]
 pub use bridge::{
     Bridge, ENGINE_READY_MARK, ENGINE_START_MARK, Engine, FileInfo, FileSource, ReadCounter,
-    RequestId, WARM_UP_SQL, init, retry, start,
+    RequestId, WARM_UP_SQL, init, retry, start, start_locked,
 };
 
+/// A host's lockdown of the engine: once it's on, no query reads or writes
+/// anything but the files registered under one directory, and nothing
+/// changes a setting, loads an extension, or attaches a database
+/// (`docs/DECISIONS.md`, "Engine and bridge"). Off unless a host asks for
+/// it ([`start_locked`]); the directory is the host's, since the engine
+/// knows no app.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Lockdown {
+    directory: String,
+    before: Vec<String>,
+}
+
+impl Lockdown {
+    /// Allows reads and writes under `directory` alone: one name of ASCII
+    /// letters, digits, `-`, or `_` (it's written into SQL and into paths).
+    ///
+    /// # Panics
+    ///
+    /// If `directory` is empty or holds any other character.
+    pub fn new(directory: impl Into<String>) -> Self {
+        let directory = directory.into();
+        assert!(
+            !directory.is_empty()
+                && directory
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_'),
+            "a lockdown's directory is one plain name, not {directory:?}"
+        );
+        Self {
+            directory,
+            before: Vec::new(),
+        }
+    }
+
+    /// Runs `sql` before the lock, after the Parquet extension has loaded:
+    /// what the host can't send once it's on (an `ATTACH`, a `SET`). Each
+    /// statement must be safe to run twice (`IF NOT EXISTS`): after a
+    /// failure, Retry runs the steps that didn't finish again.
+    pub fn before(mut self, sql: impl Into<String>) -> Self {
+        self.before.push(sql.into());
+        self
+    }
+
+    /// `name` inside the directory: what a host registers a file as.
+    pub fn path(&self, name: &str) -> String {
+        format!("{}/{name}", self.directory)
+    }
+
+    /// The statements that lock the engine, in order: the host's, then the
+    /// three that lock it. `enable_external_access = false` alone would
+    /// refuse every registered file too; `allowed_directories` lets the
+    /// directory's through, and `lock_configuration` keeps any `SET` from
+    /// undoing it. `LOAD` is refused once external access is off, so every
+    /// extension loads before (the Parquet extension, by [`start_locked`]).
+    pub fn steps(&self) -> Vec<String> {
+        let mut steps = self.before.clone();
+        steps.push(format!(
+            "SET allowed_directories = [{}]",
+            sql::string_literal(&format!("{}/", self.directory))
+        ));
+        steps.push("SET enable_external_access = false".into());
+        steps.push("SET lock_configuration = true".into());
+        steps
+    }
+}
+
 /// Whether DuckDB can take queries yet. The engine starts loading right after
-/// the first frame, so the first frame always shows `Loading`.
+/// the first frame, so the first frame always shows `Loading`. With a
+/// [`Lockdown`], it's `Ready` only once the lockdown is on, so a host that
+/// opens files only while `Ready` never opens one on an unlocked engine.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub enum EngineStatus {
     #[default]
@@ -57,9 +125,10 @@ impl Global for EngineStatus {}
 /// are in ms from `performance.timeOrigin`. Each start (and each retry)
 /// reports `Loading`, then `Ready` or `Failed`; after `Ready`, exactly one of
 /// `ParquetReady` or `ParquetFailed` for the prefetch, then, after a
-/// `ParquetFailed`, a `ParquetReady` when a later load succeeds. The host gets them through the
-/// handler it passes to [`start`]; [`EngineStatus`] is the global to
-/// observe for what the UI says.
+/// `ParquetFailed`, a `ParquetReady` when a later load succeeds. With a
+/// [`Lockdown`], the prefetch's event is followed by exactly one of `Locked`
+/// or `LockFailed`. The host gets them through the handler it passes to
+/// [`start`]; [`EngineStatus`] is the global to observe for what the UI says.
 #[derive(Debug, Clone, PartialEq)]
 pub enum EngineEvent {
     /// The warm-up query was sent, which starts the load.
@@ -72,10 +141,19 @@ pub enum EngineEvent {
     /// The Parquet extension loaded and its metadata cache is on: the
     /// prefetch after [`EngineEvent::Ready`], or a later caller's
     /// [`Engine::load_parquet`] after the prefetch failed.
+    /// After a [`retry`] on a worker that had it loaded (a failed lockdown
+    /// step), `at` is this start's ready time.
     ParquetReady { at: f64 },
     /// The prefetch couldn't load the Parquet extension. The next
     /// `load_parquet` tries again.
     ParquetFailed { at: f64 },
+    /// The [`Lockdown`] is on: [`EngineStatus::Ready`] is set with it.
+    Locked { at: f64 },
+    /// The [`Lockdown`] couldn't finish: the Parquet extension didn't load
+    /// or one of its statements failed ([`EngineStatus::Failed`] is set, and
+    /// [`retry`] runs what didn't finish again), or the worker stopped under
+    /// it ([`EngineStatus::Stopped`], and [`retry`] starts over on a new one).
+    LockFailed { at: f64 },
 }
 
 /// Why a bridge call didn't produce a result.
@@ -135,5 +213,26 @@ mod tests {
         assert!(!engine("Binder Error: column \"x\" not found").is_read_failure());
         assert!(!EngineError::Stopped("Range request for".into()).is_read_failure());
         assert!(!EngineError::Cancelled.is_read_failure());
+    }
+
+    #[test]
+    fn a_lockdown_runs_the_hosts_sql_then_locks() {
+        let lockdown = Lockdown::new("app").before("ATTACH IF NOT EXISTS ':memory:' AS t");
+        assert_eq!(lockdown.path("file-1.parquet"), "app/file-1.parquet");
+        assert_eq!(
+            lockdown.steps(),
+            [
+                "ATTACH IF NOT EXISTS ':memory:' AS t",
+                "SET allowed_directories = ['app/']",
+                "SET enable_external_access = false",
+                "SET lock_configuration = true",
+            ]
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "one plain name")]
+    fn a_lockdowns_directory_is_one_plain_name() {
+        Lockdown::new("app/../x");
     }
 }

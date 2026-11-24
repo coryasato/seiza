@@ -25,7 +25,9 @@ use seiza_duckdb::arrow::{QueryResult, Value};
 use seiza_duckdb::sql::{ColumnInfo, column, count, quote_identifier, string_literal, text};
 
 /// The attached database the chunk tables live in. In memory, compressed:
-/// DuckDB doesn't compress an in-memory database unless asked.
+/// DuckDB doesn't compress an in-memory database unless asked. Attached
+/// once, before the engine is locked down, which refuses `ATTACH`
+/// (`engine::lockdown`).
 pub const ATTACH_SQL: &str = "ATTACH IF NOT EXISTS ':memory:' AS tycho_csv (COMPRESS)";
 
 /// Each open's chunk tables go in their own schema, so one statement drops
@@ -48,7 +50,7 @@ pub fn table(open: u64, index: u64) -> String {
 /// Chunk `index` of open `open`: the name its bytes are registered under.
 /// Ours, never the file's (as for Parquet: `read_csv` would glob it).
 pub fn chunk_file(open: u64, index: u64) -> String {
-    format!("file-{open}-{index}.csv")
+    crate::engine::path(&format!("file-{open}-{index}.csv"))
 }
 
 /// How the file is written, read with `sniff_csv` from its first chunk, and
@@ -673,8 +675,6 @@ mod web {
             stop: Stop,
         ) -> Result<Self, EngineError> {
             let failed = |error: String| EngineError::Engine(error);
-            // Independent of the file: sent first, awaited last.
-            let attach = engine.query(ATTACH_SQL).1;
             let rfc4180 = Dialect::default().records();
             let end = record_end(&file, 0.0, Sizer::FIRST as f64, rfc4180)
                 .await
@@ -695,14 +695,13 @@ mod web {
                 let end = record_end(&file, 0.0, Sizer::FIRST as f64, dialect.records())
                     .await
                     .map_err(failed)?;
-                name = format!("file-{open}-0b.csv");
+                name = crate::engine::path(&format!("file-{open}-0b.csv"));
                 stop.check()?;
                 engine
                     .register_file(&name, FileSource::File(slice(&file, 0.0, end, &name)?))
                     .await?;
                 end
             };
-            attach.await?;
             stop.send(&engine, &schema_sql(open))?.await?;
             let row = row_column(&columns);
             Ok(Self {
@@ -1195,7 +1194,7 @@ mod tests {
     #[test]
     fn names() {
         assert_eq!(table(3, 12), "tycho_csv.f3.c12");
-        assert_eq!(chunk_file(3, 12), "file-3-12.csv");
+        assert_eq!(chunk_file(3, 12), "tycho/file-3-12.csv");
         assert_eq!(schema_sql(3), "CREATE SCHEMA IF NOT EXISTS tycho_csv.f3");
         assert_eq!(drop_sql(3), "DROP SCHEMA IF EXISTS tycho_csv.f3 CASCADE");
         assert!(sniff_sql("file-3-0.csv").ends_with("FROM sniff_csv('file-3-0.csv')"));
