@@ -322,3 +322,15 @@ No results note: the part's one number, the weight before first paint (2918.1 Ki
 - **A global changed from outside a window event redraws nothing.** The panel's key, called in from the page, flipped the panel's state and drew no panel until the window was refreshed after the call.
 - **Firefox's GPUI kept Ctrl+Shift+L from bubbling** with the table in focus, where Chromium's and WebKit's let it through, so the page's keys are taken on the way down. GPUI also takes focus for its own input as its window opens, after the page gave it to the first screen.
 - **The new paint check caught a stale frame the old one passed.** Looking inside the canvas, not at a title bar that's DOM now, found WebKit's screenshot right after a resize still holding the last size's image, stretched; one frame's wait settles it.
+
+## M12 part C: the controller, thin (2026-11-23)
+
+No results note: the part's one number, the wasm's size (2834.9 KiB brotli against the 2854.8 baseline, +15.0 on part B's), is in PLAN's evidence.
+
+**Surprises:**
+- **No gesture pins a column while none is pinned.** A drag pins only across a run that's already there, so a check of the pin needed a hook; it calls the table, so the view still learns the pin as it learns a drag.
+- **`Pinned` reports the run in effect, not the count, and only when the run changes.** A view built from its payload would have lost a pin whenever the window was too narrow for it, and the code review found the subtler half: a pin too wide to draw sends no event at all. The view reads the table's own count on the event and after every pin Tycho makes; the check now pins 20 to prove it.
+- **Two events from one `set_columns` were harmless,** since they're delivered after the update: the reset's `ColumnsMoved` and the restored order's both go into the view, the last one winning, so the view needs no flag for "applying".
+- **`ColumnsMoved` can't be built outside the table (`non_exhaustive`),** so its half of the native tests drives a real table in GPUI's test app, a memory delegate under it, which was also the more honest test.
+- **The layout probe is in the canvas's pixels,** and the canvas has sat in a slot under the top bar since part B: the check's first drags missed the header by the bar's height. It adds the canvas's offset now.
+- **WebKit pressed before it hovered** on a drag that started at a column's edge, as the harness's rule says; two frames after the move fixed it.

@@ -17,6 +17,9 @@ use crate::dataset::{FileSummary, format_count};
 use crate::dataset::{format_bytes, sample};
 use crate::frame::{EngineView, FileView, FrameView, Line};
 use crate::table::RowTable;
+use crate::view::{Controller, ViewState};
+#[cfg(target_family = "wasm")]
+use crate::view::{SourceKind, SourceView};
 use seiza_duckdb::EngineStatus;
 use seiza_tall_table::TallTable;
 #[cfg(target_family = "wasm")]
@@ -125,10 +128,13 @@ enum Load {
         csv: Option<crate::csv::Stop>,
     },
     Open {
-        summary: FileSummary,
+        summary: Box<FileSummary>,
         /// The sample, not a file from this device.
         sample: bool,
         table: Entity<RowTable>,
+        /// What the table shows of the file: the controller, which the
+        /// table's events and a CSV's growth keep up to date.
+        view: Box<Controller>,
         /// A CSV's load, which runs on after its first rows show.
         csv: Option<CsvLoad>,
     },
@@ -362,6 +368,9 @@ pub struct Workbench {
     focus_handle: FocusHandle,
     /// What the page's frame was last sent (`crate::frame::publish`).
     shown_frame: Option<FrameView>,
+    /// The view last published to `globalThis.__tychoView` (while
+    /// measuring), and whether one has been.
+    shown_view: Option<Option<ViewState>>,
     _engine_status: Subscription,
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
@@ -435,6 +444,7 @@ impl Workbench {
             reregister_later: None,
             focus_handle: cx.focus_handle(),
             shown_frame: None,
+            shown_view: None,
             _engine_status: cx.observe_global_in::<EngineStatus>(window, Self::engine_changed),
             _panel: cx.observe_global::<seiza::PerfOverlay>(|this, cx| {
                 if this.shown_frame.as_ref().map(|shown| shown.panel)
@@ -725,6 +735,18 @@ impl Workbench {
                     let sample = this.load.opening(true);
                     this.load = match result {
                         Ok((summary, read_counter)) => {
+                            let view = Controller::of_file(
+                                SourceView {
+                                    kind: if sample {
+                                        SourceKind::Sample
+                                    } else {
+                                        SourceKind::Parquet
+                                    },
+                                    name: summary.name.clone(),
+                                    rows: summary.rows,
+                                },
+                                &summary.columns,
+                            );
                             this.mark_shown = Some(marks);
                             this.read_counter = read_counter;
                             this.parquet_source = Some((sql_name.clone(), kept));
@@ -734,7 +756,7 @@ impl Workbench {
                                         seiza_duckdb::tall_table::ParquetFile::new(sql_name),
                                     ),
                                     summary.rows,
-                                    &summary.columns,
+                                    view.calls(),
                                     engine,
                                     cx,
                                 )
@@ -743,9 +765,10 @@ impl Workbench {
                             let focus = table.read(cx).focus_handle().clone();
                             window.focus(&focus, cx);
                             Load::Open {
-                                summary,
+                                summary: Box::new(summary),
                                 sample,
                                 table,
+                                view: Box::new(view),
                                 csv: None,
                             }
                         }
@@ -929,6 +952,14 @@ impl Workbench {
             columns: ingest.columns().to_vec(),
             credit: None,
         };
+        let view = Controller::of_file(
+            SourceView {
+                kind: SourceKind::Csv,
+                name: summary.name.clone(),
+                rows: summary.rows,
+            },
+            &summary.columns,
+        );
         let mut chunks = crate::csv::Chunks::new(ingest.row_column());
         chunks.push(chunk.table, chunk.rows);
         let engine = cx.global::<seiza_duckdb::Engine>().clone();
@@ -936,7 +967,7 @@ impl Workbench {
             crate::table::new(
                 crate::table::Source::Csv(chunks),
                 summary.rows,
-                &summary.columns,
+                view.calls(),
                 engine,
                 cx,
             )
@@ -962,9 +993,10 @@ impl Workbench {
         }
         self.mark_shown = Some(marks);
         self.load = Load::Open {
-            summary,
+            summary: Box::new(summary),
             sample: false,
             table,
+            view: Box::new(view),
             csv: Some(load),
         };
         self.show_csv_stats(cx);
@@ -981,6 +1013,7 @@ impl Workbench {
         let Load::Open {
             summary,
             table,
+            view,
             csv: Some(load),
             ..
         } = &mut self.load
@@ -1000,11 +1033,16 @@ impl Workbench {
                     }
                 }
                 if !chunk.widened.is_empty() {
+                    // The table's columns change, which resets its order:
+                    // the controller gives it the view back.
+                    view.retype(&summary.columns);
+                    let calls = view.calls();
                     table.update(cx, |table, cx| {
-                        crate::table::widen(table, &chunk.widened, &summary.columns, cx)
+                        crate::table::widen(table, &chunk.widened, calls, cx)
                     });
                 }
                 summary.rows += chunk.rows;
+                view.set_rows(summary.rows);
                 load.read = chunk.bytes_read as u64;
                 load.chunks += 1;
                 load.slowest_ms = load.slowest_ms.max(chunk.ms);
@@ -1119,6 +1157,12 @@ impl Workbench {
             // they change.
             if current {
                 crate::table::publish(event);
+                let pinned = table.read(cx).pinned();
+                if let Load::Open { view, .. } = &mut this.load
+                    && view.take(event, pinned)
+                {
+                    this.publish_view();
+                }
             }
             match event {
                 // Delivered in the task that presents the frame (the table
@@ -1474,6 +1518,45 @@ impl Workbench {
         }
     }
 
+    /// `?bench`'s pin hook (`crate::frame`'s `__tychoPin`): pins the shown
+    /// table's first `columns`, as the column's menu will. It drives the
+    /// table, never the view, which reads the count back from the table.
+    /// Whether a table was shown.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn pin_for_bench(&mut self, columns: usize, cx: &mut Context<Self>) -> bool {
+        let Load::Open { table, view, .. } = &mut self.load else {
+            return false;
+        };
+        let pinned = table.update(cx, |table, cx| {
+            table.set_pinned(columns, cx);
+            table.pinned()
+        });
+        // `Pinned` comes only when the run in effect changes, and a count
+        // too wide to pin changes none: the count is read from the table.
+        if view.set_pinned(pinned) {
+            self.publish_view();
+        }
+        true
+    }
+
+    /// Publishes the open file's view to `globalThis.__tychoView` when it
+    /// changed, while measuring: read-only, for the checks.
+    fn publish_view(&mut self) {
+        if !crate::targets::measuring() {
+            return;
+        }
+        let view = match &self.load {
+            Load::Open { view, .. } => Some(view.view()),
+            _ => None,
+        };
+        if self.shown_view.as_ref() == Some(&view) {
+            return;
+        }
+        #[cfg(target_family = "wasm")]
+        crate::view::publish(view.as_ref());
+        self.shown_view = Some(view);
+    }
+
     /// Sends the frame's state to the page when it changed.
     fn publish_frame(&mut self, cx: &App) {
         let view = self.frame_view(cx);
@@ -1494,6 +1577,7 @@ impl Render for Workbench {
             self.mark_csv_shown();
         }
         self.publish(window, cx);
+        self.publish_view();
         self.publish_frame(cx);
 
         div()

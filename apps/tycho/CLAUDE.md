@@ -29,7 +29,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 
 | Folder | What it is | Its file |
 |---|---|---|
-| `crate/` | The app: the workbench, the frame's state and the page's calls, the theme, the table's source, the engine's events, files, CSV, errors and limits | `crate/CLAUDE.md` |
+| `crate/` | The app: the workbench, the controller and its view state, the frame's state and the page's calls, the theme, the table's source, the engine's events, files, CSV, errors and limits | `crate/CLAUDE.md` |
 | `web/` | The Vite host and the page's frame (React, prerendered): the top bar, the first screen, the status bar, the token file, the canvas's slot | `web/CLAUDE.md` |
 | `worker/` | Hosting: the Worker, R2 (DuckDB's two wasm bundles), the deploy, production's pause switch | `worker/CLAUDE.md` |
 | `data/` | The sample's build (GCAT), and the test files built from the observatory's asteroid sample | `data/CLAUDE.md` |
@@ -68,7 +68,7 @@ One line each; each recipe's line is in its folder's `CLAUDE.md` (in brackets), 
 just tycho data | data-deps | drop-files               # the sample, data/'s native DuckDB, the test files (data)
 just tycho extensions                                   # the DuckDB extensions the engine pins, into web/public/duckdb-ext/ (web)
 just tycho worker-check | deploy | pause | resume       # the Worker's checks, the deploy, production's pause switch (worker)
-just tycho smoke [url] | lockdown [url] | home-paths    # checks (perf)
+just tycho smoke [url] | lockdown [url] | view [url] | home-paths   # checks (perf)
 ```
 
 ```

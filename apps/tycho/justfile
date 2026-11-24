@@ -131,3 +131,11 @@ smoke url="http://localhost:5173/" *args:
 # the dev server by default; pass the preview's URL for the release build.
 lockdown url="http://localhost:5173/":
     node {{app_dir}}/perf/lockdown.ts {{url}}
+
+# The controller's view state in Chromium, Firefox, and WebKit: a column
+# dragged, widened, and pinned, read back from `__tychoView` and checked
+# against what the table draws; and a CSV's column widened to text keeping
+# its place, width, and pin. Against the dev server by default; pass the
+# preview's URL for the release build.
+view url="http://localhost:5173/":
+    node {{app_dir}}/perf/view.ts {{url}}

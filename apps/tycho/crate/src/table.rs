@@ -69,22 +69,36 @@ fn paging() -> seiza_tall_table::Paging {
 pub fn new(
     source: Source,
     rows: u64,
-    columns: &[seiza_duckdb::sql::ColumnInfo],
+    view: crate::view::TableCalls,
     engine: seiza_duckdb::Engine,
     cx: &mut gpui_kit::Context<RowTable>,
 ) -> RowTable {
-    let columns = columns
-        .iter()
-        .map(seiza_duckdb::sql::ColumnInfo::tall_table_column)
-        .collect();
-    RowTable::new(QueryRows::new(engine, source), columns, rows, paging(), cx)
+    let crate::view::TableCalls {
+        columns,
+        order,
+        pinned,
+    } = view;
+    let mut table = RowTable::new(QueryRows::new(engine, source), columns, rows, paging(), cx)
         .with_activity(seiza_tall_table::ActivityOptions::new(
             seiza::perf::WINDOW_MS,
             seiza::marks::now,
             seiza::perf::is_visible,
         ))
         .probe_frames(crate::targets::measuring())
-        .probe_cells(crate::targets::probing_cells())
+        .probe_cells(crate::targets::probing_cells());
+    // A file's own view moves and pins nothing; a view given with the file
+    // would (a link, once one opens a view).
+    if order
+        .iter()
+        .enumerate()
+        .any(|(place, &index)| place != index)
+    {
+        table.set_order(order, cx);
+    }
+    if pinned > 0 {
+        table.set_pinned(pinned, cx);
+    }
+    table
 }
 
 /// A CSV chunk became `table`, holding `rows` more rows.
@@ -98,13 +112,14 @@ pub fn grow(table: &mut RowTable, chunk: String, rows: u64, cx: &mut gpui_kit::C
 }
 
 /// A later CSV chunk had values `widened` columns' types couldn't hold, so
-/// they're text from here on: `columns` are the file's columns with them
-/// widened. Pages already loaded keep their values; new reads cast the
-/// earlier chunks' values to text too.
+/// they're text from here on: `view` is the controller's calls for the
+/// file's columns with them widened, its order, widths, and pins kept.
+/// Pages already loaded keep their values; new reads cast the earlier
+/// chunks' values to text too.
 pub fn widen(
     table: &mut RowTable,
     widened: &[String],
-    columns: &[seiza_duckdb::sql::ColumnInfo],
+    view: crate::view::TableCalls,
     cx: &mut gpui_kit::Context<RowTable>,
 ) {
     if let Source::Csv(chunks) = table.delegate_mut().query_mut() {
@@ -112,11 +127,7 @@ pub fn widen(
             chunks.widen(column);
         }
     }
-    let columns = columns
-        .iter()
-        .map(seiza_duckdb::sql::ColumnInfo::tall_table_column)
-        .collect();
-    table.set_columns(columns, cx);
+    view.apply(table, cx);
 }
 
 /// Reads a Parquet table's rows from `name` from now on (the same file,

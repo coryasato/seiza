@@ -156,6 +156,29 @@ mod web {
         for call in PENDING.take() {
             send(call);
         }
+        if seiza::url::has_param("bench") {
+            install_pin_hook();
+        }
+    }
+
+    /// `?bench` only: `globalThis.__tychoPin(columns)` pins the shown
+    /// table's first `columns` through the table itself, so a check can pin
+    /// one before the column's menu exists (a drag pins only across a run
+    /// already pinned). The view takes it from the table's event, as it
+    /// takes a drag's; nothing writes the view from the page
+    /// (`docs/DECISIONS.md`, "Scope", 2026-11-23).
+    fn install_pin_hook() {
+        let hook = Closure::<dyn Fn(u32)>::new(|columns: u32| {
+            send(on_workbench(move |workbench, _, cx| {
+                workbench.pin_for_bench(columns as usize, cx);
+            }));
+        });
+        let _ = Reflect::set(
+            &js_sys::global(),
+            &JsValue::from_str("__tychoPin"),
+            hook.as_ref(),
+        );
+        hook.forget();
     }
 
     /// Runs `call` on GPUI's next turn: the page calls in outside GPUI's

@@ -7773,6 +7773,8 @@ dependencies = [
  "seiza",
  "seiza-duckdb",
  "seiza-tall-table",
+ "serde",
+ "serde_json",
  "tall-table-bridge",
  "wasm-bindgen",
  "wasm-bindgen-futures",

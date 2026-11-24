@@ -13,6 +13,7 @@ mod selftest;
 pub mod table;
 mod targets;
 pub mod theme;
+pub mod view;
 mod workbench;
 
 pub use workbench::Workbench;

@@ -74,4 +74,4 @@ just tall-table test         # those with every feature off, each on, then all o
 just tall-table lint         # check-terms, fmt, clippy (the table, the bridge, the host; wasm32 and native, with no feature and with every one: `pairs` builds what's between), the table's rustdoc with none and every one, tsc (the host's page, perf/)
 ```
 
-No app's checks drive the view today; Tycho's rebuild writes them (`apps/tycho/docs/DECISIONS.md`, "Perf tooling and budgets", 2026-11-23).
+Tycho's rebuild writes its checks of the table as it adopts each feature (`apps/tycho/docs/DECISIONS.md`, "Perf tooling and budgets", 2026-11-23): `just tycho view` drags, resizes, and pins it.

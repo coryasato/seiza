@@ -14,9 +14,14 @@ gpui-kit.workspace = true
 # `seiza`'s defaults.
 seiza = { workspace = true, features = ["panel"] }
 seiza-duckdb = { workspace = true, features = ["tall-table"] }
-seiza-tall-table.workspace = true
+# The table's features Tycho adopts, each through the controller (`view.rs`).
+seiza-tall-table = { workspace = true, features = ["resize", "reorder", "pin", "format"] }
 # What Tycho does with the table's events: its marks, targets, and probes.
-tall-table-bridge.workspace = true
+tall-table-bridge = { workspace = true, features = ["resize", "reorder", "pin", "format"] }
+# The view state's serialized form (`view.rs`), already in the wasm through
+# gpui and the engine.
+serde = { version = "1", features = ["derive"] }
+serde_json.workspace = true
 
 # The entry point and the bootstrap are web-only; the views compile natively for clippy and tests.
 [target.'cfg(target_family = "wasm")'.dependencies]
@@ -33,5 +38,7 @@ web-sys = { workspace = true, features = [
 ] }
 
 [dev-dependencies]
+# The controller's tests drive a table in GPUI's test app (`view.rs`).
+gpui-kit = { workspace = true, features = ["test-support"] }
 # Writes the Arrow IPC streams the reader's tests read back. Never in the app.
 arrow = { version = "60", default-features = false, features = ["ipc"] }
