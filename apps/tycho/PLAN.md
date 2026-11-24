@@ -36,6 +36,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | — | Design session: the page, the thread, the profile, where answers show | Done 2026-11-21, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21): the frame, the command bar, grouping as a view tab, the first screen, the theme, the toolbar, find's bar, the views list and its names, keeping views, the Share menu, the column's and the cell's menus, the filter's and the sort's editors, the headers, the profile's stages, the cell popover, its cue, what Enter opens, the row detail view, export's items and its cap, the frame at a phone, the page's keys and Ctrl+F, the double-click and the row view's focus, the command bar's grammar, what a pasted action and an export may do, "Show rows" as a view of its own, the views' caps, a link to a dropped file's view, and the sample's credit. What it left for the build or for a later goal is in "Open questions" |
 | — | Sample session: which data, under the static-asset limit | Done 2026-11-21: GCAT, the catalog of every object launched to orbit, as one file ([the research](../../docs/research/tycho-sample.md); `docs/DECISIONS.md`, "Sample data") |
 | M11 | Reset: the old Tycho retired, the ground cleared | Done 2026-11-23 |
+| M12 | The engine locked down, the page's frame in the DOM, the controller thin | Active, opened 2026-11-23 (below) |
 | Later | The goals below, in order; the first release is everything through export, then "Ship the rebuild" | Each becomes a milestone when it's opened |
 
 **Closing a milestone:** every "done when" check passes; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. Tycho records no measurements (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17); what it still checks is in M11.
@@ -58,13 +59,50 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 
 ---
 
+## M12: the engine locked down, the page's frame in the DOM, the controller thin
+
+Opened 2026-11-23 from goal 1, and planned in four parts, one session each. It is local, as every goal before "Ship the rebuild" is.
+
+**What it is:** the first pieces of the new Tycho. The engine is locked down so no query can read or write past the files Tycho registers (the research's "Security", layer 2). The page's frame moves out of the canvas into the DOM, so the table is the only thing GPUI draws (`docs/DECISIONS.md`, "Scope", 2026-11-20, "Only the table is canvas"). The controller holds one view state, thin: what needs nothing new from the engine. The engine's end-to-end checks come back on the new page.
+
+**Decided at its opening** (`docs/DECISIONS.md`, 2026-11-23): the frame is built here, not with the command bar, so the engine's checks are written once; the lockdown is taken as the research proposed it, the input taking no file until the lock is on; in this milestone the controller is driven by the table's own events and read through a probe, with no entry that writes it from the page; the capability schema waits for "The instructions, and the clipboard and agent routes".
+
+**Not in it:** the command bar and the log (goal 2); jump to row, which leaves with the canvas's title bar and comes back as the command bar's `jump`; the side panels, the views list, the toolbar, and the Share menu (each with the goal that fills it); the first screen's URL row ("Open from a URL"); sort, filter, find, and hide (their goals); a link that holds a view (no goal holds it yet: open question 13).
+
+### Part A: the lockdown
+
+- [ ] **A1. The engine takes a lockdown as a host's option, off by default:** a directory, and the SQL a host needs run before the lock. Its start runs, in order: the warm-up, `LOAD parquet`, the metadata cache, the host's SQL, `SET allowed_directories = ['<dir>/']`, `SET enable_external_access = false`, `SET lock_configuration = true`, and reports the lock as an event of its own. A failed step leaves it unlocked and says so, and Retry starts the whole of it again. The engine's `CLAUDE.md`, `README.md`, and `docs/DECISIONS.md` say what it does and why; the observatory's contenders, which don't ask for it, send what they sent (`just observatory fixtures` unchanged, its smoke check passing).
+- [ ] **A2. Tycho locks it, and opens nothing before the lock:** every name it registers is under `tycho/` (files, their re-reads, CSV chunks); `ATTACH … tycho_csv` moves from each CSV open into the lockdown's SQL; a drop, the picker, and the sample's button take no file until the lock is reported, and say why while they wait; a failed `LOAD parquet` shows Retry and opens nothing.
+- [ ] **A3. The lockdown holds in a browser** (open question 4), in Chromium, Firefox, and WebKit, by a check `just tycho` runs: refused, an `https://` path in a query, a file outside the directory, a `tycho/../` path, `COPY … TO` outside it and to a URL, `ATTACH`, `LOAD`, and `SET`; working, a dropped Parquet file and a dropped CSV (their `BROWSER_FILEREADER` handles), the sample, `SUMMARIZE`, `parquet_metadata`, a re-read under a new name, and a file registered after the lock. Also tried, for the goals that need them, and recorded in the decision: a remote file registered under the directory, and a file written by `COPY … TO` inside it.
+
+### Part B: the frame in the DOM
+
+- [ ] **B1. The page's framework is measured, then chosen** (open question 10): plain TypeScript against React with shadcn's components on Base UI, on what this milestone's frame and goal 2's command bar need, by the bytes before first paint and the code each takes. The choice and its numbers go in `docs/DECISIONS.md`.
+- [ ] **B2. One token file feeds the DOM and the table** (`docs/DECISIONS.md`, "Scope", 2026-11-20, "Tycho has a theme of its own"), dark and light, from the design canvas's values; the table takes its colors from it.
+- [ ] **B3. The frame, as the design canvas draws it, scaled back to what this milestone has:** the top bar (the file's name, and its menu of the file's facts with the sample's credit), the first screen (the heading, choose a file, the sample; prerendered, so it is the page before the wasm), the status bar (the file's rows, columns, and size, the engine's state with Retry, "Local only"), the whole page's drop haze, and at a phone what the design puts in their place. The canvas holds the table alone; the GPUI title bar, empty state, jump input, and the placeholder's skeletons go. The perf panel keeps `?perf` and its keys.
+- [ ] **B4. Rule 2 still holds:** smoke passes in three browsers on the release build, nothing requested before the first frame but the first-paint set, and `just tycho build`'s weight before first paint is printed against M11's (3044.5 KiB brotli).
+
+### Part C: the controller, thin
+
+- [ ] **C1. One serializable view state:** the source (its kind, name, and rows; never a URL or the data), the columns and their types, their order, widths (only where they differ from the default), the pinned count, and formats. In Tycho's crate, in Rust (the research, "The controller"). It compiles to calls on the table, and a state naming a column the file doesn't have is refused whole, never applied in part (`docs/DECISIONS.md`, "Scope", 2026-11-21, "A link to a view of a dropped file").
+- [ ] **C2. The table's `resize`, `reorder`, `pin`, and `format` are adopted through it:** what the table owns and reports (`ColumnWidthsChanged`, `ColumnsMoved`, `Pinned`) becomes the state, and the state gives it back after `set_columns` (a CSV's widened column keeps its order, width, and pin). Formats start from each column's type; nothing in this milestone changes them but the state.
+- [ ] **C3. It is checked:** native tests for the state's round trip, the events into the state, the state into the table's calls, and a refused state; a read-only probe, `globalThis.__tychoView`, publishes it, and a browser check drags a column, resizes one, and pins one and reads each back. The wasm's size against the baseline is in the part's notes (`just tycho check`).
+
+### Part D: the engine's checks, and the close
+
+- [ ] **D1. The engine's end-to-end checks, on the new page,** in Chromium, Firefox, and WebKit: its self-test (`?selftest`), a failed load (the engine's chunk refused), a stopped worker, and Retry after each, the lock reported again after a Retry and a file opening after it (`engines/duckdb/CLAUDE.md`, "Tests").
+- [ ] **D2. The docs describe Tycho as it stands:** `CLAUDE.md` and each folder's (`crate/`, `web/`, `perf/`'s probes), the README's sections this milestone made false and its canvas tradeoffs (the table is the only canvas now), and the research's marks for what was decided.
+- [ ] **D3. `just tycho check` passes on the final build,** smoke passes in three browsers, and the milestone closes.
+
+---
+
 ## Goals, in order
 
 Not milestones yet. Each links to its section of [the research](../../docs/research/tycho-workbench.md), which holds the reasoning and what's marked decided, proposed, or open; a proposed item is checked and reviewed when its goal is opened, before it's built. **The first release is everything through "Export", the connection policy if it's taken, and then "Ship the rebuild".** It is built locally: production stays as deployed until it ships.
 
-1. **The controller, thin, and the engine's lockdown.** One serializable view state behind every driver; first the parts that need nothing new from the engine (source, columns, their order, widths, pins, formats). The lockdown is repeated in a browser first, with what Tycho sends lazily today moved ahead of the lock. The engine's end-to-end checks come back here, on the rebuilt page: its self-test and its error states (a failed load, a stopped worker, Retry), which nothing has checked since the reset (`engines/duckdb/CLAUDE.md`). *("The controller"; "Security", layer 2.)*
+1. **The controller, thin, and the engine's lockdown.** *Opened as M12, above, with the page's frame in the DOM added to it.*
 2. **The command bar and the log, minimal,** in the DOM, so every later goal has somewhere to show its commands and answers. Their form: `docs/DECISIONS.md`, "Scope", 2026-11-20. *("The thread".)*
-3. **Table basics:** the tall table's built features that need nothing from the engine, each adopted through the controller, and the row detail view, in the DOM, opened from the table's cell popover. *("The table's own tools".)*
+3. **Table basics:** the tall table's built features that need nothing from the engine (M12 takes `resize`, `reorder`, `pin`, and `format`), each adopted through the controller, and the row detail view, in the DOM, opened from the table's cell popover. *("The table's own tools".)*
 4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order, its `WHERE`, and its find are unbuilt engine work; the table's parts, `replace_rows` for filtering and `find`, are ready ("Waiting on"). *("The controller".)*
 5. **Profiles and the catalog,** grouping included, whose result is a new view. The profile comes in three stages, in the columns panel first. If it's too slow in use, a session of its own makes the sample faster before anything is cut; the header strip is asked of the tall table only after the panel's proves itself. *("The catalog"; "The column profile's cost", which holds the timings and that session's starting points.)*
 6. **Export,** and the view copied as SQL. Its size plan is a cap (`docs/DECISIONS.md`, "Scope", 2026-11-21); the cap is measured and the storage route tested first (question 5). *("The table's own tools".)*
@@ -87,13 +125,13 @@ Not milestones yet. Each links to its section of [the research](../../docs/resea
 1. The profile's speed: how the engine keeps page reads ahead of a profile query, and whether a smarter sample is needed, tried before the graphic is cut (the build, then a session of its own). The engine's speed has had no measurement of its own since Tycho's were retired, so this is where its page reads and CSV loading are timed again if a number is needed.
 2. How column names, which are the file's text, go out in the copied context and the capability schema.
 3. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and where anything saved in the browser is stored, kept views first. Kirkwood no longer shares the origin (it moved to `kirkwood.seiza.io`, 2026-11-23).
-4. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds.
+4. The lockdown in a browser: a dropped file's handle, a remote file, an export, and the engine unlocked until `LOAD parquet` succeeds (M12, part A).
 5. Export: the cap's size, measured; whether a file can be written to the browser's own storage and saved from there, with the engine locked down, which would lift the cap (tested before export is built).
 6. JSONL's size limit, if it loads into memory as a CSV does, and what the engine's reader does with nested values today.
 7. Whether the URL route takes dropped files.
 8. Where WebMCP and on-device models stand.
 9. At a phone: how tall the panels' sheet opens, and whether it drags taller (the build).
-10. The DOM's framework. The lean is React with shadcn's components on Base UI, copied into Tycho with its own tokens (nothing imported from `site/ui/`); `docs/DECISIONS.md`, "Scope", 2026-11-17, says it's measured before it's chosen.
+10. The DOM's framework. The lean is React with shadcn's components on Base UI, copied into Tycho with its own tokens (nothing imported from `site/ui/`); `docs/DECISIONS.md`, "Scope", 2026-11-17, says it's measured before it's chosen (M12, part B).
 11. Left by the design session for the build: that a key pressed while the canvas has focus reaches the page's own listener (Cmd/Ctrl+K and Ctrl+F from the table depend on it); what `undo` does after a command that opened a view; and a kept view's size, measured against the caps' estimate.
 12. The design canvas still draws its stand-in earthquakes, the first screen's sample row included: whether its boards are redrawn with GCAT before the build.
-
+13. A link that holds a view: the design decided what it holds and how it opens (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21), but no goal builds it. Which goal takes it, with the Share menu.
