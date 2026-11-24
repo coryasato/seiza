@@ -80,7 +80,7 @@ export interface Completion {
   /** The text an item replaces, in UTF-16 offsets. */
   from: number;
   to: number;
-  items: { text: string; label: string; detail: string; later: boolean }[];
+  items: CompletionItem[];
   /** What Enter would do with the whole line. */
   preview: {
     kind: 'empty' | 'command' | 'action' | 'typing' | 'refused' | 'sentence' | 'later' | 'open' | 'nofile';
@@ -88,7 +88,23 @@ export interface Completion {
     steps: string[];
     text: string | null;
     error: boolean;
+    /** `command`, `action`: the action as an agent writes it. */
+    json: string | null;
   };
+  /** The command's parts, once its verb is one the bar runs. */
+  slots: { text: string; state: 'done' | 'now' | 'next' }[];
+}
+
+export interface CompletionItem {
+  /** What replaces the part: a name quoted where it needs to be. */
+  text: string;
+  label: string;
+  /** A verb's hint, a column's DuckDB type, or a later verb's goal. */
+  detail: string;
+  /** A verb of the grammar not built yet. */
+  later: boolean;
+  /** A column's kind, for its badge; null for a verb. */
+  kind: 'number' | 'text' | 'time' | 'boolean' | null;
 }
 
 /** What the page is before the app's first word: the prerendered page. */
@@ -103,6 +119,15 @@ export const INITIAL: FrameState = {
 };
 
 let state = INITIAL;
+
+/** Where the first screen's box was as a file opened: the top bar's bar
+ *  moves from there (`bar.tsx`). Read before the first screen is hidden. */
+let barFrom: DOMRect | null = null;
+export function takeBarFrom(): DOMRect | null {
+  const from = barFrom;
+  barFrom = null;
+  return from;
+}
 const listeners = new Set<() => void>();
 
 export const getState = (): FrameState => state;
@@ -115,6 +140,7 @@ export function subscribe(listener: () => void): () => void {
 /** What the app calls (`crate/src/frame.rs`, `Frame`). */
 export const frameSink = {
   update(next: FrameState): void {
+    if (next.file && !state.file) barFrom = document.querySelector('#first [data-bar-box]')?.getBoundingClientRect() ?? null;
     state = next;
     // What CSS alone shows: the table in place of the first screen.
     document.documentElement.toggleAttribute('data-file', next.file !== null);

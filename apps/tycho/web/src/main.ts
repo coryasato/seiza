@@ -27,6 +27,9 @@ import { type Completion, frameSink } from './frame/state.ts';
 // release of Plex Sans as the UI face; fetched after the first frame.
 import mediumUrl from './fonts/IBMPlexSans-Medium.woff2?url';
 import semiBoldUrl from './fonts/IBMPlexSans-SemiBold.woff2?url';
+// The command bar's and the log's face (`docs/DECISIONS.md`, "Scope",
+// 2026-11-20): after the first frame too; the system's monospace until then.
+import monoUrl from './fonts/IBMPlexMono-Regular.woff2?url';
 
 // The prerendered frame works from now (`frame/core.ts`), and the canvas
 // goes in the table's slot as GPUI adds it.
@@ -64,14 +67,15 @@ void boot({
 const FIRST_FRAME = 'gpui:first-frame';
 const painted = () => performance.getEntriesByName(FIRST_FRAME, 'mark').length > 0;
 /** Medium and SemiBold, swapped in for the weights the browser synthesized
- *  from Regular until now: after the first frame, so first paint waits on
- *  neither. */
+ *  from Regular until now, and Plex Mono: after the first frame, so first
+ *  paint waits on none of them. */
 function loadWeights(): void {
-  for (const [url, weight] of [
-    [mediumUrl, '500'],
-    [semiBoldUrl, '600'],
+  for (const [family, url, weight] of [
+    ['IBM Plex Sans', mediumUrl, '500'],
+    ['IBM Plex Sans', semiBoldUrl, '600'],
+    ['IBM Plex Mono', monoUrl, '400'],
   ] as const) {
-    const face = new FontFace('IBM Plex Sans', `url(${url}) format('woff2')`, { weight, display: 'swap' });
+    const face = new FontFace(family, `url(${url}) format('woff2')`, { weight, display: 'swap' });
     document.fonts.add(face);
     void face.load();
   }

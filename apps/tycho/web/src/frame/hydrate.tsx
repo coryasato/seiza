@@ -6,8 +6,11 @@
  */
 
 import { hydrateRoot } from 'react-dom/client';
+import { handOver } from './core.ts';
 import { Frame } from './view.tsx';
 
 export function hydrate(root: HTMLElement): void {
+  // The first screen's box is Base UI's from here.
+  handOver();
   hydrateRoot(root, <Frame />);
 }

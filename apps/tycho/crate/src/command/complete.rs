@@ -21,6 +21,18 @@ pub struct Completion {
     pub to: usize,
     pub items: Vec<Item>,
     pub preview: Preview,
+    /// The command's parts across the top of the bar, once its verb is one
+    /// the bar runs: `pin` then `column`, `jump` then `row`, `undo` alone.
+    pub slots: Vec<Slot>,
+}
+
+/// A part of the command being typed, as the bar's row of parts shows it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Slot {
+    /// The part's value once it's written, else its name (`column`).
+    pub text: String,
+    /// `done`, `now` (the caret is in it), or `next`.
+    pub state: &'static str,
 }
 
 /// What the caret is in.
@@ -45,6 +57,9 @@ pub struct Item {
     pub detail: String,
     /// A verb of the grammar not built yet.
     pub later: bool,
+    /// A column's kind, for its badge: `number`, `text`, `time`, or
+    /// `boolean`; none for a verb.
+    pub kind: Option<&'static str>,
 }
 
 /// What Enter would do with the whole line.
@@ -60,6 +75,8 @@ pub struct Preview {
     pub text: Option<String>,
     /// `refused` by a fault, rather than answered.
     pub error: bool,
+    /// `command` or `action`: the action as an agent writes it.
+    pub json: Option<String>,
 }
 
 impl Preview {
@@ -69,6 +86,7 @@ impl Preview {
             steps: Vec::new(),
             text: Some(text.into()),
             error,
+            json: None,
         }
     }
 }
@@ -84,12 +102,14 @@ pub fn complete(text: &str, caret: usize, catalog: Option<&Catalog>) -> Completi
     };
     let typing = !items.is_empty() && text[span.end..].trim().is_empty();
     let preview = preview(text, catalog, typing);
+    let slots = slots(text, part, &preview);
     Completion {
         part,
         from: utf16_of(text, span.start),
         to: utf16_of(text, span.end),
         items,
         preview,
+        slots,
     }
 }
 
@@ -167,6 +187,7 @@ fn verbs(typed: &str) -> Vec<Item> {
             label: (*verb).into(),
             detail: (*hint).into(),
             later: false,
+            kind: None,
         });
     // The later verbs only once something is typed: an empty bar lists
     // what runs.
@@ -178,6 +199,7 @@ fn verbs(typed: &str) -> Vec<Item> {
             label: (*verb).into(),
             detail: format!("Comes with {goal}"),
             later: true,
+            kind: None,
         });
     built.chain(later).collect()
 }
@@ -211,6 +233,7 @@ fn columns(typed: &str, catalog: &Catalog, pin: bool) -> Vec<Item> {
                 label: info.name.clone(),
                 detail: info.data_type.clone(),
                 later: false,
+                kind: Some(kind(info)),
             }
         })
         .collect()
@@ -223,6 +246,7 @@ fn preview(text: &str, catalog: Option<&Catalog>, typing: bool) -> Preview {
             steps: Vec::new(),
             text: None,
             error: false,
+            json: None,
         },
         Parsed::Sentence => Preview::say("sentence", plan::SENTENCE, false),
         Parsed::Later { verb, goal, step } => {
@@ -241,6 +265,7 @@ fn preview(text: &str, catalog: Option<&Catalog>, typing: bool) -> Preview {
                         super::Form::Typed => "command",
                         super::Form::Json => "action",
                     },
+                    json: Some(plan.json()),
                     steps: plan.steps.into_iter().map(|step| step.words).collect(),
                     text: None,
                     error: false,
@@ -250,6 +275,57 @@ fn preview(text: &str, catalog: Option<&Catalog>, typing: bool) -> Preview {
             }
         }
     }
+}
+
+/// A column's kind for its badge, as the table lays it out.
+fn kind(info: &seiza_duckdb::sql::ColumnInfo) -> &'static str {
+    use seiza_tall_table::ColumnKind;
+    match info.tall_table_column().kind() {
+        ColumnKind::Boolean => "boolean",
+        ColumnKind::Date | ColumnKind::Timestamp => "time",
+        ColumnKind::Integer { .. } | ColumnKind::Float | ColumnKind::Decimal => "number",
+        _ => "text",
+    }
+}
+
+/// The parts of a typed command whose verb the bar runs: the verb, then
+/// what it takes, each `done`, `now`, or `next`.
+fn slots(text: &str, part: Part, preview: &Preview) -> Vec<Slot> {
+    let tokens = tokenize(text);
+    let Some(first) = tokens.first().filter(|token| !token.quoted) else {
+        return Vec::new();
+    };
+    let verb = first.text.to_lowercase();
+    let takes = match verb.as_str() {
+        "pin" | "unpin" => Some("column"),
+        "jump" => Some("row"),
+        "undo" => None,
+        _ => return Vec::new(),
+    };
+    let whole = preview.kind == "command";
+    let mut slots = vec![Slot {
+        text: verb,
+        state: if part == Part::Verb && !whole {
+            "now"
+        } else {
+            "done"
+        },
+    }];
+    if let Some(takes) = takes {
+        slots.push(Slot {
+            text: if whole {
+                text[first.end..].trim().into()
+            } else {
+                takes.into()
+            },
+            state: match part {
+                Part::Column | Part::Row if !whole => "now",
+                _ if whole => "done",
+                _ => "next",
+            },
+        });
+    }
+    slots
 }
 
 /// The byte offset of UTF-16 offset `units` in `text`, clamped to its end
@@ -400,5 +476,61 @@ mod tests {
         assert_eq!(at_end("jump 12").part, Part::Row);
         assert_eq!(at_end("jump 12").preview.steps, ["Jump to row 12"]);
         assert_eq!(complete("pin mag", 7, None).preview.kind, "nofile");
+    }
+
+    #[test]
+    fn what_a_command_becomes() {
+        let one = at_end("pin MAG");
+        assert_eq!(
+            one.preview.json.as_deref(),
+            Some(r#"{"pin":{"column":"mag"}}"#)
+        );
+        let two = at_end(r#"{"actions": [{"pin": {"column": "mag"}}, {"jump": {"row": "3"}}]}"#);
+        assert_eq!(
+            two.preview.json.as_deref(),
+            Some(r#"{"actions":[{"pin":{"column":"mag"}},{"jump":{"row":3}}]}"#)
+        );
+        assert_eq!(
+            at_end("undo").preview.json.as_deref(),
+            Some(r#"{"undo":{}}"#)
+        );
+        assert_eq!(at_end("pin nope").preview.json, None);
+    }
+
+    #[test]
+    fn slots_and_kinds() {
+        let slots = |text: &str| -> Vec<(String, &str)> {
+            at_end(text)
+                .slots
+                .into_iter()
+                .map(|slot| (slot.text, slot.state))
+                .collect()
+        };
+        assert_eq!(
+            slots("pin"),
+            [("pin".into(), "now"), ("column".into(), "next")]
+        );
+        assert_eq!(
+            slots("pin ma"),
+            [("pin".into(), "done"), ("column".into(), "now")]
+        );
+        assert_eq!(
+            slots("pin mag"),
+            [("pin".into(), "done"), ("mag".into(), "done")]
+        );
+        assert_eq!(
+            slots("jump "),
+            [("jump".into(), "done"), ("row".into(), "now")]
+        );
+        assert_eq!(slots("undo"), [("undo".into(), "done")]);
+        assert!(slots("sort mag").is_empty());
+        assert!(slots("how many").is_empty());
+        let kinds: Vec<_> = at_end("pin ")
+            .items
+            .iter()
+            .map(|item| (item.label.clone(), item.kind))
+            .collect();
+        assert!(kinds.contains(&("mag".into(), Some("number"))), "{kinds:?}");
+        assert!(at_end("p").items.iter().all(|item| item.kind.is_none()));
     }
 }

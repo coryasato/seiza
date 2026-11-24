@@ -257,7 +257,7 @@ async function lockedRun(page: Page, csv: string): Promise<{ outcomes: Outcome[]
   outcomes.push(await beforeLock(page));
 
   // The sample, through the first screen's row.
-  await page.click('#try-sample');
+  await page.click('#first [data-action=sample]');
   await waitWorkbench(page, "w.state === 'open' || w.state === 'failed'");
   const sample = await workbench(page);
   outcomes.push({ what: 'the sample opens', ok: sample?.state === 'open' && (sample.rows ?? 0) > 0, detail: `${sample?.state}, ${sample?.rows} rows${sample?.message ? `: ${sample.message}` : ''}` });

@@ -118,7 +118,7 @@ async function retryShown(page: Page, state: string): Promise<Outcome> {
  *  before the press (after a stop, the state is already `failed`). */
 async function openSample(page: Page): Promise<Outcome> {
   const before = { shown: (await marks(page, FILE_SHOWN_MARK)).length, message: (await workbench(page))?.message ?? null };
-  await page.click('#try-sample');
+  await page.click('#first [data-action=sample]');
   await page.waitForFunction(
     ({ name, before }) => {
       const w = (globalThis as CheckGlobal).__tychoWorkbench;

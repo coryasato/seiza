@@ -32,6 +32,10 @@ function call(run: (app: App) => void): void {
   else queued.push(run);
 }
 
+/** The app's calls, or null before the first frame: `complete` answers at
+ *  once, so it isn't queued. */
+export const appNow = (): App | null => app;
+
 /** The first frame is up: the calls made before it run now. Not sooner,
  *  though the wasm is in before it: a press on the sample's row would
  *  start its download before first paint (rule 2). */
@@ -40,8 +44,10 @@ export function connectApp(given: App): void {
   for (const run of queued.splice(0)) run(given);
 }
 
-const root = document.documentElement;
-export const isDark = (): boolean => root.dataset.theme === 'dark';
+/** The page's root: read when used, since the prerender imports this file
+ *  (through `bar.tsx`) where there's no document. */
+const root = (): HTMLElement => document.documentElement;
+export const isDark = (): boolean => root().dataset.theme === 'dark';
 
 /** The file dialog's input. It stays in the page: Safari fires `change`
  *  only for inputs in the document. `accept` is a hint for the dialog's
@@ -70,8 +76,15 @@ function chosen(files: FileList, from: 'drop' | 'pick'): void {
 }
 
 const ACTIONS: Record<string, () => void> = {
-  pick: () => (input ??= fileInput()).click(),
+  // A row pressed in the bar closes it and gives the table the keys: the
+  // table's input stays across files, so they're there when the next one
+  // opens (or the dialog is canceled).
+  pick: () => {
+    closeBar('table');
+    (input ??= fileInput()).click();
+  },
   sample: () => {
+    closeBar('table');
     const at = performance.now();
     call((app) => app.open_sample(at));
   },
@@ -87,28 +100,98 @@ let input: HTMLInputElement | null = null;
  *  until a reload, in memory only (as the canvas's did). */
 let followSystem = true;
 function setTheme(dark: boolean): void {
-  root.dataset.theme = dark ? 'dark' : 'light';
+  root().dataset.theme = dark ? 'dark' : 'light';
   call((app) => app.set_theme(dark));
 }
 
-/** Arrows, Enter, and a row's letter in the first screen's list. */
-function listKeys(list: HTMLElement, event: KeyboardEvent): void {
-  const rows = [...list.querySelectorAll<HTMLElement>('[role=option]')];
-  const at = rows.findIndex((row) => row.getAttribute('aria-selected') === 'true');
-  const select = (index: number) => {
-    rows.forEach((row, i) => row.setAttribute('aria-selected', String(i === index)));
-    list.setAttribute('aria-activedescendant', rows[index]!.id);
-  };
-  if (event.key === 'ArrowDown') select((at + 1) % rows.length);
-  else if (event.key === 'ArrowUp') select((at - 1 + rows.length) % rows.length);
-  else if (event.key === 'Enter') rows[at]?.click();
-  else {
-    const row = rows.findIndex((row) => row.dataset.key === event.key.toUpperCase());
-    if (row < 0 || event.metaKey || event.ctrlKey || event.altKey) return;
-    select(row);
-    rows[row]!.click();
+/** The first screen's box: the command bar with no file open
+ *  (`bar.tsx`). Its input holds focus; its rows are its list's. */
+const firstInput = (): HTMLInputElement | null => document.querySelector('#first [role=combobox]');
+const firstRows = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('#first [role=option]')];
+
+/** React owns the first screen's box once it hydrates (`hydrate.tsx`):
+ *  Base UI moves its highlight and takes its arrows and Enter. */
+let reactOwns = false;
+export function handOver(): void {
+  reactOwns = true;
+  // Base UI draws its own highlight; the one set here would stay.
+  for (const row of firstRows()) row.removeAttribute('data-highlighted');
+}
+
+function highlight(rows: HTMLElement[], index: number): void {
+  rows.forEach((row, i) => row.toggleAttribute('data-highlighted', i === index));
+}
+
+/** The first screen's box before React: its arrows, Enter (a row, or a
+ *  command typed, answered that a file opens first), and always, while
+ *  its input is empty, a row's letter (`docs/DECISIONS.md`, "Scope",
+ *  2026-11-24: with no file there's nothing for a command to act on, so
+ *  the letters cost nothing). */
+function firstKeys(input: HTMLInputElement, event: KeyboardEvent): void {
+  const rows = firstRows();
+  // A key that starts an IME's composition is the IME's, never a row's.
+  if (event.isComposing || event.keyCode === 229) return;
+  if (input.value === '' && !event.metaKey && !event.ctrlKey && !event.altKey) {
+    const row = rows.find((row) => row.dataset.key === event.key.toUpperCase());
+    if (row) {
+      event.preventDefault();
+      row.click();
+      return;
+    }
   }
+  if (reactOwns) return;
+  const at = rows.findIndex((row) => row.hasAttribute('data-highlighted'));
+  if (event.key === 'ArrowDown') highlight(rows, (at + 1) % rows.length);
+  else if (event.key === 'ArrowUp') highlight(rows, (at - 1 + rows.length) % rows.length);
+  else if (event.key === 'Enter' && input.value.trim()) {
+    const text = input.value;
+    call((app) => app.command(text, 'typed'));
+  } else if (event.key === 'Enter') rows[Math.max(at, 0)]?.click();
+  else return;
   event.preventDefault();
+}
+
+/** The command bar in the top bar, open or closed (`bar.tsx` draws it):
+ *  Cmd/Ctrl+K opens it from anywhere; closing it puts focus back where it
+ *  came from, and a command that ran puts it on the table. */
+let barOpen = false;
+let barReturn: HTMLElement | null = null;
+const barListeners = new Set<() => void>();
+export const isBarOpen = (): boolean => barOpen;
+export function subscribeBar(listener: () => void): () => void {
+  barListeners.add(listener);
+  return () => barListeners.delete(listener);
+}
+export function openBar(): void {
+  if (barOpen) {
+    document.querySelector<HTMLInputElement>('#command-bar [role=combobox]')?.focus();
+    return;
+  }
+  const active = document.activeElement;
+  barReturn = active instanceof HTMLElement && active !== document.body ? active : null;
+  barOpen = true;
+  for (const listener of barListeners) listener();
+}
+/** `back` where it was opened from (the table if that's gone), `table`
+ *  after a command ran, `none` when focus has already gone elsewhere (a
+ *  press outside, a Tab away). */
+export function closeBar(to: 'back' | 'table' | 'none'): void {
+  if (!barOpen) return;
+  barOpen = false;
+  for (const listener of barListeners) listener();
+  const back = to === 'back' && barReturn?.isConnected ? barReturn : canvasKeys();
+  barReturn = null;
+  if (to !== 'none') back?.focus({ preventScroll: true });
+}
+
+/** Cmd/Ctrl+K: the bar, wherever focus is. With no file, the first
+ *  screen's box is the bar. */
+function commandKey(): void {
+  if (getState().file === null) {
+    const input = firstInput();
+    input?.focus({ preventScroll: true });
+    input?.select();
+  } else openBar();
 }
 
 /** Binds the page's controls, keys, and drops: once, from the entry. */
@@ -119,14 +202,14 @@ export function bindFrame(): void {
     if (run) run();
   });
   document.addEventListener('pointermove', (event) => {
-    const row = (event.target as Element).closest<HTMLElement>('[role=listbox] [role=option]');
-    if (!row || row.getAttribute('aria-selected') === 'true') return;
-    for (const other of row.parentElement!.children) other.setAttribute('aria-selected', String(other === row));
-    row.parentElement!.setAttribute('aria-activedescendant', row.id);
+    if (reactOwns) return;
+    const row = (event.target as Element).closest<HTMLElement>('#first [role=option]');
+    const rows = firstRows();
+    if (row) highlight(rows, rows.indexOf(row));
   });
   document.addEventListener('keydown', (event) => {
-    const list = (event.target as Element).closest?.<HTMLElement>('[role=listbox]');
-    if (list) listKeys(list, event);
+    const input = firstInput();
+    if (input && event.target === input && !event.defaultPrevented) firstKeys(input, event);
   });
   // The page's own keys, wherever focus is: taken on the way down, before
   // the canvas sees them, since a key the canvas has focus for may never
@@ -135,9 +218,11 @@ export function bindFrame(): void {
   document.addEventListener(
     'keydown',
     (event) => {
-      if (!(event.metaKey || event.ctrlKey) || !event.shiftKey || event.altKey) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       const key = event.key.toLowerCase();
-      if (key === 'l') ACTIONS.theme!();
+      if (key === 'k' && !event.shiftKey) commandKey();
+      else if (!event.shiftKey) return;
+      else if (key === 'l') ACTIONS.theme!();
       else if (key === 'p') call((app) => app.toggle_perf());
       else return;
       event.preventDefault();
@@ -158,7 +243,7 @@ export function bindFrame(): void {
   addEventListener('dragenter', (event) => {
     if (!carriesFiles(event)) return;
     event.preventDefault();
-    if (++depth === 1) root.toggleAttribute('data-dragging', true);
+    if (++depth === 1) root().toggleAttribute('data-dragging', true);
   });
   addEventListener('dragover', (event) => {
     if (!carriesFiles(event)) return;
@@ -170,14 +255,19 @@ export function bindFrame(): void {
   addEventListener('dragleave', () => {
     // No `carriesFiles` check: a browser may report other types on the way
     // out, which would leave the haze up.
-    if (depth > 0 && --depth === 0) root.removeAttribute('data-dragging');
+    if (depth > 0 && --depth === 0) root().removeAttribute('data-dragging');
   });
   addEventListener('drop', (event) => {
     event.preventDefault();
     depth = 0;
-    root.removeAttribute('data-dragging');
+    root().removeAttribute('data-dragging');
     if (event.dataTransfer?.files.length) chosen(event.dataTransfer.files, 'drop');
   });
+
+  // The box's look before React: its first row highlighted, and the key
+  // hint the platform's (prerendered as the Mac's).
+  if (!reactOwns) highlight(firstRows(), 0);
+  for (const hint of document.querySelectorAll('[data-mod-key]')) hint.textContent = modKey();
 
   focusFirstScreen();
 
@@ -191,23 +281,31 @@ export function bindFrame(): void {
     const active = document.activeElement;
     const lost = !active || active === document.body || !!active.closest('#first');
     if (now && !open && lost) canvasKeys()?.focus({ preventScroll: true });
+    // The file gone (another opening, the engine stopped): the bar went
+    // with the top bar's box, and doesn't come back open over the next.
+    if (!now) closeBar('none');
     open = now;
   });
 }
 
-/** The first screen's list takes the keys: at once, and again after the
+/** The first screen's input takes the keys: at once, and again after the
  *  first frame, since GPUI takes focus for its own input as its window
  *  opens. Not once a file is open, or when focus is elsewhere in the page. */
 export function focusFirstScreen(): void {
   if (getState().file !== null) return;
   const active = document.activeElement;
   if (active && active !== document.body && active !== canvasKeys()) return;
-  document.querySelector<HTMLElement>('#first [role=listbox]')?.focus({ preventScroll: true });
+  firstInput()?.focus({ preventScroll: true });
 }
 
 /** What receives the canvas's keys: the hidden text field gpui-pre-web adds
  *  to `<body>` and focuses on a press on the canvas (its `ImeMirror`). */
-const canvasKeys = (): HTMLElement | null => document.querySelector('body > textarea');
+export const canvasKeys = (): HTMLElement | null => document.querySelector('body > textarea');
+
+/** The command bar's key as the platform writes it. The prerendered page
+ *  says the Mac's; `bindFrame` sets it. */
+export const modKey = (): string =>
+  typeof navigator !== 'undefined' && !/Mac|iPhone|iPad/.test(navigator.platform) ? 'Ctrl K' : '⌘K';
 
 /**
  * GPUI appends its canvas to `<body>`; the table's slot is where it goes.

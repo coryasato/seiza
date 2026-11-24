@@ -358,3 +358,15 @@ No results note: the part's one number, the wasm's size (2854.5 KiB brotli again
 - **The code review found `undo` stepping across a branch.** Undo by the list's order gave back, after a way back and a new step, a state the step never started from; each entry keeps where it was taken from now. It also found the log moving its current entry before the state was given back, and a plan that changed nothing answered as a jump to row 1: the native tests had covered each piece, not the seams between the log and the workbench.
 - **Nothing calls the new page calls yet,** so the browser checks still pass unchanged, and the calls' JS side is checked only by `tsc` until the bar is drawn.
 
+
+## M13 part B: the command bar in the DOM (2026-11-24)
+
+No results note: the part's numbers, the wasm's size (2856.9 KiB brotli against the 2854.8 baseline) and the weight before first paint (2956.7 KiB, +23.6 on M12's), are in PLAN's evidence.
+
+**Surprises:**
+- **The design's row letters met a focused input.** The first screen draws O and S beside its rows and the bar's input with focus, so a letter would type; with no file there's nothing to command, so the letters choose rows while the input is empty, and the owner chose one box over a URL field of its own.
+- **The prerender broke the dev server on its first request:** `bar.tsx` imports `core.ts` for the bar's calls, and `core.ts` read `document` as it loaded, which the prerender doesn't have. It reads the root when used now.
+- **Base UI names each item's DOM id,** since the input's `aria-activedescendant` points at it, so `#open-file` and `#try-sample` couldn't stay; the checks press the rows' `data-action` instead. It also adds a hidden input beside the one typed in, so the bar's input is found by `role=combobox`, not `input`.
+- **Enter on a highlighted item is a DOM click,** which bubbles to the page's one `data-action` listener: a row opens its file the same way before React and after, with nothing of its own in React.
+- **The code review found what the scripts never pressed:** a paste's change event clearing the paste's own mark, the bar's open state outliving the file it was opened over (a sample chosen from the bar reopened it over the next), and Tab writing back a whole command's hidden match, which renders nothing and left a caret for the next keystroke. It also found Part A's `pin` answered as done when the table couldn't draw it pinned: the count isn't clamped, only the run in effect is, so it's read after the plan is applied and the view given back when a pinned step's column isn't in it.
+- **A test's select-all is the platform's:** Ctrl+A in headless Chromium on a Mac selected nothing, so text was appended and read as a mistyped verb; `ControlOrMeta+a` did it.

@@ -199,7 +199,7 @@ async function sampleRun(page: Page): Promise<Outcome[]> {
     outcomes.push({ what: `${what}: drawn`, ...drawn });
   };
   await waitMark(page, 'tycho:engine-locked', 0, TIMEOUT);
-  await page.click('#try-sample');
+  await page.click('#first [data-action=sample]');
   const opened = await viewWhere(page, "v.source.kind === 'sample'", TIMEOUT);
   await check(
     "the sample's own view",

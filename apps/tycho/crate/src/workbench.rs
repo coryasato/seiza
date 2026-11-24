@@ -1719,15 +1719,7 @@ impl Workbench {
                     Err(refusal) => {
                         let lines = steps.iter().map(Step::written).collect::<Vec<_>>();
                         let words = steps.iter().map(Step::words).collect::<Vec<_>>();
-                        let answer = refusal.to_string();
-                        let reply = if refusal.error {
-                            Reply::Error(answer.clone())
-                        } else {
-                            Reply::Answer(answer.clone())
-                        };
-                        self.log
-                            .note(Some(lines.join("\n")), words.join("\n"), reply, origin, at);
-                        self.say("refused", answer, Vec::new(), refusal.error, cx);
+                        self.refused(lines.join("\n"), words.join("\n"), &refusal, origin, at, cx);
                     }
                     Ok(plan) => self.run(plan, origin, at, window, cx),
                 },
@@ -1762,15 +1754,31 @@ impl Workbench {
         let steps: Vec<String> = plan.steps.iter().map(|step| step.words.clone()).collect();
         let words = steps.join("\n");
         let reply = if plan.changed {
+            let before = (**view).clone();
             let columns = !view.same_columns(&plan.view);
-            **view = plan.view;
+            **view = plan.view.clone();
             let calls = view.calls();
             // After any pin Tycho makes, the table's count into the view.
-            let pinned = table.update(cx, |table, cx| {
+            let (pinned, drawn) = table.update(cx, |table, cx| {
                 calls.arrange(columns, table, cx);
-                table.pinned()
+                (table.pinned(), table.pinned_in_effect())
             });
             view.set_pinned(pinned);
+            // A pin the table can't draw (the run would pass half its
+            // width) leaves its column scrolling: the action is refused,
+            // all or none, and the view given back. The table's events
+            // from both come back as no change.
+            if let Some(refusal) = plan.undrawn_pin(view, drawn) {
+                **view = before;
+                let calls = view.calls();
+                let pinned = table.update(cx, |table, cx| {
+                    calls.arrange(columns, table, cx);
+                    table.pinned()
+                });
+                view.set_pinned(pinned);
+                self.refused(lines, words, &refusal, origin, at, cx);
+                return;
+            }
             let reply = Reply::of(view);
             self.log
                 .step(Some(lines), words, reply.clone(), origin, at, view.view());
@@ -1792,6 +1800,30 @@ impl Workbench {
         let focus = table.read(cx).focus_handle().clone();
         window.focus(&focus, cx);
         self.say("done", reply.text(), steps, false, cx);
+    }
+
+    /// An action refused, nothing of it run: a log entry, and the bar's
+    /// answer.
+    #[cfg(target_family = "wasm")]
+    fn refused(
+        &mut self,
+        lines: String,
+        words: String,
+        refusal: &crate::command::Refusal,
+        origin: Origin,
+        at: f64,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::log::Reply;
+
+        let answer = refusal.to_string();
+        let reply = if refusal.error {
+            Reply::Error(answer.clone())
+        } else {
+            Reply::Answer(answer.clone())
+        };
+        self.log.note(Some(lines), words, reply, origin, at);
+        self.say("refused", answer, Vec::new(), refusal.error, cx);
     }
 
     /// `undo`: the state of the log's entry the current one was taken

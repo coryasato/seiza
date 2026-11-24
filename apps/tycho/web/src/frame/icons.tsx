@@ -20,6 +20,23 @@ const PATHS = {
   ),
   moon: <path d="M13 9.5A5.5 5.5 0 0 1 6.5 3 5.5 5.5 0 1 0 13 9.5z" />,
   x: <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />,
+  prompt: <path d="M4 4.5L7.5 8 4 11.5M9 12h3.5" />,
+  pin: <path d="M6 2.5h4l-.5 4 2 2h-7l2-2zM8 8.5V14" />,
+  restore: <path d="M3 8a5 5 0 1 0 1.6-3.7M3 3v3h3" />,
+  clipboard: (
+    <>
+      <rect x="3.5" y="3" width="9" height="11" rx="1.5" />
+      <path d="M6 3V2h4v1" />
+    </>
+  ),
+  hash: <path d="M6 2.5l-1 11M11 2.5l-1 11M3 6h10.5M2.5 10H13" />,
+  clock: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 5v3.2l2 1.3" />
+    </>
+  ),
+  check: <path d="M3.5 8.5l3 3 6-7" />,
 };
 
 export type IconName = keyof typeof PATHS;

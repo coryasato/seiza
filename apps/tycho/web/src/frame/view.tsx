@@ -2,7 +2,8 @@
  * The page's frame around the table, as the design canvas draws it
  * (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21), scaled back
  * to what Tycho has now: the top bar (the file's name and its menu of
- * facts), the first screen, the status bar, and the drop's haze; at a
+ * facts, and the command bar, `bar.tsx`), the first screen (the bar,
+ * open), the status bar, and the drop's haze; at a
  * phone, no status bar, its facts in the file's menu and the engine's
  * state a line under the top bar. React draws the state the app publishes
  * (`state.ts`); what a control does is `core.ts`'s, by its `data-action`,
@@ -13,15 +14,12 @@
 
 import { Popover } from '@base-ui/react/popover';
 import { useSyncExternalStore } from 'react';
-import sample from 'virtual:tycho-sample';
+import { CommandBox, TopBarCommand } from './bar.tsx';
 import { Icon, Logo } from './icons.tsx';
 import { getState, INITIAL, subscribe, type FrameState, type Line } from './state.ts';
 
 /** The app's state; the prerendered page's while hydrating. */
 const useFrame = (): FrameState => useSyncExternalStore(subscribe, getState, () => INITIAL);
-
-/** As the app writes a size (`crate/src/dataset.rs`, `format_bytes`). */
-const mebibytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
 
 /** A credit's site (`planet4589.org/space/gcat`) as a link: a lowercase
  *  host with a path, so a version (`2.1`) or an initial (`J.McDowell`)
@@ -103,28 +101,35 @@ function FileMenu({ state }: { state: FrameState }) {
 
 function TopBar({ state }: { state: FrameState }) {
   return (
-    <header className="z-10 flex h-11 items-center gap-2.5 border-b border-border bg-surface pr-2.5 pl-3 [grid-area:top]">
-      <div className="flex shrink-0 items-center gap-[7px]">
-        <Logo />
-        <span className={`text-[13.5px] font-semibold tracking-[-0.01em] text-foreground ${state.file ? 'max-sm:hidden' : ''}`}>Tycho</span>
+    // The bar in the middle, the file's name and the page's buttons in
+    // two equal sides, so it stays centered.
+    <header className="z-10 flex h-11 items-center gap-3 border-b border-border bg-surface pr-2.5 pl-3 [grid-area:top] max-sm:gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="flex shrink-0 items-center gap-[7px]">
+          <Logo />
+          <span className={`text-[13.5px] font-semibold tracking-[-0.01em] text-foreground ${state.file ? 'max-sm:hidden' : ''}`}>Tycho</span>
+        </div>
+        {state.file && (
+          <>
+            <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-strong max-sm:hidden" />
+            <FileMenu state={state} />
+          </>
+        )}
       </div>
-      {state.file && (
-        <>
-          <span aria-hidden="true" className="h-4 w-px shrink-0 bg-border-strong max-sm:hidden" />
-          <FileMenu state={state} />
-        </>
-      )}
-      <button
-        type="button"
-        data-action="theme"
-        aria-label="Switch theme (Cmd/Ctrl+Shift+L)"
-        title="Switch theme (Cmd/Ctrl+Shift+L)"
-        className="ml-auto flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md text-foreground-muted hover:bg-surface-raised"
-      >
-        {/* Both, shown by the theme: the page renders the same whatever it is. */}
-        <Icon name="sun" className="theme-dark" />
-        <Icon name="moon" className="theme-light" />
-      </button>
+      {state.file && <TopBarCommand state={state} />}
+      <div className="flex min-w-0 items-center justify-end gap-1.5 sm:flex-1">
+        <button
+          type="button"
+          data-action="theme"
+          aria-label="Switch theme (Cmd/Ctrl+Shift+L)"
+          title="Switch theme (Cmd/Ctrl+Shift+L)"
+          className="flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md text-foreground-muted hover:bg-surface-raised"
+        >
+          {/* Both, shown by the theme: the page renders the same whatever it is. */}
+          <Icon name="sun" className="theme-dark" />
+          <Icon name="moon" className="theme-light" />
+        </button>
+      </div>
     </header>
   );
 }
@@ -143,34 +148,11 @@ function PhoneLine({ state }: { state: FrameState }) {
   );
 }
 
-function Row({ id, keyName, action, head, sub, busy, selected }: { id: string; keyName: string; action: string; head: string; sub: string; busy: boolean; selected: boolean }) {
-  return (
-    <div
-      id={id}
-      role="option"
-      aria-selected={selected}
-      aria-busy={busy}
-      data-action={action}
-      data-key={keyName}
-      // `core.ts` moves the selection before React hydrates, and after;
-      // React never sets it again (the prop doesn't change).
-      suppressHydrationWarning
-      className="group flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-foreground-muted aria-selected:bg-surface-active aria-selected:text-accent max-sm:items-start"
-    >
-      <Icon name={action === 'pick' ? 'file' : 'rows'} size={16} className="max-sm:mt-0.5" />
-      <span className="flex min-w-0 flex-1 flex-col gap-px">
-        <span className="text-sm font-medium text-foreground">{busy ? `${head}…` : head}</span>
-        <span className="text-[12.5px] leading-[17px] text-foreground-muted">{sub}</span>
-      </span>
-      <kbd className="kbd max-sm:hidden">{keyName}</kbd>
-    </div>
-  );
-}
-
-/** The first screen: over a ghost of the table, a heading and the ways to
- *  open a file. The command bar and its URL row come with their goals. */
+/** The first screen: over a ghost of the table, a heading and the command
+ *  bar, open, its rows the ways to open a file (`docs/DECISIONS.md`,
+ *  "Scope", 2026-11-20, "The first screen is the command bar, open in a
+ *  blank workbench"). The URL row comes with its goal. */
 function FirstScreen({ state }: { state: FrameState }) {
-  const sampleSub = `${sample.title} · ${sample.rows.toLocaleString('en-US')} rows · a ${mebibytes(sample.bytes)} download`;
   return (
     // Over the canvas, which shows through (the perf panel draws there):
     // only its own controls take a press.
@@ -189,10 +171,8 @@ function FirstScreen({ state }: { state: FrameState }) {
           </div>
         )}
         <div className="w-full max-w-[560px] overflow-hidden rounded-xl border border-border-strong bg-surface shadow-[0_16px_40px_var(--shadow)]">
-          <div role="listbox" tabIndex={0} aria-label="Open a file" aria-activedescendant="open-file" suppressHydrationWarning className="flex flex-col gap-0.5 p-1.5 outline-none">
-            <Row id="open-file" keyName="O" action="pick" head="Choose a file" sub="CSV or Parquet, any size. It's read here in your browser and never uploaded." busy={state.busy === 'file'} selected />
-            <Row id="try-sample" keyName="S" action="sample" head="Try the sample" sub={sampleSub} busy={state.busy === 'sample'} selected={false} />
-          </div>
+          {/* With no file, the bar's place: Cmd/Ctrl+K and focus come here. */}
+          <CommandBox place="first" state={state} />
           <div className="flex items-center justify-between gap-3 border-t border-border px-3.5 py-2 text-[11.5px] text-foreground-subtle">
             <span className="flex items-center gap-3 max-sm:hidden">
               <span className="flex items-center gap-[5px]">

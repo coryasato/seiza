@@ -26,6 +26,13 @@ pub struct Catalog {
 pub struct Checked {
     pub line: String,
     pub words: String,
+    /// The step as an agent writes it, the file's names in it
+    /// (`{"pin": {"column": "mag"}}`): what the bar shows a command
+    /// becomes.
+    pub json: serde_json::Value,
+    /// The column a `pin` step pins (its index in the file): the workbench
+    /// refuses the action if the table can't draw it pinned.
+    pub pins: Option<usize>,
 }
 
 /// An action that runs: the view after it, the row to bring into view, and
@@ -87,6 +94,7 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                 let pin = matches!(step, Step::Pin(_));
                 let column = resolve(name, view.columns()).map_err(|why| refuse(why, true))?;
                 let shown = quote(&view.columns()[column].name);
+                let verb = if pin { "pin" } else { "unpin" };
                 let result = if pin {
                     view.pin(column)
                 } else {
@@ -94,8 +102,10 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                 };
                 match result {
                     Ok(()) => checked.push(Checked {
-                        line: format!("{} {shown}", if pin { "pin" } else { "unpin" }),
+                        line: format!("{verb} {shown}"),
                         words: format!("{} {shown}", if pin { "Pin" } else { "Unpin" }),
+                        json: serde_json::json!({ verb: { "column": view.columns()[column].name } }),
+                        pins: pin.then_some(column),
                     }),
                     Err(PinRefused::AlreadyPinned) => {
                         return Err(refuse(format!("{shown} is pinned already."), false));
@@ -113,6 +123,8 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                         checked.push(Checked {
                             line: format!("jump {}", row + 1),
                             words: format!("Jump to row {}", format_count(row + 1)),
+                            json: serde_json::json!({ "jump": { "row": row + 1 } }),
+                            pins: None,
                         });
                     }
                     Ok(None) => {
@@ -133,6 +145,8 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
             Step::Undo => checked.push(Checked {
                 line: "undo".into(),
                 words: "Undo".into(),
+                json: serde_json::json!({ "undo": {} }),
+                pins: None,
             }),
         }
     }
@@ -223,6 +237,40 @@ pub fn later(verb: &str, goal: &str, step: Option<usize>) -> String {
     format!("{at}{verb} isn't in Tycho yet: it comes with {goal}.")
 }
 
+impl Plan {
+    /// The first `pin` step whose column the table doesn't draw pinned,
+    /// once the plan is applied: `drawn` leading columns are, of `view`'s
+    /// order (the table's run in effect, cut where the pinned columns would
+    /// pass half its width).
+    pub fn undrawn_pin(&self, view: &Controller, drawn: usize) -> Option<Refusal> {
+        let several = self.steps.len() > 1;
+        self.steps.iter().enumerate().find_map(|(index, step)| {
+            let column = step.pins?;
+            (view.is_pinned(column) && view.place(column) >= drawn).then(|| Refusal {
+                step: several.then_some((index, self.steps.len())),
+                written: step.line.clone(),
+                why: format!(
+                    "{} can't be pinned here: the pinned columns would take more than half the table's width.",
+                    quote(&view.columns()[column].name)
+                ),
+                error: false,
+            })
+        })
+    }
+
+    /// The action as an agent writes it: one step alone, several under
+    /// `"actions"` (the form `parse` reads).
+    pub fn json(&self) -> String {
+        match self.steps.as_slice() {
+            [one] => one.json.to_string(),
+            steps => serde_json::json!({
+                "actions": steps.iter().map(|step| step.json.clone()).collect::<Vec<_>>()
+            })
+            .to_string(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -262,6 +310,36 @@ mod tests {
             .iter()
             .map(|&index| view.columns()[index].name.as_str())
             .collect()
+    }
+
+    #[test]
+    fn a_pin_the_table_cant_draw_is_named() {
+        let catalog = catalog(false);
+        let plan = run("pin mag", &catalog).unwrap();
+        // The table draws the one pinned column: nothing to refuse.
+        assert_eq!(plan.undrawn_pin(&plan.view, 1), None);
+        // It draws none: the pin is refused, by name.
+        let refusal = plan.undrawn_pin(&plan.view, 0).unwrap();
+        assert_eq!(
+            refusal.to_string(),
+            "mag can't be pinned here: the pinned columns would take more than half the table's width."
+        );
+        // Of several, the step that pinned the undrawn column is named;
+        // a jump pins nothing.
+        let plan = run(
+            r#"{"actions": [{"pin": {"column": "mag"}}, {"jump": {"row": 2}}, {"pin": {"column": "place"}}]}"#,
+            &catalog,
+        )
+        .unwrap();
+        assert_eq!(plan.undrawn_pin(&plan.view, 2), None);
+        let refusal = plan.undrawn_pin(&plan.view, 1).unwrap();
+        assert_eq!(refusal.step, Some((2, 3)));
+        assert!(
+            refusal
+                .to_string()
+                .starts_with("Step 3 of 3, pin place: place can't")
+        );
+        assert!(!refusal.error);
     }
 
     #[test]

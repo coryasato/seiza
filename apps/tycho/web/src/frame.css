@@ -22,6 +22,13 @@
   --color-foreground-subtle: var(--foreground-subtle);
   --color-accent: var(--accent);
   --color-accent-tint: var(--accent-tint);
+  --color-type-text: var(--type-text);
+  --color-type-number: var(--type-number);
+  --color-type-time: var(--type-time);
+  --color-type-boolean: var(--type-boolean);
+  --color-type-text-tint: var(--type-text-tint);
+  --color-type-number-tint: var(--type-number-tint);
+  --color-type-time-tint: var(--type-time-tint);
   --color-error: var(--error);
   --color-ok: var(--ok);
   /* Plex Sans: Regular registered from the bytes the bootstrap fetches,
