@@ -10,7 +10,16 @@
     "typecheck": "tsc -p . && tsc -p ../perf && tsc -p ../worker && tsc -p ../worker/scripts && tsc -p ../worker/test && tsc -p ../../../shared-web/scripts && tsc -p ../../../shared-web/perf && npm run typecheck --workspace @seiza/duckdb"
   },
   "dependencies": {
+    "@base-ui/react": "1.8.0",
     "@seiza/duckdb": "*",
-    "@seiza/web": "*"
+    "@seiza/web": "*",
+    "@tailwindcss/vite": "4.3.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwindcss": "4.3.3"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0"
   }
 }

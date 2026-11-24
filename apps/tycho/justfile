@@ -13,12 +13,13 @@ dev: (wasm "debug") extensions
     npm run dev --workspace @seiza/tycho-web
 
 # Release wasm (+ wasm-opt), Vite build, then report asset sizes, and the
-# page's weight before first paint (the document, the entry JS, the app wasm,
-# the UI font; reported, not gated). DuckDB's wasm bundles are over
+# page's weight before first paint (the document, the entry JS, the frame's
+# stylesheet, the app wasm, the UI font; reported, not gated). React loads
+# after the first frame and isn't in it. DuckDB's wasm bundles are over
 # Cloudflare's 25 MiB asset limit; they go to R2.
 build: (wasm "release") extensions
     npm run build --workspace @seiza/tycho-web
-    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist --r2 duckdb-eh --r2 duckdb-mvp --first-paint index.html --first-paint assets/index- --first-paint tycho_bg --first-paint IBMPlexSans-Regular
+    node {{root}}/shared-web/scripts/asset-sizes.ts {{web}}/dist --r2 duckdb-eh --r2 duckdb-mvp --first-paint index.html --first-paint assets/index- --first-paint assets/frame- --first-paint tycho_bg --first-paint IBMPlexSans-Regular
 
 # Serve the release build with the same headers.
 preview:

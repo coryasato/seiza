@@ -1,47 +1,26 @@
-//! The workbench: Tycho's one window. Empty until a file is opened; then a
-//! header strip describes the file, above its rows.
+//! The workbench: what the canvas shows (the open file's rows, nothing
+//! before one opens) and the state the page's frame shows around it
+//! (`crate::frame`): the file, its facts, what's opening, and what failed.
 //!
-//! A file comes from a drop anywhere on the page or the file dialog. A Parquet file goes through one pipeline (register, read
+//! A file comes from a drop anywhere on the page or the file dialog, both
+//! the page's (`crate::frame::open_file`). A Parquet file goes through one pipeline (register, read
 //! the footer's metadata, page rows); a CSV through another (cut into
 //! chunks, each copied into a table, the rows growing as they come;
 //! `crate::csv`). A new file replaces the current one, whether it's still
 //! opening or already showing rows: its queries are cancelled, its answers
 //! ignored, and a CSV's tables dropped.
 
-use gpui_kit::component::button::{Button, ButtonVariants as _};
-use gpui_kit::component::empty::{Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle};
-use gpui_kit::component::input::{InputEvent, InputState};
-use gpui_kit::component::tag::Tag;
-use gpui_kit::component::{
-    ActiveTheme as _, Disableable as _, Sizable as _, StyledExt as _, h_flex, v_flex,
-};
-use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::*;
 
-use crate::dataset::{FileSummary, format_bytes, format_count, sample};
+use crate::dataset::{FileSummary, format_count};
+#[cfg(target_family = "wasm")]
+use crate::dataset::{format_bytes, sample};
+use crate::frame::{EngineView, FileView, FrameView, Line};
 use crate::table::RowTable;
 use seiza_duckdb::EngineStatus;
 use seiza_tall_table::TallTable;
 #[cfg(target_family = "wasm")]
 use seiza_tall_table::TallTableEvent;
-
-actions!(tycho_workbench, [FocusJump]);
-
-const CONTEXT: &str = "Workbench";
-
-/// Binds the workbench's keys: Cmd/Ctrl+G focuses jump to row ("go to",
-/// as in editors). The browser's own Cmd/Ctrl+G is find-next, and its find
-/// can't see the canvas anyway (apps/tycho/README.md, "Canvas tradeoffs").
-#[cfg_attr(
-    not(target_family = "wasm"),
-    expect(dead_code, reason = "only the web entry point binds keys")
-)]
-pub fn init(cx: &mut App) {
-    cx.bind_keys([
-        KeyBinding::new("cmd-g", FocusJump, Some(CONTEXT)),
-        KeyBinding::new("ctrl-g", FocusJump, Some(CONTEXT)),
-    ]);
-}
 
 /// The `performance.mark`s and panel steps an open reports under.
 #[cfg(target_family = "wasm")]
@@ -147,6 +126,8 @@ enum Load {
     },
     Open {
         summary: FileSummary,
+        /// The sample, not a file from this device.
+        sample: bool,
         table: Entity<RowTable>,
         /// A CSV's load, which runs on after its first rows show.
         csv: Option<CsvLoad>,
@@ -160,6 +141,10 @@ enum Load {
 }
 
 impl Load {
+    #[cfg_attr(
+        not(target_family = "wasm"),
+        expect(dead_code, reason = "only the web build opens files")
+    )]
     /// Whether the sample (`true`) or a file from this device is opening.
     fn opening(&self, which_sample: bool) -> bool {
         matches!(self, Self::Opening { sample, .. } if *sample == which_sample)
@@ -333,8 +318,6 @@ struct Notice {
 pub struct Workbench {
     load: Load,
     notice: Option<Notice>,
-    /// Files are being dragged over the page.
-    dragging: bool,
     /// Counts opens; each file registers under its own SQL name (see
     /// [`Workbench::open_file`]), and a sniff whose count is stale is dropped.
     opens: u64,
@@ -374,22 +357,21 @@ pub struct Workbench {
     /// A registration waiting for its window ([`reregister_window_ms`]).
     #[cfg(target_family = "wasm")]
     reregister_later: Option<Task<()>>,
-    /// Jump to row: the header strip's input, and the line beside it when
-    /// what was typed isn't a row of the file.
-    jump: Entity<InputState>,
-    jump_refusal: Option<SharedString>,
     /// The workbench's root, where focus goes back to when the focused
     /// input or table stops rendering (see [`Workbench::new`]).
     focus_handle: FocusHandle,
+    /// What the page's frame was last sent (`crate::frame::publish`).
+    shown_frame: Option<FrameView>,
     _engine_status: Subscription,
-    _jump_events: Subscription,
+    /// The panel's visibility is part of the frame's state.
+    _panel: Subscription,
     _focus_lost: Subscription,
 }
 
 impl Workbench {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         #[cfg(target_family = "wasm")]
-        crate::files::listen(cx.entity().downgrade(), window.window_handle(), cx);
+        crate::frame::connect(cx.entity().downgrade(), window.window_handle(), cx);
         #[cfg(target_family = "wasm")]
         {
             // Rows in this order, before any file adds its own.
@@ -402,9 +384,9 @@ impl Workbench {
                 seiza::perf::set_metric(cx, metric, "—");
             }
             // The open panel stays clear of the table's scrollbars (the
-            // window's padding, the table's border, the bar, and a gap):
-            // a thumb at the bottom after End or a fling stays grabbable.
-            let clearance = px(16. + 1. + 8.) + gpui_kit::component::scroll::Scrollbar::width();
+            // table's border, the bar, and a gap): a thumb at the bottom
+            // after End or a fling stays grabbable.
+            let clearance = px(1. + 8.) + gpui_kit::component::scroll::Scrollbar::width();
             seiza::perf::set_clearance(cx, clearance, clearance);
             let this = cx.entity().downgrade();
             seiza::perf::on_refresh(cx, move |cx| {
@@ -413,21 +395,6 @@ impl Workbench {
                 }
             });
         }
-        let jump = cx.new(|cx| {
-            let mut state = InputState::new(window, cx).placeholder("Jump to row…");
-            state.on_context_menu(std::rc::Rc::new(edit_menu));
-            state
-        });
-        let jump_events =
-            cx.subscribe_in(&jump, window, |this, _, event, window, cx| match event {
-                InputEvent::PressEnter { .. } => this.jump(window, cx),
-                InputEvent::Change => {
-                    if this.jump_refusal.take().is_some() {
-                        cx.notify();
-                    }
-                }
-                InputEvent::Focus | InputEvent::Blur => {}
-            });
         // When the focused element stops rendering (the table of a file that
         // another replaced, or a failed open's empty state), nothing has
         // focus, key dispatch starts at the window's root, and the
@@ -445,7 +412,6 @@ impl Workbench {
         Self {
             load: Load::Idle,
             notice: None,
-            dragging: false,
             opens: 0,
             #[cfg(target_family = "wasm")]
             sniffing: None,
@@ -467,11 +433,16 @@ impl Workbench {
             reregistrations: 0,
             #[cfg(target_family = "wasm")]
             reregister_later: None,
-            jump,
-            jump_refusal: None,
             focus_handle: cx.focus_handle(),
+            shown_frame: None,
             _engine_status: cx.observe_global_in::<EngineStatus>(window, Self::engine_changed),
-            _jump_events: jump_events,
+            _panel: cx.observe_global::<seiza::PerfOverlay>(|this, cx| {
+                if this.shown_frame.as_ref().map(|shown| shown.panel)
+                    != Some(seiza::perf::is_visible(cx))
+                {
+                    cx.notify();
+                }
+            }),
             _focus_lost: focus_lost,
         }
     }
@@ -510,78 +481,15 @@ impl Workbench {
         cx.notify();
     }
 
-    /// Retry, after the engine failed to load or stopped.
-    fn retry_engine(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        #[cfg(target_family = "wasm")]
-        seiza_duckdb::retry(cx);
-        #[cfg(not(target_family = "wasm"))]
-        let _ = cx;
-    }
-
-    /// Enter in the jump input: scrolls the table to the typed row and hands
-    /// it the keys, or says why not and leaves the table where it is.
-    fn jump(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Load::Open { table, csv, .. } = &self.load else {
-            return;
-        };
-        let table = table.clone();
-        let loading = csv
-            .as_ref()
-            .is_some_and(|load| load.state == IngestState::Loading);
-        let text = self.jump.read(cx).value();
-        let rows = table.read(cx).rows();
-        match crate::jump::parse(&text, rows, loading) {
-            Ok(None) => {}
-            Ok(Some(row)) => {
-                self.jump_refusal = None;
-                table.update(cx, |table, cx| table.jump_to(row, cx));
-                let focus = table.read(cx).focus_handle().clone();
-                window.focus(&focus, cx);
-            }
-            Err(refusal) => self.jump_refusal = Some(refusal.message().into()),
-        }
-        cx.notify();
-    }
-
-    /// Cmd/Ctrl+G: into the jump input, its text selected to type over.
-    fn focus_jump(&mut self, _: &FocusJump, window: &mut Window, cx: &mut Context<Self>) {
-        if !matches!(self.load, Load::Open { .. }) {
-            // Nothing to jump in: leave Cmd/Ctrl+G to the browser.
-            cx.propagate();
-            return;
-        }
-        self.jump.update(cx, |state, cx| {
-            state.focus(window, cx);
-            state.select_all(window, cx);
-        });
-    }
-
-    /// What's shown is going: the jump input starts empty.
-    #[cfg(target_family = "wasm")]
-    fn reset_jump(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.jump_refusal = None;
-        self.jump
-            .update(cx, |state, cx| state.set_value("", window, cx));
-    }
-
-    #[cfg(target_family = "wasm")]
-    fn pick_file(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {
-        crate::files::pick();
-    }
-
-    #[cfg(not(target_family = "wasm"))]
-    fn pick_file(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
-
     /// Downloads the sample whole, then opens it from memory as a dropped
     /// file opens. A file opened meanwhile replaces it (dropping the
     /// download's task with the state); a dropped file Tycho refuses leaves
     /// it running, as it leaves an open file.
     #[cfg(target_family = "wasm")]
-    fn open_sample(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn open_sample(&mut self, at: f64, window: &mut Window, cx: &mut Context<Self>) {
         if self.load.opening(true) {
             return;
         }
-        let at = seiza::marks::now();
         self.close_current(window, cx);
         self.sniffing = None;
         self.notice = None;
@@ -629,14 +537,11 @@ impl Workbench {
         cx.notify();
     }
 
-    #[cfg(not(target_family = "wasm"))]
-    fn open_sample(&mut self, _window: &mut Window, _cx: &mut Context<Self>) {}
-
     /// A file was dropped or picked at `at`. Its first and last bytes decide
     /// first: a file Tycho can't open gets a message and leaves the current
     /// file where it is.
     #[cfg(target_family = "wasm")]
-    fn file_chosen(
+    pub(crate) fn file_chosen(
         &mut self,
         file: web_sys::File,
         at: f64,
@@ -731,8 +636,7 @@ impl Workbench {
 
     /// Stops whatever is loading or showing, so a new file can take over.
     #[cfg(target_family = "wasm")]
-    fn close_current(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.reset_jump(window, cx);
+    fn close_current(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let engine = cx.global::<seiza_duckdb::Engine>().clone();
         self.held = None;
         match std::mem::replace(&mut self.load, Load::Idle) {
@@ -818,6 +722,7 @@ impl Workbench {
                 })
                 .await;
                 let _ = this.update_in(cx, |this, window, cx| {
+                    let sample = this.load.opening(true);
                     this.load = match result {
                         Ok((summary, read_counter)) => {
                             this.mark_shown = Some(marks);
@@ -839,6 +744,7 @@ impl Workbench {
                             window.focus(&focus, cx);
                             Load::Open {
                                 summary,
+                                sample,
                                 table,
                                 csv: None,
                             }
@@ -1057,6 +963,7 @@ impl Workbench {
         self.mark_shown = Some(marks);
         self.load = Load::Open {
             summary,
+            sample: false,
             table,
             csv: Some(load),
         };
@@ -1402,14 +1309,12 @@ impl Workbench {
     }
 
     /// Publishes what the workbench shows to `globalThis.__tychoWorkbench`,
-    /// for the Playwright checks (the canvas has no DOM text to read).
+    /// for the Playwright checks.
     fn publish(&self, window: &Window, cx: &App) {
         if !crate::targets::measuring() {
             return;
         }
-        let focused = if self.jump.read(cx).focus_handle(cx).is_focused(window) {
-            Some("jump")
-        } else if let Load::Open { table, .. } = &self.load
+        let focused = if let Load::Open { table, .. } = &self.load
             && table.read(cx).focus_handle().is_focused(window)
         {
             Some("table")
@@ -1434,45 +1339,33 @@ impl Workbench {
             Load::Failed { message, .. } => Some(message.as_ref()),
             _ => None,
         };
+        let status = self.message(cx);
         crate::targets::publish_workbench(&crate::targets::WorkbenchProbe {
             state,
             name,
             rows,
             message,
             notice: self.notice.as_ref().map(|notice| notice.text.as_ref()),
-            dragging: self.dragging,
             ingest: csv.map(CsvLoad::state_name),
             read_bytes: csv.map(|load| load.read),
             chunks: csv.map(|load| load.chunks),
-            jump_text: &self.jump.read(cx).value(),
-            jump_refusal: self.jump_refusal.as_deref(),
             focused,
-            engine: match cx.try_global::<EngineStatus>() {
-                None | Some(EngineStatus::Loading) => "loading",
-                Some(EngineStatus::Ready { .. }) => "ready",
-                Some(EngineStatus::Failed(_)) => "failed",
-                Some(EngineStatus::Stopped(_)) => "stopped",
-            },
-            status: &self.status_line(cx).0,
+            engine: EngineView::of(&cx.try_global::<EngineStatus>().cloned().unwrap_or_default())
+                .state,
+            status: status.as_ref().map(|line| line.text.as_str()),
         });
     }
 
-    /// One quiet line under the buttons: what's loading, or what failed.
-    /// The engine loads after first paint, so the shell says so until it's
-    /// ready (Tycho rule 1).
-    fn render_status(&self, cx: &App) -> impl IntoElement {
-        let (text, color) = self.status_line(cx);
-        div().text_xs().text_color(color).child(text)
-    }
-
-    /// [`Workbench::render_status`]'s line and its color.
-    fn status_line(&self, cx: &App) -> (SharedString, Hsla) {
-        let theme = cx.theme();
+    /// The workbench's one line in the frame: what's loading, or what
+    /// failed. The engine's own state is the status bar's
+    /// ([`EngineView`]); this adds what it means for the file.
+    fn message(&self, cx: &App) -> Option<Line> {
         let engine = cx.try_global::<EngineStatus>().cloned().unwrap_or_default();
+        let line = |text: String, error: bool| Some(Line { text, error });
         match (&engine, &self.load, &self.notice) {
-            (EngineStatus::Failed(message), _, _) => (
-                format!("The engine didn't load: {message}. Retry loads it again.").into(),
-                theme.danger,
+            (EngineStatus::Failed(message), _, _) => line(
+                format!("The engine didn't load: {message}. Retry loads it again."),
+                true,
             ),
             (
                 EngineStatus::Stopped(_),
@@ -1482,17 +1375,16 @@ impl Workbench {
                     ..
                 },
                 _,
-            ) => (
+            ) => line(
                 format!(
                     "The engine stopped while {name} was open, and the file closed with it. \
                      Retry starts a new engine; then open the file again."
-                )
-                .into(),
-                theme.danger,
+                ),
+                true,
             ),
-            (EngineStatus::Stopped(message), _, _) => (
-                format!("The engine stopped ({message}). Retry starts a new one.").into(),
-                theme.danger,
+            (EngineStatus::Stopped(message), _, _) => line(
+                format!("The engine stopped ({message}). Retry starts a new one."),
+                true,
             ),
             // A file refused while the sample downloads says why.
             (
@@ -1501,330 +1393,96 @@ impl Workbench {
                     downloading: true, ..
                 },
                 Some(notice),
-            ) if notice.error => (notice.text.clone(), theme.danger),
+            ) if notice.error => line(notice.text.to_string(), true),
             (
                 _,
                 Load::Opening {
                     downloading: true, ..
                 },
                 _,
-            ) => ("Downloading the sample…".into(), theme.muted_foreground),
-            (EngineStatus::Loading, Load::Opening { .. }, _) => (
-                "Waiting for the engine to load…".into(),
-                theme.muted_foreground,
-            ),
-            (_, Load::Opening { name, .. }, _) => {
-                (format!("Reading {name}…").into(), theme.muted_foreground)
+            ) => line("Downloading the sample…".into(), false),
+            (EngineStatus::Loading, Load::Opening { .. }, _) => {
+                line("Waiting for the engine to load…".into(), false)
             }
-            (_, _, Some(notice)) => (
-                notice.text.clone(),
-                if notice.error {
-                    theme.danger
-                } else {
-                    theme.muted_foreground
-                },
-            ),
-            (_, Load::Failed { name, message, .. }, _) => (
-                format!("Couldn't open {name}: {message}").into(),
-                theme.danger,
-            ),
-            (EngineStatus::Loading, _, _) => ("Engine loading…".into(), theme.muted_foreground),
-            (EngineStatus::Ready { .. }, _, _) => ("Engine ready".into(), theme.muted_foreground),
-        }
-    }
-
-    /// Wraps `child`, publishing its bounds as `id` for the Playwright
-    /// checks, which click through them (the canvas has no DOM to query).
-    fn published(id: &'static str, child: impl IntoElement) -> Div {
-        div()
-            .on_children_prepainted(move |bounds, _, _| {
-                if let Some(bounds) = bounds.first() {
-                    crate::targets::publish(id, *bounds);
-                }
-            })
-            .child(child)
-    }
-
-    fn render_empty(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let engine_down = cx
-            .try_global::<EngineStatus>()
-            .is_some_and(EngineStatus::is_down);
-        Empty::new()
-            .border_0()
-            .header(
-                EmptyHeader::new()
-                    .title(EmptyTitle::new().child("Drop a Parquet or CSV file"))
-                    .description(EmptyDescription::new().child("Files stay on this device.")),
-            )
-            .content(
-                EmptyContent::new()
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            // First, in the centered row: clear of the
-                            // panel, which covers the window's lower right.
-                            .when(engine_down, |row| {
-                                row.child(Self::published(
-                                    "retry-engine",
-                                    Button::new("retry-engine")
-                                        .primary()
-                                        .label("Retry")
-                                        .cursor_pointer()
-                                        .on_click(cx.listener(|this, _, window, cx| {
-                                            this.retry_engine(window, cx)
-                                        })),
-                                ))
-                            })
-                            .child(Self::published(
-                                "open-file",
-                                Button::new("open-file")
-                                    .primary()
-                                    .label("Open a file…")
-                                    .loading(self.load.opening(false))
-                                    .disabled(engine_down)
-                                    // The web's pointer, only while it can
-                                    // be pressed (gpui-kit keeps the arrow).
-                                    .when(!engine_down && !self.load.opening(false), |button| {
-                                        button.cursor_pointer()
-                                    })
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.pick_file(window, cx)
-                                    })),
-                            ))
-                            .child(Self::published(
-                                sample::TARGET,
-                                Button::new(sample::TARGET)
-                                    .outline()
-                                    .label(sample::LABEL)
-                                    .loading(self.load.opening(true))
-                                    .disabled(engine_down)
-                                    .when(!engine_down && !self.load.opening(true), |button| {
-                                        button.cursor_pointer()
-                                    })
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.open_sample(window, cx)
-                                    })),
-                            )),
-                    )
-                    .child(self.render_status(cx)),
-            )
-    }
-
-    /// The header strip: the file, its size and shape, its columns, and the
-    /// data credit.
-    fn render_summary(
-        &self,
-        summary: &FileSummary,
-        csv: Option<&CsvLoad>,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let jump_focused = self.jump.read(cx).focus_handle(cx).is_focused(window);
-        let theme = cx.theme();
-        let mut stats = vec![
-            format!("{} rows", format_count(summary.rows)),
-            format!("{} columns", summary.columns.len()),
-        ];
-        if let Some(bytes) = summary.bytes {
-            stats.push(format_bytes(bytes));
-        }
-        if let Some(row_groups) = summary.row_groups {
-            stats.push(format!(
-                "{} row group{}",
-                format_count(row_groups),
-                if row_groups == 1 { "" } else { "s" }
-            ));
-        }
-        if let Some(load) = csv {
-            #[cfg(target_family = "wasm")]
-            let now = seiza::marks::now();
-            #[cfg(not(target_family = "wasm"))]
-            let now = load.started_at;
-            stats.push(load.describe(now));
-        }
-        let muted_line = |text: String| {
-            div()
-                .text_xs()
-                .text_color(theme.muted_foreground)
-                .child(text)
-        };
-        let widened = csv
-            .into_iter()
-            .flat_map(|load| &load.widened)
-            .map(|(column, was, rows)| {
-                muted_line(format!(
-                    "{column} is shown as text: a value after row {} isn't a {was}.",
-                    format_count(*rows)
-                ))
-            });
-        let stopped = csv.and_then(|load| match &load.state {
-            IngestState::Stopped(message) => {
-                Some(div().text_xs().text_color(theme.danger).child(format!(
-                    "Stopped reading after row {}: {message}. The rows before it are shown.",
-                    format_count(summary.rows)
-                )))
+            (_, Load::Opening { name, .. }, _) => line(format!("Reading {name}…"), false),
+            (_, _, Some(notice)) => line(notice.text.to_string(), notice.error),
+            (_, Load::Failed { name, message, .. }, _) => {
+                line(format!("Couldn't open {name}: {message}"), true)
             }
-            _ => None,
-        });
+            (EngineStatus::Loading | EngineStatus::Ready { .. }, _, _) => None,
+        }
+    }
 
-        v_flex()
-            .gap_2()
-            .child(
-                h_flex()
-                    .gap_3()
-                    .child(div().text_sm().font_semibold().child(summary.name.clone()))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(stats.join(" · ")),
-                    )
-                    .child(div().flex_1())
-                    // Top right, clear of the observation panel, which
-                    // covers the window's lower right.
-                    .children(self.jump_refusal.clone().map(|refusal| {
-                        Self::published(
-                            "jump-refusal",
-                            div().text_xs().text_color(theme.danger).child(refusal),
-                        )
-                    }))
-                    .child(Self::published(
-                        "jump-input",
-                        // gpui-base's unstyled input, not gpui-kit's
-                        // `Input`: that element renders any of three
-                        // input states, so one single-line field linked
-                        // the textarea and code-editor engines too
-                        // (+194 KiB brotli).
-                        div()
-                            .w(px(168.))
-                            .h(px(26.))
-                            .px_2()
-                            .flex()
-                            .items_center()
-                            .text_sm()
-                            .rounded(theme.radius)
-                            .border_1()
-                            .border_color(if jump_focused {
-                                theme.ring
-                            } else {
-                                theme.input
-                            })
-                            .bg(theme.background)
-                            .child(gpui_kit::base::input::Input::new(&self.jump)),
-                    ))
-                    .child(Self::published(
-                        "open-file",
-                        Button::new("open-file")
-                            .ghost()
-                            .small()
-                            .label("Open file…")
-                            .cursor_pointer()
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.pick_file(window, cx)),
+    /// What the page's frame shows ([`crate::frame`]).
+    fn frame_view(&self, cx: &App) -> FrameView {
+        let engine = cx.try_global::<EngineStatus>().cloned().unwrap_or_default();
+        let file = match &self.load {
+            Load::Open {
+                summary,
+                sample,
+                csv,
+                ..
+            } => Some(FileView {
+                name: summary.name.clone(),
+                sample: *sample,
+                facts: crate::frame::facts(summary),
+                load: csv.as_ref().map(|load| {
+                    #[cfg(target_family = "wasm")]
+                    let now = seiza::marks::now();
+                    #[cfg(not(target_family = "wasm"))]
+                    let now = load.started_at;
+                    load.describe(now)
+                }),
+                credit: summary.credit.clone(),
+                notes: csv
+                    .iter()
+                    .flat_map(|load| {
+                        let widened = load.widened.iter().map(|(column, was, rows)| Line {
+                            text: format!(
+                                "{column} is shown as text: a value after row {} isn't a {was}.",
+                                format_count(*rows)
                             ),
-                    )),
-            )
-            .child(
-                h_flex()
-                    .flex_wrap()
-                    .gap_1()
-                    .children(summary.columns.iter().map(|column| {
-                        Tag::secondary().small().child(
-                            h_flex().gap_1().child(column.name.clone()).child(
-                                div()
-                                    .text_color(theme.muted_foreground)
-                                    .child(column.data_type.clone()),
-                            ),
-                        )
-                    })),
-            )
-            .children(summary.credit.clone().map(|credit| {
-                div()
-                    .text_xs()
-                    .text_color(theme.muted_foreground)
-                    .child(credit)
-            }))
-            .children(widened)
-            .children(stopped)
-            .children(self.notice.as_ref().map(|notice| {
-                div()
-                    .text_xs()
-                    .text_color(if notice.error {
-                        theme.danger
-                    } else {
-                        theme.muted_foreground
+                            error: false,
+                        });
+                        let stopped = match &load.state {
+                            IngestState::Stopped(message) => Some(Line {
+                                text: format!(
+                                    "Stopped reading after row {}: {message}. The rows before it are shown.",
+                                    format_count(summary.rows)
+                                ),
+                                error: true,
+                            }),
+                            _ => None,
+                        };
+                        widened.chain(stopped)
                     })
-                    .child(notice.text.clone())
-            }))
-    }
-
-    /// Covers the window while files are dragged over it.
-    fn render_drop_target(cx: &App) -> impl IntoElement {
-        let theme = cx.theme();
-        div().absolute().top_0().left_0().size_full().p_3().child(
-            v_flex()
-                .size_full()
-                .items_center()
-                .justify_center()
-                .gap_1()
-                .rounded_lg()
-                .border_2()
-                .border_dashed()
-                .border_color(theme.primary)
-                .bg(theme.background.opacity(0.9))
-                .child(div().text_lg().font_semibold().child("Drop to open"))
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(theme.muted_foreground)
-                        .child("Parquet is read in place; CSV is copied into memory as it loads. Nothing is uploaded."),
-                ),
-        )
-    }
-}
-
-/// The jump input's right-click menu: what gpui-kit's `Input` offers, which
-/// the unstyled gpui-base input leaves to its owner. gpui-kit draws it on
-/// the canvas on the web. Paste is offered whenever the text can change: the
-/// synchronous clipboard read is always empty on the web, so it reads
-/// asynchronously, behind the browser's clipboard permission.
-fn edit_menu(
-    _: gpui_kit::base::input::NativeMenu,
-    can: gpui_kit::base::input::InputContextMenuCapabilities,
-    position: Point<Pixels>,
-    window: &mut Window,
-    cx: &mut App,
-) {
-    use gpui_kit::component::input::{Copy, Cut, Paste, SelectAll};
-    use gpui_kit::component::native_menu::NativeMenu;
-
-    let editable = can.is_editable();
-    NativeMenu::new()
-        .menu_with_disabled("Cut", !(editable && can.is_copyable()), Box::new(Cut))
-        .menu_with_disabled("Copy", !can.is_copyable(), Box::new(Copy))
-        .menu_with_disabled("Paste", !editable, Box::new(Paste))
-        .separator()
-        .menu("Select All", Box::new(SelectAll))
-        .show(position, window, cx);
-}
-
-#[cfg(target_family = "wasm")]
-impl crate::files::FileTarget for Workbench {
-    fn file_event(
-        &mut self,
-        event: crate::files::FileEvent,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        use crate::files::FileEvent;
-
-        match event {
-            FileEvent::Dragging(dragging) => {
-                self.dragging = dragging;
-                cx.notify();
-            }
-            FileEvent::Chosen { file, at, more } => self.file_chosen(file, at, more, window, cx),
+                    .collect(),
+            }),
+            _ => None,
+        };
+        let busy = match &self.load {
+            Load::Opening { sample: true, .. } => Some("sample"),
+            Load::Opening { .. } => Some("file"),
+            _ => None,
+        };
+        FrameView {
+            engine: EngineView::of(&engine),
+            file,
+            busy,
+            message: self.message(cx),
+            panel: seiza::perf::is_visible(cx),
         }
+    }
+
+    /// Sends the frame's state to the page when it changed.
+    fn publish_frame(&mut self, cx: &App) {
+        let view = self.frame_view(cx);
+        if self.shown_frame.as_ref() == Some(&view) {
+            return;
+        }
+        #[cfg(target_family = "wasm")]
+        crate::frame::publish(&view);
+        self.shown_frame = Some(view);
     }
 }
 
@@ -1836,35 +1494,19 @@ impl Render for Workbench {
             self.mark_csv_shown();
         }
         self.publish(window, cx);
+        self.publish_frame(cx);
 
-        let content = match &self.load {
-            Load::Open {
-                summary,
-                table,
-                csv,
-                ..
-            } => v_flex()
-                .size_full()
-                .p_4()
-                .gap_3()
-                .child(self.render_summary(summary, csv.as_ref(), window, cx))
-                .child(div().flex_1().min_h_0().child(TallTable::new(table))),
-            _ => v_flex().size_full().p_4().child(self.render_empty(cx)),
-        };
         div()
-            .key_context(CONTEXT)
             // Focusable only so lost focus has somewhere to go back to (see
             // `new`): a press here must not take focus from the table. Bubble
             // listeners run in reverse, so this runs before the root's own
-            // focus-on-press, after the table's and the input's.
+            // focus-on-press, after the table's.
             .track_focus(&self.focus_handle)
             .on_any_mouse_down(|_, window, _| window.prevent_default())
-            .on_action(cx.listener(Self::focus_jump))
-            .relative()
             .size_full()
-            .child(content)
-            .when(self.dragging, |this| {
-                this.child(Self::render_drop_target(cx))
+            .children(match &self.load {
+                Load::Open { table, .. } => Some(TallTable::new(table)),
+                _ => None,
             })
     }
 }

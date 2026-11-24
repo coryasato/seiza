@@ -1,0 +1,74 @@
+/*
+ * Tycho's token file: every color the page and the table use, dark and
+ * light, from the design canvas's Theme board (its values converted to
+ * oklch). The one source for both: the DOM reads these variables, and
+ * `crate/build.rs` reads this file into the table's colors
+ * (`crate/src/theme.rs`), so the two can't drift. Each line is
+ * `--name: oklch(L C H)` or `oklch(L C H / A%)`; the build fails on any
+ * other form. `index.html`'s head script sets `data-theme` before the page
+ * paints. Why a theme of its own: `docs/DECISIONS.md`, "Scope", 2026-11-20.
+ */
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: oklch(0.159 0.007 271); /* The table's ground and the page behind it */
+  --surface: oklch(0.186 0.009 264); /* Bars and side panels */
+  --surface-raised: oklch(0.222 0.013 264); /* Inputs, an open profile, a hovered row */
+  --surface-active: oklch(0.264 0.016 264); /* The active list row, secondary buttons */
+  --border-subtle: oklch(0.226 0.013 264); /* Lines between rows and cells */
+  --border: oklch(0.268 0.016 264); /* Lines between regions */
+  --border-strong: oklch(0.328 0.019 264); /* Inputs, popovers, scrollbar thumbs */
+  --foreground: oklch(0.934 0.007 269); /* Values, names, headings */
+  --foreground-muted: oklch(0.743 0.019 264); /* Labels, secondary cells, icons */
+  --foreground-subtle: oklch(0.622 0.021 263); /* Counts, hints, row numbers, NULL */
+  --accent: oklch(0.783 0.124 76); /* The current state: an active filter, the sort, the selection */
+  --accent-tint: oklch(0.783 0.124 76 / 14%); /* Behind accent text: chips, the selected cell */
+  --accent-fill: oklch(0.783 0.124 76); /* The one primary button */
+  --accent-on: oklch(0.194 0.029 89); /* Text on the primary button */
+  --type-text: oklch(0.738 0.114 260); /* Text columns */
+  --type-number: oklch(0.758 0.109 181); /* Number columns */
+  --type-time: oklch(0.739 0.132 299); /* Timestamp columns */
+  --type-boolean: oklch(0.766 0.116 357); /* Boolean columns */
+  --type-text-tint: oklch(0.738 0.114 260 / 15%); /* Behind a text column's badge */
+  --type-number-tint: oklch(0.758 0.109 181 / 15%); /* Behind a number column's badge */
+  --type-time-tint: oklch(0.739 0.132 299 / 16%); /* Behind a timestamp column's badge */
+  --data-bar: oklch(0.758 0.109 181 / 22%); /* A data bar behind a number */
+  --error: oklch(0.740 0.126 26); /* An error reply, a refused file */
+  --ok: oklch(0.781 0.123 156); /* The engine ready */
+  --haze: oklch(0.159 0.007 271 / 70%); /* The layer over the page while a file is dragged */
+  --haze-foreground: oklch(0.934 0.007 269); /* The haze's heading: dark's foreground in both */
+  --haze-foreground-muted: oklch(0.743 0.019 264); /* The haze's line: dark's muted foreground in both */
+  --shadow: oklch(0 0 0 / 45%); /* Under a popover or the first screen's box */
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --background: oklch(1.000 0.000 0); /* The table's ground and the page behind it */
+  --surface: oklch(0.976 0.003 0); /* Bars and side panels */
+  --surface-raised: oklch(0.949 0.006 265); /* Inputs, an open profile, a hovered row */
+  --surface-active: oklch(0.921 0.009 265); /* The active list row, secondary buttons */
+  --border-subtle: oklch(0.954 0.005 258); /* Lines between rows and cells */
+  --border: oklch(0.919 0.007 269); /* Lines between regions */
+  --border-strong: oklch(0.866 0.012 265); /* Inputs, popovers, scrollbar thumbs */
+  --foreground: oklch(0.200 0.010 268); /* Values, names, headings */
+  --foreground-muted: oklch(0.434 0.026 266); /* Labels, secondary cells, icons */
+  --foreground-subtle: oklch(0.527 0.025 266); /* Counts, hints, row numbers, NULL */
+  --accent: oklch(0.508 0.108 73); /* The current state: an active filter, the sort, the selection */
+  --accent-tint: oklch(0.719 0.139 75 / 16%); /* Behind accent text: chips, the selected cell */
+  --accent-fill: oklch(0.783 0.124 76); /* The one primary button */
+  --accent-on: oklch(0.194 0.029 89); /* Text on the primary button */
+  --type-text: oklch(0.509 0.168 260); /* Text columns */
+  --type-number: oklch(0.521 0.091 181); /* Number columns */
+  --type-time: oklch(0.507 0.209 292); /* Timestamp columns */
+  --type-boolean: oklch(0.526 0.165 358); /* Boolean columns */
+  --type-text-tint: oklch(0.509 0.168 260 / 10%); /* Behind a text column's badge */
+  --type-number-tint: oklch(0.521 0.091 181 / 10%); /* Behind a number column's badge */
+  --type-time-tint: oklch(0.507 0.209 292 / 10%); /* Behind a timestamp column's badge */
+  --data-bar: oklch(0.521 0.091 181 / 16%); /* A data bar behind a number */
+  --error: oklch(0.501 0.178 29); /* An error reply, a refused file */
+  --ok: oklch(0.526 0.129 152); /* The engine ready */
+  --haze: oklch(0.159 0.007 271 / 70%); /* The layer over the page while a file is dragged: dark in both */
+  --haze-foreground: oklch(0.934 0.007 269); /* The haze's heading: dark's foreground in both */
+  --haze-foreground-muted: oklch(0.743 0.019 264); /* The haze's line: dark's muted foreground in both */
+  --shadow: oklch(0 0 0 / 14%); /* Under a popover or the first screen's box */
+}

@@ -29,7 +29,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium, firefox, webkit, type BrowserType, type LaunchOptions, type Page } from '@playwright/test';
-import { clickTarget, waitMark } from '../../../shared-web/perf/harness.ts';
+import { waitMark } from '../../../shared-web/perf/harness.ts';
 
 const url = new URL(process.argv.find((arg) => /^https?:/.test(arg)) ?? 'http://localhost:5173/');
 url.searchParams.set('bench', '');
@@ -256,8 +256,8 @@ async function lockedRun(page: Page, csv: string): Promise<{ outcomes: Outcome[]
   await waitMark(page, LOCKED_MARK);
   outcomes.push(await beforeLock(page));
 
-  // The sample, through the app's button.
-  await clickTarget(page, 'try-sample');
+  // The sample, through the first screen's row.
+  await page.click('#try-sample');
   await waitWorkbench(page, "w.state === 'open' || w.state === 'failed'");
   const sample = await workbench(page);
   outcomes.push({ what: 'the sample opens', ok: sample?.state === 'open' && (sample.rows ?? 0) > 0, detail: `${sample?.state}, ${sample?.rows} rows${sample?.message ? `: ${sample.message}` : ''}` });
@@ -343,7 +343,8 @@ async function heldRun(page: Page, csv: string): Promise<Outcome[]> {
     detail: `engine ${failed?.engine}, ${registeredEarly.length} registered, locked mark ${(await markTime(page, LOCKED_MARK)) === null ? 'unset' : 'set'}`,
   });
   await page.evaluate(() => ((globalThis as CheckGlobal).__lockFailLoad = false));
-  await clickTarget(page, 'retry-engine');
+  // The status bar's Retry.
+  await page.click('footer [data-action=retry]');
   await waitMark(page, LOCKED_MARK);
   await waitWorkbench(page, "w.state === 'open' && w.ingest !== 'loading' || w.state === 'failed'");
   const opened = await workbench(page);

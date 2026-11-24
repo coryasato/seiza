@@ -1,4 +1,4 @@
-//! A registered file as the header strip shows it: schema, row count, size,
+//! A registered file as the frame shows it: schema, row count, size,
 //! row groups, and the data credit, all read from Parquet metadata with SQL
 //! (the engine's rule 2: no bridge call beyond the three; the queries are
 //! `seiza_duckdb::tall_table`'s).
@@ -10,11 +10,9 @@ use seiza_duckdb::tall_table::ParquetSummary;
 /// built by `just tycho data` and served by the host as a hashed asset,
 /// whose URL it passes to `start`.
 pub mod sample {
-    /// The name the header shows.
+    /// The name the frame shows. Its row's words are the page's
+    /// (`web/src/frame/view.tsx`).
     pub const NAME: &str = "gcat.parquet";
-    /// Its button's label and element id (the Playwright checks click by it).
-    pub const LABEL: &str = "Try the sample: GCAT, every object launched to orbit";
-    pub const TARGET: &str = "try-sample";
 
     /// The sample's URL, from the host.
     pub struct Url(pub gpui_kit::SharedString);

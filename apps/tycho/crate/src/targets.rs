@@ -1,9 +1,7 @@
-//! What Tycho publishes for the Playwright checks: its controls' bounds
-//! (`seiza::targets`, re-exported as [`publish`]), and what the workbench
+//! What Tycho publishes for the Playwright checks: what the workbench
 //! shows, while [`measuring`]. What the table shows goes out through
-//! `tall-table-bridge` (`crate::table::publish`).
-
-pub use seiza::targets::publish;
+//! `tall-table-bridge` (`crate::table::publish`). The frame's controls are
+//! DOM, which the checks press as a visitor does.
 
 /// Whether the page was opened for measuring (`?perf` or `?bench` in the
 /// URL). Hooks only the scripts read, like the table's probes and its
@@ -43,27 +41,23 @@ pub struct WorkbenchProbe<'a> {
     pub message: Option<&'a str>,
     /// The inline line about the last file choice (e.g. not a Parquet file).
     pub notice: Option<&'a str>,
-    pub dragging: bool,
     /// A CSV's load: `loading`, `done`, or `stopped`; null for Parquet.
     pub ingest: Option<&'static str>,
     /// A CSV's bytes read so far, and chunks made.
     pub read_bytes: Option<u64>,
     pub chunks: Option<u64>,
-    /// What the jump input holds.
-    pub jump_text: &'a str,
-    /// The line beside the jump input when the typed text isn't a row.
-    pub jump_refusal: Option<&'a str>,
-    /// What has focus: `jump`, `table`, `workbench`, or null for none.
+    /// What has focus: `table`, `workbench`, or null for none.
     pub focused: Option<&'static str>,
     /// The engine: `loading`, `ready`, `failed`, or `stopped`.
     pub engine: &'static str,
-    /// The empty state's status line (shown only while no file is open).
-    pub status: &'a str,
+    /// The workbench's line in the frame (`crate::frame::FrameView`'s
+    /// `message`), if any.
+    pub status: Option<&'a str>,
 }
 
 /// Publishes what the workbench shows to `globalThis.__tychoWorkbench`:
-/// `{state, name, rows, message, notice, dragging, ingest, readBytes, chunks,
-/// jumpText, jumpRefusal, focused, engine, status}`.
+/// `{state, name, rows, message, notice, ingest, readBytes, chunks,
+/// focused, engine, status}`.
 /// Called every render; the
 /// caller checks [`measuring`].
 pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
@@ -87,18 +81,15 @@ pub fn publish_workbench(probe: &WorkbenchProbe<'_>) {
         );
         set("message", text(probe.message));
         set("notice", text(probe.notice));
-        set("dragging", JsValue::from_bool(probe.dragging));
         let number = |value: Option<u64>| {
             value.map_or(JsValue::NULL, |value| JsValue::from_f64(value as f64))
         };
         set("ingest", text(probe.ingest));
         set("readBytes", number(probe.read_bytes));
         set("chunks", number(probe.chunks));
-        set("jumpText", JsValue::from_str(probe.jump_text));
-        set("jumpRefusal", text(probe.jump_refusal));
         set("focused", text(probe.focused));
         set("engine", JsValue::from_str(probe.engine));
-        set("status", JsValue::from_str(probe.status));
+        set("status", text(probe.status));
         let _ = Reflect::set(
             &js_sys::global(),
             &JsValue::from_str("__tychoWorkbench"),

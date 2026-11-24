@@ -1,0 +1,113 @@
+/*
+ * The page: Tailwind, Tycho's tokens (`tokens.css`, the one token file),
+ * and the frame's layout. The top bar, a phone's engine line, the table's
+ * slot (the canvas, with the first screen over it), and the status bar are
+ * rows of the body's grid; `#root` (React's) is `display: contents`, so its
+ * parts and the slot, which React doesn't own, sit in one grid.
+ */
+
+@import 'tailwindcss';
+@import './tokens.css';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-active: var(--surface-active);
+  --color-border-subtle: var(--border-subtle);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
+  --color-foreground-subtle: var(--foreground-subtle);
+  --color-accent: var(--accent);
+  --color-accent-tint: var(--accent-tint);
+  --color-error: var(--error);
+  --color-ok: var(--ok);
+  /* Plex Sans: Regular registered from the bytes the bootstrap fetches,
+     Medium and SemiBold after the first frame (`main.ts`); until then the
+     browser synthesizes them from Regular. */
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'top' 'line' 'main' 'status';
+    height: 100dvh;
+    background: var(--background);
+    color: var(--foreground);
+    font: 13px/1.4 var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  #root {
+    display: contents;
+  }
+  /* The page's chrome isn't selectable (`docs/DECISIONS.md`, "Scope",
+     2026-11-21, "A key belongs to whatever holds focus"). */
+  header,
+  footer,
+  #first {
+    user-select: none;
+  }
+  button {
+    font: inherit;
+  }
+}
+
+#table-slot {
+  grid-area: main;
+  position: relative;
+  min-height: 0;
+}
+#table-slot > canvas {
+  position: absolute;
+  inset: 0;
+}
+
+/* A file open: the table in place of the first screen. */
+[data-file] #first {
+  display: none;
+}
+
+[data-panel] .ghost {
+  display: none;
+}
+/* The ghost of a table behind the first screen: a header row and rows,
+   with the row numbers' gutter, as the design's. */
+.ghost {
+  background:
+    linear-gradient(var(--border), var(--border)) 0 30px / 100% 1px no-repeat,
+    linear-gradient(var(--border-subtle), var(--border-subtle)) 52px 0 / 1px 100% no-repeat,
+    repeating-linear-gradient(to bottom, transparent 0 29px, var(--border-subtle) 29px 30px) 0 31px / 100% calc(100% - 31px) no-repeat;
+}
+
+.kbd {
+  font: 10.5px/16px var(--font-mono);
+  color: var(--foreground-subtle);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+/* The theme button shows the theme a press switches to. */
+[data-theme='dark'] .theme-light,
+[data-theme='light'] .theme-dark {
+  display: none;
+}
+
+.haze {
+  display: none;
+}
+[data-dragging] .haze {
+  display: flex;
+}

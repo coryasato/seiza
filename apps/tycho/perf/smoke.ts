@@ -1,12 +1,14 @@
-// Smoke check: the shell paints in Chromium, Firefox, and WebKit with no
+// Smoke check: the page paints in Chromium, Firefox, and WebKit with no
 // console errors, the page is cross-origin isolated, and every resize ends
-// with a canvas that followed the new viewport (CSS box and backing store)
-// and is painted edge to edge. Each first frame's time is printed, stored
-// nowhere, and judged against nothing.
+// with a canvas that followed the table's slot (CSS box and backing store)
+// and is painted: the page opens with `?perf`, so the panel draws on the
+// canvas, at its right. Each first frame's time is printed, stored nowhere,
+// and judged against nothing.
 //
 // Rule 2 (root CLAUDE.md), in Chromium on a release build: no request
-// outside the first-paint set (the document, the entry JS, the app wasm, the
-// UI font) starts before `gpui:first-frame`. The page's own requests come
+// outside the first-paint set (the document, the entry JS and CSS, the app
+// wasm, the UI font) starts before `gpui:first-frame`: React, which loads
+// after it, included. The page's own requests come
 // from Resource Timing, on the marks' clock; its workers' (DuckDB's wasm)
 // from Playwright's network events. On the dev server, whose module graph
 // isn't the build's, this part is skipped and says so. --control starts a
@@ -21,7 +23,7 @@ import { chromium, firefox, webkit, type BrowserType, type LaunchOptions, type P
 
 const FIRST_FRAME_MARK = 'gpui:first-frame';
 /** What first paint may wait on in the release build, by path. */
-const FIRST_PAINT_REQUESTS = [/^\/$/, /^\/index\.html$/, /^\/assets\/index-[\w-]+\.js$/, /^\/assets\/tycho_bg-[\w-]+\.wasm$/, /^\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];
+const FIRST_PAINT_REQUESTS = [/^\/$/, /^\/index\.html$/, /^\/assets\/index-[\w-]+\.js$/, /^\/assets\/frame-[\w-]+\.css$/, /^\/assets\/tycho_bg-[\w-]+\.wasm$/, /^\/assets\/IBMPlexSans-Regular-[\w-]+\.ttf$/];
 /** How long after the first frame to keep listening, so a request that
  *  started before it but was reported late is still seen. */
 const SETTLE_MS = 1000;
@@ -62,25 +64,30 @@ interface CanvasSize {
   cssHeight: number;
   width: number;
   height: number;
+  /** The table's slot, which the canvas fills, in CSS pixels. */
+  slot: { x: number; y: number; width: number; height: number };
 }
 
 async function canvasSize(page: Page): Promise<CanvasSize | null> {
   return page.evaluate(() => {
-    const element = document.querySelector('canvas');
-    if (!element) return null;
+    const slot = document.getElementById('table-slot');
+    const element = slot?.querySelector('canvas');
+    if (!slot || !element) return null;
     const rect = element.getBoundingClientRect();
-    return { cssWidth: rect.width, cssHeight: rect.height, width: element.width, height: element.height };
+    const box = slot.getBoundingClientRect();
+    return { cssWidth: rect.width, cssHeight: rect.height, width: element.width, height: element.height, slot: { x: box.x, y: box.y, width: box.width, height: box.height } };
   });
 }
 
-/** Whether the canvas followed a resize: its CSS box fills the new viewport,
+/** Whether the canvas followed a resize: its CSS box fills the table's slot,
  *  and its backing store kept the same backing/CSS ratio it had at first
  *  paint. A canvas that failed to shrink or grow, or kept a stale backing
  *  image, fails here even when the screenshot looks painted. The ratio is
  *  compared to itself rather than to devicePixelRatio, because DPR emulation
  *  isn't consistent across engines (see ENGINES). */
-function followsResize(canvas: CanvasSize | null, size: { width: number; height: number }, ratio: number): string | null {
-  if (!canvas) return 'no canvas';
+function followsResize(canvas: CanvasSize | null, ratio: number): string | null {
+  if (!canvas) return 'no canvas in the table\'s slot';
+  const size = canvas.slot;
   const expected = { width: Math.round(size.width * ratio), height: Math.round(size.height * ratio) };
   const ok =
     Math.abs(canvas.cssWidth - size.width) <= 1 &&
@@ -92,20 +99,20 @@ function followsResize(canvas: CanvasSize | null, size: { width: number; height:
     : `css ${canvas.cssWidth}x${canvas.cssHeight}, backing ${canvas.width}x${canvas.height}, expected backing ${expected.width}x${expected.height}`;
 }
 
-/** Decodes a PNG in the page and reports whether the title bar row at the
- *  far right edge was drawn. A blank frame leaves that edge as bare page
- *  background. */
-async function isPainted(page: Page, png: Buffer): Promise<boolean> {
-  return page.evaluate(async (base64) => {
+/** Decodes a PNG in the page and reports whether the canvas drew at its
+ *  right, where the perf panel is: a column 24 CSS px in from the slot's
+ *  right edge, down the slot. A blank canvas leaves it bare page
+ *  background, one color top to bottom. */
+async function isPainted(page: Page, png: Buffer, slot: CanvasSize['slot']): Promise<boolean> {
+  return page.evaluate(async ({ base64, slot }) => {
     const image = new Image();
     image.src = `data:image/png;base64,${base64}`;
     await image.decode();
     const canvas = new OffscreenCanvas(image.width, image.height);
     const context = canvas.getContext('2d')!;
     context.drawImage(image, 0, 0);
-    // The title bar's bottom border spans the full width. Scan a column at the
-    // far right edge for any pixel that differs from the one in the corner.
-    const column = context.getImageData(image.width - 4, 0, 1, Math.min(image.height, 120)).data;
+    const scale = image.width / innerWidth;
+    const column = context.getImageData(Math.round((slot.x + slot.width - 24) * scale), Math.round(slot.y * scale), 1, Math.round(slot.height * scale)).data;
     const [r, g, b] = [column[0], column[1], column[2]];
     for (let i = 4; i < column.length; i += 4) {
       if (Math.abs(column[i]! - r!) + Math.abs(column[i + 1]! - g!) + Math.abs(column[i + 2]! - b!) > 6) {
@@ -113,7 +120,7 @@ async function isPainted(page: Page, png: Buffer): Promise<boolean> {
       }
     }
     return false;
-  }, png.toString('base64'));
+  }, { base64: png.toString('base64'), slot });
 }
 
 /**
@@ -188,7 +195,10 @@ async function run({ name, type, launch, deviceScaleFactor }: (typeof ENGINES)[n
       if (entry && start > 0) entry.wallMs = start;
     });
 
-    await page.goto(url);
+    // The panel draws on the canvas: what `isPainted` looks for.
+    const target = new URL(url);
+    target.searchParams.set('perf', '');
+    await page.goto(target.href);
     result.firstFrameMs = await page
       .waitForFunction(
         (mark) => performance.getEntriesByName(mark, 'mark')[0]?.startTime ?? false,
@@ -206,11 +216,16 @@ async function run({ name, type, launch, deviceScaleFactor }: (typeof ENGINES)[n
     result.backingRatio = ratio;
     for (const size of RESIZES) {
       await page.setViewportSize(size);
+      // GPUI redraws in its ResizeObserver's callback; until a frame has
+      // passed, WebKit's screenshot can hold the last size's image,
+      // stretched.
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
       const png = await page.screenshot();
       const label = `${size.width}x${size.height}`;
       if (outDir) writeFileSync(join(outDir, `${name}-${label}.png`), png);
-      if (!(await isPainted(page, png))) result.blankFrames.push(label);
-      const mismatch = followsResize(await canvasSize(page), size, ratio);
+      const canvas = await canvasSize(page);
+      if (!canvas || !(await isPainted(page, png, canvas.slot))) result.blankFrames.push(label);
+      const mismatch = followsResize(canvas, ratio);
       if (mismatch) result.sizeMismatches.push(`${label}: ${mismatch}`);
     }
   } catch (error) {

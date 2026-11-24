@@ -309,3 +309,16 @@ No results note: the part measured nothing.
 - **The sample and a dropped copy of it share a name,** so a check waiting on the probe's name passed before the drop was read (Firefox, once). It waits for a new `tycho:file-open` mark now.
 - **A remote file read under the directory in Firefox and WebKit, and got a 416 in Chromium** on a URL the page had already downloaded whole. Recorded for "Open from a URL", not chased: no remote file opens before it.
 - **SUMMARIZE's failure on GCAT is infinity:** 51 escape trajectories' `apogee_km` (`docs/DECISIONS.md`, "Sample data").
+
+## M12 part B: the frame in the DOM (2026-11-23)
+
+No results note: the part's one number, the weight before first paint (2918.1 KiB brotli against 3044.5), is in PLAN's evidence.
+
+**Surprises:**
+- **The slice cost the same code both ways; the bytes didn't.** React with Base UI was 104 KiB brotli to plain TypeScript's 3, for about the same lines. Loading React after the first frame took its bytes off the path for the price of a small core that runs the prerendered page until it hydrates.
+- **GPUI adds more than one canvas to `<body>`.** An observer that moved the first canvas it saw and stopped moved the wrong one; it watches for the page's life now.
+- **Moving the canvas was free.** gpui-pre-web reads pointer positions and the viewport relative to the canvas itself, so in a slot under a DOM top bar it needed nothing more.
+- **A page call that sets a global the workbench observes, made inside the workbench's update, panicked** ("cannot update Workbench while it is already being updated"). The page's calls run with the window and the app now, and only the ones that are the workbench's lease it.
+- **A global changed from outside a window event redraws nothing.** The panel's key, called in from the page, flipped the panel's state and drew no panel until the window was refreshed after the call.
+- **Firefox's GPUI kept Ctrl+Shift+L from bubbling** with the table in focus, where Chromium's and WebKit's let it through, so the page's keys are taken on the way down. GPUI also takes focus for its own input as its window opens, after the page gave it to the first screen.
+- **The new paint check caught a stale frame the old one passed.** Looking inside the canvas, not at a title bar that's DOM now, found WebKit's screenshot right after a resize still holding the last size's image, stretched; one frame's wait settles it.
