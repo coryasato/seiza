@@ -43,6 +43,11 @@ pub struct FrameView {
 pub struct Answer {
     /// Counts answers, so the same words twice are two.
     pub seq: u32,
+    /// The command it answers, as [`command`] numbered it; 0 for an answer
+    /// to no command (the way back refused). The bar shows and acts on its
+    /// own command's answer alone: one to an earlier command can arrive
+    /// after the next is sent.
+    pub ask: u32,
     /// `done` (the steps that ran, `text` the reply), `refused`,
     /// `sentence`, `later`, `open`, `nofile`, `undone`, or `nothing` (no
     /// step to undo).
@@ -122,7 +127,7 @@ pub use web::{Frame, connect, publish};
 
 #[cfg(target_family = "wasm")]
 mod web {
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
 
     use gpui_kit::{AnyWindowHandle, App, AsyncApp, WeakEntity, Window};
     use js_sys::{Array, Object, Reflect};
@@ -173,6 +178,8 @@ mod web {
         /// once, outside GPUI's turn, so the workbench leaves it here
         /// ([`set_catalog`]) each time it changes.
         static CATALOG: RefCell<Option<Catalog>> = const { RefCell::new(None) };
+        /// The commands sent, numbering each for its answer.
+        static ASKS: Cell<u32> = const { Cell::new(0) };
     }
 
     /// Where [`publish`] sends the frame's state: from `start`.
@@ -340,13 +347,17 @@ mod web {
 
     /// The command bar's Enter: `text` typed or pasted (`source`: `typed`,
     /// `pasted`, or `click`, an item of the bar's list). Its answer comes
-    /// in the frame's state, and its entry in the log.
+    /// in the frame's state, carrying the number this returns
+    /// (`Answer::ask`), and its entry in the log.
     #[wasm_bindgen]
-    pub fn command(text: String, source: String) {
+    pub fn command(text: String, source: String) -> u32 {
         let origin = Origin::named(&source);
+        let ask = ASKS.get() + 1;
+        ASKS.set(ask);
         send(on_workbench(move |workbench, window, cx| {
-            workbench.command(&text, origin, window, cx)
+            workbench.command(&text, origin, ask, window, cx)
         }));
+        ask
     }
 
     /// The bar's completion for `text` with its caret at `caret` (UTF-16

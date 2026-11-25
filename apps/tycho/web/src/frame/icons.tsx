@@ -37,6 +37,19 @@ const PATHS = {
     </>
   ),
   check: <path d="M3.5 8.5l3 3 6-7" />,
+  panelr: (
+    <>
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M10 3v10" />
+    </>
+  ),
+  pointer: <path d="M4 2.5l8 5-3.6.9L7 12z" />,
+  keyboard: (
+    <>
+      <rect x="1.5" y="4" width="13" height="8" rx="1.5" />
+      <path d="M4.5 9.5h7" />
+    </>
+  ),
 };
 
 export type IconName = keyof typeof PATHS;

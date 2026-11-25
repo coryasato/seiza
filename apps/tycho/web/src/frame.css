@@ -63,11 +63,23 @@
      2026-11-21, "A key belongs to whatever holds focus"). */
   header,
   footer,
-  #first {
+  #first,
+  #log,
+  #log-sheet {
     user-select: none;
   }
   button {
     font: inherit;
+  }
+}
+
+/* The right panel open, beside the table (`frame/log.tsx`): a column of
+   the grid, so the table's slot, and the canvas in it, narrows. At a phone
+   it's a sheet over the table instead. */
+@media (width >= 40rem) {
+  html[data-file][data-log] body {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'top top' 'line line' 'main side' 'status status';
   }
 }
 

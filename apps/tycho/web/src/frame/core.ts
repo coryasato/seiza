@@ -16,8 +16,9 @@ export interface App {
   retry_engine(): void;
   set_theme(dark: boolean): void;
   toggle_perf(): void;
-  /** The command bar's Enter; its answer comes in the frame's state. */
-  command(text: string, source: 'typed' | 'pasted' | 'click'): void;
+  /** The command bar's Enter; its answer comes in the frame's state,
+   *  carrying the number this returns (`Answer.ask`). */
+  command(text: string, source: 'typed' | 'pasted' | 'click'): number;
   /** At once: the bar's completion, the caret in UTF-16 units. */
   complete(text: string, caret: number): Completion;
   /** The log's way back on an entry. */
@@ -89,6 +90,7 @@ const ACTIONS: Record<string, () => void> = {
     call((app) => app.open_sample(at));
   },
   retry: () => call((app) => app.retry_engine()),
+  log: () => setLogOpen(!logOpen),
   theme: () => {
     followSystem = false;
     setTheme(!isDark());
@@ -122,8 +124,10 @@ function highlight(rows: HTMLElement[], index: number): void {
   rows.forEach((row, i) => row.toggleAttribute('data-highlighted', i === index));
 }
 
-/** The first screen's box before React: its arrows, Enter (a row, or a
- *  command typed, answered that a file opens first), and always, while
+/** The first screen's box before React: its arrows, Enter (the row
+ *  highlighted: a typed line is answered only once React draws the box,
+ *  a stand-in until the box takes a URL, `docs/DECISIONS.md`, "Scope",
+ *  2026-11-24), and always, while
  *  its input is empty, a row's letter (`docs/DECISIONS.md`, "Scope",
  *  2026-11-24: with no file there's nothing for a command to act on, so
  *  the letters cost nothing). */
@@ -143,10 +147,7 @@ function firstKeys(input: HTMLInputElement, event: KeyboardEvent): void {
   const at = rows.findIndex((row) => row.hasAttribute('data-highlighted'));
   if (event.key === 'ArrowDown') highlight(rows, (at + 1) % rows.length);
   else if (event.key === 'ArrowUp') highlight(rows, (at - 1 + rows.length) % rows.length);
-  else if (event.key === 'Enter' && input.value.trim()) {
-    const text = input.value;
-    call((app) => app.command(text, 'typed'));
-  } else if (event.key === 'Enter') rows[Math.max(at, 0)]?.click();
+  else if (event.key === 'Enter') rows[Math.max(at, 0)]?.click();
   else return;
   event.preventDefault();
 }
@@ -182,6 +183,30 @@ export function closeBar(to: 'back' | 'table' | 'none'): void {
   const back = to === 'back' && barReturn?.isConnected ? barReturn : canvasKeys();
   barReturn = null;
   if (to !== 'none') back?.focus({ preventScroll: true });
+}
+
+/** The right panel, its Log tab (`log.tsx` draws it): collapsed until the
+ *  top bar's button opens it, and open or not across files. What CSS lays
+ *  out rides on the root's `data-log` (the table's slot gives it a column). */
+let logOpen = false;
+const logListeners = new Set<() => void>();
+export const isLogOpen = (): boolean => logOpen;
+export function subscribeLog(listener: () => void): () => void {
+  logListeners.add(listener);
+  return () => logListeners.delete(listener);
+}
+export function setLogOpen(open: boolean): void {
+  if (open === logOpen) return;
+  logOpen = open;
+  root().toggleAttribute('data-log', open);
+  for (const listener of logListeners) listener();
+}
+
+/** The log's way back on an entry: the view it names, given back. The
+ *  app gives the table the keys once it is, and says why where it isn't
+ *  (the frame's line), focus left on the button. */
+export function backTo(entry: number): void {
+  call((app) => app.back_to(entry));
 }
 
 /** Cmd/Ctrl+K: the bar, wherever focus is. With no file, the first

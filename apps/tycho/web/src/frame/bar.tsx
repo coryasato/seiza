@@ -306,9 +306,11 @@ export function CommandBox({ place, state }: { place: Place; state: FrameState }
   const pasting = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const highlighted = useRef<Entry | undefined>(undefined);
-  /** The answer shown is one that came after the text last changed. */
-  const [since, setSince] = useState(state.answer?.seq ?? 0);
-  /** The seq a command of this box's was sent after, until it's answered. */
+  /** The command whose answer is shown: this box's last, until the text
+   *  changes. An answer to another command (one sent before, answered
+   *  late) is never shown or acted on (`Answer.ask`). */
+  const [shown, setShown] = useState<number | null>(null);
+  /** This box's command still to be answered. */
   const asked = useRef<number | null>(null);
   const nextCaret = useRef<number | null>(null);
 
@@ -321,13 +323,12 @@ export function CommandBox({ place, state }: { place: Place; state: FrameState }
     // `state` changes as the view does (a command ran, a column dragged).
   }, [place, text, caret, state]);
 
-  const answer = state.answer && state.answer.seq > since && text.trim() !== '' ? state.answer : null;
+  const answer = state.answer && shown !== null && state.answer.ask === shown && text.trim() !== '' ? state.answer : null;
 
   // A command that ran closes the bar and gives the table the keys; any
   // other answer stays in it.
   useEffect(() => {
-    const seq = state.answer?.seq ?? 0;
-    if (asked.current === null || seq <= asked.current) return;
+    if (asked.current === null || state.answer?.ask !== asked.current) return;
     asked.current = null;
     if (place === 'bar' && (state.answer!.kind === 'done' || state.answer!.kind === 'undone')) closeBar('table');
   }, [state.answer, place]);
@@ -342,14 +343,15 @@ export function CommandBox({ place, state }: { place: Place; state: FrameState }
 
   const edit = (next: string) => {
     setText(next);
-    setSince(state.answer?.seq ?? 0);
+    setShown(null);
   };
 
   const run = () => {
     const app = appNow();
     if (!app || text.trim() === '') return;
-    asked.current = state.answer?.seq ?? 0;
-    app.command(text, pasted.current ? 'pasted' : 'typed');
+    const ask = app.command(text, pasted.current ? 'pasted' : 'typed');
+    asked.current = ask;
+    setShown(ask);
   };
 
   /** An item put in place of the part being typed; a verb takes a space

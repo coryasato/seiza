@@ -48,6 +48,9 @@ export interface LogEntry {
 export interface Answer {
   /** Counts answers: the same words twice are two. */
   seq: number;
+  /** The command it answers (what `App.command` returned); 0 for an
+   *  answer to no command. */
+  ask: number;
   kind: 'done' | 'refused' | 'sentence' | 'later' | 'open' | 'nofile' | 'undone' | 'nothing';
   text: string;
   /** The steps that ran, in plain words. */

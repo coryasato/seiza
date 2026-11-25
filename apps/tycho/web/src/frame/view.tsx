@@ -3,7 +3,8 @@
  * (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21), scaled back
  * to what Tycho has now: the top bar (the file's name and its menu of
  * facts, and the command bar, `bar.tsx`), the first screen (the bar,
- * open), the status bar, and the drop's haze; at a
+ * open), the right panel's log (`log.tsx`), the status bar, and the
+ * drop's haze; at a
  * phone, no status bar, its facts in the file's menu and the engine's
  * state a line under the top bar. React draws the state the app publishes
  * (`state.ts`); what a control does is `core.ts`'s, by its `data-action`,
@@ -16,6 +17,7 @@ import { Popover } from '@base-ui/react/popover';
 import { useSyncExternalStore } from 'react';
 import { CommandBox, TopBarCommand } from './bar.tsx';
 import { Icon, Logo } from './icons.tsx';
+import { LogButton, LogPanel } from './log.tsx';
 import { getState, INITIAL, subscribe, type FrameState, type Line } from './state.ts';
 
 /** The app's state; the prerendered page's while hydrating. */
@@ -129,6 +131,7 @@ function TopBar({ state }: { state: FrameState }) {
           <Icon name="sun" className="theme-dark" />
           <Icon name="moon" className="theme-light" />
         </button>
+        {state.file && <LogButton />}
       </div>
     </header>
   );
@@ -236,6 +239,7 @@ export function Frame() {
       <TopBar state={state} />
       <PhoneLine state={state} />
       <FirstScreen state={state} />
+      <LogPanel state={state} />
       <StatusBar state={state} />
       <Haze />
     </>

@@ -198,6 +198,24 @@ impl Log {
         );
     }
 
+    /// A CSV read on: its rows so far, in every entry's reply that counts
+    /// them, since each counts the file's rows (with no filter yet, every
+    /// view shows them all) and the opening's was the first chunk's.
+    pub fn set_rows(&mut self, rows: u64) {
+        let mut changed = false;
+        for entry in &mut self.entries {
+            if let Reply::Rows { rows: counted, .. } = &mut entry.reply
+                && *counted != rows
+            {
+                *counted = rows;
+                changed = true;
+            }
+        }
+        if changed {
+            self.changed();
+        }
+    }
+
     /// No file: no log.
     pub fn clear(&mut self) {
         if !self.entries.is_empty() {
@@ -622,6 +640,47 @@ mod tests {
             log.entries()[0].command.as_deref(),
             Some("open \"other file.parquet\"")
         );
+    }
+
+    #[test]
+    fn a_csv_read_on_counts_its_rows_in_every_entry() {
+        let mut log = Log::default();
+        log.open("quakes.csv", &file(), Origin::Drop, 1.0);
+        log.step(
+            Some("pin mag".into()),
+            "Pin mag".into(),
+            Reply::of(&arranged(&[1, 0, 2, 3], 1)),
+            Origin::Typed,
+            2.0,
+            arranged(&[1, 0, 2, 3], 1).view(),
+        );
+        log.note(
+            Some("pin nope".into()),
+            "Pin nope".into(),
+            Reply::Error("No column nope.".into()),
+            Origin::Typed,
+            3.0,
+        );
+        let revision = log.view().revision;
+        log.set_rows(71_431);
+        let view = log.view();
+        assert!(view.revision > revision);
+        let replies: Vec<&str> = view
+            .entries
+            .iter()
+            .map(|entry| entry.reply.as_str())
+            .collect();
+        assert_eq!(
+            replies,
+            [
+                "71,431 rows · 4 columns",
+                "71,431 rows · 4 columns",
+                "No column nope."
+            ]
+        );
+        // The same count again changes nothing the page would draw.
+        log.set_rows(71_431);
+        assert_eq!(log.view().revision, view.revision);
     }
 
     #[test]

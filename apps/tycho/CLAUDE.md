@@ -30,10 +30,10 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 | Folder | What it is | Its file |
 |---|---|---|
 | `crate/` | The app: the workbench, the controller and its view state, the command bar's grammar and the log, the frame's state and the page's calls, the theme, the table's source, the engine's events, files, CSV, errors and limits | `crate/CLAUDE.md` |
-| `web/` | The Vite host and the page's frame (React, prerendered): the top bar, the first screen, the status bar, the token file, the canvas's slot | `web/CLAUDE.md` |
+| `web/` | The Vite host and the page's frame (React, prerendered): the top bar, the first screen, the command bar, the log's panel, the status bar, the token file, the canvas's slot | `web/CLAUDE.md` |
 | `worker/` | Hosting: the Worker, R2 (DuckDB's two wasm bundles), the deploy, production's pause switch | `worker/CLAUDE.md` |
 | `data/` | The sample's build (GCAT), and the test files built from the observatory's asteroid sample | `data/CLAUDE.md` |
-| `perf/` | The checks (the wasm's size, smoke, the lockdown, the engine end to end, the view state), the 1 GB memory check by hand, the probes the crate publishes; `results/`, version 1's measurements, as history | `perf/CLAUDE.md` |
+| `perf/` | The checks (the wasm's size, smoke, the lockdown, the engine end to end, the view state, the command bar and the log), the 1 GB memory check by hand, the probes the crate publishes; `results/`, version 1's measurements, as history | `perf/CLAUDE.md` |
 
 A new folder whose detail only its own work needs gets its own `CLAUDE.md` and a row here.
 
@@ -68,7 +68,7 @@ One line each; each recipe's line is in its folder's `CLAUDE.md` (in brackets), 
 just tycho data | data-deps | drop-files               # the sample, data/'s native DuckDB, the test files (data)
 just tycho extensions                                   # the DuckDB extensions the engine pins, into web/public/duckdb-ext/ (web)
 just tycho worker-check | deploy | pause | resume       # the Worker's checks, the deploy, production's pause switch (worker)
-just tycho smoke [url] | lockdown [url] | engine [url] | view [url] | home-paths   # checks (perf)
+just tycho smoke [url] | lockdown [url] | engine [url] | view [url] | command [url] | home-paths   # checks (perf)
 ```
 
 ```

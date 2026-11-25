@@ -370,3 +370,17 @@ No results note: the part's numbers, the wasm's size (2856.9 KiB brotli against 
 - **Enter on a highlighted item is a DOM click,** which bubbles to the page's one `data-action` listener: a row opens its file the same way before React and after, with nothing of its own in React.
 - **The code review found what the scripts never pressed:** a paste's change event clearing the paste's own mark, the bar's open state outliving the file it was opened over (a sample chosen from the bar reopened it over the next), and Tab writing back a whole command's hidden match, which renders nothing and left a caret for the next keystroke. It also found Part A's `pin` answered as done when the table couldn't draw it pinned: the count isn't clamped, only the run in effect is, so it's read after the plan is applied and the view given back when a pinned step's column isn't in it.
 - **A test's select-all is the platform's:** Ctrl+A in headless Chromium on a Mac selected nothing, so text was appended and read as a mistyped verb; `ControlOrMeta+a` did it.
+
+## M13 part C: the log, the checks, and the close (2026-11-24)
+
+No results note: the part's numbers, the wasm's size (2856.9 KiB brotli against the 2854.8 baseline) and the weight before first paint (2957.6 KiB), are in the milestone's evidence.
+
+**Surprises:**
+- **The check found a race the code review had no way to see:** the bar took the newest answer for its command's, so a sentence's answer arriving after the bar had closed was read by the next bar as its own, which then never closed on its `done`. It showed only on the release build in Chromium, two runs in three, where the answer was slower than the keys. Numbering each command and carrying the number on its answer ended it.
+- **The check passed on the preview, not the answer:** the sentence's preview says "Tycho reads commands, not sentences" before Enter, so a check waiting on those words passed before the app answered, which is how the late answer got into the next bar. It waits for the answer's period now.
+- **Playwright types `insertText` as an IME's composition in Firefox,** so a paste built from it reached the bar as typing; a check's paste is the paste event and one `insertFromPaste` input, as a browser sends it.
+- **Base UI's Drawer answered open question 9 with no code of its own:** its snap points (a fraction of the page and a pixel height) and a non-modal mode give the sheet's height, its drag, and a table still in reach above it.
+- **The code review found a decision that had drifted from the design:** part B made the first screen's box a command bar for good, with a URL added to it, where the Start boards draw a URL field; its finding (a line typed before React lost its answer) went away once the entry was corrected, with the path it was about.
+- **A table's pinned run reads 0 until its first layout,** so a `pin` in that moment looked too wide; nothing in the table says it has a width, so the workbench takes its scrollbar's first report.
+- **Narrowing the table's slot needed nothing of the canvas:** a grid column for the panel, and GPUI's resize observer redrew it at the new width in every browser.
+

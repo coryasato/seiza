@@ -316,12 +316,18 @@ const CSV_ROWS_MARK: &str = "tycho:csv-rows";
 #[cfg(target_family = "wasm")]
 const CSV_DONE_MARK: &str = "tycho:csv-done";
 
-/// A line about the last file choice that didn't replace what's shown: a
-/// file Tycho can't open, or extra files in one drop.
+/// A line about something that didn't replace what's shown: a file Tycho
+/// can't open, extra files in one drop, or a way back refused.
 #[derive(Clone)]
 struct Notice {
     text: SharedString,
     error: bool,
+    /// A way back refused: cleared by the next that works.
+    #[cfg_attr(
+        not(target_family = "wasm"),
+        expect(dead_code, reason = "only the web build takes a way back")
+    )]
+    back: bool,
 }
 
 #[cfg_attr(
@@ -384,6 +390,13 @@ pub struct Workbench {
     /// new answer from the same words again by its count).
     answer: Option<Answer>,
     answers: u32,
+    /// The command being run (`crate::frame::command`'s number), which
+    /// its answer carries; 0 between commands.
+    asking: u32,
+    /// The table that has been laid out at a width (its scrollbar's track
+    /// reported with a height): until then its pinned run in effect reads
+    /// 0, which says nothing of what it will draw.
+    laid_out: Option<EntityId>,
     /// Where the file opening now came from, for its log entry.
     origin: Origin,
     /// Each column's width as drawn, by index, after the table's last
@@ -469,6 +482,8 @@ impl Workbench {
             log: Log::default(),
             answer: None,
             answers: 0,
+            asking: 0,
+            laid_out: None,
             origin: Origin::Pick,
             drawn: Vec::new(),
             shown_catalog: None,
@@ -623,6 +638,7 @@ impl Workbench {
                     this.notice = Some(Notice {
                         text: text.into(),
                         error: true,
+                        back: false,
                     });
                     cx.notify();
                     return;
@@ -634,6 +650,7 @@ impl Workbench {
                     )
                     .into(),
                     error: false,
+                    back: false,
                 });
                 this.origin = from;
                 if kind == Ok(Kind::Csv) {
@@ -1078,6 +1095,7 @@ impl Workbench {
                 }
                 summary.rows += chunk.rows;
                 view.set_rows(summary.rows);
+                self.log.set_rows(summary.rows);
                 load.read = chunk.bytes_read as u64;
                 load.chunks += 1;
                 load.slowest_ms = load.slowest_ms.max(chunk.ms);
@@ -1192,6 +1210,11 @@ impl Workbench {
             // they change.
             if current {
                 crate::table::publish(event);
+                if let TallTableEvent::Scrollbar { track, .. } = event
+                    && track.size.height > px(0.)
+                {
+                    this.laid_out = Some(table.entity_id());
+                }
                 if matches!(
                     event,
                     TallTableEvent::ColumnWidthsChanged(_)
@@ -1668,6 +1691,21 @@ impl Workbench {
         &mut self,
         text: &str,
         origin: Origin,
+        ask: u32,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // Every answer the command gives is given before it returns.
+        self.asking = ask;
+        self.run_command(text, origin, window, cx);
+        self.asking = 0;
+    }
+
+    #[cfg(target_family = "wasm")]
+    fn run_command(
+        &mut self,
+        text: &str,
+        origin: Origin,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
@@ -1719,7 +1757,14 @@ impl Workbench {
                     Err(refusal) => {
                         let lines = steps.iter().map(Step::written).collect::<Vec<_>>();
                         let words = steps.iter().map(Step::words).collect::<Vec<_>>();
-                        self.refused(lines.join("\n"), words.join("\n"), &refusal, origin, at, cx);
+                        self.refused(
+                            shorten(&lines.join("\n")),
+                            shorten(&words.join("\n")),
+                            &refusal,
+                            origin,
+                            at,
+                            cx,
+                        );
                     }
                     Ok(plan) => self.run(plan, origin, at, window, cx),
                 },
@@ -1745,14 +1790,18 @@ impl Workbench {
             return;
         };
         let table = table.clone();
-        let lines = plan
-            .steps
-            .iter()
-            .map(|step| step.line.as_str())
-            .collect::<Vec<_>>()
-            .join("\n");
+        let laid_out = self.laid_out == Some(table.entity_id());
+        // Capped, as a typed line is: a pasted action can be any length.
+        let lines = shorten(
+            &plan
+                .steps
+                .iter()
+                .map(|step| step.line.as_str())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        );
         let steps: Vec<String> = plan.steps.iter().map(|step| step.words.clone()).collect();
-        let words = steps.join("\n");
+        let words = shorten(&steps.join("\n"));
         let reply = if plan.changed {
             let before = (**view).clone();
             let columns = !view.same_columns(&plan.view);
@@ -1768,7 +1817,9 @@ impl Workbench {
             // width) leaves its column scrolling: the action is refused,
             // all or none, and the view given back. The table's events
             // from both come back as no change.
-            if let Some(refusal) = plan.undrawn_pin(view, drawn) {
+            // Before the table's first layout its run in effect reads 0
+            // whatever fits, so it's judged only once the table has a width.
+            if laid_out && let Some(refusal) = plan.undrawn_pin(view, drawn) {
                 **view = before;
                 let calls = view.calls();
                 let pinned = table.update(cx, |table, cx| {
@@ -1831,13 +1882,15 @@ impl Workbench {
     #[cfg(target_family = "wasm")]
     fn undo(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.log.undo_target() {
-            Some(target) => {
-                if self.restore(&target.view, window, cx) {
+            Some(target) => match self.restore(&target.view, window, cx) {
+                Ok(true) => {
                     self.log.go(&target);
                     let text = format!("Back to: {}", target.words);
                     self.say("undone", text, Vec::new(), false, cx);
                 }
-            }
+                Ok(false) => {}
+                Err(text) => self.say("refused", text, Vec::new(), true, cx),
+            },
             None => self.say("nothing", "Nothing to undo.".into(), Vec::new(), false, cx),
         }
     }
@@ -1847,26 +1900,48 @@ impl Workbench {
     /// file since replaced, does nothing.
     #[cfg(target_family = "wasm")]
     pub(crate) fn back_to(&mut self, id: u32, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(target) = self.log.back_target(id)
-            && self.restore(&target.view, window, cx)
-        {
-            self.log.go(&target);
-            cx.notify();
+        let Some(target) = self.log.back_target(id) else {
+            return;
+        };
+        match self.restore(&target.view, window, cx) {
+            Ok(true) => {
+                self.log.go(&target);
+                // A refused way back's line goes with the next that works.
+                if self.notice.as_ref().is_some_and(|notice| notice.back) {
+                    self.notice = None;
+                }
+            }
+            Ok(false) => return,
+            // Pressed in the log, not the bar, so it's said in the frame's
+            // line (the status bar's; a phone's under the top bar), as a
+            // file refused is.
+            Err(text) => {
+                self.notice = Some(Notice {
+                    text: text.into(),
+                    error: true,
+                    back: true,
+                });
+            }
         }
+        cx.notify();
     }
 
-    /// Gives the controller, then the table, a log entry's state. Whether
-    /// it could: an entry of this file's always can, so a refusal is said.
+    /// Gives the controller, then the table, a log entry's state, and the
+    /// table focus: whether it could (none with no file open), or why not,
+    /// for the caller to say. An entry of this file's always should.
     #[cfg(target_family = "wasm")]
-    fn restore(&mut self, state: &ViewState, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    fn restore(
+        &mut self,
+        state: &ViewState,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Result<bool, String> {
         let Load::Open { table, view, .. } = &mut self.load else {
-            return false;
+            return Ok(false);
         };
         let before = (**view).clone();
         if let Err(refused) = view.restore(state) {
-            let text = format!("Couldn't go back: {refused}.");
-            self.say("refused", text, Vec::new(), true, cx);
-            return false;
+            return Err(format!("Couldn't go back: {refused}."));
         }
         let table = table.clone();
         let columns = !view.same_columns(&before);
@@ -1879,7 +1954,7 @@ impl Workbench {
         self.publish_view();
         let focus = table.read(cx).focus_handle().clone();
         window.focus(&focus, cx);
-        true
+        Ok(true)
     }
 
     /// The bar's answer.
@@ -1895,6 +1970,7 @@ impl Workbench {
         self.answers += 1;
         self.answer = Some(Answer {
             seq: self.answers,
+            ask: self.asking,
             kind,
             text,
             steps,

@@ -140,6 +140,15 @@ lockdown url="http://localhost:5173/":
 engine url="http://localhost:5173/" *args:
     node {{app_dir}}/perf/engine.ts {{url}} {{args}}
 
+# The command bar and the log in Chromium, Firefox, and WebKit: Cmd/Ctrl+K
+# from the first screen and the table, `pin` read back from the view and the
+# log, a pasted action of two steps refused whole, a sentence answered,
+# `jump`, a drag as an entry, `undo` and a way back, Escape and select-all
+# in the log, and another file from the bar starting the log again. Against
+# the dev server by default; pass the preview's URL for the release build.
+command url="http://localhost:5173/":
+    node {{app_dir}}/perf/command.ts {{url}}
+
 # The controller's view state in Chromium, Firefox, and WebKit: a column
 # dragged, widened, and pinned, read back from `__tychoView` and checked
 # against what the table draws; and a CSV's column widened to text keeping
