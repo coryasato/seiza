@@ -14,12 +14,19 @@
  * tall (Phone 4). An action is a click's command (`core.ts`, `act`), or
  * the table's call (Fit, Copy), and puts focus on the table; Escape puts
  * focus back where it came from.
+ *
+ * A field's menu in the Row tab (`rowview.tsx`, Row 2) is a cell's menu
+ * opened from its field's button, holding Copy alone (the row is already
+ * open): it copies the field's whole value, and focus goes back to the
+ * button. The table's presses that open the Row tab (a double press,
+ * Enter on a cell with no popover, the popover's "Open row") are heard
+ * here too (`core.ts`, `openRow`).
  */
 
 import { Drawer } from '@base-ui/react/drawer';
 import { Menu } from '@base-ui/react/menu';
 import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { act, canvasKeys, copySelection, fitColumn, setLogOpen, setSheetTab } from './core.ts';
+import { act, canvasKeys, copyRowText, copySelection, fitColumn, lastInputWasKey, openRow } from './core.ts';
 import { Badge, Icon, type IconName } from './icons.tsx';
 import { usePhone } from './log.tsx';
 import { type ColumnFacts, type FrameState, subscribePress, type TablePress } from './state.ts';
@@ -30,7 +37,8 @@ type Anchor = Element | { getBoundingClientRect(): DOMRect };
 
 type Open =
   | { kind: 'column'; index: number; anchor: Anchor; fromTable: boolean }
-  | { kind: 'cell'; index: number; row: number; value: string | null; anchor: Anchor };
+  | { kind: 'cell'; index: number; row: number; value: string | null; anchor: Anchor }
+  | { kind: 'field'; index: number; row: number; value: string | null; anchor: Element };
 
 let open: (Open & { seq: number }) | null = null;
 /** Counts the menus opened: each is drawn anew, so a press while the last
@@ -45,6 +53,17 @@ const getOpen = () => open;
 function setOpen(next: Open | null): void {
   open = next && { ...next, seq: ++opened };
   for (const listener of listeners) listener();
+}
+
+/** A field's menu, opened from its button in the Row tab. */
+export function openFieldMenu(field: { index: number; row: number; value: string | null; anchor: Element }): void {
+  setOpen({ kind: 'field', ...field });
+}
+
+/** The field whose menu is open, if one is: its button drawn pressed. */
+export function useFieldMenu(): { index: number; row: number } | null {
+  const current = useSyncExternalStore(subscribe, getOpen, () => null);
+  return current?.kind === 'field' ? { index: current.index, row: current.row } : null;
 }
 
 /** A column's menu, opened from the column list's row `row`. */
@@ -69,6 +88,13 @@ let touched = false;
 const noteTouch = (event: PointerEvent) => (touched = event.pointerType === 'touch');
 
 function pressed(press: TablePress, phone: boolean): void {
+  // The Row tab: by a key with focus at the cell's field, by the pointer
+  // with focus left on the table.
+  if (press.row !== null && (press.kind === 'double' || press.kind === 'enter' || press.kind === 'open')) {
+    const byKey = press.kind === 'enter' || (press.kind === 'open' && lastInputWasKey());
+    openRow(byKey ? { row: press.row, column: press.column.index } : null);
+    return;
+  }
   if (!press.at) return;
   const anchor = inPage(press.at);
   if (press.kind === 'icon' || press.kind === 'header' || (press.kind === 'tap' && phone && touched)) {
@@ -104,23 +130,21 @@ function columnItems(column: ColumnFacts): Item[][] {
 }
 
 /** A cell's items: Copy (the selection, which a context press inside it
- *  keeps) and Open the row. */
+ *  keeps) and Open the row (the Row tab, focus left on the table, as the
+ *  pointer leaves it). */
 function cellItems(): Item[][] {
   return [
     [
       { icon: 'copy', label: 'Copy', hint: copyKey(), run: copySelection },
-      // The right panel (at a phone, the sheet on its Log tab); its Row
-      // tab, open at this row, comes with the row view.
-      {
-        icon: 'panelr',
-        label: 'Open the row',
-        run: () => {
-          setSheetTab('log');
-          setLogOpen(true);
-        },
-      },
+      { icon: 'panelr', label: 'Open the row', run: () => openRow(null) },
     ],
   ];
+}
+
+/** A field's items in the Row tab: Copy alone until the filters, its
+ *  whole value. */
+function fieldItems(row: number, index: number): Item[][] {
+  return [[{ icon: 'copy', label: 'Copy', run: () => void copyRowText(row, index) }]];
 }
 
 function ColumnHead({ column, phone }: { column: ColumnFacts; phone: boolean }) {
@@ -152,7 +176,26 @@ function CellHead({ column, row, value, phone }: { column: ColumnFacts; row: num
 }
 
 /** At a wide page: Base UI's Menu at its anchor. */
-function PopupMenu({ head, items, anchor, width, side, done }: { head: ReactNode; items: Item[][]; anchor: Anchor; width: number; side: 'bottom' | 'right'; done: () => void }) {
+function PopupMenu({
+  head,
+  items,
+  anchor,
+  width,
+  side,
+  align = 'start',
+  toTable = true,
+  done,
+}: {
+  head: ReactNode;
+  items: Item[][];
+  anchor: Anchor;
+  width: number;
+  side: 'bottom' | 'right';
+  align?: 'start' | 'end';
+  /** An action gives the table focus; else focus goes back as Escape's. */
+  toTable?: boolean;
+  done: () => void;
+}) {
   // Whether an item ran: closing then gives the table focus; Escape or a
   // press outside puts focus back where it was. Open until it closes,
   // then gone once its closing has played out.
@@ -161,10 +204,10 @@ function PopupMenu({ head, items, anchor, width, side, done }: { head: ReactNode
   return (
     <Menu.Root open={open} onOpenChange={setOpenHere} onOpenChangeComplete={(now) => now || done()}>
       <Menu.Portal>
-        <Menu.Positioner anchor={anchor} side={side} align="start" sideOffset={4} collisionPadding={8} className="z-20 outline-none">
+        <Menu.Positioner anchor={anchor} side={side} align={align} sideOffset={4} collisionPadding={8} className="z-20 outline-none">
           <Menu.Popup
             data-menu
-            finalFocus={() => (acted.current ? canvasKeys() : true)}
+            finalFocus={() => (acted.current && toTable ? canvasKeys() : true)}
             style={{ width }}
             className="max-w-[calc(100vw-16px)] rounded-[10px] border border-border-strong bg-surface p-1.5 shadow-[0_16px_40px_var(--shadow)] outline-none select-none transition-opacity duration-100 data-[ending-style]:opacity-0 motion-reduce:transition-none"
           >
@@ -197,7 +240,7 @@ function PopupMenu({ head, items, anchor, width, side, done }: { head: ReactNode
 
 /** At a phone: a sheet from the bottom over a scrim, its rows 44 px tall
  *  (Phone 4). */
-function SheetMenu({ head, items, label, done }: { head: ReactNode; items: Item[][]; label: string; done: () => void }) {
+function SheetMenu({ head, items, label, toTable = true, done }: { head: ReactNode; items: Item[][]; label: string; toTable?: boolean; done: () => void }) {
   const acted = useRef(false);
   const [open, setOpenHere] = useState(true);
   return (
@@ -208,7 +251,7 @@ function SheetMenu({ head, items, label, done }: { head: ReactNode; items: Item[
           <Drawer.Popup
             data-menu
             aria-label={label}
-            finalFocus={() => (acted.current ? canvasKeys() : true)}
+            finalFocus={() => (acted.current && toTable ? canvasKeys() : true)}
             className="w-full overflow-hidden rounded-t-[14px] border-t border-border-strong bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_32px_var(--shadow)] outline-none select-none [transform:translateY(var(--drawer-swipe-movement-y))] transition-transform duration-[300ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[ending-style]:[transform:translateY(calc(100%+2px))] data-[starting-style]:[transform:translateY(calc(100%+2px))] motion-reduce:transition-none"
           >
             <div aria-hidden="true" className="flex h-3.5 items-center justify-center">
@@ -278,6 +321,11 @@ export function Menus({ state }: { state: FrameState }) {
     return <PopupMenu key={key} head={<ColumnHead column={column} phone={false} />} items={items} anchor={current.anchor} width={236} side={current.fromTable ? 'bottom' : 'right'} done={done} />;
   }
   const head = <CellHead column={column} row={current.row} value={current.value} phone={phone} />;
+  if (current.kind === 'field') {
+    const items = fieldItems(current.row, column.index);
+    if (phone) return <SheetMenu key={key} label={`Row ${current.row + 1}'s ${column.name}`} head={head} items={items} toTable={false} done={done} />;
+    return <PopupMenu key={key} head={head} items={items} anchor={current.anchor} width={264} side="bottom" align="end" toTable={false} done={done} />;
+  }
   if (phone) return <SheetMenu key={key} label={`Row ${current.row + 1}'s ${column.name}`} head={head} items={cellItems()} done={done} />;
   return <PopupMenu key={key} head={head} items={cellItems()} anchor={current.anchor} width={264} side="bottom" done={done} />;
 }

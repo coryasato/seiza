@@ -233,6 +233,50 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.replace_selection(clamped, cx);
     }
 
+    /// Sets or clears it as [`TallTableState::set_selection`] does, then
+    /// scrolls it into view the least distance, as a key's move does: its
+    /// head, up or down for a kind that spans rows and sideways for one that
+    /// spans columns (a `Rows` range's head only up or down, a `Columns`
+    /// range's only sideways), through the base's scroll paths (so `follow`
+    /// sees a move down as the reader's). It scrolls even when the selection
+    /// is the one in effect, so a host can bring it back into view. With
+    /// `popover`, a popover open on another cell than the new active one
+    /// closes, as a key's move closes it. Clearing scrolls nothing, nor does
+    /// a selection refused (a kind that's off, a range over hidden columns
+    /// alone, no rows), which leaves things as `set_selection` does.
+    pub fn select_in_view(
+        &mut self,
+        selection: Option<TallTableSelection>,
+        cx: &mut Context<Self>,
+    ) {
+        // A kind that's off leaves the selection in effect as it was, which
+        // mustn't be scrolled to. No test reaches this: `set_selection`
+        // debug-asserts on that kind first.
+        let allowed = selection
+            .is_some_and(|selection| self.selection_state.selectable.allows(selection.kind()));
+        self.set_selection(selection, cx);
+        if !allowed {
+            return;
+        }
+        let Some(selected) = self.selection_state.current else {
+            return;
+        };
+        // The popover was about the active cell left (`popover`).
+        #[cfg(feature = "popover")]
+        {
+            let (row, place) = selected.anchor();
+            let index = self.columns.get(place).map(|column| column.index(place));
+            if self
+                .popover()
+                .is_some_and(|cell| cell.row != row || Some(cell.column) != index)
+            {
+                self.close_popover(cx);
+            }
+        }
+        let kind = selected.kind();
+        self.scroll_into_view(selected.head(), kind.spans_rows(), kind.spans_columns(), cx);
+    }
+
     /// `selection` with every cell past the last row or column moved to
     /// it; `None` with no rows or no columns.
     fn clamped(&self, selection: TallTableSelection) -> Option<TallTableSelection> {

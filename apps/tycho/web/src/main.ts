@@ -12,6 +12,8 @@ import init, {
   open_sample,
   retry_engine,
   row,
+  row_text,
+  select,
   set_theme,
   start,
   toggle_perf,
@@ -100,6 +102,8 @@ const hydrate = () => {
     row: (index) => row(index) as Promise<RowValues | null>,
     fit,
     copy,
+    row_text: (index, column) => row_text(index, column) as Promise<string | null>,
+    select,
   });
   // GPUI took focus for its own input as its window opened.
   focusFirstScreen();

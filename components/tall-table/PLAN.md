@@ -10,11 +10,11 @@ What's next for the tall table: the candidates for its next features, the active
 
 ## Status
 
-M1–M25, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-24: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, `popover`, a cell's full value with a button to the host's view of its row, `header-icon`, a column's icon the host sets, its press reported, the popover's three settings (the cue and Enter on a cut text alone, a cue that fades with a mark for the open cell, a button the popover's width), with a long value's cell drawn from its start, and `clicks`' header tap, a finger's tap on a header's arrow or band its header's press, and `resize`'s fit as a call a host makes ([`docs/milestones.md`](docs/milestones.md)).
+M1–M26, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-24: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, `popover`, a cell's full value with a button to the host's view of its row, `header-icon`, a column's icon the host sets, its press reported, the popover's three settings (the cue and Enter on a cut text alone, a cue that fades with a mark for the open cell, a button the popover's width), with a long value's cell drawn from its start, and `clicks`' header tap, a finger's tap on a header's arrow or band its header's press, `resize`'s fit as a call a host makes, and `select`'s selection in view as a call ([`docs/milestones.md`](docs/milestones.md)).
 
 | Milestone | Title | Status |
 |---|---|---|
-| M25 | The fit as a call | Done 2026-11-24 |
+| M26 | The selection in view, as a call | Done 2026-11-24 |
 
 Next: none; every candidate waits for a host ("Candidates").
 
@@ -182,7 +182,7 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. None is drafted now.
 
-Tycho's asks for its first release, the header icon (M22), the popover for cut text (M23), touch presses (M24), and the fit as a call (M25), are built ([`docs/milestones.md`](docs/milestones.md)).
+Tycho's asks for its first release, the header icon (M22), the popover for cut text (M23), touch presses (M24), and the fit as a call (M25), and the selection in view (M26) are built ([`docs/milestones.md`](docs/milestones.md)).
 
 ---
 

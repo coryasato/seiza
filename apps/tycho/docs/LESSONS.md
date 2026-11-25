@@ -409,3 +409,15 @@ No results note: the part's one number, the wasm's size, is in PLAN's evidence.
 - **A finger's tap on a header is a plain press,** lifted (a pan makes none), so the page tells a phone's tap from a mouse's press by the last pointer it saw, not by anything the table reports.
 - **WebKit under Playwright sends no `click` after a touch:** the first screen's sample row, tapped, did nothing in WebKit alone. iOS Safari synthesizes the click; the scripts press DOM controls with `click()` in WebKit (`.claude/rules/perf-harness.md`).
 - **The code review found the menus' edges:** a menu left open across another file's opening pointed at the new file's column of the same index (a replace never passes through no file, so the menu now closes on the opening's log entry); Escape in the show-and-hide list also ran the panel's own Escape (React passes a portal's events up to the panel, so the panels skip a key from outside their own DOM); and a menu unmounted at once, its closing never drawn. Its guess that the list closes when an eye's command gives the table focus didn't hold in any browser.
+
+## M14 part C: the popover and the row view (2026-11-24)
+
+No results note: the part's one number, the wasm's size, is in PLAN's evidence.
+
+**Surprises:**
+- **Next row needed a call the table didn't have:** it could set a selection without scrolling, or jump a row to the top, and its keys' scroll was private. Before planning a button that moves the table, check the table has a call that moves it as its keys do; the call was built as the table's M26 in the same session.
+- **The popover's button can't tell Enter from a press,** and the two open the Row tab with focus in different places. The page's last input decides, as the last pointer decides a phone's tap.
+- **Focus at a field didn't land when the row was already drawn:** the tab took focus when its values arrived, and a cell pressed before Enter had loaded them already, so nothing ran. The ask for focus is a store the tab subscribes to now.
+- **Select-all took the badges' "Aa":** the text type's badge is a glyph in a span, not an icon, so it went into the selection with the names. The badge is unselectable everywhere.
+- **Copying a value the tab shows cut copies the cut:** the tab gets 10,000 characters of a value, so the copies ask for the row again uncut, with the clipboard's write opened before the answer comes.
+- **The code review found the tab reading its row at every publish:** the frame's `columns` looked stable, since the app builds its list only when the view changes, but it crosses to the page as a new array each time, so an effect keyed on it ran on every CSV tick. A value the page compares must be compared by what it holds. It also found Next row clearing the selection from an active cell on a hidden column (select-all's anchor is the first place, hidden or not), and a "Show all" carried to the next row by a field keyed by its column alone.

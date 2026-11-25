@@ -979,3 +979,12 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The review found the same gap in the single press on a band, older than this milestone: a setter between a frame and the press could leave the column with no band, and the press started a drag anyway. The rule that a press finds its column by index was followed; nothing checked that the column still had a band.
 - The order test passed with some features on and failed with all of them on: the column it built by hand lacked the fill every other column of that sheet gets under `custom-cells`, and the paint's debug assertion caught it. A column added to a test's sheet comes from the sheet's own helper.
 - `pairs` takes 47 minutes now, twice its header's estimate, and was run whole before the code review, so the review's fixes sent it round again. The script's header said to ask; the table's `CLAUDE.md` said to run it before the review, and that's the file a session reads. It now says to run the short parts first.
+
+## M26: the selection in view, as a call (part A, 2026-11-24)
+
+**Results:** [`perf/results/2026-11-24-m26-a.md`](../perf/results/2026-11-24-m26-a.md) (the call's bytes, the base against HEAD, `pairs`' time).
+
+**Surprises:**
+- **One guard can't be tested in a test build:** a selection of a kind that's off is refused by `set_selection`'s debug assertion before the new call's own guard is reached, so the guard against scrolling to the old selection runs only in a release build. A guard that sits behind another call's debug assertion needs its reason written beside it, since no test will.
+- **The popover had to be told:** a key's move closes the popover in the keys' path, not in `set_selection`, so a host's move left it open on a cell the reader had left. A call made from a gesture's path takes the gesture's side effects with it, or names why not.
+- **The bare host reads the call as free because it never calls it:** the optimizer strips an unused public function, so `size` measures what turning the feature on costs, not what a new call costs a host that uses it. A call no host in the repo but an app makes is read in that app's size, or the bare host gets a hook that calls it.

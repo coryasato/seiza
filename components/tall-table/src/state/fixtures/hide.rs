@@ -1219,3 +1219,21 @@ fn a_press_never_targets_a_hidden_column(cx: &mut TestAppContext) {
     let over = sheet.at(240.0, -1.0);
     assert_eq!(sheet.read(|table| table.header_place_at(over)), Some(3));
 }
+
+/// `select_in_view` refuses a range over hidden columns alone, as
+/// `set_selection` does, and scrolls nothing for it.
+#[cfg(feature = "select")]
+#[gpui_kit::test]
+fn select_in_view_scrolls_nothing_for_a_hidden_cell(cx: &mut TestAppContext) {
+    use crate::selection::{Selectable, TallTableSelection};
+    let mut sheet = Sheet::open(cx, floats(6), 600.0);
+    sheet.update(|table, cx| table.set_selectable(Selectable::all(), cx));
+    sheet.hide(2, true);
+    let hidden = TallTableSelection::Cells {
+        anchor: (500, 2),
+        head: (500, 2),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(hidden), cx));
+    assert_eq!(sheet.read(|table| table.selection()), None);
+    assert_eq!(sheet.read(|table| table.scroll.top()), 0.0);
+}

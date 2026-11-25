@@ -7,6 +7,15 @@ const PATHS = {
   file: <path d="M4 2h5l3 3v9H4zM9 2v3h3" />,
   rows: <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />,
   chevd: <path d="M3.5 6L8 10.5 12.5 6" />,
+  up: <path d="M8 13V3M8 3L4.5 6.5M8 3l3.5 3.5" />,
+  down: <path d="M8 3v10M8 13l-3.5-3.5M8 13l3.5-3.5" />,
+  more: (
+    <>
+      <circle cx="3.5" cy="8" r="0.8" />
+      <circle cx="8" cy="8" r="0.8" />
+      <circle cx="12.5" cy="8" r="0.8" />
+    </>
+  ),
   chevr: <path d="M6 3.5L10.5 8 6 12.5" />,
   lock: (
     <>
@@ -130,7 +139,7 @@ export function Badge({ kind }: { kind: ColumnType }) {
       <Icon name={kind === 'number' ? 'hash' : kind === 'time' ? 'clock' : 'check'} size={10} />
     );
   return (
-    <span aria-hidden="true" className={`flex h-4 w-[18px] shrink-0 items-center justify-center rounded ${look}`}>
+    <span aria-hidden="true" className={`flex h-4 w-[18px] shrink-0 items-center justify-center rounded select-none ${look}`}>
       {glyph}
     </span>
   );

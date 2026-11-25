@@ -68,8 +68,16 @@ pub fn text(value: Option<CellValue<'_>>, most: usize) -> (Option<String>, usize
     }
 }
 
-/// Row `row`'s values, from its place `at` in `page`, for `view`'s columns.
-pub fn read(view: &Controller, page: &impl TallTablePage, at: usize, row: u64) -> RowValues {
+/// Row `row`'s values, from its place `at` in `page`, for `view`'s columns,
+/// each cut at `most` characters ([`MOST_CHARS`] for the Row tab, none for a
+/// copy).
+pub fn read(
+    view: &Controller,
+    page: &impl TallTablePage,
+    at: usize,
+    row: u64,
+    most: usize,
+) -> RowValues {
     RowValues {
         row,
         fields: view
@@ -77,7 +85,7 @@ pub fn read(view: &Controller, page: &impl TallTablePage, at: usize, row: u64) -
             .iter()
             .map(|&index| {
                 let info = &view.columns()[index];
-                let (value, length) = text(page.value(at, index), MOST_CHARS);
+                let (value, length) = text(page.value(at, index), most);
                 Field {
                     index,
                     name: info.name.clone(),
@@ -92,6 +100,45 @@ pub fn read(view: &Controller, page: &impl TallTablePage, at: usize, row: u64) -
     }
 }
 
+/// What the Row tab's copy buttons write: column `column`'s value as it
+/// is (NULL as nothing), or with none the row as two lines of
+/// tab-separated fields, the columns' names then their values, every
+/// column in the view's order, hidden ones included, as the tab shows
+/// them. A field is quoted as the table's copy quotes it (a tab, a line
+/// break, or a `"` in it: quoted, its quotes doubled), so a spreadsheet
+/// reads the two lines as a header and a row. None for a column the row
+/// doesn't have.
+pub fn copy_text(values: &RowValues, column: Option<usize>) -> Option<String> {
+    if let Some(column) = column {
+        let field = values.fields.iter().find(|field| field.index == column)?;
+        return Some(field.value.clone().unwrap_or_default());
+    }
+    let line = |fields: &mut dyn Iterator<Item = &str>| {
+        let mut line = String::new();
+        for (i, field) in fields.enumerate() {
+            if i > 0 {
+                line.push('\t');
+            }
+            if field.contains(['\t', '\n', '\r', '"']) {
+                line.push('"');
+                line.push_str(&field.replace('"', "\"\""));
+                line.push('"');
+            } else {
+                line.push_str(field);
+            }
+        }
+        line
+    };
+    let names = line(&mut values.fields.iter().map(|field| field.name.as_str()));
+    let row = line(
+        &mut values
+            .fields
+            .iter()
+            .map(|field| field.value.as_deref().unwrap_or("")),
+    );
+    Some(format!("{names}\n{row}"))
+}
+
 #[cfg(test)]
 mod tests {
     use std::borrow::Cow;
@@ -102,7 +149,7 @@ mod tests {
     use seiza_duckdb::sql::ColumnInfo;
     use seiza_tall_table::{CellValue, TallTablePage};
 
-    use super::{MOST_CHARS, read, text};
+    use super::{MOST_CHARS, copy_text, read, text};
     use crate::view::{Controller, SourceKind, SourceView};
 
     fn view() -> Controller {
@@ -144,7 +191,7 @@ mod tests {
         let mut view = view();
         view.pin(2).unwrap();
         view.hide(1).unwrap();
-        let row = read(&view, &Loaded, 1, 1025);
+        let row = read(&view, &Loaded, 1, 1025, MOST_CHARS);
         assert_eq!(row.row, 1025);
         // The view's order, the hidden column kept and marked.
         let names: Vec<_> = row.fields.iter().map(|field| field.name.as_str()).collect();
@@ -187,7 +234,7 @@ mod tests {
         let long = "x".repeat(MOST_CHARS + 5);
         let page = seiza_duckdb::arrow::decode(one_row(&long)).unwrap();
         assert_eq!(page.num_rows(), 1);
-        let row = read(&view(), &page, 0, 70_000);
+        let row = read(&view(), &page, 0, 70_000, MOST_CHARS);
         assert_eq!(row.fields[0].value.as_deref(), Some("7"));
         // Text whole up to the cap, its length whole.
         assert_eq!(
@@ -206,5 +253,29 @@ mod tests {
         assert_eq!(text(value, 10), (Some("日付日付".into()), 4));
         assert_eq!(text(Some(CellValue::Null), 10), (None, 0));
         assert_eq!(text(None, 10), (None, 0));
+    }
+
+    #[test]
+    fn a_copy_is_whole_and_quoted_as_the_tables() {
+        let long = "x".repeat(MOST_CHARS + 5);
+        let page = seiza_duckdb::arrow::decode(one_row(&long)).unwrap();
+        let whole = read(&view(), &page, 0, 70_000, usize::MAX);
+        assert_eq!(copy_text(&whole, Some(1)), Some(long));
+        let page = seiza_duckdb::arrow::decode(one_row("say \"hi\"\tthere")).unwrap();
+        let row = read(&view(), &page, 0, 0, usize::MAX);
+        assert_eq!(
+            copy_text(&row, None).as_deref(),
+            Some("id\tname\tmass\n7\t\"say \"\"hi\"\"\tthere\"\t0.30000000000000004")
+        );
+        // NULL is nothing; a column the row lacks is no copy.
+        let mut view = view();
+        view.hide(1).unwrap();
+        let row = read(&view, &Loaded, 1, 1025, usize::MAX);
+        assert_eq!(copy_text(&row, Some(1)).as_deref(), Some(""));
+        assert_eq!(
+            copy_text(&row, None).as_deref(),
+            Some("id\tname\tmass\n1025\t\t83.6")
+        );
+        assert_eq!(copy_text(&row, Some(9)), None);
     }
 }

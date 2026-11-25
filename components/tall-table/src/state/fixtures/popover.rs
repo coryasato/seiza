@@ -2060,3 +2060,28 @@ fn a_filled_button_is_the_popover_s_width(cx: &mut TestAppContext) {
     let [_, _, _, height] = filled(&mut sheet);
     assert_eq!(height, 24.0);
 }
+
+/// `select_in_view` closes a popover the active cell left, as a key's
+/// move does, and keeps one on the cell it selects.
+#[cfg(feature = "select")]
+#[gpui_kit::test]
+fn select_in_view_closes_it_off_its_cell(cx: &mut TestAppContext) {
+    use crate::selection::TallTableSelection;
+    let mut sheet = Sheet::open(cx, WIDTH);
+    let cell = |row, column| TallTableSelection::Cells {
+        anchor: (row, column),
+        head: (row, column),
+    };
+    assert!(sheet.open_on(2, 3));
+    sheet.update(|table, cx| table.select_in_view(Some(cell(2, 3)), cx));
+    assert_eq!(
+        sheet.popover(),
+        Some(PopoverCell::new(2, 3)),
+        "its own cell"
+    );
+    sheet.update(|table, cx| table.select_in_view(Some(cell(3, 3)), cx));
+    assert_eq!(sheet.popover(), None, "the row after");
+    assert!(sheet.open_on(3, 3));
+    sheet.update(|table, cx| table.select_in_view(Some(cell(3, 1)), cx));
+    assert_eq!(sheet.popover(), None, "another column");
+}

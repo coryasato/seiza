@@ -1,7 +1,7 @@
 /**
- * The right panel and its Log tab, as the design canvas's Frame C draws it
- * (`docs/DECISIONS.md`, "Scope", 2026-11-20, the log; the Row tab comes
- * with the table's basics): collapsed until the top bar's button opens it
+ * The right panel and its Log and Row tabs, as the design canvas's Frame C
+ * draws it (`docs/DECISIONS.md`, "Scope", 2026-11-20, the log; the Row
+ * tab is `rowview.tsx`'s): collapsed until the top bar's button opens it
  * (`core.ts`'s `setLogOpen`), each entry's command in Plex Mono (a drag's
  * words in its place), the reply, where it came from and when, and the way
  * back or "current". The entries are the app's (`state.ts`, `LogEntry`):
@@ -10,16 +10,18 @@
  * so the table above stays in reach.
  *
  * Keys: Escape puts focus on the table and leaves the panel open; the
- * chrome isn't selectable, so select-all in the tab takes its entries.
+ * chrome isn't selectable, so select-all in a tab takes its entries or its
+ * fields (`data-select-all`).
  */
 
 import { Drawer } from '@base-ui/react/drawer';
 import { Tabs } from '@base-ui/react/tabs';
 import { type KeyboardEvent, type ReactNode, useLayoutEffect, useRef, useSyncExternalStore } from 'react';
 import { ColumnList } from './columns.tsx';
-import { backTo, canvasKeys, getSheetTab, isLogOpen, setLogOpen, setSheetTab, type SheetTab, subscribeLog, subscribeSheetTab } from './core.ts';
+import { backTo, canvasKeys, getPanelTab, getSheetTab, isLogOpen, type PanelTab, setLogOpen, setPanelTab, setSheetTab, type SheetTab, subscribeLog, subscribePanelTab, subscribeSheetTab } from './core.ts';
 import { Icon, type IconName } from './icons.tsx';
-import type { ColumnFacts, FrameState, LogEntry, Origin } from './state.ts';
+import { RowView } from './rowview.tsx';
+import type { FrameState, LogEntry, Origin } from './state.ts';
 
 export const useLogOpen = (): boolean => useSyncExternalStore(subscribeLog, isLogOpen, () => false);
 
@@ -103,7 +105,7 @@ function LogBody({ log }: { log: FrameState['log'] }) {
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <ol ref={list} aria-label="Steps" className="m-0 list-none p-0 select-text">
+        <ol ref={list} data-select-all aria-label="Steps" className="m-0 list-none p-0 select-text">
           {log.entries.map((entry) => (
             <Entry key={entry.id} entry={entry} current={entry.id === log.current} />
           ))}
@@ -118,7 +120,7 @@ function LogBody({ log }: { log: FrameState['log'] }) {
 }
 
 /** Escape gives the table the keys, the panel left open; select-all takes
- *  the entries alone. */
+ *  the tab's entries or fields alone. */
 function panelKeys(event: KeyboardEvent<HTMLElement>): void {
   // A key from a popup the panel opened (a column's menu, the
   // show-and-hide list) is that popup's: React passes a portal's events up.
@@ -127,17 +129,31 @@ function panelKeys(event: KeyboardEvent<HTMLElement>): void {
     event.preventDefault();
     canvasKeys()?.focus({ preventScroll: true });
   } else if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'a') {
-    const steps = event.currentTarget.querySelector('ol');
-    if (!steps) return;
+    // A field's own text box isn't the tab's (none yet; the filters'
+    // editors will be).
+    const target = event.target as HTMLElement;
+    if (target.closest('input, textarea, [contenteditable]')) return;
+    const body = event.currentTarget.querySelector('[data-select-all]');
+    if (!body) return;
     event.preventDefault();
-    getSelection()?.selectAllChildren(steps);
+    getSelection()?.selectAllChildren(body);
   }
 }
 
-/** The tabs' row: the panel's tabs (Log, until the row's comes; at a
- *  phone, Columns first), and the panel's own button at its end. */
+/** The tabs' row: the panel's tabs (Log and Row; at a phone, Columns,
+ *  Row, and Log, as Phone 2 draws them), and the panel's own button at its
+ *  end. */
 function TabRow({ phone, end }: { phone: boolean; end: ReactNode }) {
-  const tabs: [SheetTab, string][] = phone ? [['columns', 'Columns'], ['log', 'Log']] : [['log', 'Log']];
+  const tabs: [SheetTab, string][] = phone
+    ? [
+        ['columns', 'Columns'],
+        ['row', 'Row'],
+        ['log', 'Log'],
+      ]
+    : [
+        ['log', 'Log'],
+        ['row', 'Row'],
+      ];
   return (
     <div className={`flex shrink-0 items-center justify-between border-b border-border pr-1.5 pl-0.5 select-none ${phone ? 'h-10' : 'h-9'}`}>
       <Tabs.List className="flex">
@@ -158,12 +174,17 @@ function TabRow({ phone, end }: { phone: boolean; end: ReactNode }) {
 
 const iconButton = 'flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md text-foreground-subtle hover:bg-surface-raised hover:text-foreground';
 
-/** At a wide page: a column at the right, beside the table. */
-function SidePanel({ log }: { log: FrameState['log'] }) {
+const usePanelTab = (): PanelTab => useSyncExternalStore(subscribePanelTab, getPanelTab, () => 'log');
+
+/** At a wide page: a column at the right, beside the table, on the tab it
+ *  was left at (Row once a cell's row is opened). */
+function SidePanel({ state }: { state: FrameState }) {
+  const tab = usePanelTab();
   return (
     <Tabs.Root
-      defaultValue="log"
-      render={<aside id="log" aria-label="Log" />}
+      value={tab}
+      onValueChange={(value: PanelTab) => setPanelTab(value)}
+      render={<aside id="log" aria-label="Panel" />}
       onKeyDown={panelKeys}
       className="flex min-h-0 w-[344px] flex-col overflow-hidden border-l border-border bg-surface [grid-area:side]"
     >
@@ -176,7 +197,10 @@ function SidePanel({ log }: { log: FrameState['log'] }) {
         }
       />
       <Tabs.Panel value="log" className="flex min-h-0 flex-1 flex-col outline-none">
-        <LogBody log={log} />
+        <LogBody log={state.log} />
+      </Tabs.Panel>
+      <Tabs.Panel value="row" className="flex min-h-0 flex-1 flex-col outline-none">
+        <RowView state={state} />
       </Tabs.Panel>
     </Tabs.Root>
   );
@@ -191,8 +215,9 @@ const TOP_BAR = 44;
 const useSheetTab = (): SheetTab => useSyncExternalStore(subscribeSheetTab, getSheetTab, () => 'columns');
 
 /** At a phone: the panels' sheet over the lower part of the table, its
- *  tabs Columns and Log (Phone 2 and 3), on the tab it was left at. */
-function Sheet({ log, columns, open }: { log: FrameState['log']; columns: ColumnFacts[]; open: boolean }) {
+ *  tabs Columns, Row, and Log (Phone 1, 2, and 3), on the tab it was left
+ *  at. */
+function Sheet({ state, open }: { state: FrameState; open: boolean }) {
   const height = useViewportHeight();
   const tab = useSheetTab();
   const full = Math.max(height - TOP_BAR, 1);
@@ -233,10 +258,13 @@ function Sheet({ log, columns, open }: { log: FrameState['log']; columns: Column
                 }
               />
               <Tabs.Panel value="columns" render={<Drawer.Content />} className="flex min-h-0 flex-1 flex-col outline-none touch-auto">
-                <ColumnList columns={columns} />
+                <ColumnList columns={state.columns} />
+              </Tabs.Panel>
+              <Tabs.Panel value="row" render={<Drawer.Content />} className="flex min-h-0 flex-1 flex-col outline-none touch-auto">
+                <RowView state={state} />
               </Tabs.Panel>
               <Tabs.Panel value="log" render={<Drawer.Content />} className="flex min-h-0 flex-1 flex-col outline-none touch-auto">
-                <LogBody log={log} />
+                <LogBody log={state.log} />
               </Tabs.Panel>
             </Tabs.Root>
           </Drawer.Popup>
@@ -251,8 +279,8 @@ export function LogPanel({ state }: { state: FrameState }) {
   const open = useLogOpen();
   const phone = usePhone();
   if (!state.file) return null;
-  if (phone) return <Sheet log={state.log} columns={state.columns} open={open} />;
-  return open ? <SidePanel log={state.log} /> : null;
+  if (phone) return <Sheet state={state} open={open} />;
+  return open ? <SidePanel state={state} /> : null;
 }
 
 /** The top bar's button: the panel, opened and collapsed. Pressed through
@@ -260,9 +288,9 @@ export function LogPanel({ state }: { state: FrameState }) {
 export function LogButton() {
   const open = useLogOpen();
   const phone = usePhone();
-  const label = phone ? 'Open the panels' : 'Log';
+  const label = phone ? 'Open the panels' : 'The panel';
   return (
-    <button type="button" data-action="log" aria-label={label} aria-pressed={open} title={phone ? label : 'Show or hide the log'} className={`${iconButton} aria-pressed:text-foreground`}>
+    <button type="button" data-action="log" aria-label={label} aria-pressed={open} title={phone ? label : 'Show or hide the panel'} className={`${iconButton} aria-pressed:text-foreground`}>
       <Icon name="panelr" />
     </button>
   );

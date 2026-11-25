@@ -158,6 +158,8 @@ pub struct FileView {
     pub sample: bool,
     /// `Parquet · 71,413 rows · 46 columns · 33.8 MiB`.
     pub facts: String,
+    /// Its rows: a CSV's so far while it reads.
+    pub rows: u64,
     /// A CSV's load while it reads, or how it ended.
     pub load: Option<String>,
     /// From the file's metadata (a sample's build writes it).
@@ -394,6 +396,7 @@ mod web {
                 ("name", JsValue::from_str(&file.name)),
                 ("sample", JsValue::from_bool(file.sample)),
                 ("facts", JsValue::from_str(&file.facts)),
+                ("rows", JsValue::from_f64(file.rows as f64)),
                 ("load", text(file.load.as_deref())),
                 ("credit", text(file.credit.as_deref())),
                 (
@@ -491,7 +494,7 @@ mod web {
         // A row's number is whole and not negative; anything else is no row.
         if row.is_finite() && row >= 0.0 && row.fract() == 0.0 {
             send(on_workbench(move |workbench, _, cx| {
-                workbench.row_values(row as u64, answer, cx)
+                workbench.row_values(row as u64, crate::row::MOST_CHARS, answer, cx)
             }));
         } else {
             let _ = answer.send(None);
@@ -502,6 +505,43 @@ mod web {
                 _ => JsValue::NULL,
             })
         })
+    }
+
+    /// What the Row tab's copy buttons write (`crate::row::copy_text`):
+    /// column `column`'s whole value (its index), or with none the whole
+    /// row as a header line and a line of values. A promise of the text, or
+    /// null with no file open, no such row or column, or its read failed.
+    /// The page opens the clipboard's write before calling, in its press's
+    /// task, and hands it this promise.
+    #[wasm_bindgen]
+    pub fn row_text(row: f64, column: Option<u32>) -> js_sys::Promise {
+        let (answer, answered) = futures::channel::oneshot::channel();
+        if row.is_finite() && row >= 0.0 && row.fract() == 0.0 {
+            send(on_workbench(move |workbench, _, cx| {
+                workbench.row_values(row as u64, usize::MAX, answer, cx)
+            }));
+        } else {
+            let _ = answer.send(None);
+        }
+        wasm_bindgen_futures::future_to_promise(async move {
+            let text = answered.await.ok().flatten().and_then(|values| {
+                crate::row::copy_text(&values, column.map(|column| column as usize))
+            });
+            Ok(text.map_or(JsValue::NULL, |text| JsValue::from_str(&text)))
+        })
+    }
+
+    /// The Row tab's Previous row and Next row: the table's selection made
+    /// cell `row` (0-based) of column `column` (its index), and scrolled
+    /// into view. Focus stays on the page.
+    #[wasm_bindgen]
+    pub fn select(row: f64, column: u32) {
+        if !(row.is_finite() && row >= 0.0 && row.fract() == 0.0) {
+            return;
+        }
+        send(on_workbench(move |workbench, _, cx| {
+            workbench.select_cell(row as u64, column as usize, cx)
+        }));
     }
 
     /// Runs `call` now, in the task that called: a DOM event's, never

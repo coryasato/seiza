@@ -16,6 +16,8 @@ export interface FileState {
   sample: boolean;
   /** `Parquet · 71,431 rows · 46 columns · 1.7 MiB`. */
   facts: string;
+  /** Its rows: a CSV's so far while it reads. */
+  rows: number;
   /** A CSV's load while it reads, or how it ended. */
   load: string | null;
   /** From the file's metadata: a sample's build writes it. */

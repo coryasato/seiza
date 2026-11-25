@@ -33,6 +33,13 @@ export interface App {
    *  it. Run in the press's own task, so the clipboard still counts it as
    *  the press's gesture: never queue it. */
   copy(): void;
+  /** The Row tab's copies: column `column`'s whole value (its index), or
+   *  with none the whole row, a line of names and a line of values; null
+   *  with no such row or column. */
+  row_text(row: number, column?: number): Promise<string | null>;
+  /** The Row tab's Previous and Next row: the table's selection made cell
+   *  `row` of column `column` (its index), scrolled into view. */
+  select(row: number, column: number): void;
 }
 
 let app: App | null = null;
@@ -233,7 +240,7 @@ export function setColumnsOpen(open: boolean): void {
 
 /** The phone's sheet's tab: Columns first, as Phone 2 draws it, then kept
  *  where it was left across openings. */
-export type SheetTab = 'columns' | 'log';
+export type SheetTab = 'columns' | 'row' | 'log';
 let sheetTab: SheetTab = 'columns';
 const sheetListeners = new Set<() => void>();
 export const getSheetTab = (): SheetTab => sheetTab;
@@ -245,6 +252,107 @@ export function setSheetTab(tab: SheetTab): void {
   if (tab === sheetTab) return;
   sheetTab = tab;
   for (const listener of sheetListeners) listener();
+}
+
+/** The right panel's tab at a wide page: Log first, then kept where it
+ *  was left. */
+export type PanelTab = 'log' | 'row';
+let panelTab: PanelTab = 'log';
+const panelListeners = new Set<() => void>();
+export const getPanelTab = (): PanelTab => panelTab;
+export function subscribePanelTab(listener: () => void): () => void {
+  panelListeners.add(listener);
+  return () => panelListeners.delete(listener);
+}
+export function setPanelTab(tab: PanelTab): void {
+  if (tab === panelTab) return;
+  panelTab = tab;
+  for (const listener of panelListeners) listener();
+}
+
+/** Where the Row tab puts focus once its row is drawn: the field of
+ *  `column` (its index) in row `row`, when Enter opened it
+ *  (`docs/DECISIONS.md`, "Scope", 2026-11-21: by Enter the view takes
+ *  focus, by the pointer it stays on the table). Taken once. */
+let rowFocus: { row: number; column: number } | null = null;
+/** Counts the asks, so the Row tab hears one for a row it already shows. */
+let rowFocusAsks = 0;
+const rowFocusListeners = new Set<() => void>();
+export const getRowFocusAsks = (): number => rowFocusAsks;
+export function subscribeRowFocus(listener: () => void): () => void {
+  rowFocusListeners.add(listener);
+  return () => rowFocusListeners.delete(listener);
+}
+export function takeRowFocus(row: number): number | null {
+  if (!rowFocus || rowFocus.row !== row) return null;
+  const { column } = rowFocus;
+  rowFocus = null;
+  return column;
+}
+
+/** An ask for focus at another row than `row` is dropped: the selection
+ *  moved on before its row was drawn. */
+export function dropRowFocus(row: number): void {
+  if (rowFocus && rowFocus.row !== row) rowFocus = null;
+}
+
+/** The Row tab opened, the right panel with it (at a phone, the sheet on
+ *  its Row tab), showing the active cell's row; with `focus` (Enter), focus
+ *  goes to that cell's field once it's drawn. */
+export function openRow(focus: { row: number; column: number } | null): void {
+  rowFocus = focus;
+  if (focus) {
+    rowFocusAsks++;
+    for (const listener of rowFocusListeners) listener();
+  }
+  setPanelTab('row');
+  setSheetTab('row');
+  setLogOpen(true);
+}
+
+/** Whether the last input was a key: the popover's button pressed by Enter
+ *  opens the Row tab with focus, by a press without it. Both reach the page
+ *  as the same press (`TablePress`'s `open`). */
+let lastInputKey = false;
+export const lastInputWasKey = (): boolean => lastInputKey;
+
+/** A row's values for the Row tab (`App.row`). */
+export function rowValues(row: number): Promise<RowValues | null> {
+  return new Promise((resolve) => call((app) => app.row(row).then(resolve, () => resolve(null))));
+}
+
+/** The Row tab's Previous and Next row. */
+export function selectCell(row: number, column: number): void {
+  call((app) => app.select(row, column));
+}
+
+/** A Row tab's copy, column `column`'s value or the whole row (null):
+ *  the clipboard's write opened at once, in the press's task, so it still
+ *  counts as the press's gesture, and handed the text when the app has it
+ *  (as the table's copies are, `tall_table_bridge::clipboard`); `known` is
+ *  the text when the tab holds it whole, written at once where a browser
+ *  has no ClipboardItem. Resolves true once the browser wrote it. */
+export function copyRowText(row: number, column: number | null, known: string | null = null): Promise<boolean> {
+  const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : undefined;
+  if (!clipboard) return Promise.resolve(false);
+  // Without ClipboardItem a write must start in the press's task, so it
+  // writes the text the tab already holds whole, if it does.
+  if (typeof ClipboardItem === 'undefined' || !clipboard.write) {
+    if (known !== null) return clipboard.writeText(known).then(() => true, () => false);
+  }
+  const text = app ? app.row_text(row, column ?? undefined) : Promise.resolve(null);
+  if (typeof ClipboardItem !== 'undefined' && clipboard.write) {
+    const blob = text.then((text) => {
+      if (text === null) throw new Error('No such value');
+      return new Blob([text], { type: 'text/plain' });
+    });
+    return clipboard.write([new ClipboardItem({ 'text/plain': blob })]).then(
+      () => true,
+      () => false,
+    );
+  }
+  // A browser may refuse a write this long after the press.
+  return text.then((text) => (text === null ? false : clipboard.writeText(text).then(() => true, () => false)));
 }
 
 /** A menu's or the column list's command (`hide mag`, `pin "launch
@@ -289,6 +397,8 @@ function commandKey(): void {
 
 /** Binds the page's controls, keys, and drops: once, from the entry. */
 export function bindFrame(): void {
+  document.addEventListener('keydown', () => (lastInputKey = true), { capture: true });
+  document.addEventListener('pointerdown', () => (lastInputKey = false), { capture: true });
   document.addEventListener('click', (event) => {
     const control = (event.target as Element).closest<HTMLElement>('[data-action]');
     const run = control && !control.hasAttribute('aria-disabled') && ACTIONS[control.dataset.action!];

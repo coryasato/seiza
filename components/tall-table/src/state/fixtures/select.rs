@@ -1136,3 +1136,98 @@ fn select_of_a_kind_thats_off_asserts(cx: &mut TestAppContext) {
         )
     });
 }
+
+#[gpui_kit::test]
+fn select_in_view_scrolls_the_least_distance(cx: &mut TestAppContext) {
+    let mut sheet = open(cx, 1000, Selectable::all());
+    let far = TallTableSelection::Cells {
+        anchor: (500, 2),
+        head: (600, 9),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(far), cx));
+    assert_eq!(sheet.selection(), Some(far));
+    assert_eq!(*sheet.selected.borrow(), vec![Some(far)], "with the event");
+    // The head at the view's bottom and right edges: 20 rows a view, 120 px
+    // a column in 600.
+    let (top, x) = sheet.read(|table| (table.scroll.top(), table.scroll_x));
+    assert_eq!((top, x), (581.0, 600.0));
+    // A cell inside the view: nothing moves.
+    let near = TallTableSelection::Cells {
+        anchor: (590, 7),
+        head: (590, 7),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(near), cx));
+    assert_eq!(
+        sheet.read(|table| (table.scroll.top(), table.scroll_x)),
+        (581.0, 600.0)
+    );
+    // Above and left of it: to the top and left edges.
+    let back = TallTableSelection::Cells {
+        anchor: (40, 1),
+        head: (40, 1),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(back), cx));
+    assert_eq!(
+        sheet.read(|table| (table.scroll.top(), table.scroll_x)),
+        (40.0, 120.0)
+    );
+}
+
+#[gpui_kit::test]
+fn select_in_view_scrolls_again_with_no_event(cx: &mut TestAppContext) {
+    let mut sheet = open(cx, 1000, Selectable::all());
+    let cell = TallTableSelection::Cells {
+        anchor: (300, 0),
+        head: (300, 0),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(cell), cx));
+    sheet.update(|table, cx| table.scroll_by(-200.0, 0.0, cx));
+    sheet.update(|table, cx| table.select_in_view(Some(cell), cx));
+    assert_eq!(
+        sheet.read(|table| table.scroll.top()),
+        281.0,
+        "back in view"
+    );
+    assert_eq!(sheet.selected.borrow().len(), 1, "unchanged: no event");
+}
+
+#[gpui_kit::test]
+fn select_in_view_scrolls_only_along_the_range(cx: &mut TestAppContext) {
+    let mut sheet = open(cx, 1000, Selectable::all());
+    let rows = TallTableSelection::Rows {
+        anchor: (500, 10),
+        head: (500, 10),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(rows), cx));
+    assert_eq!(
+        sheet.read(|table| (table.scroll.top(), table.scroll_x)),
+        (481.0, 0.0),
+        "rows: up or down alone"
+    );
+    let columns = TallTableSelection::Columns {
+        anchor: (0, 10),
+        head: (0, 10),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(columns), cx));
+    assert_eq!(
+        sheet.read(|table| (table.scroll.top(), table.scroll_x)),
+        (481.0, 720.0),
+        "columns: sideways alone"
+    );
+}
+
+#[gpui_kit::test]
+fn select_in_view_scrolls_nothing_it_doesnt_select(cx: &mut TestAppContext) {
+    let mut sheet = open(cx, 1000, Selectable::all());
+    sheet.update(|table, cx| table.scroll_by(200.0, 0.0, cx));
+    sheet.update(|table, cx| table.select_in_view(None, cx));
+    assert_eq!(sheet.read(|table| table.scroll.top()), 200.0, "cleared");
+    sheet.update(|table, cx| table.set_rows(0, cx));
+    let cell = TallTableSelection::Cells {
+        anchor: (5, 0),
+        head: (5, 0),
+    };
+    sheet.update(|table, cx| table.select_in_view(Some(cell), cx));
+    assert_eq!(sheet.selection(), None, "no rows");
+    assert_eq!(sheet.read(|table| table.scroll.top()), 0.0);
+}

@@ -1554,13 +1554,15 @@ impl Workbench {
         }
     }
 
-    /// Row `row`'s values for the Row tab, answered on `answer`: from the
-    /// page the table holds, else read alone (Tycho's rule 3). None with
-    /// no file open, past the rows, or when the read fails.
+    /// Row `row`'s values, each cut at `most` characters, answered on
+    /// `answer`: from the page the table holds, else read alone (Tycho's
+    /// rule 3). None with no file open, past the rows, or when the read
+    /// fails.
     #[cfg(target_family = "wasm")]
     pub(crate) fn row_values(
         &mut self,
         row: u64,
+        most: usize,
         answer: futures::channel::oneshot::Sender<Option<crate::row::RowValues>>,
         cx: &mut Context<Self>,
     ) {
@@ -1574,7 +1576,7 @@ impl Workbench {
             return;
         }
         if let Some((page, at)) = rows.loaded(row) {
-            let _ = answer.send(Some(crate::row::read(view, &*page, at, row)));
+            let _ = answer.send(Some(crate::row::read(view, &*page, at, row, most)));
             return;
         }
         let sql = rows.page_sql(row..row + 1);
@@ -1591,7 +1593,7 @@ impl Workbench {
                         },
                         Ok(page),
                     ) if *shown == table && page.num_rows() == 1 => {
-                        Some(crate::row::read(view, &page, 0, row))
+                        Some(crate::row::read(view, &page, 0, row, most))
                     }
                     _ => None,
                 })
@@ -1881,6 +1883,7 @@ impl Workbench {
                 name: summary.name.clone(),
                 sample: *sample,
                 facts: crate::frame::facts(summary),
+                rows: summary.rows,
                 load: csv.as_ref().map(|load| {
                     #[cfg(target_family = "wasm")]
                     let now = seiza::marks::now();
@@ -1931,6 +1934,48 @@ impl Workbench {
             active: self.active,
             columns: self.columns.clone(),
         }
+    }
+
+    /// The Row tab's Previous row and Next row (`crate::frame`'s
+    /// `select`): cell `row`, column `column` (its index) made the
+    /// selection, a cell as an arrow key's move makes it (on the nearest
+    /// shown column when that one is hidden), and scrolled into view the
+    /// least distance. Focus stays where it is (the tab's button).
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn select_cell(&mut self, row: u64, column: usize, cx: &mut Context<Self>) {
+        use seiza_tall_table::TallTableSelection;
+
+        let Load::Open { table, view, .. } = &self.load else {
+            return;
+        };
+        let order = table.read(cx).order();
+        let Some(place) = order.iter().position(|&index| index == column) else {
+            return;
+        };
+        // The active cell can sit on a hidden column (a range keeps its
+        // anchor through a hide, and select-all's is the first place): a
+        // cell there alone isn't a selection, so the step lands on the
+        // nearest shown column, right first, as the table's own keys do.
+        let shown = |place: &usize| !view.is_hidden(order[*place]);
+        let Some(place) = (place..order.len())
+            .find(shown)
+            .or_else(|| (0..place).rev().find(shown))
+        else {
+            return;
+        };
+        if row >= table.read(cx).rows() {
+            return;
+        }
+        let cell = (row, place);
+        table.update(cx, |table, cx| {
+            table.select_in_view(
+                Some(TallTableSelection::Cells {
+                    anchor: cell,
+                    head: cell,
+                }),
+                cx,
+            )
+        });
     }
 
     /// A cell's menu's Copy (`crate::frame`'s `copy`): the table's
