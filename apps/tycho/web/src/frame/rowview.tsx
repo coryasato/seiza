@@ -16,15 +16,17 @@
  * the head and the buttons are chrome, never selected, so select-all in the
  * tab (`log.tsx`'s `panelKeys`) takes the fields alone.
  *
- * Focus: opened by Enter, the active cell's field takes it once drawn
- * (`core.ts`, `openRow`, `takeRowFocus`); opened by the pointer it stays on
- * the table. Tab moves between the fields and their buttons.
+ * Focus: opened by Enter, the popover's "Focus row in panel", or the cell
+ * menu's, the active cell's field takes it once drawn (`core.ts`,
+ * `openRow`, `takeRowFocus`); opened by a double press it stays on the
+ * table (`docs/DECISIONS.md`, "Scope", 2026-11-25). Tab moves between the
+ * fields and their buttons.
  */
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { copyRowText, dropRowFocus, getRowFocusAsks, rowValues, selectCell, subscribeRowFocus, takeRowFocus } from './core.ts';
+import { copyRowText, dropRowFocus, getFieldCopy, getRowFocusAsks, rowValues, selectCell, subscribeFieldCopy, subscribeRowFocus, takeRowFocus } from './core.ts';
 import { Badge, Icon, type IconName } from './icons.tsx';
-import { openFieldMenu, useFieldMenu } from './menus.tsx';
+import { closeFieldMenuOff, openFieldMenu, useFieldMenu } from './menus.tsx';
 import type { FrameState, RowValues } from './state.ts';
 
 type Field = RowValues['fields'][number];
@@ -34,25 +36,43 @@ const count = (n: number): string => n.toLocaleString('en-US');
 /** Eight lines of the value's 18 px. */
 const LONG_HEIGHT = 8 * 18;
 
-const iconButton = 'flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md text-foreground-muted select-none hover:bg-surface-raised hover:text-foreground disabled:cursor-default disabled:opacity-40 disabled:hover:bg-transparent';
+const iconButton = 'flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md text-foreground-muted select-none hover:bg-surface-raised hover:text-foreground aria-disabled:cursor-default aria-disabled:opacity-40 aria-disabled:hover:bg-transparent';
 const smallButton = 'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded text-foreground-muted select-none hover:bg-surface-active hover:text-foreground aria-expanded:bg-surface-active aria-expanded:text-foreground';
 
 /** A copy button: its icon a check for a moment once the browser wrote
- *  it, or an x where it couldn't. */
-function CopyButton({ label, run, className, size = 14 }: { label: string; run: () => Promise<boolean>; className: string; size?: number }) {
+ *  it, or an x where it couldn't. A field's says its menu's copies too
+ *  (`field`: `core.ts`'s `copyField`). */
+function CopyButton({ label, run, className, size = 14, field }: { label: string; run: () => Promise<boolean>; className: string; size?: number; field?: { row: number; column: number } }) {
   const [done, setDone] = useState<'copied' | 'failed' | null>(null);
   useEffect(() => {
     if (!done) return;
     const timer = setTimeout(() => setDone(null), 1200);
     return () => clearTimeout(timer);
   }, [done]);
+  const menuCopy = useSyncExternalStore(subscribeFieldCopy, getFieldCopy, () => null);
+  const heard = useRef(menuCopy?.seq ?? 0);
+  useEffect(() => {
+    if (!menuCopy || menuCopy.seq === heard.current) return;
+    heard.current = menuCopy.seq;
+    if (field && menuCopy.row === field.row && menuCopy.column === field.column) setDone(menuCopy.ok ? 'copied' : 'failed');
+  }, [menuCopy, field?.row, field?.column]);
   const icon: IconName = done === 'copied' ? 'check' : done === 'failed' ? 'x' : 'copy';
   const title = done === 'copied' ? 'Copied' : done === 'failed' ? "Couldn't copy" : label;
   return (
-    <button type="button" aria-label={label} title={title} onClick={() => void run().then((ok) => setDone(ok ? 'copied' : 'failed'))} className={className}>
+    <button type="button" aria-label={label} title={title} data-done={done ?? undefined} onClick={() => void run().then((ok) => setDone(ok ? 'copied' : 'failed'))} className={className}>
       <Icon name={icon} size={size} />
     </button>
   );
+}
+
+/** Scrolls `list` the least distance that shows `field`, its top first
+ *  when it's taller than the list; never the page or a sheet around it, as
+ *  `scrollIntoView` may. */
+function keepInSight(list: HTMLElement, field: HTMLElement): void {
+  const outer = list.getBoundingClientRect();
+  const inner = field.getBoundingClientRect();
+  if (inner.top < outer.top) list.scrollTop -= outer.top - inner.top;
+  else if (inner.bottom > outer.bottom) list.scrollTop += Math.min(inner.bottom - outer.bottom, inner.top - outer.top);
 }
 
 /** A value: NULL as NULL; long text cut at eight lines with Show all. */
@@ -100,6 +120,9 @@ function Value({ field }: { field: Field }) {
 }
 
 function FieldRow({ field, row, active, menu }: { field: Field; row: number; active: boolean; menu: boolean }) {
+  // The value when the tab holds it whole: a copy writes it at once where
+  // a browser has no ClipboardItem (`core.ts`'s `copyRowText`).
+  const known = field.value !== null && field.length === [...field.value].length ? field.value : null;
   return (
     <div
       data-field={field.index}
@@ -116,14 +139,14 @@ function FieldRow({ field, row, active, menu }: { field: Field; row: number; act
         <span className="min-w-0 truncate text-[11.5px] text-foreground-muted">{field.name}</span>
         {field.hidden && <span className="shrink-0 text-[10.5px] whitespace-nowrap text-foreground-subtle select-none">hidden in the table</span>}
         <span className="flex-1" />
-        <div className={`flex items-center gap-0.5 ${menu ? '' : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100'}`}>
-          <CopyButton label="Copy this value" run={() => copyRowText(row, field.index, field.value !== null && field.length === [...field.value].length ? field.value : null)} className={smallButton} size={12} />
+        <div className={`flex items-center gap-0.5 ${menu ? '' : 'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 has-[[data-done]]:opacity-100 [@media(hover:none)]:opacity-100'}`}>
+          <CopyButton label="Copy this value" run={() => copyRowText(row, field.index, known)} field={{ row, column: field.index }} className={smallButton} size={12} />
           <button
             type="button"
             aria-label={`${field.name}'s menu`}
             aria-haspopup="menu"
             aria-expanded={menu}
-            onClick={(event) => openFieldMenu({ index: field.index, row, value: field.value, anchor: event.currentTarget })}
+            onClick={(event) => openFieldMenu({ index: field.index, row, value: field.value, known, anchor: event.currentTarget })}
             className={smallButton}
           >
             <Icon name="more" size={12} />
@@ -148,13 +171,16 @@ export function RowView({ state }: { state: FrameState }) {
   const focusAsks = useSyncExternalStore(subscribeRowFocus, getRowFocusAsks, () => 0);
   // A file's opening is its log's first entry (`menus.tsx`'s rule).
   const opening = state.log.entries[0]?.id ?? null;
-  // What the view is, for the fields: their order and hidden flags. The
+  // What the view is, for the fields: their order, types, and hidden
+  // flags (a CSV's column widened to text reads its row again). The
   // frame's `columns` is a new array at every publish, so it's compared by
   // this, not by itself.
-  const viewKey = state.columns.map((column) => `${column.index}${column.hidden ? 'h' : ''}`).join(',');
+  const viewKey = state.columns.map((column) => `${column.index}:${column.dataType}${column.hidden ? ':h' : ''}`).join(',');
   // Read again when the row, the view, or the file changes; an answer that
   // comes after the next ask is dropped. A read failed is said.
   useEffect(() => {
+    // A field's menu on another row closes: its Copy would copy that row.
+    closeFieldMenuOff(active?.row ?? null);
     if (!active) {
       setValues(null);
       return;
@@ -181,12 +207,30 @@ export function RowView({ state }: { state: FrameState }) {
     if (column === null) return;
     const field = fields.current?.querySelector<HTMLElement>(`[data-field="${column}"]`);
     field?.focus({ preventScroll: true });
-    field?.scrollIntoView({ block: 'nearest' });
+    if (fields.current && field) keepInSight(fields.current, field);
   }, [values, focusAsks]);
-  // The active field kept in sight as the selection moves along the row.
+  // The active field kept in sight as the selection moves to another row
+  // or along it; not when the same row is read again (a hide, a type
+  // widened), which would undo the visitor's own scroll in the tab.
+  const kept = useRef<string | null>(null);
+  // The fields' list is drawn anew (scrolled to its top) after "No row
+  // selected", and another file's is another list: the field is brought
+  // into sight again then, even for the same row and column.
+  useLayoutEffect(() => {
+    kept.current = null;
+  }, [opening, active === null]);
+  // A field's menu opened on the last row's fields, shown faded while the
+  // next row's read, closes once they're drawn.
+  useEffect(() => {
+    if (values) closeFieldMenuOff(values.row);
+  }, [values]);
   useLayoutEffect(() => {
     if (!values || !active) return;
-    fields.current?.querySelector(`[data-field="${active.column}"]`)?.scrollIntoView({ block: 'nearest' });
+    const key = `${values.row}:${active.column}`;
+    if (kept.current === key) return;
+    kept.current = key;
+    const field = fields.current?.querySelector<HTMLElement>(`[data-field="${active.column}"]`);
+    if (fields.current && field) keepInSight(fields.current, field);
   }, [values, active?.column]);
 
   if (!active) {
@@ -211,10 +255,13 @@ export function RowView({ state }: { state: FrameState }) {
           <span className="text-[11.5px] text-foreground-subtle">of {count(rows)}</span>
         </div>
         <div className="flex items-center gap-0.5">
-          <button type="button" data-row-step="previous" aria-label="Previous row" title="Previous row" disabled={active.row === 0} onClick={() => selectCell(active.row - 1, active.column)} className={iconButton}>
+          {/* aria-disabled, not disabled: a disabled button drops its
+              focus to the page, so a keyboard stepping to the first or
+              last row would leave the panel. */}
+          <button type="button" data-row-step="previous" aria-label="Previous row" title="Previous row" aria-disabled={active.row === 0} onClick={() => active.row > 0 && selectCell(active.row - 1, active.column)} className={iconButton}>
             <Icon name="up" />
           </button>
-          <button type="button" data-row-step="next" aria-label="Next row" title="Next row" disabled={active.row + 1 >= rows} onClick={() => selectCell(active.row + 1, active.column)} className={iconButton}>
+          <button type="button" data-row-step="next" aria-label="Next row" title="Next row" aria-disabled={active.row + 1 >= rows} onClick={() => active.row + 1 < rows && selectCell(active.row + 1, active.column)} className={iconButton}>
             <Icon name="down" />
           </button>
           <CopyButton label="Copy the row" run={() => copyRowText(active.row, null)} className={iconButton} />

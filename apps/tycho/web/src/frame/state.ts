@@ -92,7 +92,7 @@ export interface ColumnFacts {
  *  header: at a phone, a finger's opens its menu), `header` (a right-click or
  *  long press on a header), `cell` (one on a cell), `double` (a double press
  *  on a cell), `enter` (Enter on a cell with no popover), `open` (the
- *  popover's "Open row"). */
+ *  popover's "Focus row in panel", pressed or by Enter). */
 export interface TablePress {
   kind: 'icon' | 'tap' | 'header' | 'cell' | 'double' | 'enter' | 'open';
   column: ColumnFacts;
@@ -139,7 +139,8 @@ export interface FrameState {
   log: { entries: LogEntry[]; current: number | null };
   /** The command bar's last answer. */
   answer: Answer | null;
-  /** The table's active cell; null with nothing selected. */
+  /** The table's active cell; null with nothing selected, or a range of
+   *  columns (it picks no row). */
   active: ActiveCell | null;
   /** The open file's columns in the view's order, hidden ones included:
    *  the left panel's list. Empty with none open. */

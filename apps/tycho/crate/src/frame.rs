@@ -42,7 +42,8 @@ pub struct FrameView {
     /// The command bar's last answer.
     pub answer: Option<Answer>,
     /// The table's active cell (its selection's anchor), which the Row
-    /// tab shows the row of; none with nothing selected.
+    /// tab shows the row of; none with nothing selected, or a range of
+    /// columns (it picks no row).
     pub active: Option<ActiveCell>,
     /// The open file's columns in the view's order, hidden ones included:
     /// the left panel's list. Empty with none open. Shared, so the frame's
@@ -67,7 +68,8 @@ pub struct Press {
     /// header: at a phone, a finger's opens its menu), `header` (a
     /// right-click or a long press on a header), `cell` (one on a cell),
     /// `double` (a double press on a cell), `enter` (Enter on a cell with
-    /// no popover), or `open` (the popover's "Open row").
+    /// no popover), or `open` (the popover's "Focus row in panel", pressed
+    /// or by Enter).
     pub kind: &'static str,
     pub column: ColumnFacts,
     /// A cell's row, 0-based; none on a header.
@@ -541,6 +543,20 @@ mod web {
         }
         send(on_workbench(move |workbench, _, cx| {
             workbench.select_cell(row as u64, column as usize, cx)
+        }));
+    }
+
+    /// A cell's menu's "Focus row in panel": cell `row` (0-based) of column
+    /// `column` (its index) selected alone, then its row opened with focus
+    /// at its field (an `open` press, after the frame carrying the
+    /// selection: `Workbench::open_row_at`).
+    #[wasm_bindgen]
+    pub fn open_row(row: f64, column: u32) {
+        if !(row.is_finite() && row >= 0.0 && row.fract() == 0.0) {
+            return;
+        }
+        send(on_workbench(move |workbench, _, cx| {
+            workbench.open_row_at(row as u64, column as usize, cx)
         }));
     }
 

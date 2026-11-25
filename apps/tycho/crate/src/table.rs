@@ -211,7 +211,7 @@ pub fn new(
 /// "Scope", 2026-11-20 and 2026-11-21): a finger's tap on a header is one
 /// press (its menu holds what the arrow and the band would do), Ctrl+press
 /// is a right-click in a Mac browser, and the popover opens on cut text
-/// alone, its cue a fade with a chevron, its foot "Open row".
+/// alone, its cue a fade with a chevron, its foot "Focus row in panel".
 pub fn settle(table: &mut RowTable, cx: &mut gpui_kit::Context<RowTable>) {
     use seiza_tall_table::{PopoverButton, PopoverCells, PopoverCue};
 
@@ -229,9 +229,10 @@ pub fn settle(table: &mut RowTable, cx: &mut gpui_kit::Context<RowTable>) {
     table.set_popover_button(Some(PopoverButton::custom(popover_foot).fill()), cx);
 }
 
-/// The popover's foot, as the Popover board draws it: one row, "Open row"
-/// in the accent at its left and the key, "Enter", muted at its right.
-/// The table's own label draws one text, which can't hold the key.
+/// The popover's foot, as the Popover board draws it: one row, "Focus row
+/// in panel" in the accent at its left and the key, "Enter", muted at its
+/// right (`docs/DECISIONS.md`, "Scope", 2026-11-25: the board's "Open row"
+/// renamed). The table's own label draws one text, which can't hold the key.
 fn popover_foot(_: &mut gpui_kit::Window, cx: &mut App) -> gpui_kit::AnyElement {
     use gpui_kit::{IntoElement as _, ParentElement as _, Styled as _, div, px};
 
@@ -253,7 +254,7 @@ fn popover_foot(_: &mut gpui_kit::Window, cx: &mut App) -> gpui_kit::AnyElement 
             div()
                 .text_size(px(12.))
                 .text_color(color(tokens.accent))
-                .child("Open row"),
+                .child("Focus row in panel"),
         )
         .child(
             div()

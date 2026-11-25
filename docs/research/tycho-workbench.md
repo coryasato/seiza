@@ -59,17 +59,18 @@ What someone needs to check something in a large file, with no LLM anywhere:
 
 | Tool | State |
 |---|---|
-| Sort, resize, select, copy, pin, reorder, format, density | Built in the tall table; Tycho has adopted none yet |
+| Resize, select, copy, pin, reorder | Built in the tall table and adopted in Tycho: a column's menu (from its header's badge), a cell's menu, and the column list |
+| Sort, format, density | Built in the tall table; not yet adopted (sorting with filtering, next) |
 | Jump to row | Built in Tycho |
 | Filter a column; search across columns | Candidates in the tall table's PLAN, after its `replace_rows` |
 | Find (keep every row, step through matches) | A candidate in the tall table's PLAN |
-| Hide and show columns | Planned in the tall table's PLAN |
+| Hide and show columns | Built in the tall table and adopted in Tycho: the menus, the column list, `hide` and `show` |
 | A column profile: type, null share, distinct count, min and max, top values, a small histogram | New, Tycho's |
 | Totals of the selection (count, sum, average) | New, Tycho's: a query over the selection's range in the catalog, since most of a large selection isn't loaded |
 | Export the current view as CSV or Parquet (and so convert between them) | New, Tycho's and the engine's; needs a size plan (below) |
 | Schema and file facts (types, row groups, compression) | New, Tycho's |
 | Filter by a cell: every row that shares this value, or every row that doesn't | New, Tycho's; **decided** |
-| A row detail view: one row opened and read in full, long text and nested values included | New, Tycho's; **decided** |
+| A row detail view: one row opened and read in full, long text and nested values included | Built in Tycho (the panel's Row tab, opened from the cell popover, Enter, or a double-click), nested values aside until JSONL |
 | The view copied as SQL, to continue in another tool | New, Tycho's; **decided** |
 
 **Export's size, decided 2026-11-21:** a cap with a clear message, in every browser, and a test of writing to the browser's own storage first, which would lift it (`apps/tycho/docs/DECISIONS.md`, "Scope"). What was open: an export is written inside DuckDB-Wasm before the browser saves it (to confirm how), so a large one could run out of memory. The choices: a cap with a clear message, which covers the common case of a small piece of a big file; or writing in pieces to a file the visitor picks (the save-file picker, Chromium only). It also needs a call the bridge doesn't have. Decided before export is built.

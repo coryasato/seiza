@@ -18,7 +18,8 @@
 //! The table's presses that the page answers (a header's icon, a context
 //! press, a double press, Enter on a cell with no popover, the popover's
 //! button) go to the page as one event each (`crate::frame::Press`), its
-//! selection's anchor is the frame's active cell, a copy goes to the
+//! selection's anchor is the frame's active cell (none for a range of
+//! columns), a copy goes to the
 //! clipboard through the bridge's writer, and a row's values are read for
 //! the Row tab (`Workbench::row_values`).
 
@@ -456,10 +457,17 @@ pub struct Workbench {
     /// whether it has.
     shown_catalog: Option<Option<Catalog>>,
     /// The table's active cell, by the column's index: its selection's
-    /// anchor, which the Row tab follows.
+    /// anchor, which the Row tab follows; none for a range of columns,
+    /// which picks no row.
     active: Option<ActiveCell>,
     /// Writes the table's copies to the clipboard (`copy`).
     clipboard: tall_table_bridge::clipboard::Clipboard,
+    /// A cell whose row the page opens with focus at its field (`open`, the
+    /// column's index and the row), sent after the next frame's publish so
+    /// the page hears the selection it follows first: the popover's button
+    /// and the cell menu's "Focus row in panel" select their cell, then open
+    /// its row, and the Row tab drops an ask for a row it isn't on.
+    open_after_frame: Option<(usize, u64)>,
     _engine_status: Subscription,
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
@@ -545,6 +553,7 @@ impl Workbench {
             drawn: Vec::new(),
             shown_catalog: None,
             active: None,
+            open_after_frame: None,
             // The outcome on a global while measuring, for the checks.
             clipboard: tall_table_bridge::clipboard::Clipboard::new(
                 crate::targets::measuring().then_some("__tychoCopy"),
@@ -1355,13 +1364,23 @@ impl Workbench {
         };
         match event {
             TallTableEvent::Selected(selection) => {
-                let active = selection.map(|selection| {
-                    let (row, place) = selection.anchor();
-                    ActiveCell {
-                        row,
-                        column: index(place, cx),
-                    }
-                });
+                // A column's range picks no row (its anchor's row is the
+                // first in view), so it leaves no active cell: the Row
+                // tab says none is selected.
+                let active = selection
+                    .filter(|selection| {
+                        !matches!(
+                            selection,
+                            seiza_tall_table::TallTableSelection::Columns { .. }
+                        )
+                    })
+                    .map(|selection| {
+                        let (row, place) = selection.anchor();
+                        ActiveCell {
+                            row,
+                            column: index(place, cx),
+                        }
+                    });
                 if active != self.active {
                     self.active = active;
                     cx.notify();
@@ -1399,11 +1418,57 @@ impl Workbench {
                 };
                 self.press("icon", press.column, None, Some(at), cx);
             }
+            // The popover opened on a cell outside the selection (a cue's
+            // press: Enter opens it on the active cell alone) selects that
+            // cell, the range dropped; inside it, the selection stays, a
+            // peek (`docs/DECISIONS.md`, "Scope", 2026-11-25).
+            TallTableEvent::Popover(Some(cell)) => {
+                Self::select_popover_cell(table, *cell, true, cx);
+            }
+            // Its button, pressed or by Enter: its cell selected first, even
+            // inside a range, so the Row tab (which follows the selection)
+            // shows the popover's row.
             TallTableEvent::PopoverButton(cell) => {
-                self.press("open", cell.column, Some(cell.row), None, cx);
+                Self::select_popover_cell(table, *cell, false, cx);
+                self.open_after_frame = Some((cell.column, cell.row));
+                cx.notify();
             }
             TallTableEvent::Copy(copy) => self.copied(table, copy, cx),
             _ => {}
+        }
+    }
+
+    /// Selects the popover's cell `cell` alone, unless `outside_only` and
+    /// it's inside the selection already. No scroll: the popover's cell is
+    /// in view, and a selection on its own cell leaves the popover open.
+    #[cfg(target_family = "wasm")]
+    fn select_popover_cell(
+        table: &Entity<RowTable>,
+        cell: seiza_tall_table::PopoverCell,
+        outside_only: bool,
+        cx: &mut Context<Self>,
+    ) {
+        use seiza_tall_table::TallTableSelection;
+
+        let Some(place) = table
+            .read(cx)
+            .order()
+            .iter()
+            .position(|&index| index == cell.column)
+        else {
+            return;
+        };
+        let current = table.read(cx).selection();
+        if outside_only && current.is_some_and(|selection| selection.contains(cell.row, place)) {
+            return;
+        }
+        let at = (cell.row, place);
+        let alone = TallTableSelection::Cells {
+            anchor: at,
+            head: at,
+        };
+        if current != Some(alone) {
+            table.update(cx, |table, cx| table.set_selection(Some(alone), cx));
         }
     }
 
@@ -1978,6 +2043,43 @@ impl Workbench {
         });
     }
 
+    /// A cell's menu's "Focus row in panel" (`crate::frame`'s `open_row`):
+    /// cell `row` of column `column` (its index) selected alone, then its
+    /// row opened with focus at its field, once the page has the selection
+    /// (`open_after_frame`). A hidden column's cell can't be selected and
+    /// isn't opened.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn open_row_at(&mut self, row: u64, column: usize, cx: &mut Context<Self>) {
+        use seiza_tall_table::TallTableSelection;
+
+        let Load::Open { table, view, .. } = &self.load else {
+            return;
+        };
+        if view.is_hidden(column) || row >= table.read(cx).rows() {
+            return;
+        }
+        let Some(place) = table
+            .read(cx)
+            .order()
+            .iter()
+            .position(|&index| index == column)
+        else {
+            return;
+        };
+        let at = (row, place);
+        table.update(cx, |table, cx| {
+            table.set_selection(
+                Some(TallTableSelection::Cells {
+                    anchor: at,
+                    head: at,
+                }),
+                cx,
+            )
+        });
+        self.open_after_frame = Some((column, row));
+        cx.notify();
+    }
+
     /// A cell's menu's Copy (`crate::frame`'s `copy`): the table's
     /// selection, as Cmd/Ctrl+C copies it, its events going to the
     /// clipboard as a key's do (`copied`); the table given focus.
@@ -2472,12 +2574,16 @@ impl Workbench {
     fn publish_frame(&mut self, cx: &App) {
         self.refresh_columns();
         let view = self.frame_view(cx);
-        if self.shown_frame.as_ref() == Some(&view) {
-            return;
+        if self.shown_frame.as_ref() != Some(&view) {
+            #[cfg(target_family = "wasm")]
+            crate::frame::publish(&view);
+            self.shown_frame = Some(view);
         }
+        // After the frame, so the page has the selection it follows.
         #[cfg(target_family = "wasm")]
-        crate::frame::publish(&view);
-        self.shown_frame = Some(view);
+        if let Some((column, row)) = self.open_after_frame.take() {
+            self.press("open", column, Some(row), None, cx);
+        }
     }
 }
 

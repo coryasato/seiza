@@ -421,3 +421,24 @@ No results note: the part's one number, the wasm's size, is in PLAN's evidence.
 - **Select-all took the badges' "Aa":** the text type's badge is a glyph in a span, not an icon, so it went into the selection with the names. The badge is unselectable everywhere.
 - **Copying a value the tab shows cut copies the cut:** the tab gets 10,000 characters of a value, so the copies ask for the row again uncut, with the clipboard's write opened before the answer comes.
 - **The code review found the tab reading its row at every publish:** the frame's `columns` looked stable, since the app builds its list only when the view changes, but it crosses to the page as a new array each time, so an effect keyed on it ran on every CSV tick. A value the page compares must be compared by what it holds. It also found Next row clearing the selection from an active cell on a hidden column (select-all's anchor is the first place, hidden or not), and a "Show all" carried to the next row by a field keyed by its column alone.
+
+## M14 part D: the browser check and the docs (2026-11-25)
+
+No results note: the part's one number, the wasm's size, is in the milestone's evidence (`docs/milestones.md`), unchanged from Part C.
+
+**Surprises:**
+- **The table's selection counts columns by their drawn place, the frame by their index.** `__tychoTable.selection`'s column is where the column is drawn, while the Row tab's `data-field` and the frame's `active` are the column's index. They agree until a column moves, and Unpin moves one: it leaves the column first. A check that reads both finds the column's place in `__tychoTableLayout` first.
+- **A menu item's accessible name holds its key's hint:** Copy is named "Copy⌘C" (or "Copy Ctrl C"), so an exact name finds nothing and the click waits out its timeout. The check matches the label at the start of the name.
+- **At 390 px most headers are off the screen:** the layout's columns run past the page, and a tap there lands nowhere, with no error. A phone's tap goes on a column the screen shows.
+- **The sample's own text tripped the milestone-ID lint:** a GCAT name with "M1-10" in it, quoted in a comment, read as a milestone. Describe the value instead of quoting it.
+- **The spec named columns of a file Tycho no longer has:** `nst` and `dmin` are from the quake file the Log board used, not GCAT. The check uses two GCAT columns. Before a check's spec names columns, look at the sample's columns.
+
+## M14 part E: the popover's row, "Focus row in panel", and the close (2026-11-25)
+
+No results note: the part's one number, the wasm's size, is in the milestone's evidence (`docs/milestones.md`).
+
+**Surprises:**
+- **Using the build found what the checks didn't:** the popover's button on a cell that wasn't selected opened the selection's row, since the Row tab follows the selection and the button's own row went unread. Every check had pressed it on the active cell. A press on a control that names a cell is checked on a cell that isn't the active one.
+- **One control for two audiences confused both:** the foot "Open row · Enter" was a button for the pointer and a promise about a key, and the focus it gave depended on which pressed it. Naming where it goes ("Focus row in panel") and always going there settled it; the double-click stays the one way that leaves focus on the table.
+- **A press reached the page before the selection it followed:** the app sent a press at once but the frame at its next render, so the Row tab, mounting on the old row, dropped the focus ask. The press now goes after the frame. Two messages to the page about one change need an order.
+- **A focus chosen when a menu starts closing lands when it ends:** Base UI's `finalFocus` is read at the closing's start and applied after its transition, over a field that took focus in between. An item that places focus itself gives the table focus from its handler and leaves `finalFocus` out of it.

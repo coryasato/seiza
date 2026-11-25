@@ -156,3 +156,14 @@ command url="http://localhost:5173/":
 # preview's URL for the release build.
 view url="http://localhost:5173/":
     node {{app_dir}}/perf/view.ts {{url}}
+
+# The table's menus, the column list, the popover, and the row view in
+# Chromium, Firefox, and WebKit: a header icon's menu (Hide, Pin, Unpin,
+# Fit) and a cell's (Copy), `hide` typed and `show` pasted and `undo`, the
+# column list's search and its row's menu, a cut cell's popover and the Row
+# tab by Enter, a double-click, Next row, a hidden field, Cmd/Ctrl+C on a
+# range; at 390×760, a header's tap opening its sheet and the panels'
+# sheet's Columns and Row tabs. Against the dev server by default; pass the
+# preview's URL for the release build; --only names browsers.
+table url="http://localhost:5173/" *args:
+    node {{app_dir}}/perf/table.ts {{url}} {{args}}

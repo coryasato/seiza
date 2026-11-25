@@ -9,6 +9,7 @@ import init, {
   copy,
   fit,
   open_file,
+  open_row,
   open_sample,
   retry_engine,
   row,
@@ -104,6 +105,7 @@ const hydrate = () => {
     copy,
     row_text: (index, column) => row_text(index, column) as Promise<string | null>,
     select,
+    open_row,
   });
   // GPUI took focus for its own input as its window opened.
   focusFirstScreen();

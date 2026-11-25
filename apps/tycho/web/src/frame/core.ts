@@ -40,6 +40,10 @@ export interface App {
   /** The Row tab's Previous and Next row: the table's selection made cell
    *  `row` of column `column` (its index), scrolled into view. */
   select(row: number, column: number): void;
+  /** A cell menu's "Focus row in panel": cell `row` of column `column` (its
+   *  index) selected alone, then an `open` press for it, sent after the
+   *  frame that carries the selection. */
+  open_row(row: number, column: number): void;
 }
 
 let app: App | null = null;
@@ -271,9 +275,9 @@ export function setPanelTab(tab: PanelTab): void {
 }
 
 /** Where the Row tab puts focus once its row is drawn: the field of
- *  `column` (its index) in row `row`, when Enter opened it
- *  (`docs/DECISIONS.md`, "Scope", 2026-11-21: by Enter the view takes
- *  focus, by the pointer it stays on the table). Taken once. */
+ *  `column` (its index) in row `row`, asked by every way to the row but the
+ *  double press, which leaves focus on the table (`docs/DECISIONS.md`,
+ *  "Scope", 2026-11-25). Taken once. */
 let rowFocus: { row: number; column: number } | null = null;
 /** Counts the asks, so the Row tab hears one for a row it already shows. */
 let rowFocusAsks = 0;
@@ -298,23 +302,18 @@ export function dropRowFocus(row: number): void {
 
 /** The Row tab opened, the right panel with it (at a phone, the sheet on
  *  its Row tab), showing the active cell's row; with `focus` (Enter), focus
- *  goes to that cell's field once it's drawn. */
-export function openRow(focus: { row: number; column: number } | null): void {
+ *  goes to that cell's field once it's drawn. Only the shown one turns: the
+ *  other keeps the tab it was left on (the sheet's Columns first). */
+export function openRow(focus: { row: number; column: number } | null, phone: boolean): void {
   rowFocus = focus;
   if (focus) {
     rowFocusAsks++;
     for (const listener of rowFocusListeners) listener();
   }
-  setPanelTab('row');
-  setSheetTab('row');
+  if (phone) setSheetTab('row');
+  else setPanelTab('row');
   setLogOpen(true);
 }
-
-/** Whether the last input was a key: the popover's button pressed by Enter
- *  opens the Row tab with focus, by a press without it. Both reach the page
- *  as the same press (`TablePress`'s `open`). */
-let lastInputKey = false;
-export const lastInputWasKey = (): boolean => lastInputKey;
 
 /** A row's values for the Row tab (`App.row`). */
 export function rowValues(row: number): Promise<RowValues | null> {
@@ -324,6 +323,12 @@ export function rowValues(row: number): Promise<RowValues | null> {
 /** The Row tab's Previous and Next row. */
 export function selectCell(row: number, column: number): void {
   call((app) => app.select(row, column));
+}
+
+/** A cell menu's "Focus row in panel": the app selects the cell, then
+ *  presses `open` for it, which opens its row (`menus.tsx`). */
+export function focusRow(row: number, column: number): void {
+  call((app) => app.open_row(row, column));
 }
 
 /** A Row tab's copy, column `column`'s value or the whole row (null):
@@ -353,6 +358,34 @@ export function copyRowText(row: number, column: number | null, known: string | 
   }
   // A browser may refuse a write this long after the press.
   return text.then((text) => (text === null ? false : clipboard.writeText(text).then(() => true, () => false)));
+}
+
+/** The last copy of a field's value made from its menu, said on the
+ *  field's own Copy button (its check or its x), since the menu has
+ *  closed by the time the browser answers. */
+export interface FieldCopy {
+  row: number;
+  column: number;
+  ok: boolean;
+  /** Counts the copies, so the same field copied twice is said twice. */
+  seq: number;
+}
+let fieldCopy: FieldCopy | null = null;
+let fieldCopies = 0;
+const fieldCopyListeners = new Set<() => void>();
+export const getFieldCopy = (): FieldCopy | null => fieldCopy;
+export function subscribeFieldCopy(listener: () => void): () => void {
+  fieldCopyListeners.add(listener);
+  return () => fieldCopyListeners.delete(listener);
+}
+
+/** A field's menu's Copy: `copyRowText` with the text the tab holds whole
+ *  (`known`), its outcome said on the field's button. */
+export function copyField(row: number, column: number, known: string | null): void {
+  void copyRowText(row, column, known).then((ok) => {
+    fieldCopy = { row, column, ok, seq: ++fieldCopies };
+    for (const listener of fieldCopyListeners) listener();
+  });
 }
 
 /** A menu's or the column list's command (`hide mag`, `pin "launch
@@ -397,8 +430,6 @@ function commandKey(): void {
 
 /** Binds the page's controls, keys, and drops: once, from the entry. */
 export function bindFrame(): void {
-  document.addEventListener('keydown', () => (lastInputKey = true), { capture: true });
-  document.addEventListener('pointerdown', () => (lastInputKey = false), { capture: true });
   document.addEventListener('click', (event) => {
     const control = (event.target as Element).closest<HTMLElement>('[data-action]');
     const run = control && !control.hasAttribute('aria-disabled') && ACTIONS[control.dataset.action!];
