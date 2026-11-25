@@ -9,11 +9,13 @@
 // third (an import gated on one feature, used under two) reaches neither.
 //
 // About a second a clippy build, 19 s a pair's tests, and a second and a
-// half a set's rustdoc: ~24 minutes in all, ~2 each for `--only clippy`
-// and `--only doc` (perf/results/2026-11-17-api-review-b.md). Over 20
-// minutes, so the whole run is one to ask about before a code review
-// (root CLAUDE.md, "Working agreements"); a part isn't. A recipe of its
-// own, not part of `lint`.
+// half a set's rustdoc: ~47 minutes in all at 17 features (2,810 s on
+// 2026-11-24, perf/results/2026-11-24-m25-a.md; ~24 at the API review's
+// count, perf/results/2026-11-17-api-review-b.md), a few each for
+// `--only clippy` and `--only doc`. Those two run before a code review;
+// the whole run is over 20 minutes, so it runs once, after the review's
+// fixes, asked about first (root CLAUDE.md, "Working agreements"). A
+// recipe of its own, not part of `lint`.
 //
 // A pair where one feature turns on the other (`follow` and `live`, `copy`
 // and `select`) is its single's build: counted, not built again.

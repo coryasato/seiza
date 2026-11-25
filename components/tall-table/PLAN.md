@@ -10,13 +10,13 @@ What's next for the tall table: the candidates for its next features, the active
 
 ## Status
 
-M1–M24, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-22: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, `popover`, a cell's full value with a button to the host's view of its row, `header-icon`, a column's icon the host sets, its press reported, the popover's three settings (the cue and Enter on a cut text alone, a cue that fades with a mark for the open cell, a button the popover's width), with a long value's cell drawn from its start, and `clicks`' header tap, a finger's tap on a header's arrow or band its header's press ([`docs/milestones.md`](docs/milestones.md)).
+M1–M25, the two hardenings (between M7 and M8, and after M17), and the public API's review are done, the last on 2026-11-24: `DataTable`'s features, the observatory's and Kirkwood's asks, their follow-ups, the features tested together, `replace_rows`, the table's part of Tycho's filters, `hide`, its column visibility, `find`, its search that keeps every row, `popover`, a cell's full value with a button to the host's view of its row, `header-icon`, a column's icon the host sets, its press reported, the popover's three settings (the cue and Enter on a cut text alone, a cue that fades with a mark for the open cell, a button the popover's width), with a long value's cell drawn from its start, and `clicks`' header tap, a finger's tap on a header's arrow or band its header's press, and `resize`'s fit as a call a host makes ([`docs/milestones.md`](docs/milestones.md)).
 
 | Milestone | Title | Status |
 |---|---|---|
-| M24 | Touch presses, a header's tap as one press | Done 2026-11-22 |
+| M25 | The fit as a call | Done 2026-11-24 |
 
-Next: M25, the fit as a call, which Tycho asked for ("Next milestones"); every other candidate waits for a host ("Candidates").
+Next: none; every candidate waits for a host ("Candidates").
 
 **Closing a milestone:** every "done when" check passes; a milestone that changed the paging has passed `just tall-table soak` on its final build (`CLAUDE.md`, rule 5); the numbers are in `perf/results/` with a note; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry links the note; the README's Features table has the feature's row and cost, and its comparison tables the feature's row; and the spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. For a feature, also flip its row in each app's "Waiting on" table (listed under "Who's waiting", below) to *Ready* (the date and the milestone); each app adopts it in a milestone of its own.
 
@@ -35,7 +35,7 @@ Next: M25, the fit as a call, which Tycho asked for ("Next milestones"); every o
 
 ### Drafted
 
-Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's three asks for its first release are milestones: the header icon (M22), the popover for cut text (M23), and touch presses (M24) are built; the fit as a call (M25, "Next milestones") makes a built behavior a call and has no row here; no other row is drafted, and every other candidate waits for a host ("Notes").
+Spec rows with research questions, not specs yet; each one's research settles them, and may end it ("How a candidate is assessed", above). Tycho's four asks for its first release are milestones: the header icon (M22), the popover for cut text (M23), touch presses (M24), and the fit as a call (M25) are built; no other row is drafted, and every other candidate waits for a host ("Notes").
 
 ### Notes
 
@@ -129,8 +129,7 @@ In the order they're built:
 
 | App | Asks for | Why | Built in | Status |
 |---|---|---|---|---|
-| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | The fit as a call | Its column's menu's "Fit to its values" | Drafted ("Next milestones"), before its menus' part | *Not ready* |
-| Tycho | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Notes") | *Not ready* |
+| Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Notes") | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile's strip, only once its panel's profile proves fast enough | Not planned ("Notes"): not asked yet | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
 
@@ -140,7 +139,7 @@ Every earlier ask is built and *Ready* in its app's PLAN.
 
 ## Active milestone
 
-None. M25, the fit as a call, is drafted for Tycho ("Next milestones"); every other candidate waits for a host ("Candidates").
+None. Every candidate waits for a host ("Candidates").
 
 ---
 
@@ -181,16 +180,9 @@ Each through `/code-review` as code; once built, its sentence in the `CLAUDE.md`
 
 ## Next milestones
 
-Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active.
+Specs drafted ahead, so a waiting app can read what's coming; each one's checks are tightened when it becomes active. None is drafted now.
 
-### M25: the fit as a call
-
-Asked by Tycho for its column's menu ("Who's waiting"). One session; no research part, since it builds no new behavior (`docs/DECISIONS.md`, "Features", 2026-11-24): the fit a double-click at a header's edge already does (`resize`, `src/state/resize.rs`'s `fit_column`), made a call a host can make.
-
-- [ ] **A1. `TallTableState::fit_column(column, window, cx)`,** behind `resize`, by the column's index (not its place, so a host's call means the same column after a move, `reorder`), fitting it as the double-click does. The private `fit_column(at, …)`, by place, is the one fit: it becomes this call, by index, and the double-click passes its column's index, so there's one function and one meaning for its argument. It fits the column to its header's name, sort arrow, and icon, and its visible, loaded rows, clamped; `ColumnWidthsChanged` emitted when the width changed, nothing when it didn't; a hidden column (`hide`) or an index past the columns does nothing. The double-click calls the same code.
-- [ ] **A2. Its checks and its cost:** a window test (the call and the double-click give one width, by index after a move; a hidden column untouched); `just tall-table test`, `lint`, and `pairs` (the call reads `hide`'s flag under `cfg(feature = "hide")`, since a host can name a hidden column where a double-click never reaches one: a `resize` and `hide` pair, so `pairs` runs before the code review); its bytes in the bare host by `just tall-table size` against M24's, recorded in `perf/results/` with a note, and the README's `resize` row and API section updated. Closing it flips Tycho's "Waiting on" row to *Ready*.
-
-Tycho's earlier asks for its first release, the header icon (M22), the popover for cut text (M23), and touch presses (M24), are built ([`docs/milestones.md`](docs/milestones.md)).
+Tycho's asks for its first release, the header icon (M22), the popover for cut text (M23), touch presses (M24), and the fit as a call (M25), are built ([`docs/milestones.md`](docs/milestones.md)).
 
 ---
 

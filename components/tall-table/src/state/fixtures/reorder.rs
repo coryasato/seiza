@@ -757,7 +757,7 @@ fn the_fit_and_the_widths_are_by_index(cx: &mut TestAppContext) {
     sheet.cx.update(|window, cx| {
         sheet
             .table
-            .update(cx, |table, cx| table.fit_column(2, window, cx))
+            .update(cx, |table, cx| table.fit_column(1, window, cx))
     });
     sheet.draw();
     let widths = sheet

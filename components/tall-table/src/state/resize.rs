@@ -92,8 +92,10 @@ impl<D: TallTableDelegate> TallTableState<D> {
     /// fits the column and starts none, so it can't move the fitted edge
     /// back. The column is found where the order in effect draws it, not
     /// where the frame that took the press did: a host's move may have
-    /// come between. A resize still on (its release unseen) ends first, as
-    /// its release would end it, so its widths are reported.
+    /// come between, and so may a setter that left it no band (hidden, or
+    /// `resizable(false)`), whose press does nothing more. A resize still
+    /// on (its release unseen) ends first, as its release would end it, so
+    /// its widths are reported.
     pub(super) fn press_band(
         &mut self,
         column: usize,
@@ -103,28 +105,19 @@ impl<D: TallTableDelegate> TallTableState<D> {
         cx: &mut Context<Self>,
     ) {
         self.end_resize(cx);
-        #[cfg(feature = "reorder")]
-        let at = self
-            .columns
-            .iter()
-            .position(|laid_out| laid_out.index == column);
-        #[cfg(not(feature = "reorder"))]
-        let at = Some(column);
-        let Some(at) = at else {
-            return;
-        };
         if clicks >= 2 {
+            // Left on only by the `KeepOnRelease` control's release.
             self.resizing = None;
-            self.fit_column(at, window, cx);
+            self.fit_column(column, window, cx);
             return;
         }
-        let Some(laid_out) = self.columns.get(at) else {
+        if !self.has_band(column) {
+            return;
+        }
+        let Some(at) = self.place_of(column) else {
             return;
         };
-        let column = laid_out.index(at);
-        let Some(info) = self.column_info.get(column) else {
-            return;
-        };
+        let (laid_out, info) = (&self.columns[at], &self.column_info[column]);
         // A pinned column's drag stops where the run would pass half the
         // view, so its release unpins nothing (`pin`).
         #[cfg(feature = "pin")]
@@ -244,20 +237,32 @@ impl<D: TallTableDelegate> TallTableState<D> {
         }
     }
 
-    /// Fits the column at place `at` to its header's name and its visible,
-    /// loaded rows, clamped: a numeric column to its widest exact text at
-    /// the number advance (so a float's budget holds every digit), any
-    /// other to its widest shown text, shaped. Emits the widths if they
-    /// changed.
-    pub(super) fn fit_column(&mut self, at: usize, window: &Window, cx: &mut Context<Self>) {
-        let Some(laid_out) = self.columns.get(at) else {
+    /// Fits column `column` (an index in [`TallTableState::columns`],
+    /// wherever it's drawn) as a double-click on its header's right edge
+    /// does: to its header's name (with `sort`'s arrow and
+    /// `header-icon`'s badge, where they're drawn) and its visible, loaded
+    /// rows, clamped to its least and most width. A numeric column fits
+    /// its widest exact text at the digits' advance (so a float's rounding
+    /// holds every digit), any other its widest shown text. Emits
+    /// [`TallTableEvent::ColumnWidthsChanged`] if the width changed, and
+    /// nothing if it didn't.
+    ///
+    /// A column the double-click can't reach is left as it is, and nothing
+    /// else changes: an index past the last, a column `resizable(false)`,
+    /// or one hidden (`hide`). Otherwise a resize still held ends first, as
+    /// its release would, its widths reported. A fit isn't held to `pin`'s
+    /// half of the cells' width, as a drag is: a pinned column fitted wider
+    /// may leave the run, `pin`'s `TallTableEvent::Pinned` heard before the
+    /// widths, as at a drag's release.
+    pub fn fit_column(&mut self, column: usize, window: &Window, cx: &mut Context<Self>) {
+        if !self.has_band(column) {
+            return;
+        }
+        self.end_resize(cx);
+        let Some(at) = self.place_of(column) else {
             return;
         };
-        // Its own values and settings, by its index (`reorder`).
-        let column = laid_out.index(at);
-        let Some(info) = self.column_info.get(column) else {
-            return;
-        };
+        let (laid_out, info) = (&self.columns[at], &self.column_info[column]);
         // No glyph of the cells' font is narrower than 2 px, so a text cut
         // to this many characters still reaches past `max_width`.
         let max_chars = (info.max_width / 2.0).max(1.0) as usize;
@@ -325,6 +330,18 @@ impl<D: TallTableDelegate> TallTableState<D> {
         self.lay_out(cx);
         cx.emit(TallTableEvent::ColumnWidthsChanged(self.set_widths()));
         cx.notify();
+    }
+
+    /// Whether column `column` (an index) is drawn with a band when it's in
+    /// view: it's there, `resizable`, and not hidden (`hide`).
+    fn has_band(&self, column: usize) -> bool {
+        self.column_info.get(column).is_some_and(|info| {
+            #[cfg(feature = "hide")]
+            if info.hidden {
+                return false;
+            }
+            info.resizable
+        })
     }
 
     /// The bands at each visible resizable column's right edge, over the

@@ -1927,8 +1927,13 @@ impl<D: TallTableDelegate> TallTableState<D> {
     }
 
     /// The place column `index` is drawn at (`find`, `popover`,
-    /// `header-icon`).
-    #[cfg(any(feature = "find", feature = "popover", feature = "header-icon"))]
+    /// `header-icon`, `resize`).
+    #[cfg(any(
+        feature = "find",
+        feature = "popover",
+        feature = "header-icon",
+        feature = "resize"
+    ))]
     pub(super) fn place_of(&self, index: usize) -> Option<usize> {
         (0..self.columns.len()).find(|&place| self.columns[place].index(place) == index)
     }

@@ -1,0 +1,384 @@
+{
+  "date": "2026-11-24",
+  "label": "m25-a-size",
+  "machine": "local",
+  "cpu": "Apple M1",
+  "os": "Darwin 25.6.0 arm64",
+  "versions": {
+    "gpui-kit": "0.10.0",
+    "react": "19.3.1",
+    "@tanstack/react-virtual": "3.14.19",
+    "apache-arrow": "17.0.0",
+    "@duckdb/duckdb-wasm": "1.32.0",
+    "chromium": "153.0.8010.12"
+  },
+  "build": "base",
+  "cargo": {
+    "engine": false,
+    "panel": false
+  },
+  "host": {
+    "rawKiB": 13340.5,
+    "optKiB": 9849.3,
+    "brotliKiB": 2763.9
+  },
+  "homePaths": {
+    "host": 0,
+    "untrimmedControl": 995
+  },
+  "features": {
+    "custom-cells": {
+      "rawKiB": 13352.4,
+      "optKiB": 9859.3,
+      "brotliKiB": 2767.3,
+      "moreOptKiB": 10,
+      "moreBrotliKiB": 3.4
+    },
+    "live": {
+      "rawKiB": 13357,
+      "optKiB": 9863.4,
+      "brotliKiB": 2768.4,
+      "moreOptKiB": 14.1,
+      "moreBrotliKiB": 4.5
+    },
+    "live,custom-cells": {
+      "rawKiB": 13383.8,
+      "optKiB": 9884,
+      "brotliKiB": 2775.5,
+      "moreOptKiB": 34.7,
+      "moreBrotliKiB": 11.6,
+      "against": {
+        "live": {
+          "moreOptKiB": 20.6,
+          "moreBrotliKiB": 7.1
+        },
+        "custom-cells": {
+          "moreOptKiB": 24.7,
+          "moreBrotliKiB": 8.2
+        }
+      }
+    },
+    "follow": {
+      "rawKiB": 13370.1,
+      "optKiB": 9874.6,
+      "brotliKiB": 2770.5,
+      "moreOptKiB": 25.3,
+      "moreBrotliKiB": 6.6,
+      "against": {
+        "live": {
+          "moreOptKiB": 11.2,
+          "moreBrotliKiB": 2.1
+        }
+      }
+    },
+    "resize": {
+      "rawKiB": 13346.8,
+      "optKiB": 9854.4,
+      "brotliKiB": 2766.4,
+      "moreOptKiB": 5.1,
+      "moreBrotliKiB": 2.5
+    },
+    "select": {
+      "rawKiB": 13379.9,
+      "optKiB": 9871.6,
+      "brotliKiB": 2769,
+      "moreOptKiB": 22.3,
+      "moreBrotliKiB": 5.1
+    },
+    "copy": {
+      "rawKiB": 13422.6,
+      "optKiB": 9905.5,
+      "brotliKiB": 2779.1,
+      "moreOptKiB": 56.2,
+      "moreBrotliKiB": 15.2,
+      "against": {
+        "select": {
+          "moreOptKiB": 33.9,
+          "moreBrotliKiB": 10.1
+        }
+      }
+    },
+    "sort": {
+      "rawKiB": 13435.9,
+      "optKiB": 9933.9,
+      "brotliKiB": 2783.1,
+      "moreOptKiB": 84.6,
+      "moreBrotliKiB": 19.2
+    },
+    "pin": {
+      "rawKiB": 13352.2,
+      "optKiB": 9859,
+      "brotliKiB": 2767.4,
+      "moreOptKiB": 9.7,
+      "moreBrotliKiB": 3.5
+    },
+    "density": {
+      "rawKiB": 13347.5,
+      "optKiB": 9854.9,
+      "brotliKiB": 2766.1,
+      "moreOptKiB": 5.6,
+      "moreBrotliKiB": 2.2
+    },
+    "format": {
+      "rawKiB": 13351.9,
+      "optKiB": 9858,
+      "brotliKiB": 2767.9,
+      "moreOptKiB": 8.7,
+      "moreBrotliKiB": 4
+    },
+    "reorder": {
+      "rawKiB": 13364.5,
+      "optKiB": 9867.5,
+      "brotliKiB": 2769.4,
+      "moreOptKiB": 18.2,
+      "moreBrotliKiB": 5.5
+    },
+    "clicks": {
+      "rawKiB": 13355.3,
+      "optKiB": 9861,
+      "brotliKiB": 2766.4,
+      "moreOptKiB": 11.7,
+      "moreBrotliKiB": 2.5
+    },
+    "group-headers": {
+      "rawKiB": 13351.1,
+      "optKiB": 9857.1,
+      "brotliKiB": 2766.6,
+      "moreOptKiB": 7.8,
+      "moreBrotliKiB": 2.7
+    },
+    "hide": {
+      "rawKiB": 13347.5,
+      "optKiB": 9854.6,
+      "brotliKiB": 2764.5,
+      "moreOptKiB": 5.3,
+      "moreBrotliKiB": 0.6
+    },
+    "find": {
+      "rawKiB": 13370,
+      "optKiB": 9872.3,
+      "brotliKiB": 2771,
+      "moreOptKiB": 23,
+      "moreBrotliKiB": 7.1
+    },
+    "popover": {
+      "rawKiB": 13459.7,
+      "optKiB": 9952.4,
+      "brotliKiB": 2793.2,
+      "moreOptKiB": 103.1,
+      "moreBrotliKiB": 29.3
+    },
+    "header-icon": {
+      "rawKiB": 13406.7,
+      "optKiB": 9911.7,
+      "brotliKiB": 2777.8,
+      "moreOptKiB": 62.4,
+      "moreBrotliKiB": 13.9
+    }
+  },
+  "symbols": {
+    "custom-cells": {
+      "base": 0,
+      "feature": 27
+    },
+    "live": {
+      "base": 0,
+      "feature": 4
+    },
+    "live,custom-cells": {
+      "base": 0,
+      "feature": 29,
+      "alone": {
+        "live": 0,
+        "custom-cells": 0
+      }
+    },
+    "follow": {
+      "base": 0,
+      "feature": 25,
+      "alone": {
+        "live": 0
+      }
+    },
+    "resize": {
+      "base": 0,
+      "feature": 11
+    },
+    "select": {
+      "markers": {
+        "seiza_tall_table9selection": {
+          "base": 0,
+          "feature": 9
+        },
+        "seiza_tall_table5state6select": {
+          "base": 0,
+          "feature": 205
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 2
+        }
+      }
+    },
+    "copy": {
+      "markers": {
+        "seiza_tall_table4copy": {
+          "base": 0,
+          "feature": 5,
+          "alone": {
+            "select": 0
+          }
+        },
+        "seiza_tall_table5state4copy": {
+          "base": 0,
+          "feature": 51,
+          "alone": {
+            "select": 0
+          }
+        }
+      }
+    },
+    "sort": {
+      "markers": {
+        "seiza_tall_table4sort": {
+          "base": 0,
+          "feature": 11
+        },
+        "seiza_tall_table5state4sort": {
+          "base": 0,
+          "feature": 14
+        }
+      }
+    },
+    "pin": {
+      "markers": {
+        "seiza_tall_table3pin": {
+          "base": 0,
+          "feature": 3
+        },
+        "seiza_tall_table5state3pin": {
+          "base": 0,
+          "feature": 8
+        }
+      }
+    },
+    "density": {
+      "markers": {
+        "seiza_tall_table7density": {
+          "base": 0,
+          "feature": 4
+        },
+        "seiza_tall_table5state7density": {
+          "base": 0,
+          "feature": 4
+        }
+      }
+    },
+    "format": {
+      "base": 0,
+      "feature": 19
+    },
+    "reorder": {
+      "markers": {
+        "seiza_tall_table7reorder": {
+          "base": 0,
+          "feature": 12
+        },
+        "seiza_tall_table5state7reorder": {
+          "base": 0,
+          "feature": 32
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 1
+        }
+      }
+    },
+    "clicks": {
+      "markers": {
+        "seiza_tall_table5state5click": {
+          "base": 0,
+          "feature": 28
+        },
+        "seiza_tall_table5state3hit": {
+          "base": 0,
+          "feature": 3
+        }
+      }
+    },
+    "group-headers": {
+      "markers": {
+        "seiza_tall_table6groups": {
+          "base": 0,
+          "feature": 16
+        },
+        "seiza_tall_table5state6groups": {
+          "base": 0,
+          "feature": 10
+        }
+      }
+    },
+    "hide": {
+      "base": 0,
+      "feature": 3
+    },
+    "find": {
+      "markers": {
+        "seiza_tall_table4find": {
+          "base": 0,
+          "feature": 19
+        },
+        "seiza_tall_table5state4find": {
+          "base": 0,
+          "feature": 19
+        }
+      }
+    },
+    "popover": {
+      "markers": {
+        "seiza_tall_table7popover": {
+          "base": 0,
+          "feature": 29
+        },
+        "seiza_tall_table5state7popover": {
+          "base": 0,
+          "feature": 98
+        }
+      }
+    },
+    "header-icon": {
+      "markers": {
+        "seiza_tall_table11header_icon": {
+          "base": 0,
+          "feature": 10
+        },
+        "seiza_tall_table5state11header_icon": {
+          "base": 0,
+          "feature": 19
+        }
+      }
+    }
+  },
+  "against": {
+    "commit": "7d845db",
+    "then": {
+      "rawKiB": 13340.5,
+      "optKiB": 9849.3,
+      "brotliKiB": 2763.2
+    },
+    "now": {
+      "rawKiB": 13340.5,
+      "optKiB": 9849.3,
+      "brotliKiB": 2763.9
+    },
+    "moreOptKiB": 0,
+    "moreBrotliKiB": 0.7
+  },
+  "contender": {
+    "file": "tall_table_gpui_bg-DkL3no-6.wasm",
+    "optKiB": 9906.2,
+    "brotliKiB": 2782.9,
+    "moreBrotliKiB": 19
+  },
+  "failures": []
+}

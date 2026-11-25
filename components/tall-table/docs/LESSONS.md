@@ -968,3 +968,14 @@ Results: [`perf/results/2026-11-17-late-frames.md`](../perf/results/2026-11-17-l
 - The recognizer counts a double tap by wall time, not by the test clock: everything else in the fixtures moves only when `advance_clock` says, and a draw between two taps would have let a loaded machine split them. The review caught it; nothing had failed.
 - "The base byte for byte the same" isn't what a change to a host's file gives: the base was the same size and the same code, 7 bytes apart, each a panic location's line number moved by lines added above it in `host.rs` and `state.rs`. `size --against` reads KiB to a decimal and passed; `cmp` is what found them, and the panic locations are what explained them. A byte-for-byte check reads the differing bytes before it fails or passes a change.
 - An edit that replaced a line by its text matched two places: `--only` filtered the reference screens' loop too, which the review found. A text replacement in a long script is checked for how many places it matched.
+
+## M25: the fit as a call (part A, 2026-11-24)
+
+**Results:** [`perf/results/2026-11-24-m25-a.md`](../perf/results/2026-11-24-m25-a.md) (the call's bytes, the base against HEAD, `pairs`' time).
+
+**Surprises:**
+- "No new behavior" wasn't quite true. Making the double-click's fit a call let a host reach columns the double-click never could (`resizable(false)`, hidden, an index past the last, a column named while a drag is held), and each needed a decision. Before turning a gesture's code into a call, list what a host can name that the gesture can't reach.
+- The first fix for those columns still ended a held drag, and so sent the event the docs said wouldn't come. The guard went first, but the cleanup ran before it. "Does nothing" means nothing changes at all.
+- The review found the same gap in the single press on a band, older than this milestone: a setter between a frame and the press could leave the column with no band, and the press started a drag anyway. The rule that a press finds its column by index was followed; nothing checked that the column still had a band.
+- The order test passed with some features on and failed with all of them on: the column it built by hand lacked the fill every other column of that sheet gets under `custom-cells`, and the paint's debug assertion caught it. A column added to a test's sheet comes from the sheet's own helper.
+- `pairs` takes 47 minutes now, twice its header's estimate, and was run whole before the code review, so the review's fixes sent it round again. The script's header said to ask; the table's `CLAUDE.md` said to run it before the review, and that's the file a session reads. It now says to run the short parts first.

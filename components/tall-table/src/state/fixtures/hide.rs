@@ -404,6 +404,44 @@ fn its_width_kept_and_no_band(cx: &mut TestAppContext) {
     assert_eq!(sheet.layout()[1], (120.0, 200.0));
 }
 
+/// A host's fit (`resize`'s call) of a hidden column does nothing, as a
+/// double-click can't reach it: its width kept for the show, no event.
+#[cfg(feature = "resize")]
+#[gpui_kit::test]
+fn a_hidden_column_is_not_fitted(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(5), 600.0);
+    sheet.hide(1, true);
+    sheet.events.borrow_mut().clear();
+    sheet.cx.update(|window, cx| {
+        sheet
+            .table
+            .update(cx, |table, cx| table.fit_column(1, window, cx))
+    });
+    sheet.draw();
+    assert!(sheet.events.borrow().is_empty(), "nothing emitted");
+    assert_eq!(sheet.read(|table| table.columns()[1].width), None);
+    sheet.hide(1, false);
+    assert_eq!(sheet.layout()[1], (120.0, 120.0));
+}
+
+/// A press on a band whose column is hidden before the next frame (in the
+/// same update) starts no drag.
+#[cfg(feature = "resize")]
+#[gpui_kit::test]
+fn a_press_on_a_hidden_columns_band_starts_nothing(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(5), 600.0);
+    let x = sheet.at(240.0 - 0.5, -1.0).x;
+    let table = sheet.table.clone();
+    sheet.cx.update(|window, cx| {
+        table.update(cx, |table, cx| {
+            table.set_column_hidden(1, true, cx);
+            table.press_band(1, x, 1, window, cx);
+        })
+    });
+    sheet.draw();
+    assert!(sheet.read(|table| table.resizing.is_none()));
+}
+
 /// A resize drag held across a hide or a show of any column ends as its
 /// release would, its width kept and reported; with `pin`, the run
 /// re-summed at the setter, `Pinned` with it.

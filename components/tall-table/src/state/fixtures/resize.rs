@@ -1,7 +1,8 @@
 //! `resize`: `cells.json`'s `number_px` and `resize` section (widths →
 //! budgets → the text shown), with its controls, and the bands, the drag,
 //! and the fit driven by the pointer in a window of GPUI's test app, over
-//! rows answered from memory as they're asked for.
+//! rows answered from memory as they're asked for; and the fit as a host's
+//! call (`fit_column`), against the double-click's.
 
 use std::cell::{Cell, RefCell};
 use std::ops::Range;
@@ -343,6 +344,15 @@ impl<'a> Sheet<'a> {
     fn release(&mut self, at: Point<Pixels>) {
         self.cx
             .simulate_mouse_up(at, MouseButton::Left, Modifiers::default());
+        self.draw();
+    }
+
+    /// A host's fit of column `column` (`fit_column`, by index).
+    fn fit(&mut self, column: usize) {
+        let table = self.table.clone();
+        self.cx.update(|window, cx| {
+            table.update(cx, |table, cx| table.fit_column(column, window, cx))
+        });
         self.draw();
     }
 
@@ -764,4 +774,119 @@ fn a_name_with_a_line_break_fits(cx: &mut TestAppContext) {
         sheet.width(0),
         digits_width(18.0, number_px, Sizes::base().padding()).ceil()
     );
+}
+
+/// A host's call fits a column as the double-click on its band does: one
+/// width, one event, and nothing emitted when the width holds.
+#[gpui_kit::test]
+fn the_call_fits_as_the_double_click_does(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(2), 100, third, u64::MAX);
+    let kinds = sheet.width(0);
+    let edge = sheet.edge(0);
+    sheet.double_click(edge);
+    sheet.fit(1);
+    let fitted = sheet.width(0);
+    assert_ne!(fitted, kinds, "the fit changed the kind's width");
+    assert_eq!(sheet.width(1), fitted);
+    assert_eq!(
+        *sheet.widths.borrow(),
+        vec![
+            vec![Some(px(fitted)), None],
+            vec![Some(px(fitted)), Some(px(fitted))]
+        ]
+    );
+    sheet.fit(1);
+    assert_eq!(
+        sheet.widths.borrow().len(),
+        2,
+        "a fit that holds emits nothing"
+    );
+}
+
+/// The call leaves alone what a double-click can't reach: a column
+/// `resizable(false)` and an index past the last.
+#[gpui_kit::test]
+fn the_call_leaves_what_no_band_reaches(cx: &mut TestAppContext) {
+    let mut columns = floats(2);
+    columns[0] = columns[0].clone().resizable(false);
+    let mut sheet = Sheet::open(cx, columns, 100, third, u64::MAX);
+    let (layouts, kinds) = (sheet.layouts.get(), sheet.width(0));
+    sheet.fit(0);
+    sheet.fit(2);
+    assert_eq!(sheet.width(0), kinds);
+    assert!(sheet.widths.borrow().is_empty(), "nothing emitted");
+    assert_eq!(sheet.layouts.get(), layouts, "nothing laid out");
+}
+
+/// A call during a drag ends the drag first, as its release would, its
+/// width reported, then fits.
+#[gpui_kit::test]
+fn a_call_during_a_drag_ends_it_then_fits(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(2), 100, third, u64::MAX);
+    let dragged = sheet.width(0) + 50.0;
+    let edge = sheet.edge(0);
+    sheet.press(edge, 1);
+    sheet.drag_to(edge + point(px(50.), px(0.)));
+    assert!(sheet.resizing());
+    sheet.fit(1);
+    assert!(!sheet.resizing(), "the drag ended");
+    let fitted = sheet.width(1);
+    assert_eq!(
+        *sheet.widths.borrow(),
+        vec![
+            vec![Some(px(dragged)), None],
+            vec![Some(px(dragged)), Some(px(fitted))]
+        ],
+        "the drag's width, then the fit's"
+    );
+    // The pointer's next move drags nothing.
+    sheet.drag_to(edge + point(px(90.), px(0.)));
+    assert_eq!(sheet.width(0), dragged);
+    sheet.release(edge + point(px(90.), px(0.)));
+}
+
+/// A call that fits nothing changes nothing: a drag held while a column no
+/// band reaches is named goes on, and nothing is emitted.
+#[gpui_kit::test]
+fn a_call_that_fits_nothing_leaves_a_drag_on(cx: &mut TestAppContext) {
+    let mut columns = floats(2);
+    columns[1] = columns[1].clone().resizable(false);
+    let mut sheet = Sheet::open(cx, columns, 100, third, u64::MAX);
+    let dragged = sheet.width(0) + 50.0;
+    let edge = sheet.edge(0);
+    sheet.press(edge, 1);
+    sheet.drag_to(edge + point(px(50.), px(0.)));
+    sheet.fit(1);
+    sheet.fit(2);
+    assert!(sheet.resizing(), "the drag goes on");
+    assert!(sheet.widths.borrow().is_empty(), "nothing emitted");
+    sheet.release(edge + point(px(50.), px(0.)));
+    assert_eq!(*sheet.widths.borrow(), vec![vec![Some(px(dragged)), None]]);
+}
+
+/// A press on a band whose column a setter left with none before the next
+/// frame (`resizable(false)`, in the same update) starts no drag.
+#[gpui_kit::test]
+fn a_press_on_a_band_its_column_lost_starts_nothing(cx: &mut TestAppContext) {
+    let mut sheet = Sheet::open(cx, floats(2), 100, third, u64::MAX);
+    let edge = sheet.edge(0);
+    let table = sheet.table.clone();
+    sheet.cx.update(|window, cx| {
+        table.update(cx, |table, cx| {
+            let mut columns = floats(2);
+            columns[0] = columns[0].clone().resizable(false);
+            table.set_columns(columns, cx);
+            table.press_band(0, edge.x, 1, window, cx);
+        })
+    });
+    sheet.draw();
+    assert!(!sheet.resizing(), "no drag on a column with no band");
+    // The control: column 1's band, pressed the same way, drags.
+    let edge = sheet.edge(1);
+    sheet.cx.update(|window, cx| {
+        table.update(cx, |table, cx| table.press_band(1, edge.x, 1, window, cx))
+    });
+    sheet.draw();
+    assert!(sheet.resizing());
+    sheet.release(edge);
 }

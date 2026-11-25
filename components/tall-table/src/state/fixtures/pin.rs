@@ -289,18 +289,22 @@ impl TallTableDelegate for Memory {
 /// `count` float columns, 120 px each (the kind's width).
 fn columns(count: usize) -> Vec<TallTableColumn> {
     (0..count)
-        .map(|index| {
-            let column = TallTableColumn::new(format!("f{index}"), ColumnKind::Float);
-            #[cfg(feature = "sort")]
-            let column = column.sortable(true);
-            #[cfg(feature = "custom-cells")]
-            let column = column.fill(crate::Ramp::new(&[
-                |theme| theme.background,
-                |theme| theme.chart_1,
-            ]));
-            column
-        })
+        .map(|index| column(format!("f{index}")))
         .collect()
+}
+
+/// A float column named `name`, sortable (`sort`) and filled
+/// (`custom-cells`), as every column of `columns`.
+fn column(name: String) -> TallTableColumn {
+    let column = TallTableColumn::new(name, ColumnKind::Float);
+    #[cfg(feature = "sort")]
+    let column = column.sortable(true);
+    #[cfg(feature = "custom-cells")]
+    let column = column.fill(crate::Ramp::new(&[
+        |theme| theme.background,
+        |theme| theme.chart_1,
+    ]));
+    column
 }
 
 type Table = TallTableState<Memory>;
@@ -726,6 +730,41 @@ mod resize {
         sheet.release(edge + point(px(5000.37), px(0.)));
         assert_eq!(sheet.read(|table| table.pinned_in_effect()), 2);
         assert_eq!(*sheet.pinned.borrow(), vec![2]);
+    }
+
+    /// A host's fit of a pinned column past the half leaves the run, as the
+    /// double-click's does: `Pinned` heard first, then the widths, as at a
+    /// drag's release.
+    #[gpui_kit::test]
+    fn a_pinned_column_fitted_past_the_half_leaves_the_run(cx: &mut TestAppContext) {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        use crate::state::TallTableEvent;
+
+        let mut sheet = Sheet::open(cx, 1440., 30, 2);
+        let mut columns = super::columns(30);
+        columns[1] = super::column("x".repeat(100)).width(px(120.));
+        sheet.update(|table, cx| table.set_columns(columns, cx));
+        assert_eq!(sheet.read(|table| table.pinned_in_effect()), 2);
+        let heard: Rc<RefCell<Vec<&'static str>>> = Rc::default();
+        let table = sheet.table.clone();
+        let _subscription = sheet.cx.update(|_, cx| {
+            let heard = heard.clone();
+            cx.subscribe(&table, move |_, event: &TallTableEvent, _| match event {
+                TallTableEvent::Pinned(_) => heard.borrow_mut().push("pinned"),
+                TallTableEvent::ColumnWidthsChanged(_) => heard.borrow_mut().push("widths"),
+                _ => {}
+            })
+        });
+        sheet
+            .cx
+            .update(|window, cx| table.update(cx, |table, cx| table.fit_column(1, window, cx)));
+        sheet.draw();
+        let half = sheet.read(|table| table.cells_width()) / 2.0;
+        assert!(sheet.read(|table| table.columns[1].width) + 120.0 > half);
+        assert_eq!(sheet.read(|table| table.pinned_in_effect()), 1);
+        assert_eq!(*heard.borrow(), vec!["pinned", "widths"]);
     }
 
     #[gpui_kit::test]
