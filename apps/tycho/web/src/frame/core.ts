@@ -1,4 +1,4 @@
-import { type Completion, getState, subscribe } from './state.ts';
+import { type Completion, getState, type RowValues, subscribe } from './state.ts';
 
 /**
  * What the frame does before React and without it: plain TypeScript in the
@@ -23,6 +23,9 @@ export interface App {
   complete(text: string, caret: number): Completion;
   /** The log's way back on an entry. */
   back_to(entry: number): void;
+  /** A row's values (0-based) for the Row tab; null with no file open, no
+   *  such row, or a read that failed. */
+  row(row: number): Promise<RowValues | null>;
 }
 
 let app: App | null = null;

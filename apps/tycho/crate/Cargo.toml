@@ -15,9 +15,31 @@ gpui-kit.workspace = true
 seiza = { workspace = true, features = ["panel"] }
 seiza-duckdb = { workspace = true, features = ["tall-table"] }
 # The table's features Tycho adopts, each through the controller (`view.rs`).
-seiza-tall-table = { workspace = true, features = ["resize", "reorder", "pin", "format"] }
+seiza-tall-table = { workspace = true, features = [
+    "resize",
+    "reorder",
+    "pin",
+    "format",
+    "select",
+    "copy",
+    "clicks",
+    "hide",
+    "popover",
+    "header-icon",
+] }
 # What Tycho does with the table's events: its marks, targets, and probes.
-tall-table-bridge = { workspace = true, features = ["resize", "reorder", "pin", "format"] }
+tall-table-bridge = { workspace = true, features = [
+    "resize",
+    "reorder",
+    "pin",
+    "format",
+    "select",
+    "copy",
+    "clicks",
+    "hide",
+    "popover",
+    "header-icon",
+] }
 # The view state's serialized form (`view.rs`), already in the wasm through
 # gpui and the engine.
 serde = { version = "1", features = ["derive"] }

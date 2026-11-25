@@ -56,7 +56,7 @@ interface Layout {
   left: number;
   top: number;
   rowHeight: number;
-  columns: { name: string; x: number; width: number }[];
+  columns: { name: string; x: number; width: number; icon?: { x: number; width: number } | null }[];
 }
 
 interface Entry {
@@ -187,6 +187,25 @@ const layout = (page: Page) =>
     return { ...probe, left: probe.left + canvas.left, top: probe.top + canvas.top };
   });
 
+/** Where a drag grabs a header, from its column's left: its middle, past
+ *  its type icon's raised target (4 px round the badge), whose press is
+ *  the icon's alone, and clear of its edge's band. The middle leaves room
+ *  for a gutter that widens as a CSV's rows grow. */
+const grab = (column: { width: number; icon?: { x: number; width: number } | null }) =>
+  Math.min(Math.max(column.icon ? column.icon.x + column.icon.width + 6 : 12, column.width / 2), column.width - 12);
+
+/** A press and release at `at`, with no move: on a header, selects its
+ *  column, which a drag then moves (the table's `select` with `reorder`:
+ *  only a press inside the selected columns drags). Waits past the
+ *  double press's 400 ms after, so the drag's press is a first. */
+async function selectAt(page: Page, at: { x: number; y: number }): Promise<void> {
+  await page.mouse.move(at.x, at.y);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+}
+
 /** A press at `from`, moved in steps to `to`, released. */
 async function drag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
   await page.mouse.move(from.x, from.y);
@@ -298,7 +317,9 @@ async function run(page: Page, csv: string): Promise<Outcome[]> {
   const l = await layout(page);
   const [from, to] = [l.columns[3]!, l.columns[5]!];
   const headerY = l.top - l.rowHeight / 2;
-  await drag(page, { x: l.left + from.x + Math.min(12, from.width / 4), y: headerY }, { x: l.left + to.x + (to.width * 3) / 4, y: headerY });
+  const held = { x: l.left + from.x + grab(from), y: headerY };
+  await selectAt(page, held);
+  await drag(page, held, { x: l.left + to.x + (to.width * 3) / 4, y: headerY });
   const dragged = await logWhere(page, (entries) => entries.at(-1)?.command === null);
   const dragEntry = dragged.at(-1);
   check(

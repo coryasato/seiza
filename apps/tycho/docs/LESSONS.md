@@ -384,3 +384,16 @@ No results note: the part's numbers, the wasm's size (2856.9 KiB brotli against 
 - **A table's pinned run reads 0 until its first layout,** so a `pin` in that moment looked too wide; nothing in the table says it has a width, so the workbench takes its scrollbar's first report.
 - **Narrowing the table's slot needed nothing of the canvas:** a grid column for the panel, and GPUI's resize observer redrew it at the new width in every browser.
 
+
+## M14 part A: the features through the controller, in Rust (2026-11-24)
+
+No results note: the part's one number, the wasm's size (2907.0 KiB brotli against the 2854.8 baseline, +50.1 on M13's close), is in PLAN's evidence.
+
+**Surprises:**
+- **The wasm grew about 10 KiB past the table's rows for the six features:** the rest is Tycho's own around them (its SVGs, the popover's foot, the presses' and the row's serialized forms, the weak pages, the row's promise).
+- **The table has no reader for its pages,** so "from the page cache" had no call to make; a source that keeps a weak reference to each page it hands the table reads the same pages with no copy and no change to the table.
+- **Turning on `select` changed how a header drag behaves:** only a selected column moves, so two checks that dragged a header moved nothing. Pressing the header first fixed them.
+- **The header's icon took the spot the checks pressed:** a press 12 px into a header now lands on the badge, whose press is the icon's alone. The checks press past it, and at the header's middle, since a CSV's growing row count widens the gutter between reading the layout and the press; the failure read as a column that never widened, because the check's detail named `columns[0]` as `code`.
+- **The code review found the copy's refusals said from the wrong place:** the table's events can't tell a browser's refusal from no clipboard, and a refusal can come after the last piece, so the line is worded from what the bridge's writer says became of the copy. It also found what the new flag left open around it: `pin` taking a hidden column, a view hiding every column, and a hide the table made missing from the log.
+- **Pressing a header before a drag cost the CSV check its margin:** the press waits out a double press, so the arranging sometimes ended after the widening chunk, whose `set_columns` ends a drag; the CSV is twice as long now.
+- **Enter needed no change to the table:** its popover action goes on (`cx.propagate()`) when it doesn't open, so a binding in the workbench's own key context hears it.

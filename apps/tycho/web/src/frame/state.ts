@@ -59,6 +59,66 @@ export interface Answer {
   error: boolean;
 }
 
+/** The table's active cell: its selection's anchor (`crate/src/frame.rs`,
+ *  `ActiveCell`), which the Row tab shows the row of. */
+export interface ActiveCell {
+  /** 0-based. */
+  row: number;
+  /** The column's index in the file. */
+  column: number;
+}
+
+/** A column's type, for its badge. */
+export type ColumnType = 'number' | 'text' | 'time' | 'boolean';
+
+/** What a column's menu shows of it (`crate/src/frame.rs`, `ColumnFacts`). */
+export interface ColumnFacts {
+  /** Its index in the file. */
+  index: number;
+  name: string;
+  type: ColumnType;
+  /** DuckDB's type name. */
+  dataType: string;
+  pinned: boolean;
+  hidden: boolean;
+}
+
+/** A press in the table the page answers (`crate/src/frame.rs`, `Press`):
+ *  `icon` (a header's icon: its menu under `at`), `header` (a right-click or
+ *  long press on a header), `cell` (one on a cell), `double` (a double press
+ *  on a cell), `enter` (Enter on a cell with no popover), `open` (the
+ *  popover's "Open row"). */
+export interface TablePress {
+  kind: 'icon' | 'header' | 'cell' | 'double' | 'enter' | 'open';
+  column: ColumnFacts;
+  /** A cell's row, 0-based; null on a header. */
+  row: number | null;
+  /** A cell's exact text, cut at 200 characters; null for NULL, a header,
+   *  or a row not loaded. */
+  value: string | null;
+  /** The icon's badge, or the pointer (no size), in CSS px from the
+   *  canvas's top left; null for a key's. */
+  at: { x: number; y: number; width: number; height: number } | null;
+}
+
+/** A row's values for the Row tab (`crate/src/row.rs`, `RowValues`), every
+ *  column in the view's order, hidden ones included. */
+export interface RowValues {
+  /** 0-based. */
+  row: number;
+  fields: {
+    index: number;
+    name: string;
+    type: ColumnType;
+    dataType: string;
+    hidden: boolean;
+    /** Its exact text, cut at 10,000 characters; null for NULL. */
+    value: string | null;
+    /** The whole value's length in characters. */
+    length: number;
+  }[];
+}
+
 export interface FrameState {
   engine: { state: 'loading' | 'ready' | 'failed' | 'stopped'; text: string };
   /** The file whose rows are shown; null on the first screen. */
@@ -74,6 +134,8 @@ export interface FrameState {
   log: { entries: LogEntry[]; current: number | null };
   /** The command bar's last answer. */
   answer: Answer | null;
+  /** The table's active cell; null with nothing selected. */
+  active: ActiveCell | null;
 }
 
 /** What `App.complete` returns (`crate/src/command/complete.rs`). */
@@ -119,6 +181,7 @@ export const INITIAL: FrameState = {
   panel: false,
   log: { entries: [], current: null },
   answer: null,
+  active: null,
 };
 
 let state = INITIAL;
@@ -151,4 +214,16 @@ export const frameSink = {
     document.documentElement.toggleAttribute('data-panel', next.panel);
     for (const listener of listeners) listener();
   },
+  press(press: TablePress): void {
+    for (const listener of pressListeners) listener(press);
+  },
 };
+
+const pressListeners = new Set<(press: TablePress) => void>();
+
+/** The table's presses the page answers, as they come: an event, not
+ *  state, so a second press on the same cell is heard. */
+export function subscribePress(listener: (press: TablePress) => void): () => void {
+  pressListeners.add(listener);
+  return () => pressListeners.delete(listener);
+}

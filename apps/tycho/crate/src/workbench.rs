@@ -14,6 +14,13 @@
 //! parsed and checked by `crate::command`, run on the controller and then
 //! the table, and each kept in the open file's log (`crate::log`), as each
 //! drag in the table is.
+//!
+//! The table's presses that the page answers (a header's icon, a context
+//! press, a double press, Enter on a cell with no popover, the popover's
+//! button) go to the page as one event each (`crate::frame::Press`), its
+//! selection's anchor is the frame's active cell, a copy goes to the
+//! clipboard through the bridge's writer, and a row's values are read for
+//! the Row tab (`Workbench::row_values`).
 
 use gpui_kit::*;
 
@@ -21,7 +28,7 @@ use crate::command::Catalog;
 use crate::dataset::{FileSummary, format_count};
 #[cfg(target_family = "wasm")]
 use crate::dataset::{format_bytes, sample};
-use crate::frame::{Answer, EngineView, FileView, FrameView, Line};
+use crate::frame::{ActiveCell, Answer, EngineView, FileView, FrameView, Line};
 use crate::log::{Log, Origin};
 use crate::table::RowTable;
 use crate::view::{Controller, ViewState};
@@ -31,6 +38,24 @@ use seiza_duckdb::EngineStatus;
 use seiza_tall_table::TallTable;
 #[cfg(target_family = "wasm")]
 use seiza_tall_table::TallTableEvent;
+
+actions!(
+    tycho,
+    [
+        /// Enter on a cell the table's popover doesn't open on: its row.
+        OpenRow
+    ]
+);
+
+/// The workbench's key context, on its root: the table's is inside it, so
+/// a key the table goes on with (`cx.propagate()`) reaches its bindings.
+const CONTEXT: &str = "Workbench";
+
+/// The workbench's keys: Enter on a cell with no popover opens its row.
+#[cfg(target_family = "wasm")]
+pub fn init(cx: &mut App) {
+    cx.bind_keys([KeyBinding::new("enter", OpenRow, Some(CONTEXT))]);
+}
 
 /// The `performance.mark`s and panel steps an open reports under.
 #[cfg(target_family = "wasm")]
@@ -317,17 +342,31 @@ const CSV_ROWS_MARK: &str = "tycho:csv-rows";
 const CSV_DONE_MARK: &str = "tycho:csv-done";
 
 /// A line about something that didn't replace what's shown: a file Tycho
-/// can't open, extra files in one drop, or a way back refused.
+/// can't open, extra files in one drop, a way back refused, or a copy that
+/// didn't run.
 #[derive(Clone)]
 struct Notice {
     text: SharedString,
     error: bool,
-    /// A way back refused: cleared by the next that works.
+    /// What it's about, so the next of its kind that works clears it.
     #[cfg_attr(
         not(target_family = "wasm"),
-        expect(dead_code, reason = "only the web build takes a way back")
+        expect(dead_code, reason = "only the web build sets one")
     )]
-    back: bool,
+    about: About,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(
+    not(target_family = "wasm"),
+    expect(dead_code, reason = "only the web build sets one")
+)]
+enum About {
+    File,
+    /// A way back refused: cleared by the next that works.
+    Back,
+    /// A copy refused: cleared by the next that starts.
+    Copy,
 }
 
 #[cfg_attr(
@@ -405,6 +444,11 @@ pub struct Workbench {
     /// What completion last read (`crate::frame::set_catalog`), and
     /// whether it has.
     shown_catalog: Option<Option<Catalog>>,
+    /// The table's active cell, by the column's index: its selection's
+    /// anchor, which the Row tab follows.
+    active: Option<ActiveCell>,
+    /// Writes the table's copies to the clipboard (`copy`).
+    clipboard: tall_table_bridge::clipboard::Clipboard,
     _engine_status: Subscription,
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
@@ -487,6 +531,19 @@ impl Workbench {
             origin: Origin::Pick,
             drawn: Vec::new(),
             shown_catalog: None,
+            active: None,
+            // The outcome on a global while measuring, for the checks.
+            clipboard: tall_table_bridge::clipboard::Clipboard::new(
+                crate::targets::measuring().then_some("__tychoCopy"),
+                // Called outside GPUI when the browser settles a write: it
+                // comes back in through the page's calls' queue.
+                #[cfg(target_family = "wasm")]
+                Some(Box::new(|outcome| {
+                    crate::frame::copy_outcome(outcome.clone())
+                })),
+                #[cfg(not(target_family = "wasm"))]
+                None,
+            ),
             _engine_status: cx.observe_global_in::<EngineStatus>(window, Self::engine_changed),
             _panel: cx.observe_global::<seiza::PerfOverlay>(|this, cx| {
                 if this.shown_frame.as_ref().map(|shown| shown.panel)
@@ -638,7 +695,7 @@ impl Workbench {
                     this.notice = Some(Notice {
                         text: text.into(),
                         error: true,
-                        back: false,
+                        about: About::File,
                     });
                     cx.notify();
                     return;
@@ -650,7 +707,7 @@ impl Workbench {
                     )
                     .into(),
                     error: false,
-                    back: false,
+                    about: About::File,
                 });
                 this.origin = from;
                 if kind == Ok(Kind::Csv) {
@@ -734,6 +791,8 @@ impl Workbench {
         self.log.clear();
         self.answer = None;
         self.drawn.clear();
+        self.active = None;
+        self.clipboard.closed();
     }
 
     /// Registers `source` as `sql_name` and reads its summary, then shows its
@@ -1220,9 +1279,11 @@ impl Workbench {
                     TallTableEvent::ColumnWidthsChanged(_)
                         | TallTableEvent::ColumnsMoved { .. }
                         | TallTableEvent::Pinned(_)
+                        | TallTableEvent::ColumnsHidden(_)
                 ) {
                     this.table_changed(&table, event, cx);
                 }
+                this.table_pressed(&table, event, cx);
             }
             match event {
                 // Delivered in the task that presents the frame (the table
@@ -1254,6 +1315,269 @@ impl Workbench {
                 TallTableEvent::ReadFailed if current => this.register_again(table, cx),
                 _ => {}
             }
+        })
+        .detach();
+    }
+
+    /// What the shown table reports that the page answers: its selection
+    /// (the active cell), its presses, and its copies.
+    #[cfg(target_family = "wasm")]
+    fn table_pressed(
+        &mut self,
+        table: &Entity<RowTable>,
+        event: &TallTableEvent,
+        cx: &mut Context<Self>,
+    ) {
+        use seiza_tall_table::{ClickKind, ClickTarget};
+
+        use crate::frame::Rect;
+
+        let index =
+            |place: usize, cx: &App| table.read(cx).order().get(place).copied().unwrap_or(place);
+        let pointer = |position: Point<Pixels>| Rect {
+            x: position.x.into(),
+            y: position.y.into(),
+            width: 0.,
+            height: 0.,
+        };
+        match event {
+            TallTableEvent::Selected(selection) => {
+                let active = selection.map(|selection| {
+                    let (row, place) = selection.anchor();
+                    ActiveCell {
+                        row,
+                        column: index(place, cx),
+                    }
+                });
+                if active != self.active {
+                    self.active = active;
+                    cx.notify();
+                }
+            }
+            TallTableEvent::Clicked(click) => match (click.kind, click.target) {
+                (ClickKind::Context, ClickTarget::Column(place)) => {
+                    let column = index(place, cx);
+                    self.press("header", column, None, Some(pointer(click.position)), cx);
+                }
+                (ClickKind::Context, ClickTarget::Cell { row, column }) => {
+                    let column = index(column, cx);
+                    self.press("cell", column, Some(row), Some(pointer(click.position)), cx);
+                }
+                (ClickKind::Double, ClickTarget::Cell { row, column }) => {
+                    let column = index(column, cx);
+                    self.press("double", column, Some(row), None, cx);
+                }
+                _ => {}
+            },
+            TallTableEvent::HeaderIconPressed(press) => {
+                let bounds = press.bounds;
+                let at = Rect {
+                    x: bounds.origin.x.into(),
+                    y: bounds.origin.y.into(),
+                    width: bounds.size.width.into(),
+                    height: bounds.size.height.into(),
+                };
+                self.press("icon", press.column, None, Some(at), cx);
+            }
+            TallTableEvent::PopoverButton(cell) => {
+                self.press("open", cell.column, Some(cell.row), None, cx);
+            }
+            TallTableEvent::Copy(copy) => self.copied(table, copy, cx),
+            _ => {}
+        }
+    }
+
+    /// Sends the page a press on column `column` (its index), on a cell of
+    /// `row` or its header.
+    #[cfg(target_family = "wasm")]
+    fn press(
+        &self,
+        kind: &'static str,
+        column: usize,
+        row: Option<u64>,
+        at: Option<crate::frame::Rect>,
+        cx: &App,
+    ) {
+        let Load::Open { view, .. } = &self.load else {
+            return;
+        };
+        if column >= view.columns().len() {
+            return;
+        }
+        let value = row.and_then(|row| self.cell_text(row, column, crate::row::PRESS_CHARS, cx));
+        crate::frame::press(&crate::frame::Press {
+            kind,
+            column: crate::frame::ColumnFacts::of(view, column),
+            row,
+            value,
+            at,
+        });
+    }
+
+    /// Cell `row`, `column` (its index)'s exact text, cut at `most`
+    /// characters, if the table holds its page: none for NULL too.
+    #[cfg(target_family = "wasm")]
+    fn cell_text(&self, row: u64, column: usize, most: usize, cx: &App) -> Option<String> {
+        let Load::Open { table, .. } = &self.load else {
+            return None;
+        };
+        let (page, at) = table.read(cx).delegate().loaded(row)?;
+        let value = seiza_tall_table::TallTablePage::value(&*page, at, column);
+        crate::row::text(value, most).0
+    }
+
+    /// Enter on a cell the table's popover doesn't open on (a number, a
+    /// value that fits): the page opens its row.
+    /// Only while the table has focus: its selection outlives it (focus
+    /// lost goes to the workbench's root), and a key the table never saw
+    /// isn't a key on its cell.
+    fn open_row(&mut self, _: &OpenRow, window: &mut Window, cx: &mut Context<Self>) {
+        #[cfg(target_family = "wasm")]
+        if let (Some(active), Load::Open { table, .. }) = (self.active, &self.load)
+            && table.read(cx).focus_handle().is_focused(window)
+        {
+            self.press("enter", active.column, Some(active.row), None, cx);
+            return;
+        }
+        #[cfg(not(target_family = "wasm"))]
+        let _ = window;
+        cx.propagate();
+    }
+
+    /// A copy's event, to the clipboard's writer; a copy it can't write is
+    /// cancelled. What became of it is said by [`Workbench::copy_outcome`].
+    #[cfg(target_family = "wasm")]
+    fn copied(
+        &mut self,
+        table: &Entity<RowTable>,
+        copy: &seiza_tall_table::TallTableCopy,
+        cx: &mut Context<Self>,
+    ) {
+        if self.clipboard.event(copy).is_some() {
+            table.update(cx, |table, cx| table.cancel_copy(cx));
+        }
+    }
+
+    /// What became of the last copy started, from the clipboard's writer
+    /// (`crate::frame::copy_outcome`, on GPUI's next turn): a copy that
+    /// didn't reach the clipboard is said in the frame's line (Cmd/Ctrl+C
+    /// past its cells, a text past the clipboard's size, a page that didn't
+    /// read, the browser's refusal, or no clipboard here), and a copy that
+    /// starts clears the line a last one left.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn copy_outcome(
+        &mut self,
+        outcome: tall_table_bridge::clipboard::Outcome,
+        cx: &mut Context<Self>,
+    ) {
+        use tall_table_bridge::clipboard::{Failure, Outcome};
+
+        let Load::Open { table, .. } = &self.load else {
+            return;
+        };
+        let text = match outcome {
+            Outcome::Declined { rows, columns } => Some((
+                format!(
+                    "Nothing was copied: {} cells are more than a key copies at once ({}). Select fewer to copy them.",
+                    format_count(rows.saturating_mul(columns as u64)),
+                    format_count(table.read(cx).copy_options().key_max_cells),
+                ),
+                false,
+            )),
+            Outcome::Failed {
+                reason: Failure::TooLarge { max_bytes, .. },
+                ..
+            } => Some((
+                format!(
+                    "Nothing was copied: the text is past {}, the most a copy holds. Select fewer rows to copy them.",
+                    format_bytes(max_bytes as u64)
+                ),
+                false,
+            )),
+            Outcome::Failed {
+                reason: Failure::Read(error),
+                ..
+            } => Some((
+                format!("Nothing was copied: rows of it didn't read ({error})."),
+                true,
+            )),
+            Outcome::Refused { .. } => Some((
+                "Nothing was copied: the browser didn't let Tycho write to the clipboard.".into(),
+                true,
+            )),
+            Outcome::Unavailable { .. } => Some((
+                "Nothing was copied: this page can't write to the clipboard.".into(),
+                true,
+            )),
+            Outcome::Copying { .. } => {
+                if self
+                    .notice
+                    .as_ref()
+                    .is_some_and(|notice| notice.about == About::Copy)
+                {
+                    self.notice = None;
+                    cx.notify();
+                }
+                None
+            }
+            // Written, writing, a cancel (Escape, another copy), or the table
+            // closed: nothing to say.
+            _ => None,
+        };
+        if let Some((text, error)) = text {
+            self.notice = Some(Notice {
+                text: text.into(),
+                error,
+                about: About::Copy,
+            });
+            cx.notify();
+        }
+    }
+
+    /// Row `row`'s values for the Row tab, answered on `answer`: from the
+    /// page the table holds, else read alone (Tycho's rule 3). None with
+    /// no file open, past the rows, or when the read fails.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn row_values(
+        &mut self,
+        row: u64,
+        answer: futures::channel::oneshot::Sender<Option<crate::row::RowValues>>,
+        cx: &mut Context<Self>,
+    ) {
+        let Load::Open { table, view, .. } = &self.load else {
+            let _ = answer.send(None);
+            return;
+        };
+        let rows = table.read(cx).delegate();
+        if row >= table.read(cx).rows() {
+            let _ = answer.send(None);
+            return;
+        }
+        if let Some((page, at)) = rows.loaded(row) {
+            let _ = answer.send(Some(crate::row::read(view, &*page, at, row)));
+            return;
+        }
+        let sql = rows.page_sql(row..row + 1);
+        let engine = cx.global::<seiza_duckdb::Engine>().clone();
+        let table = table.clone();
+        cx.spawn(async move |this, cx| {
+            let page = engine.query(&sql).1.await;
+            let values = this
+                .update(cx, |this, _| match (&this.load, page) {
+                    // Still the file it was asked of.
+                    (
+                        Load::Open {
+                            table: shown, view, ..
+                        },
+                        Ok(page),
+                    ) if *shown == table && page.num_rows() == 1 => {
+                        Some(crate::row::read(view, &page, 0, row))
+                    }
+                    _ => None,
+                })
+                .ok()
+                .flatten();
+            let _ = answer.send(values);
         })
         .detach();
     }
@@ -1584,6 +1908,7 @@ impl Workbench {
             panel: seiza::perf::is_visible(cx),
             log: self.log.view(),
             answer: self.answer.clone(),
+            active: self.active,
         }
     }
 
@@ -1907,7 +2232,11 @@ impl Workbench {
             Ok(true) => {
                 self.log.go(&target);
                 // A refused way back's line goes with the next that works.
-                if self.notice.as_ref().is_some_and(|notice| notice.back) {
+                if self
+                    .notice
+                    .as_ref()
+                    .is_some_and(|notice| notice.about == About::Back)
+                {
                     self.notice = None;
                 }
             }
@@ -1919,7 +2248,7 @@ impl Workbench {
                 self.notice = Some(Notice {
                     text: text.into(),
                     error: true,
-                    back: true,
+                    about: About::Back,
                 });
             }
         }
@@ -2047,6 +2376,8 @@ impl Render for Workbench {
             // listeners run in reverse, so this runs before the root's own
             // focus-on-press, after the table's.
             .track_focus(&self.focus_handle)
+            .key_context(CONTEXT)
+            .on_action(cx.listener(Self::open_row))
             .on_any_mouse_down(|_, window, _| window.prevent_default())
             .size_full()
             .children(match &self.load {

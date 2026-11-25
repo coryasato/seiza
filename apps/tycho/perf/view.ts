@@ -52,7 +52,7 @@ interface Layout {
   rowHeight: number;
   cellsWidth: number;
   pinned: number;
-  columns: { name: string; x: number; width: number; index: number }[];
+  columns: { name: string; x: number; width: number; icon?: { x: number; width: number } | null; index: number }[];
 }
 
 type CheckGlobal = {
@@ -136,6 +136,25 @@ async function drawnAsViewed(page: Page, timeout = 10_000): Promise<{ ok: boolea
 
 const names = (v: View | null) => v?.columns.map((column) => column.name) ?? [];
 
+/** Where a drag grabs a header, from its column's left: its middle, past
+ *  its type icon's raised target (4 px round the badge), whose press is
+ *  the icon's alone, and clear of its edge's band. The middle leaves room
+ *  for a gutter that widens as a CSV's rows grow. */
+const grab = (column: { width: number; icon?: { x: number; width: number } | null }) =>
+  Math.min(Math.max(column.icon ? column.icon.x + column.icon.width + 6 : 12, column.width / 2), column.width - 12);
+
+/** A press and release at `at`, with no move: on a header, selects its
+ *  column, which a drag then moves (the table's `select` with `reorder`:
+ *  only a press inside the selected columns drags). Waits past the
+ *  double press's 400 ms after, so the drag's press is a first. */
+async function selectAt(page: Page, at: { x: number; y: number }): Promise<void> {
+  await page.mouse.move(at.x, at.y);
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await page.mouse.down();
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+}
+
 /** A press at `from`, moved in steps to `to`, released. */
 async function drag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
   await page.mouse.move(from.x, from.y);
@@ -158,19 +177,30 @@ const headerY = (l: Layout) => l.top - l.rowHeight / 2;
  *  quarters into the column at `after`: right of its center, left of the
  *  next one's. Nothing is scrolled sideways. */
 async function move(page: Page, place: number, after: number): Promise<void> {
+  await selectHeader(page, place);
   const l = await layout(page);
   const from = l.columns[place]!;
   const to = l.columns[after]!;
-  await drag(page, { x: l.left + from.x + Math.min(12, from.width / 4), y: headerY(l) }, { x: l.left + to.x + (to.width * 3) / 4, y: headerY(l) });
+  await drag(page, { x: l.left + from.x + grab(from), y: headerY(l) }, { x: l.left + to.x + (to.width * 3) / 4, y: headerY(l) });
+}
+
+/** Selects the column at `place` by a press on its header, the layout read
+ *  just before it: a CSV's growing row count widens the gutter, and a
+ *  press a few px off lands on the header's icon. */
+async function selectHeader(page: Page, place: number): Promise<void> {
+  const l = await layout(page);
+  const column = l.columns[place]!;
+  await selectAt(page, { x: l.left + column.x + grab(column), y: headerY(l) });
 }
 
 /** Moves the column at `place` to the first place: its header dragged to
  *  a quarter into the first column, left of its center. */
 async function moveFirst(page: Page, place: number): Promise<void> {
+  await selectHeader(page, place);
   const l = await layout(page);
   const from = l.columns[place]!;
   const to = l.columns[0]!;
-  await drag(page, { x: l.left + from.x + Math.min(12, from.width / 4), y: headerY(l) }, { x: l.left + to.x + to.width / 4, y: headerY(l) });
+  await drag(page, { x: l.left + from.x + grab(from), y: headerY(l) }, { x: l.left + to.x + to.width / 4, y: headerY(l) });
 }
 
 /** Drags the right edge of the column at `place` `by` CSS px. */
@@ -231,11 +261,12 @@ async function sampleRun(page: Page): Promise<Outcome[]> {
   await check('a pinned column', pinned?.pinned === 1, `pinned ${pinned?.pinned ?? 0}`);
 
   // The fourth column dragged into the run: it pins, the count with it.
+  await selectHeader(page, 3);
   const l = await layout(page);
   const fourth = l.columns[3]!;
   const first = l.columns[0]!;
   const intoRun = moved(names(pinned), 3, 0);
-  await drag(page, { x: l.left + fourth.x + Math.min(12, fourth.width / 4), y: headerY(l) }, { x: l.left + first.x + (first.width * 3) / 4, y: headerY(l) });
+  await drag(page, { x: l.left + fourth.x + grab(fourth), y: headerY(l) }, { x: l.left + first.x + (first.width * 3) / 4, y: headerY(l) });
   const runGrown = await viewWhere(page, 'v.pinned === 2');
   await check('a column dragged into the pinned run', runGrown?.pinned === 2 && same(names(runGrown), intoRun), `pinned ${runGrown?.pinned ?? 0}: ${names(runGrown).slice(0, 3).join(', ')}…`);
 
@@ -250,8 +281,9 @@ async function sampleRun(page: Page): Promise<Outcome[]> {
 }
 
 /** A CSV whose `code` column is a number on every row but the last, of
- *  `mib` MiB's worth of rows at 36 bytes each (they run longer: 120 makes
- *  149 MiB), so the widening chunk comes seconds after the first rows. */
+ *  `mib` MiB's worth of rows at 36 bytes each (they run longer: 240 makes
+ *  298 MiB), so the widening chunk comes seconds after the first rows,
+ *  past the arranging, whose header presses wait out a double press. */
 async function widenedCsv(mib: number): Promise<string> {
   const dir = mkdtempSync(join(tmpdir(), 'tycho-view-'));
   const file = join(dir, 'widens.csv');
@@ -358,7 +390,7 @@ async function inBrowser(type: BrowserType, run: (page: Page) => Promise<Outcome
   }
 }
 
-const csv = await widenedCsv(120);
+const csv = await widenedCsv(240);
 let failures = 0;
 const print = (browser: string, part: string, outcome: Outcome) => {
   if (!outcome.ok) failures += 1;

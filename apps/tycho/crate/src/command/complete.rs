@@ -7,7 +7,7 @@
 use serde::Serialize;
 
 use super::plan::{self, Catalog};
-use super::{LATER, Parsed, Token, VERBS, parse, quote, tokenize};
+use super::{LATER, Parsed, Token, VERBS, groups, parse, quote, tokenize};
 
 /// The most items a completion lists.
 const MOST: usize = 100;
@@ -22,7 +22,8 @@ pub struct Completion {
     pub items: Vec<Item>,
     pub preview: Preview,
     /// The command's parts across the top of the bar, once its verb is one
-    /// the bar runs: `pin` then `column`, `jump` then `row`, `undo` alone.
+    /// the bar runs: `pin` then `column`, `hide` then `columns`, `jump`
+    /// then `row`, `undo` alone.
     pub slots: Vec<Slot>,
 }
 
@@ -149,8 +150,52 @@ fn part_at(
                 None => span,
             };
             let typed = typed_part(text, span.start, caret);
-            let items =
-                catalog.map_or_else(Vec::new, |catalog| columns(&typed, catalog, verb == "pin"));
+            let items = catalog.map_or_else(Vec::new, |catalog| {
+                let pin = verb == "pin";
+                let view = &catalog.view;
+                // `pin` takes a shown column; `unpin` any pinned one.
+                columns(&typed, catalog, |index| {
+                    view.is_pinned(index) != pin && !(pin && view.is_hidden(index))
+                })
+            });
+            (Part::Column, span, items)
+        }
+        "hide" | "show" if !tokens[0].quoted => {
+            let (span, others) = name_at(text, &tokens[1..], caret);
+            let typed = typed_part(text, span.start, caret);
+            let items = catalog.map_or_else(Vec::new, |catalog| {
+                let hide = verb == "hide";
+                let view = &catalog.view;
+                let named = |index: usize| {
+                    let name = view.columns()[index].name.to_lowercase();
+                    others.iter().any(|other| other.to_lowercase() == name)
+                };
+                let mut items = Vec::new();
+                // `show all` first, while it's the one name.
+                if !hide
+                    && others.is_empty()
+                    && (0..view.columns().len()).any(|index| view.is_hidden(index))
+                    && "all".starts_with(&typed.to_lowercase())
+                {
+                    let hidden = (0..view.columns().len())
+                        .filter(|&index| view.is_hidden(index))
+                        .count();
+                    items.push(Item {
+                        text: "all".into(),
+                        label: "all".into(),
+                        detail: format!(
+                            "{hidden} hidden column{}",
+                            if hidden == 1 { "" } else { "s" }
+                        ),
+                        later: false,
+                        kind: None,
+                    });
+                }
+                items.extend(columns(&typed, catalog, |index| {
+                    view.is_hidden(index) != hide && !named(index)
+                }));
+                items
+            });
             (Part::Column, span, items)
         }
         "jump" if !tokens[0].quoted => {
@@ -204,16 +249,56 @@ fn verbs(typed: &str) -> Vec<Item> {
     built.chain(later).collect()
 }
 
-/// The columns `pin` (`pin`) or `unpin` could take, in the order drawn,
-/// those starting with what's typed first, then those holding it.
-fn columns(typed: &str, catalog: &Catalog, pin: bool) -> Vec<Item> {
+/// The name the caret is in, of a command that takes several between
+/// commas: its span (from its first word to its last, or the caret alone
+/// for a new one), and the other names already written.
+fn name_at(text: &str, rest: &[Token], caret: usize) -> (std::ops::Range<usize>, Vec<String>) {
+    let groups = groups(rest);
+    // The commas outside quotes, in order: group `n` starts after the
+    // `n`th.
+    let mut commas = Vec::new();
+    for token in rest.iter().filter(|token| !token.quoted) {
+        commas.extend(
+            token
+                .text
+                .match_indices(',')
+                .map(|(at, _)| token.start + at),
+        );
+    }
+    let at = commas.iter().filter(|&&comma| comma < caret).count();
+    // The caret in a name, or in the gap before one: that name, from the
+    // caret if it's before it (as `pin`'s gap is), replaced whole.
+    let span = match groups.get(at).and_then(|group| group.span) {
+        Some((start, end)) => start.min(caret)..end.max(caret),
+        None => caret..caret,
+    };
+    let span = span.start.min(text.len())..span.end.min(text.len());
+    let others = groups
+        .iter()
+        .enumerate()
+        .filter(|(index, group)| *index != at && !group.words.is_empty())
+        .map(|(_, group)| {
+            group
+                .words
+                .iter()
+                .map(|(word, _)| word.as_str())
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .collect();
+    (span, others)
+}
+
+/// The columns a verb could take (`takes`), in the order drawn, those
+/// starting with what's typed first, then those holding it.
+fn columns(typed: &str, catalog: &Catalog, takes: impl Fn(usize) -> bool) -> Vec<Item> {
     let typed = typed.to_lowercase();
     let view = &catalog.view;
     let side: Vec<usize> = view
         .order()
         .iter()
         .copied()
-        .filter(|&index| view.is_pinned(index) != pin)
+        .filter(|&index| takes(index))
         .collect();
     let name = |index: usize| view.columns()[index].name.to_lowercase();
     let starts = side
@@ -279,13 +364,7 @@ fn preview(text: &str, catalog: Option<&Catalog>, typing: bool) -> Preview {
 
 /// A column's kind for its badge, as the table lays it out.
 fn kind(info: &seiza_duckdb::sql::ColumnInfo) -> &'static str {
-    use seiza_tall_table::ColumnKind;
-    match info.tall_table_column().kind() {
-        ColumnKind::Boolean => "boolean",
-        ColumnKind::Date | ColumnKind::Timestamp => "time",
-        ColumnKind::Integer { .. } | ColumnKind::Float | ColumnKind::Decimal => "number",
-        _ => "text",
-    }
+    crate::table::type_name(info)
 }
 
 /// The parts of a typed command whose verb the bar runs: the verb, then
@@ -298,6 +377,7 @@ fn slots(text: &str, part: Part, preview: &Preview) -> Vec<Slot> {
     let verb = first.text.to_lowercase();
     let takes = match verb.as_str() {
         "pin" | "unpin" => Some("column"),
+        "hide" | "show" => Some("columns"),
         "jump" => Some("row"),
         "undo" => None,
         _ => return Vec::new(),
@@ -391,7 +471,10 @@ mod tests {
     fn verbs_first() {
         let empty = at_end("");
         assert_eq!(empty.part, Part::Verb);
-        assert_eq!(labels(&empty), ["pin", "unpin", "jump", "undo"]);
+        assert_eq!(
+            labels(&empty),
+            ["pin", "unpin", "hide", "show", "jump", "undo"]
+        );
         assert_eq!(empty.preview.kind, "empty");
         let u = at_end("u");
         assert_eq!(labels(&u), ["unpin", "undo"]);
@@ -399,9 +482,9 @@ mod tests {
         assert_eq!(u.preview.kind, "typing");
         // A later verb is listed with its goal once typed.
         let s = at_end("s");
-        assert_eq!(labels(&s), ["sort", "show", "sql"]);
-        assert!(s.items.iter().all(|item| item.later));
-        assert_eq!(s.items[0].detail, "Comes with sort, filter, and find");
+        assert_eq!(labels(&s), ["show", "sort", "sql"]);
+        assert!(!s.items[0].later && s.items[1..].iter().all(|item| item.later));
+        assert_eq!(s.items[1].detail, "Comes with sort, filter, and find");
     }
 
     #[test]
@@ -442,6 +525,47 @@ mod tests {
         let mid = complete("pin ma", 2, Some(&catalog()));
         assert_eq!(mid.part, Part::Verb);
         assert_eq!(labels(&mid), ["pin"]);
+    }
+
+    #[test]
+    fn hide_offers_shown_columns_and_show_hidden_ones() {
+        let mut hidden = catalog();
+        hidden.view.hide(2).unwrap();
+        hidden.view.hide(3).unwrap();
+        let at = |text: &str, catalog: &Catalog| {
+            complete(text, text.encode_utf16().count(), Some(catalog))
+        };
+        let hide = at("hide ", &hidden);
+        assert_eq!(hide.part, Part::Column);
+        assert_eq!(labels(&hide), ["id", "launch date", "日付"]);
+        // A name written already isn't offered again.
+        assert_eq!(labels(&at("hide id, ", &hidden)), ["launch date", "日付"]);
+        // The name being typed is the one after the last comma.
+        let typing = at("hide id, lau", &hidden);
+        assert_eq!(labels(&typing), ["launch date"]);
+        assert_eq!((typing.from, typing.to), (9, 12));
+        assert_eq!(typing.preview.kind, "typing");
+        // `show` offers the hidden ones, `all` first while it's the one name.
+        let show = at("show ", &hidden);
+        assert_eq!(labels(&show), ["all", "mag", "magType"]);
+        assert_eq!(show.items[0].detail, "2 hidden columns");
+        assert_eq!(labels(&at("show mag, ", &hidden)), ["magType"]);
+        assert_eq!(labels(&at("show ", &catalog())), Vec::<&str>::new());
+        // `pin` doesn't offer a hidden column.
+        assert_eq!(labels(&at("pin ", &hidden)), ["launch date", "日付"]);
+        // The caret in the gap after a comma: the next name, from the caret.
+        let gap = complete("hide id, mag", 8, Some(&hidden));
+        assert_eq!((gap.from, gap.to), (8, 12));
+        // The caret in the first name of several: that name, whole.
+        let inside = complete("hide id, mag", 6, Some(&hidden));
+        assert_eq!((inside.from, inside.to), (5, 7));
+        let whole = at("hide id, \"launch date\"", &hidden);
+        assert_eq!(whole.preview.kind, "command");
+        assert_eq!(whole.preview.steps, [r#"Hide id and "launch date""#]);
+        assert_eq!(
+            whole.preview.json.as_deref(),
+            Some(r#"{"hide":["id","launch date"]}"#)
+        );
     }
 
     #[test]
@@ -523,6 +647,10 @@ mod tests {
             [("jump".into(), "done"), ("row".into(), "now")]
         );
         assert_eq!(slots("undo"), [("undo".into(), "done")]);
+        assert_eq!(
+            slots("hide nst"),
+            [("hide".into(), "done"), ("columns".into(), "now")]
+        );
         assert!(slots("sort mag").is_empty());
         assert!(slots("how many").is_empty());
         let kinds: Vec<_> = at_end("pin ")

@@ -4,12 +4,12 @@
 //!
 //! [`ViewState`] is the serializable form: the source (its kind, name, and
 //! rows; never a URL or the data), the columns in the order drawn, each
-//! with its type, its width where it differs from its kind's, and its
-//! format where it has one, and how many are pinned. A [`Controller`] holds
+//! with its type, its width where it differs from its kind's, its format
+//! where it has one, and whether it's hidden, and how many are pinned. A [`Controller`] holds
 //! it by the table's column indices, so a move or a name the file repeats
 //! stays exact: [`Controller::calls`] compiles it to calls on the table,
 //! and [`Controller::take`] takes what the table owns and reports (widths,
-//! order, pins) from its events. A state naming a column the file doesn't
+//! order, pins, hidden flags) from its events. A state naming a column the file doesn't
 //! have is refused whole ([`Controller::new`]), never applied in part
 //! (`docs/DECISIONS.md`, "Scope", 2026-11-21, "A link to a view of a
 //! dropped file").
@@ -80,6 +80,9 @@ pub struct ColumnView {
     /// column's only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub format: Option<Format>,
+    /// Hidden in the table: it keeps its place, drawn at no width.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub hidden: bool,
 }
 
 /// A number column's format (the table's `NumberFormat`).
@@ -140,6 +143,8 @@ pub enum Refused {
     Width { column: String },
     /// A format on a column that holds no numbers.
     Format { column: String, data_type: String },
+    /// Every column hidden: the table would show none.
+    AllHidden,
 }
 
 impl fmt::Display for Refused {
@@ -167,24 +172,29 @@ impl fmt::Display for Refused {
                 f,
                 "the view formats {column} as a number, and it's a {data_type}"
             ),
+            Self::AllHidden => f.write_str("the view hides every column"),
         }
     }
 }
 
 /// The calls that give a table the view: its columns (in the file's order,
-/// each with its width and format), then the order drawn, then the count
-/// pinned.
+/// each with its width, format, icon, and hidden flag), then the order
+/// drawn, then the count pinned.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TableCalls {
     pub columns: Vec<TallTableColumn>,
     /// `order[place]` is the index drawn there.
     pub order: Vec<usize>,
     pub pinned: usize,
+    /// By the file's column: the flags `columns` carry, for a table whose
+    /// columns aren't set again ([`TableCalls::arrange`]).
+    pub hidden: Vec<bool>,
 }
 
 impl TableCalls {
     /// Gives `table` the view: after `set_columns`, which resets the order
-    /// and keeps the count as places, the order and the count again.
+    /// and keeps the count as places, the order and the count again. The
+    /// columns carry their hidden flags.
     pub fn apply<D: TallTableDelegate>(
         self,
         table: &mut TallTableState<D>,
@@ -198,7 +208,8 @@ impl TableCalls {
     /// Gives `table` the view with the least it needs: its columns only
     /// when `columns` says their widths or formats changed
     /// ([`Controller::same_columns`]; `set_columns` resets the order and
-    /// the table's other per-column state), then the order and the count.
+    /// the table's other per-column state), then the hidden flags, the
+    /// order, and the count. A flag the table has already changes nothing.
     pub fn arrange<D: TallTableDelegate>(
         self,
         columns: bool,
@@ -208,6 +219,7 @@ impl TableCalls {
         if columns {
             table.set_columns(self.columns, cx);
         }
+        table.set_hidden(self.hidden, cx);
         table.set_order(self.order, cx);
         table.set_pinned(self.pinned, cx);
     }
@@ -221,6 +233,16 @@ pub enum PinRefused {
     NotPinned,
 }
 
+/// Why `hide` or `show` left a column as it was.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HideRefused {
+    /// Hidden already, or shown already: an answer, not an error.
+    AlreadyHidden,
+    NotHidden,
+    /// It's the last column shown: the table would show none.
+    LastShown,
+}
+
 /// The view of the open file, held by the table's column indices: the
 /// file's columns are the table's, in the same order.
 #[derive(Debug, Clone, PartialEq)]
@@ -232,6 +254,8 @@ pub struct Controller {
     /// By the file's column.
     widths: Vec<Option<f32>>,
     formats: Vec<Option<Format>>,
+    /// By the file's column.
+    hidden: Vec<bool>,
     pinned: usize,
 }
 
@@ -245,6 +269,7 @@ impl Controller {
             order: (0..file.len()).collect(),
             widths: vec![None; file.len()],
             formats: vec![None; file.len()],
+            hidden: vec![false; file.len()],
             pinned: 0,
         }
     }
@@ -281,7 +306,9 @@ impl Controller {
         }
         let mut widths = vec![None; file.len()];
         let mut formats = vec![None; file.len()];
+        let mut hidden = vec![false; file.len()];
         for (column, &index) in view.columns.iter().zip(&order) {
+            hidden[index] = column.hidden;
             if let Some(width) = column.width {
                 if !(width.is_finite() && width > 0.0) {
                     return Err(Refused::Width {
@@ -306,6 +333,11 @@ impl Controller {
                 columns: file.len(),
             });
         }
+        // The file's columns the view doesn't name are shown, so only a view
+        // naming them all can hide them all.
+        if !file.is_empty() && used.iter().all(|used| *used) && hidden.iter().all(|h| *h) {
+            return Err(Refused::AllHidden);
+        }
         order.extend((0..file.len()).filter(|&index| !used[index]));
         Ok(Self {
             source: view.source.clone(),
@@ -313,6 +345,7 @@ impl Controller {
             order,
             widths,
             formats,
+            hidden,
             pinned: view.pinned,
         })
     }
@@ -337,8 +370,19 @@ impl Controller {
         self.widths.get(index).copied().flatten()
     }
 
+    /// Whether column `index` is hidden.
+    pub fn is_hidden(&self, index: usize) -> bool {
+        self.hidden.get(index).copied().unwrap_or(false)
+    }
+
+    /// How many columns are shown.
+    pub fn shown(&self) -> usize {
+        self.hidden.iter().filter(|hidden| !**hidden).count()
+    }
+
     /// Whether `other` gives the table the same columns: the file's, at the
-    /// same widths and formats (the order and the pins aside).
+    /// same widths and formats (the order, the pins, and the hidden flags
+    /// aside: the table takes those without `set_columns`).
     pub fn same_columns(&self, other: &Self) -> bool {
         self.file == other.file && self.widths == other.widths && self.formats == other.formats
     }
@@ -382,6 +426,27 @@ impl Controller {
         Ok(())
     }
 
+    /// Hides column `index`. The last column shown stays.
+    pub fn hide(&mut self, index: usize) -> Result<(), HideRefused> {
+        if self.hidden[index] {
+            return Err(HideRefused::AlreadyHidden);
+        }
+        if self.shown() == 1 {
+            return Err(HideRefused::LastShown);
+        }
+        self.hidden[index] = true;
+        Ok(())
+    }
+
+    /// Shows column `index` where it was.
+    pub fn show(&mut self, index: usize) -> Result<(), HideRefused> {
+        if !self.hidden[index] {
+            return Err(HideRefused::NotHidden);
+        }
+        self.hidden[index] = false;
+        Ok(())
+    }
+
     /// Takes `view` (a log entry's) over this file, keeping the rows there
     /// are now: a CSV still loading has more than when it was written. The
     /// controller is left as it was if the view is refused.
@@ -404,6 +469,7 @@ impl Controller {
                     data_type: self.file[index].data_type.clone(),
                     width: self.widths[index],
                     format: self.formats[index].clone(),
+                    hidden: self.hidden[index],
                 })
                 .collect(),
             pinned: self.pinned,
@@ -426,16 +492,19 @@ impl Controller {
                         column = column.format(format.number_format());
                     }
                     column
+                        .icon(crate::table::type_icon(info))
+                        .hidden(self.hidden[index])
                 })
                 .collect(),
             order: self.order.clone(),
             pinned: self.pinned,
+            hidden: self.hidden.clone(),
         }
     }
 
     /// What the table reported, taken into the view: a width (`resize`),
-    /// the order and the count after a move (`reorder`), or the count after
-    /// a pin (`pin`). The order and the count are the table's as it is
+    /// the order and the count after a move (`reorder`), the count after a
+    /// pin (`pin`), or the hidden flags (`hide`). The order and the count are the table's as it is
     /// when the event is heard (`order`, `pinned`), not the event's: events
     /// are heard after the update that sent them, so a command's
     /// `set_order` then `set_pinned` would report a count already stale,
@@ -458,6 +527,15 @@ impl Controller {
                 changed
             }
             TallTableEvent::Pinned(_) => self.set_pinned(pinned),
+            // Never every column: the controller keeps one shown, and the
+            // next arrange gives the table its flags back.
+            TallTableEvent::ColumnsHidden(hidden)
+                if hidden.len() == self.file.len() && hidden.iter().any(|hidden| !hidden) =>
+            {
+                let changed = *hidden != self.hidden;
+                self.hidden.clone_from(hidden);
+                changed
+            }
             _ => false,
         }
     }
@@ -573,6 +651,7 @@ mod tests {
             data_type: data_type.into(),
             width: None,
             format: None,
+            hidden: false,
         }
     }
 
@@ -655,7 +734,10 @@ mod tests {
         assert_eq!(names, ["id", "name", "mass", "launched"]);
         assert_eq!(calls.order, [2, 0, 1, 3]);
         assert_eq!(calls.pinned, 1);
-        let mut expected: Vec<_> = file().iter().map(ColumnInfo::tall_table_column).collect();
+        let mut expected: Vec<_> = file()
+            .iter()
+            .map(|info| info.tall_table_column().icon(crate::table::type_icon(info)))
+            .collect();
         expected[0] = expected[0]
             .clone()
             .format(seiza_tall_table::NumberFormat::new().grouping(true));
@@ -729,6 +811,14 @@ mod tests {
                 columns: 4
             }
         );
+        let mut hidden = arranged();
+        for column in &mut hidden.columns {
+            column.hidden = true;
+        }
+        assert_eq!(refused(&hidden, &file()), Refused::AllHidden);
+        // A column the view doesn't name is shown.
+        hidden.columns.pop();
+        assert!(Controller::new(&hidden, &file()).is_ok());
         let mut width = arranged();
         width.columns[2].width = Some(f32::NAN);
         assert_eq!(
@@ -1039,6 +1129,58 @@ mod tests {
         draw(cx);
         assert_eq!(changes.get(), 1);
         assert_eq!(controller.borrow().order(), [3, 1, 2, 0]);
+    }
+
+    #[gpui_kit::test]
+    fn hidden_flags_go_both_ways(cx: &mut TestAppContext) {
+        let (shell, cx) = open(cx);
+        let (table, controller, changes) = shell.read_with(cx, |shell, _| {
+            (
+                shell.table.clone(),
+                shell.controller.clone(),
+                shell.changes.clone(),
+            )
+        });
+        // A command hides through the table, and its event comes back as
+        // no change.
+        command("hide mass, name", &shell, cx);
+        table.read_with(cx, |table, _| {
+            let hidden: Vec<_> = table.columns().iter().map(|c| c.is_hidden()).collect();
+            assert_eq!(hidden, [false, true, true, false]);
+        });
+        assert_eq!(changes.get(), 0);
+        let view = controller.borrow().view();
+        assert!(view.columns[1].hidden && view.columns[2].hidden);
+        assert!(
+            serde_json::to_string(&view)
+                .unwrap()
+                .contains(r#""name":"mass","type":"DOUBLE","hidden":true"#)
+        );
+        // The table's own flags are taken from its event.
+        table.update(cx, |table, cx| table.set_column_hidden(0, true, cx));
+        draw(cx);
+        assert!(controller.borrow().is_hidden(0));
+        // The way back gives a hide back, without `set_columns`.
+        let mut opened = controller.borrow().clone();
+        opened
+            .restore(&super::Controller::of_file(source(), &file()).view())
+            .unwrap();
+        let columns = !controller.borrow().same_columns(&opened);
+        assert!(!columns);
+        *controller.borrow_mut() = opened;
+        let calls = controller.borrow().calls();
+        table.update(cx, |table, cx| calls.arrange(columns, table, cx));
+        draw(cx);
+        table.read_with(cx, |table, _| {
+            assert!(table.columns().iter().all(|column| !column.is_hidden()));
+        });
+        assert_eq!(controller.borrow().shown(), 4);
+        // `show all` after: nothing hidden.
+        command("hide id", &shell, cx);
+        command("show all", &shell, cx);
+        table.read_with(cx, |table, _| {
+            assert!(table.columns().iter().all(|column| !column.is_hidden()));
+        });
     }
 
     #[gpui_kit::test]

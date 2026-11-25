@@ -10,7 +10,7 @@ use seiza_duckdb::sql::ColumnInfo;
 
 use super::{Name, Step, list, quote};
 use crate::dataset::format_count;
-use crate::view::{Controller, PinRefused};
+use crate::view::{Controller, HideRefused, PinRefused};
 
 /// What an action is checked against: the open file's view, and whether
 /// its rows are still loading (a CSV).
@@ -95,6 +95,13 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                 let column = resolve(name, view.columns()).map_err(|why| refuse(why, true))?;
                 let shown = quote(&view.columns()[column].name);
                 let verb = if pin { "pin" } else { "unpin" };
+                // A hidden column pinned would change nothing on screen.
+                if pin && view.is_hidden(column) {
+                    return Err(refuse(
+                        format!("{shown} is hidden: show it, then pin it."),
+                        false,
+                    ));
+                }
                 let result = if pin {
                     view.pin(column)
                 } else {
@@ -114,6 +121,91 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                         return Err(refuse(format!("{shown} isn't pinned."), false));
                     }
                 }
+            }
+            Step::Hide(names) | Step::Show(names) => {
+                let hide = matches!(step, Step::Hide(_));
+                let mut columns: Vec<usize> = Vec::with_capacity(names.len());
+                for name in names {
+                    let column = resolve(name, view.columns()).map_err(|why| refuse(why, true))?;
+                    // A column named twice is hidden once.
+                    if !columns.contains(&column) {
+                        columns.push(column);
+                    }
+                }
+                let shown: Vec<String> = columns
+                    .iter()
+                    .map(|&column| quote(&view.columns()[column].name))
+                    .collect();
+                // Checked before any name is answered, so the reply is the
+                // same whatever the order, naming the columns still shown.
+                let still: Vec<&str> = columns
+                    .iter()
+                    .zip(&shown)
+                    .filter(|&(&column, _)| !view.is_hidden(column))
+                    .map(|(_, name)| name.as_str())
+                    .collect();
+                let none_left = format!(
+                    "Hiding {} would leave no column shown.",
+                    list(still.iter().copied(), "and")
+                );
+                if hide && !still.is_empty() && still.len() >= view.shown() {
+                    return Err(refuse(none_left, true));
+                }
+                for (&column, name) in columns.iter().zip(&shown) {
+                    let result = if hide {
+                        view.hide(column)
+                    } else {
+                        view.show(column)
+                    };
+                    match result {
+                        Ok(()) => {}
+                        Err(HideRefused::AlreadyHidden) => {
+                            return Err(refuse(format!("{name} is hidden already."), false));
+                        }
+                        Err(HideRefused::NotHidden) => {
+                            return Err(refuse(format!("{name} isn't hidden."), false));
+                        }
+                        Err(HideRefused::LastShown) => return Err(refuse(none_left, true)),
+                    }
+                }
+                let verb = if hide { "hide" } else { "show" };
+                let names: Vec<&str> = columns
+                    .iter()
+                    .map(|&column| view.columns()[column].name.as_str())
+                    .collect();
+                checked.push(Checked {
+                    line: format!("{verb} {}", shown.join(", ")),
+                    words: format!(
+                        "{} {}",
+                        if hide { "Hide" } else { "Show" },
+                        list(shown.iter().map(String::as_str), "and")
+                    ),
+                    json: serde_json::json!({ verb: names }),
+                    pins: None,
+                });
+            }
+            Step::ShowAll => {
+                let hidden: Vec<usize> = (0..view.columns().len())
+                    .filter(|&column| view.is_hidden(column))
+                    .collect();
+                if hidden.is_empty() {
+                    return Err(refuse("No column is hidden.".into(), false));
+                }
+                for &column in &hidden {
+                    let _ = view.show(column);
+                }
+                checked.push(Checked {
+                    line: "show all".into(),
+                    words: match hidden.len() {
+                        1 => format!(
+                            "Show {}, the one hidden column",
+                            quote(&view.columns()[hidden[0]].name)
+                        ),
+                        count => format!("Show all {count} hidden columns"),
+                    },
+                    json: serde_json::json!({ "show": "all" }),
+                    pins: None,
+                });
             }
             Step::Jump(written) => {
                 let rows = view.view().source.rows;
@@ -450,6 +542,78 @@ mod tests {
             run(undo, &catalog).unwrap_err().why,
             "undo runs on its own, not in an action of several."
         );
+    }
+
+    #[test]
+    fn hide_and_show_all_or_none() {
+        let mut catalog = catalog(false);
+        let plan = run("hide mag, PLACE, mag", &catalog).unwrap();
+        assert!(plan.view.is_hidden(2) && plan.view.is_hidden(4));
+        assert_eq!(plan.view.shown(), 3);
+        // The file's names, a column named twice once.
+        assert_eq!(plan.steps[0].line, "hide mag, place");
+        assert_eq!(plan.steps[0].words, "Hide mag and place");
+        assert_eq!(plan.json(), r#"{"hide":["mag","place"]}"#);
+        // The order and the pins stay.
+        assert_eq!(names(&plan.view), names(&catalog.view));
+        catalog.view = plan.view;
+        // A hidden column named again: answered, nothing of it runs.
+        let refusal = run("hide id, mag", &catalog).unwrap_err();
+        assert_eq!(refusal.to_string(), "mag is hidden already.");
+        assert!(!refusal.error);
+        assert_eq!(
+            run("show id", &catalog).unwrap_err().to_string(),
+            "id isn't hidden."
+        );
+        assert_eq!(
+            run("hide nope", &catalog).unwrap_err().why,
+            "No column nope in this file."
+        );
+        // A hidden column isn't pinned.
+        let refusal = run("pin mag", &catalog).unwrap_err();
+        assert_eq!(refusal.why, "mag is hidden: show it, then pin it.");
+        assert!(!refusal.error);
+        // The last columns shown stay, named alike whatever the order, the
+        // hidden ones left out.
+        for action in [
+            "hide id, \"launch date\", magType, mag",
+            "hide mag, id, \"launch date\", magType",
+        ] {
+            assert_eq!(
+                run(action, &catalog).unwrap_err().why,
+                r#"Hiding id, "launch date", and magType would leave no column shown."#,
+                "{action}"
+            );
+        }
+        let refusal = run(r#"hide id, "launch date", magType"#, &catalog).unwrap_err();
+        assert_eq!(
+            refusal.why,
+            r#"Hiding id, "launch date", and magType would leave no column shown."#
+        );
+        assert!(refusal.error);
+        assert!(run(r#"hide id, "launch date""#, &catalog).is_ok());
+        // Typed and pasted read to the same steps.
+        let typed = run("show mag", &catalog).unwrap();
+        let pasted = run(r#"{"show": ["mag"]}"#, &catalog).unwrap();
+        assert_eq!(typed, pasted);
+        assert_eq!(typed.steps[0].words, "Show mag");
+        let all = run("show all", &catalog).unwrap();
+        assert_eq!(all.view.shown(), 5);
+        assert_eq!(all.steps[0].words, "Show all 2 hidden columns");
+        assert_eq!(all.json(), r#"{"show":"all"}"#);
+        catalog.view = typed.view;
+        assert_eq!(
+            run("show all", &catalog).unwrap().steps[0].words,
+            "Show place, the one hidden column"
+        );
+        catalog.view = all.view;
+        assert_eq!(
+            run("show all", &catalog).unwrap_err().to_string(),
+            "No column is hidden."
+        );
+        // Each step on the view the ones before it leave.
+        let both = r#"{"actions": [{"hide": ["mag"]}, {"show": ["mag"]}]}"#;
+        assert!(!run(both, &catalog).unwrap().changed);
     }
 
     #[test]

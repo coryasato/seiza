@@ -3,10 +3,10 @@
 //! 2026-11-21, "A command is a verb, then a column, then its parts").
 //!
 //! A typed line is a verb, then its parts: `pin mag`, `unpin "launch
-//! date"`, `jump 1,204`, `undo`. A column's name is bare, or in double
+//! date"`, `hide nst, dmin, rms`, `show all`, `jump 1,204`, `undo`. A column's name is bare, or in double
 //! quotes with a quote inside written twice; it's matched without regard to
 //! case ([`plan`]). JSON names the same verbs as keys, `{"pin": {"column":
-//! "mag"}}`, several steps under `"actions"`. The bar runs the verbs the
+//! "mag"}}`, `{"hide": ["nst", "dmin"]}`, several steps under `"actions"`. The bar runs the verbs the
 //! controller can do today; every other verb of the grammar is answered
 //! with the goal it comes with ([`LATER`]), and a line that opens with no
 //! verb and reads as words is a sentence, which Tycho doesn't read
@@ -26,6 +26,8 @@ pub use plan::{Catalog, Checked, Plan, Refusal, plan};
 pub const VERBS: &[(&str, &str)] = &[
     ("pin", "Pin a column"),
     ("unpin", "Unpin a column"),
+    ("hide", "Hide columns"),
+    ("show", "Show hidden columns"),
     ("jump", "Jump to a row"),
     ("undo", "Go back one step"),
 ];
@@ -36,8 +38,6 @@ pub const LATER: &[(&str, &str)] = &[
     ("sort", "sort, filter, and find"),
     ("find", "sort, filter, and find"),
     ("clear", "sort, filter, and find"),
-    ("hide", "the table's basics"),
-    ("show", "the table's basics"),
     ("group", "profiles and the catalog"),
     ("rows", "profiles and the catalog"),
     ("top", "profiles and the catalog"),
@@ -59,6 +59,11 @@ const WORDS: &[&str] = &[
 pub enum Step {
     Pin(Name),
     Unpin(Name),
+    /// One or more columns, in the order written.
+    Hide(Vec<Name>),
+    Show(Vec<Name>),
+    /// `show all`: every hidden column.
+    ShowAll,
     /// The row's number as written (`jump.rs` reads it against the rows).
     Jump(String),
     Undo,
@@ -89,6 +94,9 @@ impl Step {
         match self {
             Self::Pin(name) => format!("Pin {}", quote(&name.text)),
             Self::Unpin(name) => format!("Unpin {}", quote(&name.text)),
+            Self::Hide(names) => format!("Hide {}", spoken(names)),
+            Self::Show(names) => format!("Show {}", spoken(names)),
+            Self::ShowAll => "Show all hidden columns".into(),
             Self::Jump(row) => format!("Jump to row {}", row.trim()),
             Self::Undo => "Undo".into(),
         }
@@ -99,10 +107,28 @@ impl Step {
         match self {
             Self::Pin(name) => format!("pin {}", quote(&name.text)),
             Self::Unpin(name) => format!("unpin {}", quote(&name.text)),
+            Self::Hide(names) => format!("hide {}", listed(names)),
+            Self::Show(names) => format!("show {}", listed(names)),
+            Self::ShowAll => "show all".into(),
             Self::Jump(row) => format!("jump {}", row.trim()),
             Self::Undo => "undo".into(),
         }
     }
+}
+
+/// Names as a command writes them: `nst, dmin, rms`.
+pub fn listed(names: &[Name]) -> String {
+    names
+        .iter()
+        .map(|name| quote(&name.text))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// Names in words: `nst, dmin, and rms`.
+fn spoken(names: &[Name]) -> String {
+    let quoted: Vec<String> = names.iter().map(|name| quote(&name.text)).collect();
+    list(quoted.iter().map(String::as_str), "and")
 }
 
 /// Where an action's steps came from.
@@ -259,6 +285,12 @@ fn parse_line(text: &str) -> Parsed {
         Some("unpin") => {
             column_step(rest, "unpin").map_or_else(Parsed::Error, |name| action(Step::Unpin(name)))
         }
+        Some(verb @ ("hide" | "show")) => match names_step(rest, verb) {
+            Ok(_) if verb == "show" && is_all(rest) => action(Step::ShowAll),
+            Ok(names) if verb == "show" => action(Step::Show(names)),
+            Ok(names) => action(Step::Hide(names)),
+            Err(why) => Parsed::Error(why),
+        },
         Some("jump") => {
             if rest.is_empty() {
                 Parsed::Error("jump takes a row's number: jump 1,204.".into())
@@ -310,6 +342,93 @@ fn column_step(rest: &[Token], verb: &str) -> Result<Name, String> {
             "{verb} takes one column; a name with a space goes in double quotes."
         )),
     }
+}
+
+/// `show all`'s one word, bare: a column named `all` is written in quotes.
+fn is_all(rest: &[Token]) -> bool {
+    matches!(rest, [word] if !word.quoted && word.text.eq_ignore_ascii_case("all"))
+}
+
+/// `verb`'s columns, one or more between commas (`hide nst, dmin, rms`):
+/// each a word, a name in quotes, or bare words read as one name.
+fn names_step(rest: &[Token], verb: &str) -> Result<Vec<Name>, String> {
+    let groups = groups(rest);
+    let mut names = Vec::with_capacity(groups.len());
+    for group in groups {
+        match group.words.as_slice() {
+            [] => {}
+            [(text, _)] => names.push(Name::bare(text.clone())),
+            words if words.iter().all(|(_, quoted)| !quoted) => names.push(Name {
+                text: words
+                    .iter()
+                    .map(|(text, _)| text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                spaced: true,
+            }),
+            _ => {
+                return Err(format!(
+                    "{verb} takes columns between commas; a name with a space goes in double quotes."
+                ));
+            }
+        }
+    }
+    if names.is_empty() {
+        return Err(format!(
+            "{verb} takes one or more columns: {verb} nst, dmin."
+        ));
+    }
+    Ok(names)
+}
+
+/// A run of words between commas, and where it is in the line.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Group {
+    /// Each word, and whether it was quoted.
+    pub words: Vec<(String, bool)>,
+    /// Byte range of its words in the line (none for an empty group).
+    pub span: Option<(usize, usize)>,
+}
+
+/// `tokens` cut at commas outside quotes: `nst,`, `,`, and `a,b` each end
+/// a group. A trailing comma leaves an empty group after it.
+pub(crate) fn groups(tokens: &[Token]) -> Vec<Group> {
+    let mut groups = vec![Group {
+        words: Vec::new(),
+        span: None,
+    }];
+    let add = |groups: &mut Vec<Group>, text: String, quoted: bool, start: usize, end: usize| {
+        let group = groups.last_mut().expect("one group at least");
+        group.words.push((text, quoted));
+        group.span = Some(group.span.map_or((start, end), |(from, _)| (from, end)));
+    };
+    for token in tokens {
+        if token.quoted {
+            add(
+                &mut groups,
+                token.text.clone(),
+                true,
+                token.start,
+                token.end,
+            );
+            continue;
+        }
+        let mut at = token.start;
+        for (index, piece) in token.text.split(',').enumerate() {
+            if index > 0 {
+                groups.push(Group {
+                    words: Vec::new(),
+                    span: None,
+                });
+                at += 1;
+            }
+            if !piece.is_empty() {
+                add(&mut groups, piece.to_owned(), false, at, at + piece.len());
+            }
+            at += piece.len();
+        }
+    }
+    groups
 }
 
 /// A line whose first word is no verb: a verb mistyped, a sentence, or an
@@ -433,6 +552,40 @@ fn json_step(
     match built(verb) {
         Some("pin") => Ok(Ok(Step::Pin(column(fields(&["column"])?)?))),
         Some("unpin") => Ok(Ok(Step::Unpin(column(fields(&["column"])?)?))),
+        Some(verb @ ("hide" | "show")) => {
+            let example = format!("{{\"{verb}\": [\"nst\", \"dmin\"]}}");
+            match parts {
+                Value::String(all) if verb == "show" && all == "all" => Ok(Ok(Step::ShowAll)),
+                Value::String(name) => {
+                    let names = vec![Name::bare(name.clone())];
+                    Ok(Ok(if verb == "show" {
+                        Step::Show(names)
+                    } else {
+                        Step::Hide(names)
+                    }))
+                }
+                Value::Array(names) if !names.is_empty() => {
+                    let names = names
+                        .iter()
+                        .map(|name| match name {
+                            Value::String(name) => Ok(Name::bare(name.clone())),
+                            _ => Err(format!(
+                                "{verb} takes a list of columns' names, in quotes: {example}."
+                            )),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok(Ok(if verb == "show" {
+                        Step::Show(names)
+                    } else {
+                        Step::Hide(names)
+                    }))
+                }
+                _ if verb == "show" => Err(format!(
+                    "show takes a list of columns' names, or \"all\": {example}, {{\"show\": \"all\"}}."
+                )),
+                _ => Err(format!("hide takes a list of columns' names: {example}.")),
+            }
+        }
         Some("jump") => match fields(&["row"])?.get("row") {
             // A whole number an agent wrote as a float (`1204.0`, `1e3`) is
             // that row; any other is refused as `jump.rs` refuses it.
@@ -587,7 +740,19 @@ mod tests {
         );
         assert_eq!(
             error("42"),
-            "Tycho has no command 42. It runs pin, unpin, jump, and undo."
+            "Tycho has no command 42. It runs pin, unpin, hide, show, jump, and undo."
+        );
+        assert_eq!(
+            error("hide"),
+            "hide takes one or more columns: hide nst, dmin."
+        );
+        assert_eq!(
+            error("show ,"),
+            "show takes one or more columns: show nst, dmin."
+        );
+        assert_eq!(
+            error("hide \"a b\" c, d"),
+            "hide takes columns between commas; a name with a space goes in double quotes."
         );
     }
 
@@ -602,14 +767,61 @@ mod tests {
             }
         );
         assert!(matches!(
-            parse("HIDE mag"),
-            Parsed::Later { verb: "hide", .. }
+            parse("group mag"),
+            Parsed::Later { verb: "group", .. }
         ));
         assert!(matches!(
             parse("export csv"),
             Parsed::Later { verb: "export", .. }
         ));
         assert_eq!(parse("open other.csv"), Parsed::Open);
+    }
+
+    #[test]
+    fn hide_and_show_take_columns_between_commas() {
+        let names = |names: &[&str]| {
+            names
+                .iter()
+                .map(|name| Name::bare(*name))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            parse("hide nst, dmin, rms"),
+            action(Step::Hide(names(&["nst", "dmin", "rms"])))
+        );
+        assert_eq!(parse("HIDE nst"), action(Step::Hide(names(&["nst"]))));
+        // Commas anywhere outside quotes, a trailing one dropped.
+        assert_eq!(
+            parse("hide nst,dmin ,rms,"),
+            action(Step::Hide(names(&["nst", "dmin", "rms"])))
+        );
+        assert_eq!(
+            parse(r#"show "launch date", "a,b", mag"#),
+            action(Step::Show(names(&["launch date", "a,b", "mag"])))
+        );
+        // Bare words between commas read as one name.
+        assert_eq!(
+            parse("hide launch date, mag"),
+            action(Step::Hide(vec![
+                Name {
+                    text: "launch date".into(),
+                    spaced: true
+                },
+                Name::bare("mag")
+            ]))
+        );
+        assert_eq!(parse("show all"), action(Step::ShowAll));
+        assert_eq!(parse("show ALL"), action(Step::ShowAll));
+        // A column named all, in quotes.
+        assert_eq!(parse(r#"show "all""#), action(Step::Show(names(&["all"]))));
+        assert_eq!(
+            Step::Hide(names(&["nst", "launch date"])).written(),
+            r#"hide nst, "launch date""#
+        );
+        assert_eq!(
+            Step::Hide(names(&["nst", "dmin", "rms"])).words(),
+            "Hide nst, dmin, and rms"
+        );
     }
 
     #[test]
@@ -655,6 +867,17 @@ mod tests {
         assert_eq!(json(r#"{"jump": {"row": 1.5}}"#), typed("jump 1.5"));
         assert_eq!(json(r#"{"undo": {}}"#), typed("undo"));
         assert_eq!(
+            json(r#"{"hide": ["nst", "dmin", "rms"]}"#),
+            typed("hide nst, dmin, rms")
+        );
+        assert_eq!(json(r#"{"hide": "nst"}"#), typed("hide nst"));
+        assert_eq!(
+            json(r#"{"show": ["launch date"]}"#),
+            typed(r#"show "launch date""#)
+        );
+        assert_eq!(json(r#"{"show": "all"}"#), typed("show all"));
+        assert_eq!(json(r#"{"show": ["all"]}"#), typed(r#"show "all""#));
+        assert_eq!(
             json(r#"{"actions": [{"pin": {"column": "mag"}}, {"jump": {"row": 9}}]}"#),
             [Step::Pin(Name::bare("mag")), Step::Jump("9".into())]
         );
@@ -672,6 +895,14 @@ mod tests {
             "pin has no part \"col\"."
         );
         assert_eq!(error(r#"{"pin": {}}"#), "pin needs a \"column\".");
+        assert_eq!(
+            error(r#"{"hide": []}"#),
+            r#"hide takes a list of columns' names: {"hide": ["nst", "dmin"]}."#
+        );
+        assert_eq!(
+            error(r#"{"show": [1]}"#),
+            r#"show takes a list of columns' names, in quotes: {"show": ["nst", "dmin"]}."#
+        );
         assert_eq!(
             error(r#"{"actions": [{"pin": {"column": "a"}}, {"frob": {}}]}"#),
             "Step 2 of 2: Tycho has no command frob."

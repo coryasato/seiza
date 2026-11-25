@@ -11,6 +11,10 @@
 //! way back (`back_to`), and the frame's state carries the log and the
 //! bar's last answer (`docs/DECISIONS.md`, "Scope", 2026-11-24, "The
 //! thread's two proposed items are taken").
+//!
+//! The table's presses that open the page's menus and its Row tab reach the
+//! page as one event each ([`Press`], through the sink's `press`), and the
+//! Row tab reads its row's values with [`web::row`].
 
 use serde::Serialize;
 
@@ -36,6 +40,77 @@ pub struct FrameView {
     pub log: LogView,
     /// The command bar's last answer.
     pub answer: Option<Answer>,
+    /// The table's active cell (its selection's anchor), which the Row
+    /// tab shows the row of; none with nothing selected.
+    pub active: Option<ActiveCell>,
+}
+
+/// The table's active cell (`web/src/frame/state.ts`, `ActiveCell`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct ActiveCell {
+    /// 0-based.
+    pub row: u64,
+    /// The column's index in the file.
+    pub column: usize,
+}
+
+/// A press in the table that the page answers (`web/src/frame/state.ts`,
+/// `TablePress`): a column's menu, a cell's menu, or the Row tab.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Press {
+    /// `icon` (a header's icon, its menu under `at`), `header` (a
+    /// right-click or a long press on a header), `cell` (one on a cell),
+    /// `double` (a double press on a cell), `enter` (Enter on a cell with
+    /// no popover), or `open` (the popover's "Open row").
+    pub kind: &'static str,
+    pub column: ColumnFacts,
+    /// A cell's row, 0-based; none on a header.
+    pub row: Option<u64>,
+    /// A cell's value, its exact text cut at `crate::row::PRESS_CHARS`
+    /// characters; none for NULL, a header, or a row not loaded.
+    pub value: Option<String>,
+    /// The icon's badge (`icon`), or the pointer (`header`, `cell`: no
+    /// size), in CSS px from the canvas's top left; none for a key's.
+    pub at: Option<Rect>,
+}
+
+/// What a column's menu shows of it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ColumnFacts {
+    /// Its index in the file.
+    pub index: usize,
+    pub name: String,
+    /// `number`, `text`, `time`, or `boolean`: its badge.
+    #[serde(rename = "type")]
+    pub kind: &'static str,
+    /// DuckDB's type name.
+    pub data_type: String,
+    pub pinned: bool,
+    pub hidden: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct Rect {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+}
+
+impl ColumnFacts {
+    /// Column `index` of `view`.
+    pub fn of(view: &crate::view::Controller, index: usize) -> Self {
+        let info = &view.columns()[index];
+        Self {
+            index,
+            name: info.name.clone(),
+            kind: crate::table::type_name(info),
+            data_type: info.data_type.clone(),
+            pinned: view.is_pinned(index),
+            hidden: view.is_hidden(index),
+        }
+    }
 }
 
 /// What the bar answered on Enter (`web/src/frame/state.ts`, `Answer`).
@@ -123,7 +198,7 @@ pub fn facts(summary: &FileSummary) -> String {
 }
 
 #[cfg(target_family = "wasm")]
-pub use web::{Frame, connect, publish};
+pub use web::{Frame, connect, copy_outcome, press, publish};
 
 #[cfg(target_family = "wasm")]
 mod web {
@@ -145,6 +220,9 @@ mod web {
         /// Takes the frame's state each time it changes.
         #[wasm_bindgen(method)]
         fn update(this: &Frame, state: &JsValue);
+        /// Takes a press in the table the page answers.
+        #[wasm_bindgen(method)]
+        fn press(this: &Frame, press: &JsValue);
     }
 
     /// One of the page's calls, run with the window and the app: never
@@ -269,6 +347,23 @@ mod web {
         });
     }
 
+    /// What became of a copy (the clipboard's writer's callback, which
+    /// runs outside GPUI): to the workbench on GPUI's next turn.
+    pub fn copy_outcome(outcome: tall_table_bridge::clipboard::Outcome) {
+        send(on_workbench(move |workbench, _, cx| {
+            workbench.copy_outcome(outcome, cx)
+        }));
+    }
+
+    /// Sends a press in the table to the page.
+    pub fn press(press: &super::Press) {
+        SINK.with_borrow(|sink| {
+            if let Some(sink) = sink {
+                sink.press(&json(press));
+            }
+        });
+    }
+
     fn to_js(view: &FrameView) -> JsValue {
         let object = |entries: &[(&str, JsValue)]| {
             let object = Object::new();
@@ -320,6 +415,7 @@ mod web {
                 ]),
             ),
             ("answer", view.answer.as_ref().map_or(JsValue::NULL, json)),
+            ("active", view.active.as_ref().map_or(JsValue::NULL, json)),
         ])
     }
 
@@ -371,6 +467,29 @@ mod web {
                 caret as usize,
                 catalog.as_ref(),
             ))
+        })
+    }
+
+    /// Row `row`'s values (0-based), for the Row tab: a promise of
+    /// `crate::row::RowValues`, or null with no file open, no such row, or
+    /// its read failed. From the page the table holds when it's loaded, else
+    /// read alone.
+    #[wasm_bindgen]
+    pub fn row(row: f64) -> js_sys::Promise {
+        let (answer, answered) = futures::channel::oneshot::channel();
+        // A row's number is whole and not negative; anything else is no row.
+        if row.is_finite() && row >= 0.0 && row.fract() == 0.0 {
+            send(on_workbench(move |workbench, _, cx| {
+                workbench.row_values(row as u64, answer, cx)
+            }));
+        } else {
+            let _ = answer.send(None);
+        }
+        wasm_bindgen_futures::future_to_promise(async move {
+            Ok(match answered.await {
+                Ok(Some(values)) => json(&values),
+                _ => JsValue::NULL,
+            })
         })
     }
 

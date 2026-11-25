@@ -10,6 +10,7 @@ pub mod frame;
 pub mod jump;
 pub mod limits;
 pub mod log;
+pub mod row;
 #[cfg(target_family = "wasm")]
 mod selftest;
 pub mod table;
@@ -45,10 +46,12 @@ pub fn start(
 
     frame::set_sink(frame);
     seiza::Bootstrap::new(TITLE, ui_font)
+        .assets(table::icons::Icons)
         .after_first_paint(|_, cx| engine::start(cx))
         .run(move |window, cx| {
             frame::first_theme(dark, cx);
             table::init(cx);
+            workbench::init(cx);
             seiza_duckdb::init(cx, bridge);
             cx.set_global(dataset::sample::Url(sample_url.into()));
             cx.new(|cx| Workbench::new(window, cx)).into()

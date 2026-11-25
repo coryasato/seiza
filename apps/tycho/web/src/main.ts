@@ -9,6 +9,7 @@ import init, {
   open_file,
   open_sample,
   retry_engine,
+  row,
   set_theme,
   start,
   toggle_perf,
@@ -22,7 +23,7 @@ import { createBridge } from '@seiza/duckdb/bridge';
 // when its row is pressed.
 import sampleUrl from '../../data/gcat.parquet?url';
 import { bindFrame, connectApp, focusFirstScreen, isDark, slotCanvas } from './frame/core.ts';
-import { type Completion, frameSink } from './frame/state.ts';
+import { type Completion, frameSink, type RowValues } from './frame/state.ts';
 // The page's other weights (the canvas draws Regular alone), the same
 // release of Plex Sans as the UI face; fetched after the first frame.
 import mediumUrl from './fonts/IBMPlexSans-Medium.woff2?url';
@@ -93,6 +94,8 @@ const hydrate = () => {
     // Typed by the crate (`command::Completion`); wasm-bindgen says `any`.
     complete: (text, caret) => complete(text, caret) as Completion,
     back_to,
+    // Typed by the crate (`row::RowValues`).
+    row: (index) => row(index) as Promise<RowValues | null>,
   });
   // GPUI took focus for its own input as its window opened.
   focusFirstScreen();

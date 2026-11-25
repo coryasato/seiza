@@ -291,6 +291,10 @@ impl Log {
     ) {
         let view = after.view();
         let reply = Reply::of(after);
+        if let Some((command, words)) = hid(before, after) {
+            self.step(command, words, reply, Origin::Click, at, view);
+            return;
+        }
         if let Some(index) = resized(before, after) {
             // A run of resizes of one column, nothing after it: one entry.
             let last_is_current = self.current.is_some_and(|at| at + 1 == self.entries.len());
@@ -413,6 +417,39 @@ impl Log {
                 current,
             })
             .clone()
+    }
+}
+
+/// A hide or a show the table made, as the commands write it (`hide a, b`,
+/// "Hide a and b"); both at once in words alone. None if no flag changed.
+fn hid(before: &Controller, after: &Controller) -> Option<(Option<String>, String)> {
+    let names = |hidden: bool| -> Vec<String> {
+        after
+            .order()
+            .iter()
+            .filter(|&&index| {
+                before.is_hidden(index) != after.is_hidden(index)
+                    && after.is_hidden(index) == hidden
+            })
+            .map(|&index| quote(&after.columns()[index].name))
+            .collect()
+    };
+    let (hidden, shown) = (names(true), names(false));
+    let spoken = |names: &[String]| list(names.iter().map(String::as_str), "and");
+    match (hidden.is_empty(), shown.is_empty()) {
+        (true, true) => None,
+        (false, true) => Some((
+            Some(format!("hide {}", hidden.join(", "))),
+            format!("Hide {}", spoken(&hidden)),
+        )),
+        (true, false) => Some((
+            Some(format!("show {}", shown.join(", "))),
+            format!("Show {}", spoken(&shown)),
+        )),
+        (false, false) => Some((
+            None,
+            format!("Hid {}; showed {}", spoken(&hidden), spoken(&shown)),
+        )),
     }
 }
 
@@ -799,6 +836,30 @@ mod tests {
         assert_eq!(words(&log).last(), Some(&"Pinned the first 3 columns"));
         assert_eq!(log.entries()[3].origin, Origin::Click);
         assert_eq!(log.entries()[1].command, None);
+    }
+
+    #[test]
+    fn a_hide_the_table_made_is_an_entry() {
+        let mut log = Log::default();
+        let before = file();
+        log.open("quakes.csv", &before, Origin::Drop, 0.0);
+        let mut after = before.clone();
+        after.hide(2).unwrap();
+        after.hide(0).unwrap();
+        log.table_changed(&before, &after, &[], 1.0);
+        let entry = log.current().unwrap();
+        assert_eq!(entry.command.as_deref(), Some("hide time, place"));
+        assert_eq!(entry.words, "Hide time and place");
+        assert_eq!(entry.origin, Origin::Click);
+        assert_eq!(entry.view, Some(after.view()));
+        // Its way back is the opening's state.
+        assert_eq!(log.undo_target().unwrap().view, before.view());
+        let mut both = after.clone();
+        both.show(0).unwrap();
+        both.hide(1).unwrap();
+        log.table_changed(&after, &both, &[], 2.0);
+        assert_eq!(log.current().unwrap().command, None);
+        assert_eq!(log.current().unwrap().words, "Hid mag; showed time");
     }
 
     #[test]
