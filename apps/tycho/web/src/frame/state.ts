@@ -76,6 +76,8 @@ export interface ColumnFacts {
   /** Its index in the file. */
   index: number;
   name: string;
+  /** Its name as a command writes it, quoted where the grammar needs. */
+  typed: string;
   type: ColumnType;
   /** DuckDB's type name. */
   dataType: string;
@@ -84,12 +86,13 @@ export interface ColumnFacts {
 }
 
 /** A press in the table the page answers (`crate/src/frame.rs`, `Press`):
- *  `icon` (a header's icon: its menu under `at`), `header` (a right-click or
+ *  `icon` (a header's icon: its menu under `at`), `tap` (a press on a
+ *  header: at a phone, a finger's opens its menu), `header` (a right-click or
  *  long press on a header), `cell` (one on a cell), `double` (a double press
  *  on a cell), `enter` (Enter on a cell with no popover), `open` (the
  *  popover's "Open row"). */
 export interface TablePress {
-  kind: 'icon' | 'header' | 'cell' | 'double' | 'enter' | 'open';
+  kind: 'icon' | 'tap' | 'header' | 'cell' | 'double' | 'enter' | 'open';
   column: ColumnFacts;
   /** A cell's row, 0-based; null on a header. */
   row: number | null;
@@ -136,6 +139,9 @@ export interface FrameState {
   answer: Answer | null;
   /** The table's active cell; null with nothing selected. */
   active: ActiveCell | null;
+  /** The open file's columns in the view's order, hidden ones included:
+   *  the left panel's list. Empty with none open. */
+  columns: ColumnFacts[];
 }
 
 /** What `App.complete` returns (`crate/src/command/complete.rs`). */
@@ -182,6 +188,7 @@ export const INITIAL: FrameState = {
   log: { entries: [], current: null },
   answer: null,
   active: null,
+  columns: [],
 };
 
 let state = INITIAL;

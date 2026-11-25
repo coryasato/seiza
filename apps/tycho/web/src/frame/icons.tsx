@@ -1,3 +1,5 @@
+import type { ColumnType } from './state.ts';
+
 /** The frame's icons: the design canvas's, drawn on a 16 px grid at a
  *  1.4 px stroke. */
 
@@ -43,6 +45,37 @@ const PATHS = {
       <path d="M10 3v10" />
     </>
   ),
+  panell: (
+    <>
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M6 3v10" />
+    </>
+  ),
+  columns: (
+    <>
+      <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+      <path d="M6.2 3v10M9.8 3v10" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2 8s2.2-4 6-4 6 4 6 4-2.2 4-6 4-6-4-6-4z" />
+      <circle cx="8" cy="8" r="1.6" />
+    </>
+  ),
+  eyeoff: <path d="M2 8s2.2-4 6-4 6 4 6 4-2.2 4-6 4-6-4-6-4zM3 13L13 3" />,
+  search: (
+    <>
+      <circle cx="7" cy="7" r="4" />
+      <path d="M10 10l3.5 3.5" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+      <path d="M3 10.5v-7a1 1 0 0 1 1-1h6.5" />
+    </>
+  ),
   pointer: <path d="M4 2.5l8 5-3.6.9L7 12z" />,
   keyboard: (
     <>
@@ -79,5 +112,26 @@ export function Logo() {
     <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" className="shrink-0">
       <path d="M8 1l1.5 5.5L15 8l-5.5 1.5L8 15l-1.5-5.5L1 8l5.5-1.5z" fill="var(--accent)" />
     </svg>
+  );
+}
+
+/** A column's type badge: a glyph as well as a color. */
+export function Badge({ kind }: { kind: ColumnType }) {
+  const look = {
+    text: 'bg-type-text-tint text-type-text',
+    number: 'bg-type-number-tint text-type-number',
+    time: 'bg-type-time-tint text-type-time',
+    boolean: 'bg-type-boolean/15 text-type-boolean',
+  }[kind];
+  const glyph =
+    kind === 'text' ? (
+      <span className="text-[9.5px] font-semibold tracking-[-0.02em]">Aa</span>
+    ) : (
+      <Icon name={kind === 'number' ? 'hash' : kind === 'time' ? 'clock' : 'check'} size={10} />
+    );
+  return (
+    <span aria-hidden="true" className={`flex h-4 w-[18px] shrink-0 items-center justify-center rounded ${look}`}>
+      {glyph}
+    </span>
   );
 }

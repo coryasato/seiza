@@ -397,3 +397,15 @@ No results note: the part's one number, the wasm's size (2907.0 KiB brotli again
 - **The code review found the copy's refusals said from the wrong place:** the table's events can't tell a browser's refusal from no clipboard, and a refusal can come after the last piece, so the line is worded from what the bridge's writer says became of the copy. It also found what the new flag left open around it: `pin` taking a hidden column, a view hiding every column, and a hide the table made missing from the log.
 - **Pressing a header before a drag cost the CSV check its margin:** the press waits out a double press, so the arranging sometimes ended after the widening chunk, whose `set_columns` ends a drag; the CSV is twice as long now.
 - **Enter needed no change to the table:** its popover action goes on (`cx.propagate()`) when it doesn't open, so a binding in the workbench's own key context hears it.
+
+## M14 part B: the menus and the columns list, in the DOM (2026-11-24)
+
+No results note: the part's one number, the wasm's size, is in PLAN's evidence.
+
+**Surprises:**
+- **A menu's item focusing the table left focus on `<body>`:** Base UI's Menu moves focus as it closes, after the item's handler, so the table's input lost it again. Handing the table's input to the popup's `finalFocus` keeps it; Escape keeps Base UI's default, back where the menu came from.
+- **The clipboard's write needs the press's own task,** and every page call waits for GPUI's next turn; `copy` alone runs at once. It's safe because the page calls in only from its own events, never from inside GPUI's update.
+- **Quoting a name is the grammar's, not the page's:** whether a name needs quotes depends on the verb list, so the frame's columns carry each name as a command writes it, rather than a copy of the rule in TypeScript.
+- **A finger's tap on a header is a plain press,** lifted (a pan makes none), so the page tells a phone's tap from a mouse's press by the last pointer it saw, not by anything the table reports.
+- **WebKit under Playwright sends no `click` after a touch:** the first screen's sample row, tapped, did nothing in WebKit alone. iOS Safari synthesizes the click; the scripts press DOM controls with `click()` in WebKit (`.claude/rules/perf-harness.md`).
+- **The code review found the menus' edges:** a menu left open across another file's opening pointed at the new file's column of the same index (a replace never passes through no file, so the menu now closes on the opening's log entry); Escape in the show-and-hide list also ran the panel's own Escape (React passes a portal's events up to the panel, so the panels skip a key from outside their own DOM); and a menu unmounted at once, its closing never drawn. Its guess that the list closes when an eye's command gives the table focus didn't hold in any browser.

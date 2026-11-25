@@ -22,13 +22,15 @@
 //! clipboard through the bridge's writer, and a row's values are read for
 //! the Row tab (`Workbench::row_values`).
 
+use std::rc::Rc;
+
 use gpui_kit::*;
 
 use crate::command::Catalog;
 use crate::dataset::{FileSummary, format_count};
 #[cfg(target_family = "wasm")]
 use crate::dataset::{format_bytes, sample};
-use crate::frame::{ActiveCell, Answer, EngineView, FileView, FrameView, Line};
+use crate::frame::{ActiveCell, Answer, ColumnFacts, EngineView, FileView, FrameView, Line};
 use crate::log::{Log, Origin};
 use crate::table::RowTable;
 use crate::view::{Controller, ViewState};
@@ -367,6 +369,9 @@ enum About {
     Back,
     /// A copy refused: cleared by the next that starts.
     Copy,
+    /// A menu's or the column list's command refused (a click's, which no
+    /// bar is open to answer): cleared by the next click's command.
+    Click,
 }
 
 #[cfg_attr(
@@ -420,6 +425,12 @@ pub struct Workbench {
     focus_handle: FocusHandle,
     /// What the page's frame was last sent (`crate::frame::publish`).
     shown_frame: Option<FrameView>,
+    /// The frame's column list, built only when the view it was built
+    /// from changes ([`Workbench::refresh_columns`]): the frame is compared
+    /// every render, and a shared list compares by pointer first.
+    columns: Rc<[ColumnFacts]>,
+    /// The view `columns` was built from; none with no file open.
+    columns_of: Option<Controller>,
     /// The view last published to `globalThis.__tychoView` (while
     /// measuring), and whether one has been.
     shown_view: Option<Option<ViewState>>,
@@ -522,6 +533,8 @@ impl Workbench {
             reregister_later: None,
             focus_handle: cx.focus_handle(),
             shown_frame: None,
+            columns: Rc::from([]),
+            columns_of: None,
             shown_view: None,
             log: Log::default(),
             answer: None,
@@ -1355,6 +1368,13 @@ impl Workbench {
                 }
             }
             TallTableEvent::Clicked(click) => match (click.kind, click.target) {
+                // A header's press: at a phone, a finger's tap opens its
+                // column's menu as a sheet (the page decides, by the
+                // pointer and its width).
+                (ClickKind::Press, ClickTarget::Column(place)) => {
+                    let column = index(place, cx);
+                    self.press("tap", column, None, Some(pointer(click.position)), cx);
+                }
                 (ClickKind::Context, ClickTarget::Column(place)) => {
                     let column = index(place, cx);
                     self.press("header", column, None, Some(pointer(click.position)), cx);
@@ -1909,7 +1929,40 @@ impl Workbench {
             log: self.log.view(),
             answer: self.answer.clone(),
             active: self.active,
+            columns: self.columns.clone(),
         }
+    }
+
+    /// A cell's menu's Copy (`crate::frame`'s `copy`): the table's
+    /// selection, as Cmd/Ctrl+C copies it, its events going to the
+    /// clipboard as a key's do (`copied`); the table given focus.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn copy_selection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Load::Open { table, .. } = &self.load else {
+            return;
+        };
+        let table = table.clone();
+        table.update(cx, |table, cx| {
+            table.copy(cx);
+        });
+        let focus = table.read(cx).focus_handle().clone();
+        window.focus(&focus, cx);
+    }
+
+    /// The column's menu's Fit (`crate::frame`'s `fit`): column `index`
+    /// fitted to its values by the table, as a double-click on its header's
+    /// edge fits it, and the table given focus. The width comes back as the
+    /// table's own change (`table_changed`), an entry in the log.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn fit_column(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Load::Open { table, .. } = &self.load else {
+            return;
+        };
+        let table = table.clone();
+        table.update(cx, |table, cx| table.fit_column(index, window, cx));
+        let focus = table.read(cx).focus_handle().clone();
+        window.focus(&focus, cx);
+        cx.notify();
     }
 
     /// `?bench`'s pin hook (`crate::frame`'s `__tychoPin`): pins the shown
@@ -2022,7 +2075,29 @@ impl Workbench {
     ) {
         // Every answer the command gives is given before it returns.
         self.asking = ask;
+        if origin == Origin::Click
+            && self
+                .notice
+                .as_ref()
+                .is_some_and(|notice| notice.about == About::Click)
+        {
+            self.notice = None;
+        }
         self.run_command(text, origin, window, cx);
+        // A click's command comes from a menu or the column list, where no
+        // bar is open: a refusal is said in the frame's line instead.
+        if origin == Origin::Click
+            && let Some(answer) = &self.answer
+            && answer.ask == ask
+            && (answer.error || answer.kind == "refused")
+        {
+            self.notice = Some(Notice {
+                text: answer.text.clone().into(),
+                error: answer.error,
+                about: About::Click,
+            });
+            cx.notify();
+        }
         self.asking = 0;
     }
 
@@ -2326,8 +2401,31 @@ impl Workbench {
         self.shown_view = Some(view);
     }
 
+    /// Builds the frame's column list again when the open file's view
+    /// changed: compared in place, since this runs every render.
+    fn refresh_columns(&mut self) {
+        match &self.load {
+            Load::Open { view, .. } => {
+                if self.columns_of.as_ref() != Some(&**view) {
+                    self.columns = view
+                        .order()
+                        .iter()
+                        .map(|&index| ColumnFacts::of(view, index))
+                        .collect();
+                    self.columns_of = Some((**view).clone());
+                }
+            }
+            _ => {
+                if self.columns_of.take().is_some() {
+                    self.columns = Rc::from([]);
+                }
+            }
+        }
+    }
+
     /// Sends the frame's state to the page when it changed.
     fn publish_frame(&mut self, cx: &App) {
+        self.refresh_columns();
         let view = self.frame_view(cx);
         if self.shown_frame.as_ref() == Some(&view) {
             return;

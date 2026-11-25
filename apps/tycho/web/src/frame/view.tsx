@@ -7,7 +7,8 @@
  * drop's haze; at a
  * phone, no status bar, its facts in the file's menu and the engine's
  * state a line under the top bar. React draws the state the app publishes
- * (`state.ts`); what a control does is `core.ts`'s, by its `data-action`,
+ * (`state.ts`), the left panel's column list (`columns.tsx`), and the
+ * table's menus (`menus.tsx`); what a control does is `core.ts`'s, by its `data-action`,
  * so the prerendered page works before React loads. Rendered to HTML at
  * build time (`prerender.tsx`) and hydrated after the first frame
  * (`hydrate.tsx`).
@@ -16,8 +17,10 @@
 import { Popover } from '@base-ui/react/popover';
 import { useSyncExternalStore } from 'react';
 import { CommandBox, TopBarCommand } from './bar.tsx';
+import { ColumnsButton, ColumnsPanel } from './columns.tsx';
 import { Icon, Logo } from './icons.tsx';
 import { LogButton, LogPanel } from './log.tsx';
+import { Menus } from './menus.tsx';
 import { getState, INITIAL, subscribe, type FrameState, type Line } from './state.ts';
 
 /** The app's state; the prerendered page's while hydrating. */
@@ -107,6 +110,7 @@ function TopBar({ state }: { state: FrameState }) {
     // two equal sides, so it stays centered.
     <header className="z-10 flex h-11 items-center gap-3 border-b border-border bg-surface pr-2.5 pl-3 [grid-area:top] max-sm:gap-2">
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        {state.file && <ColumnsButton />}
         <div className="flex shrink-0 items-center gap-[7px]">
           <Logo />
           <span className={`text-[13.5px] font-semibold tracking-[-0.01em] text-foreground ${state.file ? 'max-sm:hidden' : ''}`}>Tycho</span>
@@ -239,7 +243,9 @@ export function Frame() {
       <TopBar state={state} />
       <PhoneLine state={state} />
       <FirstScreen state={state} />
+      <ColumnsPanel state={state} />
       <LogPanel state={state} />
+      <Menus state={state} />
       <StatusBar state={state} />
       <Haze />
     </>

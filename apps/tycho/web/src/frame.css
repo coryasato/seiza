@@ -65,7 +65,9 @@
   footer,
   #first,
   #log,
-  #log-sheet {
+  #log-sheet,
+  #columns,
+  [data-menu] {
     user-select: none;
   }
   button {
@@ -80,6 +82,16 @@
   html[data-file][data-log] body {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas: 'top top' 'line line' 'main side' 'status status';
+  }
+  /* The left panel, the column list (`frame/columns.tsx`): a column at the
+     table's left, as the right panel is at its right. */
+  html[data-file][data-columns] body {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas: 'top top' 'line line' 'cols main' 'status status';
+  }
+  html[data-file][data-columns][data-log] body {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'top top top' 'line line line' 'cols main side' 'status status status';
   }
 }
 

@@ -17,7 +17,7 @@ import { Autocomplete } from '@base-ui/react/autocomplete';
 import { type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import sample from 'virtual:tycho-sample';
 import { appNow, closeBar, isBarOpen, modKey, openBar, subscribeBar } from './core.ts';
-import { Icon, type IconName } from './icons.tsx';
+import { Badge, Icon, type IconName } from './icons.tsx';
 import { type Completion, type CompletionItem, type FrameState, takeBarFrom } from './state.ts';
 
 type Place = 'first' | 'bar';
@@ -55,27 +55,6 @@ function openRows(): Entry[] {
 }
 
 const VERB_ICONS: Record<string, IconName> = { pin: 'pin', unpin: 'pin', jump: 'rows', undo: 'restore' };
-
-/** A column's type badge: a glyph as well as a color. */
-function Badge({ kind }: { kind: NonNullable<CompletionItem['kind']> }) {
-  const look = {
-    text: 'bg-type-text-tint text-type-text',
-    number: 'bg-type-number-tint text-type-number',
-    time: 'bg-type-time-tint text-type-time',
-    boolean: 'bg-type-boolean/15 text-type-boolean',
-  }[kind];
-  const glyph =
-    kind === 'text' ? (
-      <span className="text-[9.5px] font-semibold tracking-[-0.02em]">Aa</span>
-    ) : (
-      <Icon name={kind === 'number' ? 'hash' : kind === 'time' ? 'clock' : 'check'} size={10} />
-    );
-  return (
-    <span aria-hidden="true" className={`flex h-4 w-[18px] shrink-0 items-center justify-center rounded ${look}`}>
-      {glyph}
-    </span>
-  );
-}
 
 const Kbd = ({ children }: { children: ReactNode }) => <kbd className="kbd">{children}</kbd>;
 

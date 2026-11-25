@@ -39,6 +39,7 @@
   --haze-foreground: oklch(0.934 0.007 269); /* The haze's heading: dark's foreground in both */
   --haze-foreground-muted: oklch(0.743 0.019 264); /* The haze's line: dark's muted foreground in both */
   --shadow: oklch(0 0 0 / 45%); /* Under a popover or the first screen's box */
+  --scrim: oklch(0.128 0.006 262 / 50%); /* Over the table behind a phone's menu sheet */
 }
 
 :root[data-theme='light'] {
@@ -71,4 +72,5 @@
   --haze-foreground: oklch(0.934 0.007 269); /* The haze's heading: dark's foreground in both */
   --haze-foreground-muted: oklch(0.743 0.019 264); /* The haze's line: dark's muted foreground in both */
   --shadow: oklch(0 0 0 / 14%); /* Under a popover or the first screen's box */
+  --scrim: oklch(0.128 0.006 262 / 50%); /* Over the table behind a phone's menu sheet: dark in both */
 }

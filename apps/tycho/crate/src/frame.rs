@@ -14,7 +14,8 @@
 //!
 //! The table's presses that open the page's menus and its Row tab reach the
 //! page as one event each ([`Press`], through the sink's `press`), and the
-//! Row tab reads its row's values with [`web::row`].
+//! Row tab reads its row's values with [`web::row`]. The page's menus act
+//! through `command` (a click's line, as the bar's), and Fit through `fit`.
 
 use serde::Serialize;
 
@@ -43,6 +44,10 @@ pub struct FrameView {
     /// The table's active cell (its selection's anchor), which the Row
     /// tab shows the row of; none with nothing selected.
     pub active: Option<ActiveCell>,
+    /// The open file's columns in the view's order, hidden ones included:
+    /// the left panel's list. Empty with none open. Shared, so the frame's
+    /// comparison every render is a pointer's while it's unchanged.
+    pub columns: std::rc::Rc<[ColumnFacts]>,
 }
 
 /// The table's active cell (`web/src/frame/state.ts`, `ActiveCell`).
@@ -58,7 +63,8 @@ pub struct ActiveCell {
 /// `TablePress`): a column's menu, a cell's menu, or the Row tab.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Press {
-    /// `icon` (a header's icon, its menu under `at`), `header` (a
+    /// `icon` (a header's icon, its menu under `at`), `tap` (a press on a
+    /// header: at a phone, a finger's opens its menu), `header` (a
     /// right-click or a long press on a header), `cell` (one on a cell),
     /// `double` (a double press on a cell), `enter` (Enter on a cell with
     /// no popover), or `open` (the popover's "Open row").
@@ -75,12 +81,15 @@ pub struct Press {
 }
 
 /// What a column's menu shows of it.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ColumnFacts {
     /// Its index in the file.
     pub index: usize,
     pub name: String,
+    /// Its name as a command writes it, quoted where the grammar needs
+    /// (`crate::command::quote`): the page's menus act with it.
+    pub typed: String,
     /// `number`, `text`, `time`, or `boolean`: its badge.
     #[serde(rename = "type")]
     pub kind: &'static str,
@@ -105,6 +114,7 @@ impl ColumnFacts {
         Self {
             index,
             name: info.name.clone(),
+            typed: crate::command::quote(&info.name),
             kind: crate::table::type_name(info),
             data_type: info.data_type.clone(),
             pinned: view.is_pinned(index),
@@ -416,6 +426,7 @@ mod web {
             ),
             ("answer", view.answer.as_ref().map_or(JsValue::NULL, json)),
             ("active", view.active.as_ref().map_or(JsValue::NULL, json)),
+            ("columns", json(&view.columns.as_ref())),
         ])
     }
 
@@ -491,6 +502,48 @@ mod web {
                 _ => JsValue::NULL,
             })
         })
+    }
+
+    /// Runs `call` now, in the task that called: a DOM event's, never
+    /// inside GPUI's own update (the page calls in only from its events,
+    /// which never run inside one). For a call that must run while the
+    /// browser still counts the press as a gesture: the clipboard's write
+    /// opens in the task that asked (`tall_table_bridge::clipboard`).
+    fn send_now(call: Call) {
+        LINK.with_borrow(|link| match link {
+            None => PENDING.with_borrow_mut(|pending| pending.push(call)),
+            Some(Link {
+                workbench,
+                window,
+                cx,
+            }) => {
+                let mut app = cx.clone();
+                let _ = window.update(&mut app, |_, window, cx| {
+                    call(workbench, window, cx);
+                    window.refresh();
+                });
+            }
+        });
+    }
+
+    /// A cell's menu's Copy: the table's selection copied, as Cmd/Ctrl+C
+    /// copies it, run in the press's own task so the clipboard's write
+    /// still counts as its gesture.
+    #[wasm_bindgen]
+    pub fn copy() {
+        send_now(on_workbench(|workbench, window, cx| {
+            workbench.copy_selection(window, cx)
+        }));
+    }
+
+    /// A column's menu's "Fit to its values": column `column` (its index)
+    /// fitted as a double-click on its header's edge fits it. Its width
+    /// comes back as the table's own change, an entry in the log.
+    #[wasm_bindgen]
+    pub fn fit(column: u32) {
+        send(on_workbench(move |workbench, window, cx| {
+            workbench.fit_column(column as usize, window, cx)
+        }));
     }
 
     /// The log's way back on entry `entry`.

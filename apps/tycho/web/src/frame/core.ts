@@ -26,6 +26,13 @@ export interface App {
   /** A row's values (0-based) for the Row tab; null with no file open, no
    *  such row, or a read that failed. */
   row(row: number): Promise<RowValues | null>;
+  /** A column's menu's Fit: column `column` (its index) fitted to its
+   *  values, as a double-click on its header's edge fits it. */
+  fit(column: number): void;
+  /** A cell's menu's Copy: the table's selection, as Cmd/Ctrl+C copies
+   *  it. Run in the press's own task, so the clipboard still counts it as
+   *  the press's gesture: never queue it. */
+  copy(): void;
 }
 
 let app: App | null = null;
@@ -94,6 +101,7 @@ const ACTIONS: Record<string, () => void> = {
   },
   retry: () => call((app) => app.retry_engine()),
   log: () => setLogOpen(!logOpen),
+  columns: () => setColumnsOpen(!columnsOpen),
   theme: () => {
     followSystem = false;
     setTheme(!isDark());
@@ -203,6 +211,63 @@ export function setLogOpen(open: boolean): void {
   logOpen = open;
   root().toggleAttribute('data-log', open);
   for (const listener of logListeners) listener();
+}
+
+/** The left panel, its column list (`columns.tsx` draws it): closed until
+ *  the top bar's left button opens it, open or not across files. A column
+ *  of the page's grid beside the table, as the right panel is (the root's
+ *  `data-columns`); at a phone the list is the panels' sheet's Columns tab. */
+let columnsOpen = false;
+const columnsListeners = new Set<() => void>();
+export const isColumnsOpen = (): boolean => columnsOpen;
+export function subscribeColumns(listener: () => void): () => void {
+  columnsListeners.add(listener);
+  return () => columnsListeners.delete(listener);
+}
+export function setColumnsOpen(open: boolean): void {
+  if (open === columnsOpen) return;
+  columnsOpen = open;
+  root().toggleAttribute('data-columns', open);
+  for (const listener of columnsListeners) listener();
+}
+
+/** The phone's sheet's tab: Columns first, as Phone 2 draws it, then kept
+ *  where it was left across openings. */
+export type SheetTab = 'columns' | 'log';
+let sheetTab: SheetTab = 'columns';
+const sheetListeners = new Set<() => void>();
+export const getSheetTab = (): SheetTab => sheetTab;
+export function subscribeSheetTab(listener: () => void): () => void {
+  sheetListeners.add(listener);
+  return () => sheetListeners.delete(listener);
+}
+export function setSheetTab(tab: SheetTab): void {
+  if (tab === sheetTab) return;
+  sheetTab = tab;
+  for (const listener of sheetListeners) listener();
+}
+
+/** A menu's or the column list's command (`hide mag`, `pin "launch
+ *  date"`): a click's, logged as one. A refusal is said in the frame's
+ *  line, since no bar is open to answer it. */
+export function act(line: string): void {
+  call((app) => app.command(line, 'click'));
+}
+
+/** A column's menu's Fit, by the column's index. */
+export function fitColumn(index: number): void {
+  call((app) => app.fit(index));
+}
+
+/** A cell's menu's Copy: at once, in the press's task (`App.copy`). */
+export function copySelection(): void {
+  app?.copy();
+}
+
+/** The table takes the keys: after a menu's action, or Escape from a
+ *  menu opened in the table. */
+export function focusTable(): void {
+  canvasKeys()?.focus({ preventScroll: true });
 }
 
 /** The log's way back on an entry: the view it names, given back. The

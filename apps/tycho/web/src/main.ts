@@ -6,6 +6,8 @@ import init, {
   back_to,
   command,
   complete,
+  copy,
+  fit,
   open_file,
   open_sample,
   retry_engine,
@@ -96,6 +98,8 @@ const hydrate = () => {
     back_to,
     // Typed by the crate (`row::RowValues`).
     row: (index) => row(index) as Promise<RowValues | null>,
+    fit,
+    copy,
   });
   // GPUI took focus for its own input as its window opened.
   focusFirstScreen();
