@@ -442,3 +442,14 @@ No results note: the part's one number, the wasm's size, is in the milestone's e
 - **One control for two audiences confused both:** the foot "Open row · Enter" was a button for the pointer and a promise about a key, and the focus it gave depended on which pressed it. Naming where it goes ("Focus row in panel") and always going there settled it; the double-click stays the one way that leaves focus on the table.
 - **A press reached the page before the selection it followed:** the app sent a press at once but the frame at its next render, so the Row tab, mounting on the old row, dropped the focus ask. The press now goes after the frame. Two messages to the page about one change need an order.
 - **A focus chosen when a menu starts closing lands when it ends:** Base UI's `finalFocus` is read at the closing's start and applied after its transition, over a field that took focus in between. An item that places focus itself gives the table focus from its handler and leaves `finalFocus` out of it.
+
+## M15 part A: the engine's half, and the view state's filters and sort (2026-11-26)
+
+No results note: Tycho records no measurements; the timings that chose each way are in `engines/duckdb/docs/DECISIONS.md`, "Table source", 2026-11-26.
+
+**Surprises:**
+- **A join to a Parquet file reads every row group, however few rows the other side names:** a filter's 1,024-row slice joined to the 1 GB file took 25 s a page, and 0.5 s once the slice's first and last row number were written into the SQL as literals. The research had a sort's index scattering rows across every group; a filter's rows, all in the file's order, paid the same until the bounds were spelled out.
+- **What a sort costs follows the file, not the rows kept:** a sorted copy of a 2.7% filter of the 1 GB file took 21 s, a whole file's read, since its rows lie in every row group and each group's columns are read to copy them. The limit had to be the file's size.
+- **The count was wrong in a way only DuckDB could show:** find's count summed each row's matches and never aggregated, and the Rust tests, which pin the SQL's text, passed it. Running the view's SQL on native DuckDB over GCAT against a plain query's answer caught it at once: SQL a test pins as text is checked as text only.
+- **DuckDB's memory doesn't come back after a `DROP TABLE`:** 2 MiB before the 1 GB file's indexes, 163 MiB after they were all dropped. A budget read from `duckdb_memory()` counts what's freed as held.
+- **A test that holds a query back can hold the wrong one:** the sort test held every `CREATE TABLE`, the filter's own included, and hung waiting for it. A held answer is keyed by the query the test means, and armed after the setup that sends others.

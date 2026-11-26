@@ -373,6 +373,30 @@ enum About {
     /// A menu's or the column list's command refused (a click's, which no
     /// bar is open to answer): cleared by the next click's command.
     Click,
+    /// A filter or a sort that couldn't be made: cleared by the next that
+    /// works.
+    Rows,
+}
+
+/// A filter's index being built (`Workbench::sync_rows`).
+#[cfg(target_family = "wasm")]
+struct Filtering {
+    handle: seiza_duckdb::view::FilterHandle<seiza_duckdb::view::EngineRunner>,
+    /// The controller's filters it's for.
+    filters: Vec<crate::filter::Filter>,
+    task: Task<()>,
+}
+
+#[cfg(target_family = "wasm")]
+impl Filtering {
+    /// Cancels the index, its task left to run to the end: once the
+    /// `CREATE` answers, the job drops what it built (a cancel that lands
+    /// after DuckDB finished still builds it), and the workbench, hearing
+    /// the filters aren't pending, takes nothing.
+    fn stop(self) {
+        self.handle.cancel();
+        self.task.detach();
+    }
 }
 
 #[cfg_attr(
@@ -421,6 +445,12 @@ pub struct Workbench {
     /// A registration waiting for its window ([`reregister_window_ms`]).
     #[cfg(target_family = "wasm")]
     reregister_later: Option<Task<()>>,
+    /// The filters the shown table's rows are chosen by (its source's
+    /// index): the controller's, once a filter's index is built.
+    rows_applied: Vec<crate::filter::Filter>,
+    /// A filter's index being built, for the controller's filters then.
+    #[cfg(target_family = "wasm")]
+    filtering: Option<Filtering>,
     /// The workbench's root, where focus goes back to when the focused
     /// input or table stops rendering (see [`Workbench::new`]).
     focus_handle: FocusHandle,
@@ -539,6 +569,9 @@ impl Workbench {
             reregistrations: 0,
             #[cfg(target_family = "wasm")]
             reregister_later: None,
+            rows_applied: Vec::new(),
+            #[cfg(target_family = "wasm")]
+            filtering: None,
             focus_handle: cx.focus_handle(),
             shown_frame: None,
             columns: Rc::from([]),
@@ -787,7 +820,10 @@ impl Workbench {
                 }
             }
             Load::Open { table, csv, .. } => {
-                table.update(cx, |table, cx| table.close(cx));
+                table.update(cx, |table, cx| {
+                    table.delegate_mut().view_mut().close();
+                    table.close(cx);
+                });
                 match csv {
                     // Still loading: the load task drops the tables once its
                     // query answers.
@@ -810,6 +846,10 @@ impl Workbench {
         self.reregistered_at = None;
         self.reregistrations = 0;
         self.reregister_later = None;
+        self.rows_applied.clear();
+        if let Some(filtering) = self.filtering.take() {
+            filtering.stop();
+        }
         self.log.clear();
         self.answer = None;
         self.drawn.clear();
@@ -847,6 +887,8 @@ impl Workbench {
             return;
         }
         self.close_current(window, cx);
+        // Names its view's tables: a later open has another.
+        let open = self.opens;
         let marks = FILE_MARKS;
         self.opened_at = started_at;
         seiza::marks::mark_at(marks.start, started_at);
@@ -866,7 +908,7 @@ impl Workbench {
                     let sample = this.load.opening(true);
                     this.load = match result {
                         Ok((summary, read_counter)) => {
-                            let view = Controller::of_file(
+                            let mut view = Controller::of_file(
                                 SourceView {
                                     kind: if sample {
                                         SourceKind::Sample
@@ -878,14 +920,24 @@ impl Workbench {
                                 },
                                 &summary.columns,
                             );
+                            // A file too large to sort draws no arrow.
+                            if summary
+                                .bytes
+                                .is_some_and(|bytes| bytes > crate::table::SORT_LIMIT)
+                            {
+                                view = view.unsortable();
+                            }
                             this.mark_shown = Some(marks);
                             this.read_counter = read_counter;
                             this.parquet_source = Some((sql_name.clone(), kept));
                             let table = cx.new(|cx| {
                                 crate::table::new(
-                                    crate::table::Source::Parquet(
-                                        seiza_duckdb::tall_table::ParquetFile::new(sql_name),
-                                    ),
+                                    crate::table::Source::Parquet(crate::table::Parquet {
+                                        file: seiza_duckdb::tall_table::ParquetFile::new(sql_name),
+                                        rows: summary.rows,
+                                        bytes: summary.bytes,
+                                    }),
+                                    open,
                                     summary.rows,
                                     view.calls(),
                                     engine,
@@ -1094,10 +1146,12 @@ impl Workbench {
         );
         let mut chunks = crate::csv::Chunks::new(ingest.row_column());
         chunks.push(chunk.table, chunk.rows);
+        chunks.set_memory(chunk.memory);
         let engine = cx.global::<seiza_duckdb::Engine>().clone();
         let table = cx.new(|cx| {
             crate::table::new(
                 crate::table::Source::Csv(chunks),
+                open,
                 summary.rows,
                 view.calls(),
                 engine,
@@ -1122,6 +1176,7 @@ impl Workbench {
         if load.read >= load.bytes {
             load.state = IngestState::Done;
             load.finished_at = Some(seiza::marks::now());
+            table.update(cx, |table, _| crate::table::finish(table));
         }
         self.mark_shown = Some(marks);
         self.load = Load::Open {
@@ -1181,15 +1236,19 @@ impl Workbench {
                 load.chunks += 1;
                 load.slowest_ms = load.slowest_ms.max(chunk.ms);
                 table.update(cx, |table, cx| {
-                    crate::table::grow(table, chunk.table, chunk.rows, cx)
+                    crate::table::grow(table, chunk.table, chunk.rows, chunk.memory, cx)
                 });
             }
             None => {
                 load.state = IngestState::Done;
                 // A file of one chunk is done when it opens.
                 load.finished_at.get_or_insert_with(seiza::marks::now);
+                table.update(cx, |table, _| crate::table::finish(table));
             }
-            Some(Err(error)) => load.state = IngestState::Stopped(error.to_string().into()),
+            Some(Err(error)) => {
+                load.state = IngestState::Stopped(error.to_string().into());
+                table.update(cx, |table, _| crate::table::finish(table));
+            }
         }
         self.show_csv_stats(cx);
         cx.notify();
@@ -1284,6 +1343,18 @@ impl Workbench {
         started_at: f64,
         cx: &mut Context<Self>,
     ) {
+        // How each sort's copy came out: said in the frame's line. The
+        // table is held weakly: the listener lives in its own delegate.
+        let weak = cx.entity().downgrade();
+        let shown = table.downgrade();
+        table.update(cx, |table, _| {
+            table.delegate_mut().view_mut().on_order(move |event, cx| {
+                let Some(shown) = shown.upgrade() else {
+                    return;
+                };
+                let _ = weak.update(cx, |this, cx| this.order_done(&shown, event, cx));
+            });
+        });
         cx.subscribe(table, move |this, table, event, cx| {
             let current = matches!(&this.load, Load::Open { table: shown, .. } if *shown == table);
             // Only the table on screen: a replaced one's late report would
@@ -1302,8 +1373,17 @@ impl Workbench {
                         | TallTableEvent::ColumnsMoved { .. }
                         | TallTableEvent::Pinned(_)
                         | TallTableEvent::ColumnsHidden(_)
+                        | TallTableEvent::Sorted(_)
                 ) {
                     this.table_changed(&table, event, cx);
+                }
+                if let TallTableEvent::SortRefused(_, refused) = event {
+                    this.notice = Some(Notice {
+                        text: format!("Couldn't sort: {}.", refused.message.trim_end_matches('.')).into(),
+                        error: true,
+                        about: About::Rows,
+                    });
+                    cx.notify();
                 }
                 this.table_pressed(&table, event, cx);
             }
@@ -1644,11 +1724,10 @@ impl Workbench {
             let _ = answer.send(Some(crate::row::read(view, &*page, at, row, most)));
             return;
         }
-        let sql = rows.page_sql(row..row + 1);
-        let engine = cx.global::<seiza_duckdb::Engine>().clone();
+        let read = rows.read(row..row + 1);
         let table = table.clone();
         cx.spawn(async move |this, cx| {
-            let page = engine.query(&sql).1.await;
+            let page = read.await;
             let values = this
                 .update(cx, |this, _| match (&this.load, page) {
                     // Still the file it was asked of.
@@ -1927,12 +2006,30 @@ impl Workbench {
                 line("Waiting for the engine to load…".into(), false)
             }
             (_, Load::Opening { name, .. }, _) => line(format!("Reading {name}…"), false),
+            (_, Load::Open { .. }, _) if self.filtering_now() => line("Filtering…".into(), false),
+            (_, Load::Open { table, view, .. }, _)
+                if table.read(cx).delegate().view().sorting() =>
+            {
+                let name = view
+                    .sort()
+                    .map(|(index, _)| view.columns()[index].name.clone())
+                    .unwrap_or_default();
+                line(format!("Sorting by {name}…"), false)
+            }
             (_, _, Some(notice)) => line(notice.text.to_string(), notice.error),
             (_, Load::Failed { name, message, .. }, _) => {
                 line(format!("Couldn't open {name}: {message}"), true)
             }
             (EngineStatus::Loading | EngineStatus::Ready { .. }, _, _) => None,
         }
+    }
+
+    /// Whether a filter's index is being built.
+    fn filtering_now(&self) -> bool {
+        #[cfg(target_family = "wasm")]
+        return self.filtering.is_some();
+        #[cfg(not(target_family = "wasm"))]
+        false
     }
 
     /// What the page's frame shows ([`crate::frame`]).
@@ -1943,11 +2040,15 @@ impl Workbench {
                 summary,
                 sample,
                 csv,
+                table,
                 ..
             } => Some(FileView {
                 name: summary.name.clone(),
                 sample: *sample,
-                facts: crate::frame::facts(summary),
+                facts: crate::frame::facts(
+                    summary,
+                    (!self.rows_applied.is_empty()).then(|| table.read(cx).rows()),
+                ),
                 rows: summary.rows,
                 load: csv.as_ref().map(|load| {
                     #[cfg(target_family = "wasm")]
@@ -2377,6 +2478,12 @@ impl Workbench {
                 self.refused(lines, words, &refusal, origin, at, cx);
                 return;
             }
+            // The rows and the sort first: what they refuse is given back
+            // and said, so the log keeps the view in effect.
+            self.sync_rows(cx);
+            let Load::Open { view, .. } = &self.load else {
+                return;
+            };
             let reply = Reply::of(view);
             self.log
                 .step(Some(lines), words, reply.clone(), origin, at, view.view());
@@ -2422,6 +2529,230 @@ impl Workbench {
         };
         self.log.note(Some(lines), words, reply, origin, at);
         self.say("refused", answer, Vec::new(), refusal.error, cx);
+    }
+
+    /// Gives the shown table's source the controller's filters and the
+    /// table its sort, after the controller changed (`docs/DECISIONS.md`,
+    /// "Table and paging", 2026-11-26). Filters first: the index is built off the
+    /// table, then the source takes it and the table `replace_rows` with
+    /// its count in one update, which tells the source the sort again over
+    /// it (one rebuild); the sort's own change goes in that same update.
+    /// A sort alone is the table's `set_sort`. What can't be made gives
+    /// the controller back what the table has, said in the frame's line:
+    /// whether everything asked was given (a filter being built counts,
+    /// its failure said when it comes).
+    #[cfg(target_family = "wasm")]
+    fn sync_rows(&mut self, cx: &mut Context<Self>) -> bool {
+        let Load::Open { table, view, .. } = &mut self.load else {
+            return true;
+        };
+        let table = table.clone();
+        let wanted = view.filters().to_vec();
+        let target = self
+            .filtering
+            .as_ref()
+            .map_or(&self.rows_applied, |filtering| &filtering.filters);
+        let mut applied = true;
+        if wanted != *target {
+            if let Some(filtering) = self.filtering.take() {
+                filtering.stop();
+            }
+            if wanted == self.rows_applied {
+                // Back to the rows in effect: nothing to build.
+            } else if wanted.is_empty() {
+                let (keys, sortable) = (view.sort_keys(), view.is_sortable());
+                let rows = {
+                    use seiza_duckdb::view::RowSource as _;
+                    table.read(cx).delegate().view().query().rows()
+                };
+                let refused = table.update(cx, |table, cx| {
+                    table.delegate_mut().view_mut().set_filter(None);
+                    table.replace_rows(rows, seiza_tall_table::ViewAt::Top, cx);
+                    resort(table, keys, sortable, cx)
+                });
+                self.rows_applied.clear();
+                let sorted = self.sort_refused(refused, cx);
+                cx.notify();
+                return sorted;
+            } else {
+                let job = view
+                    .where_sql()
+                    .map_err(|why| why.to_string())
+                    .and_then(|where_sql| {
+                        // Filters that compile to nothing keep every row:
+                        // there are some, so that can't be.
+                        let where_sql = where_sql.ok_or("no filter compiled")?;
+                        table.read(cx).delegate().view().filter_job(where_sql)
+                    });
+                match job {
+                    Err(why) => {
+                        // The rows stay as they are; the sort still goes on.
+                        view.set_filters(self.rows_applied.clone());
+                        self.rows_notice(format!(
+                            "Couldn't filter: {}.",
+                            why.trim_end_matches('.')
+                        ));
+                        applied = false;
+                    }
+                    Ok(job) => {
+                        let handle = job.handle();
+                        let filters = wanted.clone();
+                        let task = cx.spawn(async move |this, cx| {
+                            let result = job.run().await;
+                            let _ = this.update(cx, |this, cx| {
+                                this.filtered(&table, filters, result, cx);
+                            });
+                        });
+                        self.filtering = Some(Filtering {
+                            handle,
+                            filters: wanted,
+                            task,
+                        });
+                        // Its sort goes with it, once it's built.
+                        cx.notify();
+                        return true;
+                    }
+                }
+            }
+        }
+        if self.filtering.is_none() {
+            let Load::Open { view, .. } = &self.load else {
+                return applied;
+            };
+            let (keys, sortable) = (view.sort_keys(), view.is_sortable());
+            let refused = table.update(cx, |table, cx| resort(table, keys, sortable, cx));
+            applied &= self.sort_refused(refused, cx);
+        }
+        cx.notify();
+        applied
+    }
+
+    /// A filter's index came back: the source takes it and the table its
+    /// count, the sort with it, in one update.
+    #[cfg(target_family = "wasm")]
+    fn filtered(
+        &mut self,
+        table: &Entity<RowTable>,
+        filters: Vec<crate::filter::Filter>,
+        result: Result<Option<seiza_duckdb::view::Filtered>, String>,
+        cx: &mut Context<Self>,
+    ) {
+        let Load::Open {
+            table: shown, view, ..
+        } = &mut self.load
+        else {
+            return;
+        };
+        let current = self
+            .filtering
+            .as_ref()
+            .is_some_and(|filtering| filtering.filters == filters);
+        if shown != table || !current {
+            return;
+        }
+        self.filtering = None;
+        match result {
+            Ok(Some(filtered)) => {
+                let rows = filtered.rows();
+                let (keys, sortable) = (view.sort_keys(), view.is_sortable());
+                let refused = table.update(cx, |table, cx| {
+                    table.delegate_mut().view_mut().set_filter(Some(filtered));
+                    table.replace_rows(rows, seiza_tall_table::ViewAt::Top, cx);
+                    resort(table, keys, sortable, cx)
+                });
+                self.rows_applied = filters;
+                if self
+                    .notice
+                    .as_ref()
+                    .is_some_and(|notice| notice.about == About::Rows)
+                {
+                    self.notice = None;
+                }
+                self.sort_refused(refused, cx);
+            }
+            Ok(None) => {}
+            Err(why) => {
+                // The rows stay as they are; the sort the step asked for
+                // still goes on (it waited for the filter).
+                view.set_filters(self.rows_applied.clone());
+                let (keys, sortable) = (view.sort_keys(), view.is_sortable());
+                let refused = table.update(cx, |table, cx| resort(table, keys, sortable, cx));
+                self.sort_refused(refused, cx);
+                self.publish_view();
+                self.rows_notice(format!("Couldn't filter: {}.", why.trim_end_matches('.')));
+            }
+        }
+        cx.notify();
+    }
+
+    /// A sort the table refused at once: the controller takes the table's
+    /// sort back, and the frame's line says why. Whether none was refused.
+    #[cfg(target_family = "wasm")]
+    fn sort_refused(
+        &mut self,
+        refused: Option<seiza_tall_table::SortRefused>,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let Some(refused) = refused else {
+            return true;
+        };
+        if let Load::Open { table, view, .. } = &mut self.load {
+            let sort = table
+                .read(cx)
+                .sort()
+                .first()
+                .map(|key| (key.column, crate::filter::Direction::of(key.direction)));
+            view.set_sort(sort);
+        }
+        self.publish_view();
+        self.rows_notice(format!(
+            "Couldn't sort: {}.",
+            refused.message.trim_end_matches('.')
+        ));
+        false
+    }
+
+    /// How a sort's copy came out: a failure clears the sort (its pages
+    /// would all fail), said in the frame's line; the table's `Sorted`
+    /// takes it out of the view.
+    #[cfg(target_family = "wasm")]
+    fn order_done(
+        &mut self,
+        table: &Entity<RowTable>,
+        event: &seiza_duckdb::view::OrderEvent,
+        cx: &mut Context<Self>,
+    ) {
+        use seiza_duckdb::view::OrderEvent;
+
+        let shown = matches!(&self.load, Load::Open { table: shown, .. } if shown == table);
+        if !shown {
+            return;
+        }
+        match event {
+            OrderEvent::Ready { .. } => {
+                if self
+                    .notice
+                    .as_ref()
+                    .is_some_and(|notice| notice.about == About::Rows)
+                {
+                    self.notice = None;
+                }
+            }
+            OrderEvent::Failed { message } => {
+                let _ = table.update(cx, |table, cx| table.set_sort(Vec::new(), cx));
+                self.rows_notice(format!("Couldn't sort: {}.", message.trim_end_matches('.')));
+            }
+        }
+        cx.notify();
+    }
+
+    #[cfg(target_family = "wasm")]
+    fn rows_notice(&mut self, text: String) {
+        self.notice = Some(Notice {
+            text: text.into(),
+            error: true,
+            about: About::Rows,
+        });
     }
 
     /// `undo`: the state of the log's entry the current one was taken
@@ -2478,8 +2809,9 @@ impl Workbench {
     }
 
     /// Gives the controller, then the table, a log entry's state, and the
-    /// table focus: whether it could (none with no file open), or why not,
-    /// for the caller to say. An entry of this file's always should.
+    /// table focus: whether it could (none with no file open, or a filter
+    /// or a sort the source refused, said in the frame's line, the entry
+    /// not made current), or why not, for the caller to say.
     #[cfg(target_family = "wasm")]
     fn restore(
         &mut self,
@@ -2502,10 +2834,11 @@ impl Workbench {
             table.pinned()
         });
         view.set_pinned(pinned);
+        let applied = self.sync_rows(cx);
         self.publish_view();
         let focus = table.read(cx).focus_handle().clone();
         window.focus(&focus, cx);
-        Ok(true)
+        Ok(applied)
     }
 
     /// The bar's answer.
@@ -2585,6 +2918,32 @@ impl Workbench {
             self.press("open", column, Some(row), None, cx);
         }
     }
+}
+
+/// Gives `table` the sort `keys` if it has another: the source's refusal,
+/// if it refused.
+#[cfg(target_family = "wasm")]
+fn resort(
+    table: &mut RowTable,
+    keys: Vec<seiza_tall_table::Sort>,
+    sortable: bool,
+    cx: &mut Context<RowTable>,
+) -> Option<seiza_tall_table::SortRefused> {
+    use seiza_duckdb::view::RowSource as _;
+
+    if table.sort() == keys.as_slice() {
+        return None;
+    }
+    // The table's own refusal of a column not sortable is a host's
+    // mistake (a debug assertion): the source's reason instead.
+    if !sortable && !keys.is_empty() {
+        let source = table.delegate().view().query();
+        let why = source
+            .refuse_sort(source.rows())
+            .unwrap_or_else(|| "this file can't be sorted".into());
+        return Some(seiza_tall_table::SortRefused::new(why));
+    }
+    table.set_sort(keys, cx).err()
 }
 
 /// Each column's width as drawn, by index.

@@ -9,10 +9,12 @@ use seiza_duckdb::Lockdown;
 const DIRECTORY: &str = "tycho";
 
 /// Tycho's lockdown (`docs/DECISIONS.md`, "Engine and bridge"): what it
-/// can't send once the engine is locked goes first, the CSV tables'
-/// database.
+/// can't send once the engine is locked goes first: the CSV tables'
+/// database, and the view's (its filters' indexes, its sort's copy).
 pub fn lockdown() -> Lockdown {
-    Lockdown::new(DIRECTORY).before(crate::csv::ATTACH_SQL)
+    Lockdown::new(DIRECTORY)
+        .before(crate::csv::ATTACH_SQL)
+        .before(crate::table::VIEW_ATTACH_SQL)
 }
 
 /// `name` as Tycho registers it: inside the lockdown's directory, so the

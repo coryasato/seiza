@@ -14,7 +14,8 @@ use gpui_kit::component::Theme;
 use gpui_kit::{App, Hsla};
 use seiza_duckdb::arrow::QueryResult;
 use seiza_duckdb::sql::ColumnInfo;
-use seiza_duckdb::tall_table::{PageQuery, ParquetFile, QueryRows};
+use seiza_duckdb::tall_table::{PageQuery, ParquetFile};
+use seiza_duckdb::view::{EngineRunner, RowSource, ViewRequest, ViewRows, ViewSettings};
 use seiza_tall_table::{
     CellValue, ColumnKind, HeaderIcon, PageLoad, TallTableDelegate, TallTableEvent, TallTablePage,
     TallTableState,
@@ -26,17 +27,103 @@ pub use seiza_tall_table::init;
 #[derive(Debug, Clone, PartialEq)]
 pub enum Source {
     /// A registered Parquet file, read where it lies.
-    Parquet(ParquetFile),
+    Parquet(Parquet),
     /// A CSV file's chunk tables, growing while it loads.
     Csv(crate::csv::Chunks),
 }
 
+/// A registered Parquet file, with what its footer said.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Parquet {
+    pub file: ParquetFile,
+    pub rows: u64,
+    pub bytes: Option<u64>,
+}
+
+/// The largest Parquet file Tycho sorts: a sort copies the rows in view
+/// into memory, reading the whole file whatever the filter keeps (the
+/// asteroids' 108 MiB in 7.5–8 s, a 1.1 M-row filter of their 970 MiB in
+/// 21 s; `docs/DECISIONS.md`, "Table and paging", 2026-11-26).
+pub const SORT_LIMIT: u64 = 256 << 20;
+
+/// The in-memory database the view's indexes and copies are written to,
+/// attached by the lockdown.
+pub const VIEW_DATABASE: &str = "tycho_view";
+
+/// Attaches [`VIEW_DATABASE`]: compressed, as the CSV's tables are.
+pub const VIEW_ATTACH_SQL: &str = "ATTACH IF NOT EXISTS ':memory:' AS tycho_view (COMPRESS)";
+
 impl PageQuery for Source {
     fn page_sql(&self, rows: Range<u64>) -> String {
         match self {
-            Self::Parquet(file) => file.page_sql(rows),
+            Self::Parquet(parquet) => parquet.file.page_sql(rows),
             Self::Csv(chunks) => chunks.page_sql(rows),
         }
+    }
+}
+
+impl RowSource for Source {
+    fn numbered_sql(&self, rows: Option<Range<u64>>) -> String {
+        match self {
+            Self::Parquet(parquet) => parquet.file.numbered_sql(rows),
+            Self::Csv(chunks) => chunks.numbered_sql(rows),
+        }
+    }
+
+    fn rows(&self) -> u64 {
+        match self {
+            Self::Parquet(parquet) => parquet.rows,
+            Self::Csv(chunks) => chunks.rows(),
+        }
+    }
+
+    fn busy(&self) -> Option<String> {
+        match self {
+            Self::Csv(chunks) if chunks.loading() => Some(
+                "The file is still loading: sort and filter it once its rows are all in".into(),
+            ),
+            _ => None,
+        }
+    }
+
+    fn refuse_sort(&self, rows: u64) -> Option<String> {
+        use crate::dataset::format_bytes;
+        match self {
+            Self::Parquet(parquet) => {
+                let bytes = parquet.bytes?;
+                (bytes > SORT_LIMIT).then(|| {
+                    format!(
+                        "Sorting reads the whole file into memory, and Tycho sorts Parquet files up to {}: this one is {}",
+                        format_bytes(SORT_LIMIT),
+                        format_bytes(bytes)
+                    )
+                })
+            }
+            // The copy takes about the rows' share of what the file's
+            // tables take.
+            Self::Csv(chunks) => {
+                let share = rows as f64 / chunks.rows().max(1) as f64;
+                let copy = (chunks.memory() as f64 * share) as u64;
+                (chunks.memory() + copy > crate::csv::MEMORY_BUDGET).then(|| {
+                    format!(
+                        "Sorting copies the rows in view, about {} more of DuckDB's memory than Tycho's limit of {}",
+                        format_bytes(chunks.memory() + copy - crate::csv::MEMORY_BUDGET),
+                        format_bytes(crate::csv::MEMORY_BUDGET)
+                    )
+                })
+            }
+        }
+    }
+}
+
+/// The view's settings for open `open`: its database, its tables' names
+/// its own (`f<open>_v<n>`, as a CSV's tables are its schema `f<open>`),
+/// and the memory past which nothing more is built (a CSV's own budget).
+pub fn view_settings(open: u64) -> ViewSettings {
+    ViewSettings {
+        database: VIEW_DATABASE.into(),
+        prefix: format!("f{open}_"),
+        memory_budget: crate::csv::MEMORY_BUDGET,
     }
 }
 
@@ -46,7 +133,7 @@ impl PageQuery for Source {
 /// copy: a page the table drops is gone here too (`docs/DECISIONS.md`,
 /// "Table and paging", 2026-11-24).
 pub struct Rows {
-    query: QueryRows<Source>,
+    query: ViewRows<Source, EngineRunner>,
     /// By each page's first row: the pages read for it, a reload's and a
     /// copy's beside the cached one, until each is dropped.
     loaded: Rc<RefCell<BTreeMap<u64, Vec<Weak<QueryResult>>>>>,
@@ -66,7 +153,7 @@ impl TallTablePage for Page {
 }
 
 impl Rows {
-    pub fn new(query: QueryRows<Source>) -> Self {
+    pub fn new(query: ViewRows<Source, EngineRunner>) -> Self {
         Self {
             query,
             loaded: Rc::default(),
@@ -77,10 +164,19 @@ impl Rows {
         self.query.query_mut()
     }
 
-    /// The source's SQL for `rows`: a row the table doesn't hold is read
-    /// with it, one row and never more.
-    pub fn page_sql(&self, rows: Range<u64>) -> String {
-        self.query.query().page_sql(rows)
+    /// The view over the source: its filter and sort.
+    pub fn view(&self) -> &ViewRows<Source, EngineRunner> {
+        &self.query
+    }
+
+    pub fn view_mut(&mut self) -> &mut ViewRows<Source, EngineRunner> {
+        &mut self.query
+    }
+
+    /// Reads `rows` of the view as a page does: a row the table doesn't
+    /// hold is read with it, one row and never more.
+    pub fn read(&self, rows: Range<u64>) -> PageLoad<QueryResult> {
+        self.query.read(rows)
     }
 
     /// The loaded page holding `row`, and the row's place in it, if the
@@ -99,7 +195,7 @@ impl Rows {
 
 impl TallTableDelegate for Rows {
     type Page = Page;
-    type Request = <QueryRows<Source> as TallTableDelegate>::Request;
+    type Request = ViewRequest;
 
     fn load_page(&mut self, rows: Range<u64>, cx: &mut App) -> (Self::Request, PageLoad<Page>) {
         let start = rows.start;
@@ -123,6 +219,22 @@ impl TallTableDelegate for Rows {
 
     fn cancel(&mut self, request: Self::Request, cx: &mut App) {
         self.query.cancel(request, cx);
+    }
+
+    fn sort(
+        &mut self,
+        keys: &[seiza_tall_table::Sort],
+        cx: &mut App,
+    ) -> Result<(), seiza_tall_table::SortRefused> {
+        self.query.sort(keys, cx)
+    }
+
+    fn find(
+        &mut self,
+        query: &seiza_tall_table::FindQuery,
+        cx: &mut App,
+    ) -> Option<(Self::Request, seiza_tall_table::FindLoad)> {
+        self.query.find(query, cx)
     }
 }
 
@@ -161,11 +273,13 @@ fn paging() -> seiza_tall_table::Paging {
     paging
 }
 
-/// A table over `rows` rows of `source`. It records its scrolling while the
+/// A table over `rows` rows of `source`, the file of open `open` (its
+/// view's tables are named for it). It records its scrolling while the
 /// observation panel is open, and reports its probes while measuring.
 #[cfg(target_family = "wasm")]
 pub fn new(
     source: Source,
+    open: u64,
     rows: u64,
     view: crate::view::TableCalls,
     engine: seiza_duckdb::Engine,
@@ -177,8 +291,12 @@ pub fn new(
         pinned,
         ..
     } = view;
+    let names = columns
+        .iter()
+        .map(|column| column.name().to_string())
+        .collect();
     let mut table = RowTable::new(
-        Rows::new(QueryRows::new(engine, source)),
+        Rows::new(ViewRows::new(engine, source, names, view_settings(open))),
         columns,
         rows,
         paging(),
@@ -376,14 +494,29 @@ pub mod icons {
     }
 }
 
-/// A CSV chunk became `table`, holding `rows` more rows.
-pub fn grow(table: &mut RowTable, chunk: String, rows: u64, cx: &mut gpui_kit::Context<RowTable>) {
+/// A CSV chunk became `table`, holding `rows` more rows, DuckDB holding
+/// `memory` bytes after it.
+pub fn grow(
+    table: &mut RowTable,
+    chunk: String,
+    rows: u64,
+    memory: u64,
+    cx: &mut gpui_kit::Context<RowTable>,
+) {
     let Source::Csv(chunks) = table.delegate_mut().query_mut() else {
         return;
     };
     chunks.push(chunk, rows);
+    chunks.set_memory(memory);
     let total = chunks.rows();
     table.set_rows(total, cx);
+}
+
+/// A CSV's load ended (all in, or stopped): it can be filtered and sorted.
+pub fn finish(table: &mut RowTable) {
+    if let Source::Csv(chunks) = table.delegate_mut().query_mut() {
+        chunks.finish();
+    }
 }
 
 /// A later CSV chunk had values `widened` columns' types couldn't hold, so
@@ -408,8 +541,8 @@ pub fn widen(
 /// Reads a Parquet table's rows from `name` from now on (the same file,
 /// registered again), and loads the pages whose reads failed again.
 pub fn read_from(table: &mut RowTable, name: String, cx: &mut gpui_kit::Context<RowTable>) {
-    if let Source::Parquet(file) = table.delegate_mut().query_mut() {
-        file.set_name(name);
+    if let Source::Parquet(parquet) = table.delegate_mut().query_mut() {
+        parquet.file.set_name(name);
     }
     table.retry_failed(cx);
 }

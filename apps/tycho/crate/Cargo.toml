@@ -13,7 +13,7 @@ gpui-kit.workspace = true
 # The observation panel (`seiza::perf`), named so Tycho never depends on
 # `seiza`'s defaults.
 seiza = { workspace = true, features = ["panel"] }
-seiza-duckdb = { workspace = true, features = ["tall-table"] }
+seiza-duckdb = { workspace = true, features = ["tall-table", "sort", "find"] }
 # The table's features Tycho adopts, each through the controller (`view.rs`).
 seiza-tall-table = { workspace = true, features = [
     "resize",
@@ -26,6 +26,8 @@ seiza-tall-table = { workspace = true, features = [
     "hide",
     "popover",
     "header-icon",
+    "sort",
+    "find",
 ] }
 # What Tycho does with the table's events: its marks, targets, and probes.
 tall-table-bridge = { workspace = true, features = [
@@ -39,6 +41,8 @@ tall-table-bridge = { workspace = true, features = [
     "hide",
     "popover",
     "header-icon",
+    "sort",
+    "find",
 ] }
 # The view state's serialized form (`view.rs`), already in the wasm through
 # gpui and the engine.

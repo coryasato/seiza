@@ -43,6 +43,7 @@ const BEFORE_LOCK = [
   'LOAD parquet',
   'SET GLOBAL parquet_metadata_cache = true',
   "ATTACH IF NOT EXISTS ':memory:' AS tycho_csv (COMPRESS)",
+  "ATTACH IF NOT EXISTS ':memory:' AS tycho_view (COMPRESS)",
   "SET allowed_directories = ['tycho/']",
   'SET enable_external_access = false',
   'SET lock_configuration = true',

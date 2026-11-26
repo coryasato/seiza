@@ -10,6 +10,12 @@ description = "DuckDB-Wasm for GPUI apps: the Rust client of the @seiza/duckdb b
 # A seiza-tall-table source: query results as pages, a registered Parquet file's
 # rows and summary.
 tall-table = ["dep:seiza-tall-table"]
+# The view's sort (`view::ViewRows`' `TallTableDelegate::sort`): a sorted copy
+# of the rows in view. Turns on the table's, whose delegate call it answers.
+sort = ["tall-table", "seiza-tall-table/sort"]
+# The view's find (`view::ViewRows`' `TallTableDelegate::find`): the rows in
+# view searched in windows. Turns on the table's.
+find = ["tall-table", "seiza-tall-table/find"]
 
 [dependencies]
 gpui-kit.workspace = true
@@ -27,3 +33,7 @@ web-sys = { workspace = true, features = ["File", "Performance", "PerformanceEnt
 arrow = { version = "60", default-features = false, features = ["ipc"] }
 # Reads the tall table's SQL fixture (`components/tall-table/fixtures/sql.json`).
 serde_json.workspace = true
+# The view's tests: GPUI's test app (a sort's preparation is a task), and a
+# query's answer held back.
+gpui-kit = { workspace = true, features = ["test-support"] }
+futures = "0.3"

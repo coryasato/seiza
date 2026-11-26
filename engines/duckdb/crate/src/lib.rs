@@ -8,7 +8,8 @@
 //!
 //! The `tall-table` feature makes it a `seiza-tall-table` source
 //! ([`tall_table`]): query results as pages of rows, and registered Parquet
-//! files read a page at a time.
+//! files read a page at a time; and a source's rows filtered and sorted in
+//! DuckDB ([`view`]), searched with `find`.
 
 use std::fmt;
 
@@ -20,6 +21,8 @@ mod bridge;
 pub mod sql;
 #[cfg(feature = "tall-table")]
 pub mod tall_table;
+#[cfg(feature = "tall-table")]
+pub mod view;
 
 use arrow::DecodeError;
 

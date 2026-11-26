@@ -295,6 +295,25 @@ impl Log {
             self.step(command, words, reply, Origin::Click, at, view);
             return;
         }
+        // A header's arrow, or a sort the source refused cleared.
+        if before.sort() != after.sort() {
+            let (command, words) = match after.sort() {
+                Some((index, direction)) => {
+                    let column = &after.columns()[index];
+                    let name = quote(&column.name);
+                    (
+                        format!("sort {name} {}", direction.as_str()),
+                        format!(
+                            "Sort by {name}, {}",
+                            crate::filter::Kind::of(column).order_words(direction)
+                        ),
+                    )
+                }
+                None => ("clear sort".to_owned(), "Clear the sort".to_owned()),
+            };
+            self.step(Some(command), words, reply, Origin::Click, at, view);
+            return;
+        }
         if let Some(index) = resized(before, after) {
             // A run of resizes of one column, nothing after it: one entry.
             let last_is_current = self.current.is_some_and(|at| at + 1 == self.entries.len());
@@ -860,6 +879,32 @@ mod tests {
         log.table_changed(&after, &both, &[], 2.0);
         assert_eq!(log.current().unwrap().command, None);
         assert_eq!(log.current().unwrap().words, "Hid mag; showed time");
+    }
+
+    #[test]
+    fn a_sort_the_table_made_is_an_entry() {
+        use crate::filter::Direction;
+
+        let mut log = Log::default();
+        let before = file();
+        log.open("quakes.csv", &before, Origin::Drop, 0.0);
+        let mut sorted = before.clone();
+        sorted.set_sort(Some((0, Direction::Desc)));
+        log.table_changed(&before, &sorted, &[], 1.0);
+        let entry = log.current().unwrap();
+        assert_eq!(entry.command.as_deref(), Some("sort time desc"));
+        assert_eq!(entry.words, "Sort by time, newest first");
+        assert_eq!(entry.view, Some(sorted.view()));
+        let mut cleared = sorted.clone();
+        cleared.set_sort(None);
+        log.table_changed(&sorted, &cleared, &[], 2.0);
+        assert_eq!(
+            log.current().unwrap().command.as_deref(),
+            Some("clear sort")
+        );
+        assert_eq!(log.current().unwrap().words, "Clear the sort");
+        // Undo goes back to the sort.
+        assert_eq!(log.undo_target().unwrap().view, sorted.view());
     }
 
     #[test]

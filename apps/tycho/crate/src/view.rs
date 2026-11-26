@@ -19,6 +19,12 @@
 //! the controller first and then give the table its calls
 //! ([`TableCalls::arrange`]). `globalThis.__tychoView` publishes it
 //! read-only (`docs/DECISIONS.md`, "Scope", 2026-11-23).
+//!
+//! It also chooses and orders the rows: its filters (`crate::filter`,
+//! combined with `AND`) compile to the source's `WHERE`
+//! ([`Controller::where_sql`]), and its sort, one column at most, to the
+//! table's `set_sort` ([`Controller::sort_keys`]); the workbench gives the
+//! table both (`docs/DECISIONS.md`, "Table and paging", 2026-11-26).
 
 use std::fmt;
 
@@ -29,6 +35,8 @@ use seiza_tall_table::{
     TallTableState,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::filter::{Direction, Filter, SortView};
 
 /// A view of a file, as it's written down: what a probe publishes, and what
 /// a link or a kept view will hold.
@@ -43,6 +51,12 @@ pub struct ViewState {
     /// width.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub pinned: usize,
+    /// The rows kept: each filter's, combined with `AND`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub filters: Vec<Filter>,
+    /// The order the rows are read in; none for the file's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sort: Option<SortView>,
 }
 
 /// Where the rows come from: never a URL or the data.
@@ -145,6 +159,8 @@ pub enum Refused {
     Format { column: String, data_type: String },
     /// Every column hidden: the table would show none.
     AllHidden,
+    /// A filter that can't apply to its column.
+    Filter { column: String, why: String },
 }
 
 impl fmt::Display for Refused {
@@ -173,6 +189,9 @@ impl fmt::Display for Refused {
                 "the view formats {column} as a number, and it's a {data_type}"
             ),
             Self::AllHidden => f.write_str("the view hides every column"),
+            Self::Filter { column, why } => {
+                write!(f, "the view's filter on {column} can't apply: {why}")
+            }
         }
     }
 }
@@ -257,6 +276,13 @@ pub struct Controller {
     /// By the file's column.
     hidden: Vec<bool>,
     pinned: usize,
+    /// Each names its column; checked against the file's types.
+    filters: Vec<Filter>,
+    /// The file's column, and which way.
+    sort: Option<(usize, Direction)>,
+    /// Whether the table may sort this file: a header draws its arrow.
+    /// Not the view's: a file's own (`crate::table::SORT_LIMIT`).
+    sortable: bool,
 }
 
 impl Controller {
@@ -271,6 +297,9 @@ impl Controller {
             formats: vec![None; file.len()],
             hidden: vec![false; file.len()],
             pinned: 0,
+            filters: Vec::new(),
+            sort: None,
+            sortable: true,
         }
     }
 
@@ -296,6 +325,16 @@ impl Controller {
                 }
                 None if !missing.contains(&column.name) => missing.push(column.name.clone()),
                 None => {}
+            }
+        }
+        for name in view
+            .filters
+            .iter()
+            .map(|filter| &filter.column)
+            .chain(view.sort.as_ref().map(|sort| &sort.column))
+        {
+            if !file.iter().any(|info| &info.name == name) && !missing.contains(name) {
+                missing.push(name.clone());
             }
         }
         if !missing.is_empty() {
@@ -338,6 +377,19 @@ impl Controller {
         if !file.is_empty() && used.iter().all(|used| *used) && hidden.iter().all(|h| *h) {
             return Err(Refused::AllHidden);
         }
+        for filter in &view.filters {
+            let column = file.iter().find(|info| info.name == filter.column);
+            if let Some(Err(why)) = column.map(|column| filter.sql(column)) {
+                return Err(Refused::Filter {
+                    column: filter.column.clone(),
+                    why: why.to_string(),
+                });
+            }
+        }
+        let sort = view.sort.as_ref().and_then(|sort| {
+            let index = file.iter().position(|info| info.name == sort.column)?;
+            Some((index, sort.direction))
+        });
         order.extend((0..file.len()).filter(|&index| !used[index]));
         Ok(Self {
             source: view.source.clone(),
@@ -347,6 +399,9 @@ impl Controller {
             formats,
             hidden,
             pinned: view.pinned,
+            filters: view.filters.clone(),
+            sort,
+            sortable: true,
         })
     }
 
@@ -453,6 +508,7 @@ impl Controller {
     pub fn restore(&mut self, view: &ViewState) -> Result<(), Refused> {
         let mut restored = Self::new(view, &self.file)?;
         restored.source.rows = self.source.rows;
+        restored.sortable = self.sortable;
         *self = restored;
         Ok(())
     }
@@ -473,6 +529,11 @@ impl Controller {
                 })
                 .collect(),
             pinned: self.pinned,
+            filters: self.filters.clone(),
+            sort: self.sort.map(|(index, direction)| SortView {
+                column: self.file[index].name.clone(),
+                direction,
+            }),
         }
     }
 
@@ -494,6 +555,7 @@ impl Controller {
                     column
                         .icon(crate::table::type_icon(info))
                         .hidden(self.hidden[index])
+                        .sortable(self.sortable)
                 })
                 .collect(),
             order: self.order.clone(),
@@ -527,6 +589,13 @@ impl Controller {
                 changed
             }
             TallTableEvent::Pinned(_) => self.set_pinned(pinned),
+            // The table's sort: an arrow's click, or a sort the source
+            // refused cleared.
+            TallTableEvent::Sorted(keys) => self.set_sort(
+                keys.first()
+                    .filter(|key| key.column < self.file.len())
+                    .map(|key| (key.column, Direction::of(key.direction))),
+            ),
             // Never every column: the controller keeps one shown, and the
             // next arrange gives the table its flags back.
             TallTableEvent::ColumnsHidden(hidden)
@@ -550,6 +619,91 @@ impl Controller {
         changed
     }
 
+    /// The filters, in the order they were added.
+    pub fn filters(&self) -> &[Filter] {
+        &self.filters
+    }
+
+    /// Adds `filter`, or says why it can't apply to its column. The same
+    /// filter again is an answer, not an error (`Ok(false)`).
+    pub fn add_filter(&mut self, filter: Filter) -> Result<bool, Refused> {
+        let Some(column) = self.file.iter().find(|info| info.name == filter.column) else {
+            return Err(Refused::Missing(vec![filter.column]));
+        };
+        filter.sql(column).map_err(|why| Refused::Filter {
+            column: filter.column.clone(),
+            why: why.to_string(),
+        })?;
+        if self.filters.contains(&filter) {
+            return Ok(false);
+        }
+        self.filters.push(filter);
+        Ok(true)
+    }
+
+    /// Removes the filters `keep` says no to: how many went.
+    pub fn remove_filters(&mut self, keep: impl Fn(&Filter) -> bool) -> usize {
+        let before = self.filters.len();
+        self.filters.retain(keep);
+        before - self.filters.len()
+    }
+
+    /// The source's `WHERE`: every filter, combined with `AND`; none with
+    /// no filter. Every filter was checked against its column when it came
+    /// in, so this fails only on a filter a change of type left behind:
+    /// it's said, never built over every row.
+    pub fn where_sql(&self) -> Result<Option<String>, Refused> {
+        crate::filter::where_sql(&self.filters, &self.file).map_err(|(index, why)| {
+            Refused::Filter {
+                column: self.filters[index].column.clone(),
+                why,
+            }
+        })
+    }
+
+    /// The sort: the file's column and which way.
+    pub fn sort(&self) -> Option<(usize, Direction)> {
+        self.sort
+    }
+
+    /// Sorts by column `index` (none: the file's order). Whether it
+    /// changed.
+    pub fn set_sort(&mut self, sort: Option<(usize, Direction)>) -> bool {
+        let changed = sort != self.sort;
+        self.sort = sort;
+        changed
+    }
+
+    /// Whether the table may sort this file.
+    pub fn is_sortable(&self) -> bool {
+        self.sortable
+    }
+
+    /// The file can't be sorted: no header draws an arrow.
+    pub fn unsortable(mut self) -> Self {
+        self.sortable = false;
+        self
+    }
+
+    /// The sort as the table's keys.
+    pub fn sort_keys(&self) -> Vec<seiza_tall_table::Sort> {
+        self.sort
+            .map(|(index, direction)| seiza_tall_table::Sort::new(index, direction.table()))
+            .into_iter()
+            .collect()
+    }
+
+    /// The filters, as they were before a filter that couldn't be built:
+    /// each was checked when it came in.
+    pub fn set_filters(&mut self, filters: Vec<Filter>) {
+        self.filters = filters;
+    }
+
+    /// Whether `other` keeps the same rows (its filters).
+    pub fn same_rows(&self, other: &Self) -> bool {
+        self.filters == other.filters
+    }
+
     /// The source holds `rows` rows now (a CSV loading).
     pub fn set_rows(&mut self, rows: u64) {
         self.source.rows = rows;
@@ -570,6 +724,11 @@ impl Controller {
                 self.formats[index] = None;
             }
         }
+        self.filters.retain(|filter| {
+            file.iter()
+                .find(|info| info.name == filter.column)
+                .is_some_and(|info| filter.sql(info).is_ok())
+        });
         self.file = file.to_vec();
     }
 }
@@ -627,6 +786,7 @@ mod tests {
     };
 
     use super::{ColumnView, Controller, Format, Refused, SourceKind, SourceView, ViewState};
+    use crate::filter::Filter;
 
     fn file() -> Vec<ColumnInfo> {
         vec![
@@ -682,6 +842,8 @@ mod tests {
                 column("launched", "DATE"),
             ],
             pinned: 1,
+            filters: Vec::new(),
+            sort: None,
         }
     }
 
@@ -736,7 +898,11 @@ mod tests {
         assert_eq!(calls.pinned, 1);
         let mut expected: Vec<_> = file()
             .iter()
-            .map(|info| info.tall_table_column().icon(crate::table::type_icon(info)))
+            .map(|info| {
+                info.tall_table_column()
+                    .icon(crate::table::type_icon(info))
+                    .sortable(true)
+            })
             .collect();
         expected[0] = expected[0]
             .clone()
@@ -835,6 +1001,99 @@ mod tests {
         );
     }
 
+    fn filter(column: &str, op: crate::filter::Op, value: serde_json::Value) -> Filter {
+        Filter {
+            column: column.into(),
+            op,
+            value: serde_json::from_value(value).unwrap(),
+        }
+    }
+
+    #[test]
+    fn filters_and_a_sort_are_the_views() {
+        use crate::filter::{Direction, Op, SortView};
+
+        let mut controller = Controller::new(&arranged(), &file()).unwrap();
+        assert!(
+            controller
+                .add_filter(filter("mass", Op::Ge, serde_json::json!(90)))
+                .unwrap()
+        );
+        assert!(
+            controller
+                .add_filter(filter("name", Op::Contains, serde_json::json!("it's")))
+                .unwrap()
+        );
+        // The same filter again is an answer.
+        assert!(
+            !controller
+                .add_filter(filter("mass", Op::Ge, serde_json::json!(90)))
+                .unwrap()
+        );
+        assert!(controller.set_sort(Some((3, Direction::Desc))));
+        assert_eq!(
+            controller.where_sql().unwrap().unwrap(),
+            r#"("mass" >= 90) AND (contains(lower("name"), lower('it''s')))"#
+        );
+        assert_eq!(
+            controller.sort_keys(),
+            [seiza_tall_table::Sort::new(
+                3,
+                seiza_tall_table::SortDirection::Descending
+            )]
+        );
+        let view = controller.view();
+        let json = serde_json::to_string(&view).unwrap();
+        assert!(
+            json.ends_with(r#""filters":[{"column":"mass","op":">=","value":90},{"column":"name","op":"contains","value":"it's"}],"sort":{"column":"launched","direction":"desc"}}"#),
+            "{json}"
+        );
+        assert_eq!(serde_json::from_str::<ViewState>(&json).unwrap(), view);
+        assert_eq!(Controller::new(&view, &file()).unwrap(), controller);
+        // Back to a state without them: none.
+        let mut back = controller.clone();
+        back.restore(&arranged()).unwrap();
+        assert!(back.filters().is_empty() && back.sort().is_none());
+        assert!(!back.same_rows(&controller));
+        // A filter its column can't take, and a column the file doesn't
+        // have, refuse the view whole.
+        let mut wrong = view.clone();
+        wrong.filters[0] = filter("mass", Op::Contains, serde_json::json!("x"));
+        assert!(matches!(
+            Controller::new(&wrong, &file()),
+            Err(Refused::Filter { column, .. }) if column == "mass"
+        ));
+        assert!(
+            controller
+                .add_filter(filter("name", Op::Gt, serde_json::json!("a")))
+                .is_err()
+        );
+        let mut gone = view.clone();
+        gone.sort = Some(SortView {
+            column: "gone".into(),
+            direction: Direction::Asc,
+        });
+        assert_eq!(
+            Controller::new(&gone, &file()),
+            Err(Refused::Missing(vec!["gone".into()]))
+        );
+        // A widened column drops the filters it can't take, and keeps its sort.
+        let mut widened = file();
+        widened[2] = ColumnInfo::new("mass", "VARCHAR");
+        controller.retype(&widened);
+        assert_eq!(controller.filters().len(), 1);
+        assert_eq!(controller.sort(), Some((3, Direction::Desc)));
+        // Removing.
+        assert_eq!(controller.remove_filters(|_| false), 1);
+        assert_eq!(controller.where_sql(), Ok(None));
+        // A filter a change of type left behind is said, not dropped.
+        controller.set_filters(vec![filter("mass", Op::Ge, serde_json::json!(1))]);
+        assert!(matches!(
+            controller.where_sql(),
+            Err(Refused::Filter { column, .. }) if column == "mass"
+        ));
+    }
+
     #[test]
     fn a_widened_column_keeps_its_place_width_and_pin() {
         let mut view = arranged();
@@ -888,6 +1147,14 @@ mod tests {
         }
 
         fn cancel(&mut self, _: u64, _: &mut App) {}
+
+        fn sort(
+            &mut self,
+            _: &[seiza_tall_table::Sort],
+            _: &mut App,
+        ) -> Result<(), seiza_tall_table::SortRefused> {
+            Ok(())
+        }
     }
 
     type Table = TallTableState<Memory>;
@@ -1181,6 +1448,60 @@ mod tests {
         table.read_with(cx, |table, _| {
             assert!(table.columns().iter().all(|column| !column.is_hidden()));
         });
+    }
+
+    #[gpui_kit::test]
+    fn the_tables_sort_becomes_the_view_and_goes_back(cx: &mut TestAppContext) {
+        use crate::filter::Direction;
+        use seiza_tall_table::{Sort, SortDirection};
+
+        let (shell, cx) = open(cx);
+        let (table, controller, changes) = shell.read_with(cx, |shell, _| {
+            (
+                shell.table.clone(),
+                shell.controller.clone(),
+                shell.changes.clone(),
+            )
+        });
+        // The columns sortable, as the controller's calls make them.
+        let calls = controller.borrow().calls();
+        table.update(cx, |table, cx| calls.apply(table, cx));
+        draw(cx);
+        let opened = controller.borrow().view();
+        // The table's own sort (an arrow's click) is taken, and is a change.
+        table
+            .update(cx, |table, cx| {
+                table.set_sort(vec![Sort::new(2, SortDirection::Descending)], cx)
+            })
+            .unwrap();
+        draw(cx);
+        assert_eq!(controller.borrow().sort(), Some((2, Direction::Desc)));
+        assert_eq!(changes.get(), 1);
+        let sorted = controller.borrow().view();
+        assert_eq!(sorted.sort.as_ref().unwrap().column, "mass");
+        // A filter, then the way back to the opening and on to the sort,
+        // as the workbench gives the table a log entry's state: the sort's
+        // keys through `set_sort`, which comes back as no change.
+        controller
+            .borrow_mut()
+            .add_filter(filter("mass", crate::filter::Op::Gt, serde_json::json!(1)))
+            .unwrap();
+        for state in [&opened, &sorted] {
+            controller.borrow_mut().restore(state).unwrap();
+            let keys = controller.borrow().sort_keys();
+            table.update(cx, |table, cx| {
+                if table.sort() != keys.as_slice() {
+                    table.set_sort(keys, cx).unwrap();
+                }
+            });
+            draw(cx);
+            assert_eq!(controller.borrow().view(), *state);
+            assert!(controller.borrow().filters().is_empty());
+        }
+        table.read_with(cx, |table, _| {
+            assert_eq!(table.sort(), [Sort::new(2, SortDirection::Descending)]);
+        });
+        assert_eq!(changes.get(), 1);
     }
 
     #[gpui_kit::test]

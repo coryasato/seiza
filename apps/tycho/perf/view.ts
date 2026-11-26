@@ -57,6 +57,7 @@ interface Layout {
 
 type CheckGlobal = {
   __tychoView?: View | null;
+  __tychoTable?: { selection: { kind: string; anchor: [number, number]; head: [number, number] } | null };
   __tychoTableLayout?: Layout;
   __tychoWorkbench?: { state: string; ingest: string | null };
   __tychoPin?: (columns: number) => void;
@@ -188,9 +189,21 @@ async function move(page: Page, place: number, after: number): Promise<void> {
  *  just before it: a CSV's growing row count widens the gutter, and a
  *  press a few px off lands on the header's icon. */
 async function selectHeader(page: Page, place: number): Promise<void> {
-  const l = await layout(page);
-  const column = l.columns[place]!;
-  await selectAt(page, { x: l.left + column.x + grab(column), y: headerY(l) });
+  // WebKit can miss a scripted press whose hover hasn't landed, though the
+  // press waits two frames: the drag's press then selects instead of
+  // dragging. The press is made again until the column reads selected.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const l = await layout(page);
+    const column = l.columns[place]!;
+    await selectAt(page, { x: l.left + column.x + grab(column), y: headerY(l) });
+    const selected = await page.evaluate((place) => {
+      const selection = (globalThis as CheckGlobal).__tychoTable?.selection;
+      return selection?.kind === 'columns' && selection.anchor[1] === place && selection.head[1] === place;
+    }, place);
+    if (selected) return;
+  }
+  const selection = await page.evaluate(() => (globalThis as CheckGlobal).__tychoTable?.selection ?? null);
+  throw new Error(`the header at place ${place} never read selected after three presses: selection ${JSON.stringify(selection)}`);
 }
 
 /** Moves the column at `place` to the first place: its header dragged to

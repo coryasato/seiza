@@ -420,17 +420,43 @@ pub struct Chunks {
     widened: Vec<String>,
     /// What rows are paged by ([`row_column`]).
     row: &'static str,
+    /// Whether rows are still loading: it can't be filtered or sorted
+    /// until they're in (`docs/DECISIONS.md`, "Table and paging", 2026-11-26).
+    loading: bool,
+    /// DuckDB's memory after the last chunk, in bytes.
+    memory: u64,
 }
 
 impl Chunks {
-    /// No chunks yet, paged by `row` ([`row_column`]).
+    /// No chunks yet, paged by `row` ([`row_column`]), loading.
     pub fn new(row: &'static str) -> Self {
         Self {
             tables: Vec::new(),
             rows: 0,
             widened: Vec::new(),
             row,
+            loading: true,
+            memory: 0,
         }
+    }
+
+    /// Whether rows are still loading.
+    pub fn loading(&self) -> bool {
+        self.loading
+    }
+
+    /// Its rows are all in, or the load stopped: the rows there are, final.
+    pub fn finish(&mut self) {
+        self.loading = false;
+    }
+
+    /// DuckDB's memory after the last chunk.
+    pub fn memory(&self) -> u64 {
+        self.memory
+    }
+
+    pub fn set_memory(&mut self, memory: u64) {
+        self.memory = memory;
     }
 
     pub fn rows(&self) -> u64 {
@@ -462,21 +488,7 @@ impl Chunks {
     /// thread.
     pub fn page_sql(&self, rows: Range<u64>) -> String {
         let row = self.row;
-        let mut projection = "*".to_owned();
-        if row == NUMBER_COLUMN {
-            projection.push_str(&format!(" EXCLUDE ({NUMBER_COLUMN})"));
-        }
-        if !self.widened.is_empty() {
-            let casts: Vec<String> = self
-                .widened
-                .iter()
-                .map(|column| {
-                    let column = quote_identifier(column);
-                    format!("CAST({column} AS VARCHAR) AS {column}")
-                })
-                .collect();
-            projection.push_str(&format!(" REPLACE ({})", casts.join(", ")));
-        }
+        let projection = self.projection();
         let first = self
             .tables
             .partition_point(|(_, start, count)| start + count <= rows.start);
@@ -517,6 +529,72 @@ impl Chunks {
                 )
             }
         }
+    }
+}
+
+impl Chunks {
+    /// The file's columns as every read writes them: without the row
+    /// number a file with its own `rowid` adds, and the widened columns
+    /// cast to text.
+    fn projection(&self) -> String {
+        let mut projection = "*".to_owned();
+        if self.row == NUMBER_COLUMN {
+            projection.push_str(&format!(" EXCLUDE ({NUMBER_COLUMN})"));
+        }
+        if !self.widened.is_empty() {
+            let casts: Vec<String> = self
+                .widened
+                .iter()
+                .map(|column| {
+                    let column = quote_identifier(column);
+                    format!("CAST({column} AS VARCHAR) AS {column}")
+                })
+                .collect();
+            projection.push_str(&format!(" REPLACE ({})", casts.join(", ")));
+        }
+        projection
+    }
+
+    /// Rows `rows` of the file (every row for `None`), numbered across it
+    /// as `seiza_duckdb::view::ROW`: each chunk table that holds some of
+    /// them, read by its own row numbers, so a range reads only its chunks.
+    pub fn numbered_sql(&self, rows: Option<Range<u64>>) -> String {
+        use seiza_duckdb::view::ROW;
+
+        let (row, projection) = (self.row, self.projection());
+        let parts: Vec<String> = self
+            .tables
+            .iter()
+            .filter_map(|(table, start, count)| {
+                let condition = match &rows {
+                    None => String::new(),
+                    Some(rows) => {
+                        let from = rows.start.max(*start);
+                        let to = rows.end.min(start + count);
+                        if from >= to {
+                            return None;
+                        }
+                        format!(
+                            " WHERE {row} >= {} AND {row} < {}",
+                            from - start,
+                            to - start
+                        )
+                    }
+                };
+                Some(format!(
+                    "SELECT {start} + {row} AS {ROW}, {projection} FROM {table}{condition}"
+                ))
+            })
+            .collect();
+        if parts.is_empty() {
+            return match self.tables.first() {
+                Some((table, ..)) => {
+                    format!("SELECT 0::BIGINT AS {ROW}, {projection} FROM {table} LIMIT 0")
+                }
+                None => format!("SELECT NULL::BIGINT AS {ROW} LIMIT 0"),
+            };
+        }
+        parts.join(" UNION ALL ")
     }
 }
 
@@ -643,6 +721,8 @@ mod web {
         pub ms: f64,
         /// Columns this chunk widened to VARCHAR.
         pub widened: Vec<String>,
+        /// DuckDB's memory once it's in, in bytes.
+        pub memory: u64,
     }
 
     /// Copies a CSV file into chunk tables, one chunk per [`Ingest::next`].
@@ -808,6 +888,7 @@ mod web {
                             bytes_read: end,
                             ms,
                             widened,
+                            memory,
                         });
                     }
                     Err(EngineError::Engine(message)) => {
@@ -1145,6 +1226,38 @@ mod tests {
         chunks.push(table(1, 1), 0);
         chunks.push(table(1, 2), 50);
         chunks
+    }
+
+    #[test]
+    fn the_files_rows_numbered_across_its_chunks() {
+        let mut chunks = chunks();
+        // Every row: each chunk, numbered from its first.
+        assert_eq!(
+            chunks.numbered_sql(None),
+            "SELECT 0 + rowid AS __seiza_row, * FROM tycho_csv.f1.c0 UNION ALL \
+             SELECT 100 + rowid AS __seiza_row, * FROM tycho_csv.f1.c1 UNION ALL \
+             SELECT 100 + rowid AS __seiza_row, * FROM tycho_csv.f1.c2"
+        );
+        // A range reads only its chunks, by their own row numbers.
+        assert_eq!(
+            chunks.numbered_sql(Some(90..120)),
+            "SELECT 0 + rowid AS __seiza_row, * FROM tycho_csv.f1.c0 WHERE rowid >= 90 AND rowid < 100 UNION ALL \
+             SELECT 100 + rowid AS __seiza_row, * FROM tycho_csv.f1.c2 WHERE rowid >= 0 AND rowid < 20"
+        );
+        // An empty range keeps the columns.
+        assert_eq!(
+            chunks.numbered_sql(Some(0..0)),
+            "SELECT 0::BIGINT AS __seiza_row, * FROM tycho_csv.f1.c0 LIMIT 0"
+        );
+        // A widened column is cast in every chunk.
+        chunks.widen("pdes");
+        assert!(chunks.numbered_sql(Some(0..1)).contains(
+            "SELECT 0 + rowid AS __seiza_row, * REPLACE (CAST(\"pdes\" AS VARCHAR) AS \"pdes\") FROM tycho_csv.f1.c0"
+        ));
+        // Loading until it's finished: then it can be sorted and filtered.
+        assert!(chunks.loading());
+        chunks.finish();
+        assert!(!chunks.loading());
     }
 
     #[test]

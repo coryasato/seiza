@@ -189,8 +189,9 @@ impl EngineView {
     }
 }
 
-/// The status bar's facts: the format, rows, columns, and size.
-pub fn facts(summary: &FileSummary) -> String {
+/// The status bar's facts: the format, rows (with a filter, the rows in
+/// view of the file's: `29,118 of 71,431 rows`), columns, and size.
+pub fn facts(summary: &FileSummary, shown: Option<u64>) -> String {
     let mut facts = vec![
         if summary.row_groups.is_some() {
             "Parquet"
@@ -198,7 +199,14 @@ pub fn facts(summary: &FileSummary) -> String {
             "CSV"
         }
         .to_owned(),
-        format!("{} rows", format_count(summary.rows)),
+        match shown {
+            Some(shown) => format!(
+                "{} of {} rows",
+                format_count(shown),
+                format_count(summary.rows)
+            ),
+            None => format!("{} rows", format_count(summary.rows)),
+        },
         format!(
             "{} column{}",
             format_count(summary.columns.len() as u64),
@@ -663,12 +671,17 @@ mod tests {
     #[test]
     fn facts_line() {
         assert_eq!(
-            facts(&summary(Some(1), 46)),
+            facts(&summary(Some(1), 46), None),
             "Parquet · 71,413 rows · 46 columns · 33.8 MiB"
         );
         assert_eq!(
-            facts(&summary(None, 1)),
+            facts(&summary(None, 1), None),
             "CSV · 71,413 rows · 1 column · 33.8 MiB"
+        );
+        // Filtered: the rows in view of the file's.
+        assert_eq!(
+            facts(&summary(Some(1), 46), Some(29_118)),
+            "Parquet · 29,118 of 71,413 rows · 46 columns · 33.8 MiB"
         );
     }
 
