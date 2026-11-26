@@ -47,14 +47,58 @@ function Search({ value, onChange, placeholder, tall }: { value: string; onChang
 }
 
 /** Columns 4's list: each column's eye, the hidden count, and Show all,
- *  anchored under the head's button, its left edge at the button's and
- *  kept inside the page (Columns 4 anchors it under the toolbar's chip,
- *  which comes with the toolbar). */
-function ShowHide({ columns }: { columns: ColumnFacts[] }) {
+ *  the popup's inside: the left panel's head opens it under its button,
+ *  and the toolbar's Columns control under itself (`toolbar.tsx`). */
+export function ShowHideList({ columns }: { columns: ColumnFacts[] }) {
   const [query, setQuery] = useState('');
   const hidden = columns.filter((column) => column.hidden).length;
   return (
-    <Popover.Root onOpenChange={(open) => open || setQuery('')}>
+    <>
+      <div className="shrink-0 px-2 pt-2 pb-1">
+        <Search value={query} onChange={setQuery} placeholder={`Search ${columns.length.toLocaleString('en-US')} columns`} tall />
+      </div>
+      <ul className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain px-1.5 pb-1">
+        {matching(columns, query).map((column) => (
+          <li key={column.index} data-column={column.index} className="flex h-7 items-center gap-2 pl-1.5">
+            <Badge kind={column.type} />
+            <span className={`min-w-0 flex-1 truncate text-[12.5px] ${column.hidden ? 'text-foreground-subtle' : 'text-foreground'}`}>{column.name}</span>
+            <button
+              type="button"
+              aria-label={`${column.hidden ? 'Show' : 'Hide'} ${column.name}`}
+              onClick={() => act(`${column.hidden ? 'show' : 'hide'} ${column.typed}`)}
+              className={`flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-surface-raised ${column.hidden ? 'text-accent' : 'text-foreground-subtle hover:text-foreground'}`}
+            >
+              <Icon name={column.hidden ? 'eyeoff' : 'eye'} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex shrink-0 items-center justify-between border-t border-border py-1.5 pr-2 pl-3">
+        <span className="text-[11.5px] text-foreground-subtle tabular-nums">
+          {hidden.toLocaleString('en-US')} of {columns.length.toLocaleString('en-US')} hidden
+        </span>
+        <button
+          type="button"
+          disabled={hidden === 0}
+          onClick={() => act('show all')}
+          className="h-[26px] cursor-pointer rounded-md px-2 text-[12.5px] text-foreground-muted hover:bg-surface-raised hover:text-foreground disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+        >
+          Show all
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** The popup's frame, wherever it's anchored. */
+export const SHOW_HIDE_POPUP =
+  'flex max-h-[min(480px,calc(100dvh-80px))] w-[288px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-[10px] border border-border-strong bg-surface shadow-[0_16px_40px_var(--shadow)] outline-none select-none';
+
+/** The panel's head's button, the list anchored under it, its left edge
+ *  at the button's and kept inside the page. */
+function ShowHide({ columns }: { columns: ColumnFacts[] }) {
+  return (
+    <Popover.Root>
       <Popover.Trigger
         aria-label="Show and hide columns"
         title="Show and hide columns"
@@ -64,43 +108,8 @@ function ShowHide({ columns }: { columns: ColumnFacts[] }) {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Positioner side="bottom" align="start" sideOffset={4} collisionPadding={8} className="z-20">
-          <Popover.Popup
-            id="columns-dropdown"
-            aria-label="Show and hide columns"
-            className="flex max-h-[min(480px,calc(100dvh-80px))] w-[288px] max-w-[calc(100vw-16px)] flex-col overflow-hidden rounded-[10px] border border-border-strong bg-surface shadow-[0_16px_40px_var(--shadow)] outline-none select-none"
-          >
-            <div className="shrink-0 px-2 pt-2 pb-1">
-              <Search value={query} onChange={setQuery} placeholder={`Search ${columns.length.toLocaleString('en-US')} columns`} tall />
-            </div>
-            <ul className="m-0 min-h-0 flex-1 list-none overflow-y-auto overscroll-contain px-1.5 pb-1">
-              {matching(columns, query).map((column) => (
-                <li key={column.index} data-column={column.index} className="flex h-7 items-center gap-2 pl-1.5">
-                  <Badge kind={column.type} />
-                  <span className={`min-w-0 flex-1 truncate text-[12.5px] ${column.hidden ? 'text-foreground-subtle' : 'text-foreground'}`}>{column.name}</span>
-                  <button
-                    type="button"
-                    aria-label={`${column.hidden ? 'Show' : 'Hide'} ${column.name}`}
-                    onClick={() => act(`${column.hidden ? 'show' : 'hide'} ${column.typed}`)}
-                    className={`flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-surface-raised ${column.hidden ? 'text-accent' : 'text-foreground-subtle hover:text-foreground'}`}
-                  >
-                    <Icon name={column.hidden ? 'eyeoff' : 'eye'} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="flex shrink-0 items-center justify-between border-t border-border py-1.5 pr-2 pl-3">
-              <span className="text-[11.5px] text-foreground-subtle tabular-nums">
-                {hidden.toLocaleString('en-US')} of {columns.length.toLocaleString('en-US')} hidden
-              </span>
-              <button
-                type="button"
-                disabled={hidden === 0}
-                onClick={() => act('show all')}
-                className="h-[26px] cursor-pointer rounded-md px-2 text-[12.5px] text-foreground-muted hover:bg-surface-raised hover:text-foreground disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
-              >
-                Show all
-              </button>
-            </div>
+          <Popover.Popup id="columns-dropdown" aria-label="Show and hide columns" className={SHOW_HIDE_POPUP}>
+            <ShowHideList columns={columns} />
           </Popover.Popup>
         </Popover.Positioner>
       </Popover.Portal>

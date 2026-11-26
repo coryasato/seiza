@@ -2129,6 +2129,14 @@ impl Workbench {
             answer: self.answer.clone(),
             active: self.active,
             columns: self.columns.clone(),
+            tools: match &self.load {
+                Load::Open { view, table, .. } => crate::frame::Tools::of(
+                    view,
+                    (!self.rows_applied.is_empty()).then(|| table.read(cx).rows()),
+                    self.filtering_now(),
+                ),
+                _ => crate::frame::Tools::default(),
+            },
         }
     }
 

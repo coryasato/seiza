@@ -124,6 +124,35 @@ export interface RowValues {
   }[];
 }
 
+/** One of the view's filters (`crate/src/frame.rs`, `FilterFacts`). */
+export interface FilterFacts {
+  /** Its column's index in the file. */
+  column: number;
+  /** As the grammar spells it: `>=`. */
+  op: string;
+  /** In words for its column's type: `is at least`. */
+  words: string;
+  /** Its values as a command writes them. */
+  values: string[];
+  /** The command that adds it. */
+  line: string;
+  /** The command that removes it alone. */
+  remove: string;
+}
+
+/** The toolbar's (`crate/src/frame.rs`, `Tools`). */
+export interface Tools {
+  filters: FilterFacts[];
+  sort: { column: number; direction: 'asc' | 'desc'; words: string } | null;
+  /** The rows in view under a filter; null without one. */
+  shown: number | null;
+  /** A filter's index is being built: `shown` still counts the rows
+   *  before it. */
+  counting: boolean;
+  /** Why the file can't be sorted, if it can't. */
+  unsortable: string | null;
+}
+
 export interface FrameState {
   engine: { state: 'loading' | 'ready' | 'failed' | 'stopped'; text: string };
   /** The file whose rows are shown; null on the first screen. */
@@ -145,6 +174,8 @@ export interface FrameState {
   /** The open file's columns in the view's order, hidden ones included:
    *  the left panel's list. Empty with none open. */
   columns: ColumnFacts[];
+  /** The view's filters and sort, and the rows in view. */
+  tools: Tools;
 }
 
 /** What `App.complete` returns (`crate/src/command/complete.rs`). */
@@ -196,6 +227,7 @@ export const INITIAL: FrameState = {
   answer: null,
   active: null,
   columns: [],
+  tools: { filters: [], sort: null, shown: null, counting: false, unsortable: null },
 };
 
 let state = INITIAL;

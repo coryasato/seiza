@@ -22,6 +22,8 @@
   --color-foreground-subtle: var(--foreground-subtle);
   --color-accent: var(--accent);
   --color-accent-tint: var(--accent-tint);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-on: var(--accent-on);
   --color-type-text: var(--type-text);
   --color-type-number: var(--type-number);
   --color-type-time: var(--type-time);
@@ -47,9 +49,9 @@
   }
   body {
     display: grid;
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'top' 'line' 'main' 'status';
+    grid-template-areas: 'top' 'tools' 'line' 'main' 'status';
     height: 100dvh;
     background: var(--background);
     color: var(--foreground);
@@ -67,6 +69,7 @@
   #log,
   #log-sheet,
   #columns,
+  #toolbar,
   [data-menu] {
     user-select: none;
   }
@@ -81,17 +84,17 @@
 @media (width >= 40rem) {
   html[data-file][data-log] body {
     grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas: 'top top' 'line line' 'main side' 'status status';
+    grid-template-areas: 'top top' 'tools side' 'line side' 'main side' 'status status';
   }
   /* The left panel, the column list (`frame/columns.tsx`): a column at the
      table's left, as the right panel is at its right. */
   html[data-file][data-columns] body {
     grid-template-columns: auto minmax(0, 1fr);
-    grid-template-areas: 'top top' 'line line' 'cols main' 'status status';
+    grid-template-areas: 'top top' 'cols tools' 'cols line' 'cols main' 'status status';
   }
   html[data-file][data-columns][data-log] body {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: 'top top top' 'line line line' 'cols main side' 'status status status';
+    grid-template-areas: 'top top top' 'cols tools side' 'cols line side' 'cols main side' 'status status status';
   }
 }
 

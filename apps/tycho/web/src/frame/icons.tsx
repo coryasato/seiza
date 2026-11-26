@@ -8,6 +8,9 @@ const PATHS = {
   rows: <path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h11" />,
   chevd: <path d="M3.5 6L8 10.5 12.5 6" />,
   up: <path d="M8 13V3M8 3L4.5 6.5M8 3l3.5 3.5" />,
+  filter: <path d="M2.5 3.5h11l-4.2 5v4l-2.6 1v-5z" />,
+  sort: <path d="M5 3v10M5 13l-2-2M5 13l2-2M11 13V3M11 3L9 5M11 3l2 2" />,
+  plus: <path d="M8 3.5v9M3.5 8h9" />,
   down: <path d="M8 3v10M8 13l-3.5-3.5M8 13l3.5-3.5" />,
   more: (
     <>

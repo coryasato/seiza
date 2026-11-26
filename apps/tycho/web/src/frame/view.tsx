@@ -21,6 +21,7 @@ import { ColumnsButton, ColumnsPanel } from './columns.tsx';
 import { Icon, Logo } from './icons.tsx';
 import { LogButton, LogPanel } from './log.tsx';
 import { Menus } from './menus.tsx';
+import { Toolbar } from './toolbar.tsx';
 import { getState, INITIAL, subscribe, type FrameState, type Line } from './state.ts';
 
 /** The app's state; the prerendered page's while hydrating. */
@@ -142,7 +143,7 @@ function TopBar({ state }: { state: FrameState }) {
 }
 
 /** At a phone, where there's no status bar: the engine's state while it
- *  isn't ready, or the workbench's line. */
+ *  isn't ready, or the workbench's line, under the toolbar (Phone 5). */
 function PhoneLine({ state }: { state: FrameState }) {
   const line: Line | null = state.engine.state === 'ready' ? state.message : { text: state.engine.text, error: engineDown(state) };
   if (!line) return null;
@@ -241,6 +242,7 @@ export function Frame() {
   return (
     <>
       <TopBar state={state} />
+      <Toolbar state={state} />
       <PhoneLine state={state} />
       <FirstScreen state={state} />
       <ColumnsPanel state={state} />

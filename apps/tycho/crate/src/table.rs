@@ -350,6 +350,17 @@ pub fn settle(table: &mut RowTable, cx: &mut gpui_kit::Context<RowTable>) {
         cx,
     );
     table.set_popover_button(Some(PopoverButton::custom(popover_foot).fill()), cx);
+    // The header's arrow, as Headers A draws it (the design's up and down
+    // arrows), and a sortable column's at rest the toolbar's Sort icon.
+    let drawn = table.set_sort_icons(
+        Some(seiza_tall_table::SortIcons::new(
+            icons::SORT_UP,
+            icons::SORT_DOWN,
+            icons::SORT_NONE,
+        )),
+        cx,
+    );
+    debug_assert!(drawn, "the sort's icons are embedded");
 }
 
 /// The popover's foot, as the Popover board draws it: one row, "Focus row
@@ -464,8 +475,11 @@ pub mod icons {
     pub const BOOLEAN: &str = "tycho/boolean.svg";
     pub const CHEVRON_DOWN: &str = "tycho/chevron-down.svg";
     pub const CHEVRON_UP: &str = "tycho/chevron-up.svg";
+    pub const SORT_UP: &str = "tycho/sort-up.svg";
+    pub const SORT_DOWN: &str = "tycho/sort-down.svg";
+    pub const SORT_NONE: &str = "tycho/sort-none.svg";
 
-    const ALL: [(&str, &[u8]); 6] = [
+    const ALL: [(&str, &[u8]); 9] = [
         (TEXT, include_bytes!("../assets/icons/text.svg")),
         (NUMBER, include_bytes!("../assets/icons/number.svg")),
         (TIME, include_bytes!("../assets/icons/time.svg")),
@@ -475,6 +489,9 @@ pub mod icons {
             include_bytes!("../assets/icons/chevron-down.svg"),
         ),
         (CHEVRON_UP, include_bytes!("../assets/icons/chevron-up.svg")),
+        (SORT_UP, include_bytes!("../assets/icons/sort-up.svg")),
+        (SORT_DOWN, include_bytes!("../assets/icons/sort-down.svg")),
+        (SORT_NONE, include_bytes!("../assets/icons/sort-none.svg")),
     ];
 
     /// `seiza::Bootstrap`'s asset source.

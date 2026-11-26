@@ -132,6 +132,7 @@ In the order they're built:
 | Tycho ([its PLAN](../../apps/tycho/PLAN.md), "Waiting on") | Multi-column sort | Its sort editor as a list, after its first release | Not planned ("Notes") | *Not ready* |
 | Tycho | Column summaries in the header | Its column profile's strip, only once its panel's profile proves fast enough | Not planned ("Notes"): not asked yet | *Not ready* |
 | Tycho | Row marks | The investigator's bookmarks and tags, after its first release | Not planned ("Notes"), with row pinning's research | *Not ready* |
+| Tycho | The sort arrow's color, set by the host | Headers A draws the sorted column's arrow in the accent; the table draws it in the header's text color. Not urgent, but before Tycho's first release ships | "Follow-ups to built features" ("The sort arrow's color") | *Not ready* |
 
 Every earlier ask is built and *Ready* in its app's PLAN.
 
@@ -154,6 +155,10 @@ Found by the code review of 2026-11-19 (after `find` closed), a nit; fixed in a 
 ### A sort's wait
 
 Found on a phone (2026-11-22, by hand, an iPhone 13 in Safari and Chrome): every sort in the bare host froze the table for a noticeable while, its scroll included. Its in-memory source works out a column's order of 1.57 M rows inside the delegate's `sort`, on the main thread, so no frame draws until it returns; the table can show nothing then, an indicator included. Researched before anything's built: how long a sort takes on a phone; whether the bare host sorts off the main thread (or in steps) so its sorts look like a real source's; and whether the table shows a sort in progress (its arrow, the header, or the placeholders already drawn while the first page of the new order is out) for a source that sorts in the background, as Tycho's DuckDB does in a worker. The owner asked for a "working" indicator.
+
+### The sort arrow's color
+
+Asked by Tycho (2026-11-26, its sort's header icons): the table draws every arrow from `table_head_foreground`, at half its alpha on a column at rest and whole when sorted or hovered, so a host can't draw the sorted column's arrow in its accent, as Tycho's Headers A board does. The ask: the arrows' colors from the host, as a feature's theme colors come in, a `Stop` each (the sorted arrow's, and at rest), the defaults today's, so a host that sets nothing draws as now. Small; whether it rides on `SortIcons` or a setter of its own, and whether a glyph's color follows too, is its own session's call.
 
 ### A sideways scroll over the header
 

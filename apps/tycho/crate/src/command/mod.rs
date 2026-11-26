@@ -203,6 +203,31 @@ pub fn values_written(op: Op, values: &[String]) -> String {
     }
 }
 
+/// The command a filter editor's fields make: `filter <column> <op>
+/// <values>`, column `column` of `columns` (its index), `op` as the grammar
+/// reads it, and each value as typed, read as the column's type and quoted
+/// where it needs to be, so a value with a space, a comma, or a quote
+/// reaches the plan whole. None with no such column or operator. The plan
+/// checks what it makes (an empty value, a value not the column's type).
+pub fn filter_line(
+    columns: &[seiza_duckdb::sql::ColumnInfo],
+    column: usize,
+    op: &str,
+    values: &[String],
+) -> Option<String> {
+    let info = columns.get(column)?;
+    let op = Op::read(op)?;
+    let values: Vec<String> = values
+        .iter()
+        .map(|value| value_written(&crate::filter::typed_value(info, value)))
+        .collect();
+    Some(format!(
+        "filter {} {op}{}",
+        quote(&info.name),
+        values_written(op, &values)
+    ))
+}
+
 /// A value as a command writes it: text quoted where it needs to be
 /// ([`quote`]), a number or a boolean as JSON writes it.
 pub fn value_written(value: &Value) -> String {

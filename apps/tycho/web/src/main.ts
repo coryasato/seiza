@@ -6,6 +6,7 @@ import init, {
   back_to,
   command,
   complete,
+  filter_line,
   copy,
   fit,
   open_file,
@@ -98,6 +99,7 @@ const hydrate = () => {
     command,
     // Typed by the crate (`command::Completion`); wasm-bindgen says `any`.
     complete: (text, caret) => complete(text, caret) as Completion,
+    filter_line: (column, op, values) => filter_line(column, op, values) ?? null,
     back_to,
     // Typed by the crate (`row::RowValues`).
     row: (index) => row(index) as Promise<RowValues | null>,

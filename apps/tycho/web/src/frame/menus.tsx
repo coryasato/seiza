@@ -1,10 +1,12 @@
 /**
  * A column's menu and a cell's menu, as the design canvas's Columns 1 and
  * Columns 2 draw them, holding only what runs (`docs/DECISIONS.md`,
- * "Scope", 2026-11-24): a column's Pin to the left (Unpin on a pinned
- * one), Hide (Show on a hidden one), and Fit to its values; a cell's Copy
- * and Focus row in panel. Each later item joins with its goal, where its
- * board draws it.
+ * "Scope", 2026-11-24): a column's sort either way, "Filter this column"
+ * (the toolbar's filter editor on it, `toolbar.tsx`), Pin to the left
+ * (Unpin on a pinned one), Hide (Show on a hidden one), and Fit to its
+ * values; a cell's keep and leave out its value, Copy, and Focus row in
+ * panel. Grouping and the profile join with their goal, where Columns 1
+ * draws them.
  *
  * Opened by the table's presses (`state.ts`, `TablePress`: the header
  * icon's under its bounds, a header's or a cell's context press at the
@@ -17,9 +19,9 @@
  * it came from.
  *
  * A field's menu in the Row tab (`rowview.tsx`, Row 2) is a cell's menu
- * opened from its field's button, holding Copy alone (the row is already
- * open): it copies the field's whole value, and focus goes back to the
- * button. The table's presses that open the Row tab (a double press,
+ * opened from its field's button, holding keep, leave out, and Copy (the
+ * row is already open): Copy copies the field's whole value, and focus
+ * goes back to the button. The table's presses that open the Row tab (a double press,
  * Enter on a cell with no popover, the popover's "Focus row in panel") are
  * heard here too (`core.ts`, `openRow`): each takes focus to the cell's
  * field but the double press, which leaves it on the table
@@ -29,10 +31,11 @@
 import { Drawer } from '@base-ui/react/drawer';
 import { Menu } from '@base-ui/react/menu';
 import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { act, canvasKeys, copyField, copySelection, fitColumn, focusRow, focusTable, openRow } from './core.ts';
+import { act, appNow, canvasKeys, copyField, copySelection, fitColumn, focusRow, focusTable, openRow, rowValues } from './core.ts';
 import { Badge, Icon, type IconName } from './icons.tsx';
 import { usePhone } from './log.tsx';
 import { type ColumnFacts, type FrameState, subscribePress, type TablePress } from './state.ts';
+import { openFilterEditor } from './toolbar.tsx';
 
 /** What a menu is anchored to: an element (a row of the column list), or a
  *  box in the page (the header's icon, the pointer). */
@@ -126,11 +129,32 @@ interface Item {
   run: () => void;
 }
 
-/** A column's items: Pin or Unpin, Hide or Show, and Fit; a hidden
- *  column's only Show (it can't be pinned, and has no width to fit). */
-function columnItems(column: ColumnFacts): Item[][] {
+/** A column's sort either way, in its type's words ("Sort smallest
+ *  first", "Sort A to Z"), ascending first, as the crate's completion
+ *  words them; none for a file that can't be sorted. */
+function sortItems(column: ColumnFacts, sortable: boolean): Item[] {
+  if (!sortable) return [];
+  const line = `sort ${column.typed} `;
+  const items = appNow()?.complete(line, line.length).items ?? [];
+  return ['asc', 'desc'].flatMap((direction) => {
+    const item = items.find((item) => item.text === direction);
+    return item ? [{ icon: direction === 'asc' ? 'up' : 'down', label: `Sort ${item.detail}`, run: () => act(`sort ${column.typed} ${direction}`) } satisfies Item] : [];
+  });
+}
+
+/** A column's items, in Columns 1's places: its sort either way, "Filter
+ *  this column" (the filter editor on it, which takes focus), then Pin or
+ *  Unpin, Hide, and Fit; a hidden column's only Show (it can't be pinned,
+ *  and has no width to fit). */
+function columnItems(column: ColumnFacts, sortable: boolean, anchor: Anchor): Item[][] {
+  // Where the editor's Escape goes: the column list's row the menu came
+  // from, or the table.
+  const back = () => (anchor instanceof HTMLElement ? anchor : canvasKeys());
   if (column.hidden) return [[{ icon: 'eye', label: 'Show', run: () => act(`show ${column.typed}`) }]];
+  const sorts = sortItems(column, sortable);
   return [
+    ...(sorts.length ? [sorts] : []),
+    [{ icon: 'filter', label: 'Filter this column…', focuses: true, run: () => openFilterEditor(column.index, back()) }],
     [
       column.pinned
         ? { icon: 'pin', label: 'Unpin', run: () => act(`unpin ${column.typed}`) }
@@ -141,12 +165,44 @@ function columnItems(column: ColumnFacts): Item[][] {
   ];
 }
 
-/** A cell's items: Copy (the selection, which a context press inside it
- *  keeps) and Focus row in panel (the cell selected alone, then the Row
+/** Keep the rows with row `row`'s value of `column`, or leave them out:
+ *  `=` or `!=` its exact value (read whole, not the press's cut text), a
+ *  NULL's `is null` or `not null`. The command is the crate's
+ *  (`App.filter_line`, which quotes the value), and its refusal, say a
+ *  value the column's type can't be filtered on, is said in the frame's
+ *  line as any click's is. */
+function keepValue(row: number, column: number, keep: boolean): void {
+  void rowValues(row).then(async (values) => {
+    const field = values?.fields.find((field) => field.index === column);
+    const app = appNow();
+    if (!field || !app) return;
+    let value = field.value;
+    // Cut: read it whole. `length` counts characters (code points), as
+    // spreading a string does; `.length` would count UTF-16 units. A read
+    // that fails filters on nothing, never on NULL.
+    if (value !== null && [...value].length < field.length) {
+      value = await app.row_text(row, column);
+      if (value === null) return;
+    }
+    const line = value === null ? app.filter_line(column, keep ? 'is null' : 'not null', []) : app.filter_line(column, keep ? '=' : '!=', [value]);
+    if (line) act(line);
+  });
+}
+
+/** The two filters by a value, as Columns 2 and Row 2 draw them. */
+const keepItems = (row: number, column: number): Item[] => [
+  { icon: 'filter', label: 'Keep rows with this value', run: () => keepValue(row, column, true) },
+  { icon: 'x', label: 'Leave out rows with this value', run: () => keepValue(row, column, false) },
+];
+
+/** A cell's items: keep and leave out its value, then Copy (the
+ *  selection, which a context press inside it keeps) and Focus row in
+ *  panel (the cell selected alone, then the Row
  *  tab, opened or turned to, focus at the cell's field: the app's `open`
  *  press, heard above, after the frame carrying the selection). */
 function cellItems(row: number, column: number): Item[][] {
   return [
+    keepItems(row, column),
     [
       { icon: 'copy', label: 'Copy', hint: copyKey(), run: copySelection },
       // The table holds focus until the field takes it, once its row is
@@ -164,10 +220,11 @@ function cellItems(row: number, column: number): Item[][] {
   ];
 }
 
-/** A field's items in the Row tab: Copy alone until the filters, its
- *  whole value, its outcome said on the field's own Copy button. */
+/** A field's items in the Row tab: keep and leave out its value, then
+ *  Copy, its whole value, its outcome said on the field's own Copy
+ *  button (Row 2). */
 function fieldItems(row: number, index: number, known: string | null): Item[][] {
-  return [[{ icon: 'copy', label: 'Copy', run: () => copyField(row, index, known) }]];
+  return [keepItems(row, index), [{ icon: 'copy', label: 'Copy', run: () => copyField(row, index, known) }]];
 }
 
 function ColumnHead({ column, phone }: { column: ColumnFacts; phone: boolean }) {
@@ -350,7 +407,7 @@ export function Menus({ state }: { state: FrameState }) {
   // (an item run, its closing) never carries over.
   const key = current.seq;
   if (current.kind === 'column') {
-    const items = columnItems(column);
+    const items = columnItems(column, state.tools.unsortable === null, current.anchor);
     if (phone) return <SheetMenu key={key} label={`${column.name}'s menu`} head={<ColumnHead column={column} phone />} items={items} done={done} />;
     return <PopupMenu key={key} head={<ColumnHead column={column} phone={false} />} items={items} anchor={current.anchor} width={236} side={current.fromTable ? 'bottom' : 'right'} done={done} />;
   }

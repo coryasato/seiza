@@ -49,6 +49,130 @@ pub struct FrameView {
     /// the left panel's list. Empty with none open. Shared, so the frame's
     /// comparison every render is a pointer's while it's unchanged.
     pub columns: std::rc::Rc<[ColumnFacts]>,
+    /// The toolbar's: the view's filters and sort, and the rows in view.
+    pub tools: Tools,
+}
+
+/// What the toolbar shows of the view (`web/src/frame/state.ts`,
+/// `Tools`): its filters and its sort, each with the commands a click
+/// sends, and the rows in view.
+#[derive(Debug, Clone, PartialEq, Default, Serialize)]
+pub struct Tools {
+    /// In the view's order.
+    pub filters: Vec<FilterFacts>,
+    pub sort: Option<SortFacts>,
+    /// The rows in view while a filter is applied; none without one (the
+    /// file's rows are all in view).
+    pub shown: Option<u64>,
+    /// A filter's index is being built: `filters` are the ones asked for,
+    /// and `shown` still counts the rows of the ones before them.
+    pub counting: bool,
+    /// Why the file can't be sorted, if it can't: no arrow, and the
+    /// editor says so.
+    pub unsortable: Option<String>,
+}
+
+/// One filter of the view, as the toolbar's list reads it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct FilterFacts {
+    /// Its column's index in the file.
+    pub column: usize,
+    /// As the grammar spells it: `>=`.
+    pub op: &'static str,
+    /// In words, for the column's type: `is at least`.
+    pub words: &'static str,
+    /// Its values as a command writes them.
+    pub values: Vec<String>,
+    /// The command that adds it.
+    pub line: String,
+    /// The command that removes it alone: `clear filter <column>`, or
+    /// with others on its column, an action that clears them and adds the
+    /// others back (the grammar clears a column's filters together).
+    pub remove: String,
+}
+
+/// The view's sort, as the toolbar's chip and the editor read it.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct SortFacts {
+    /// Its column's index in the file.
+    pub column: usize,
+    /// `asc` or `desc`.
+    pub direction: &'static str,
+    /// In the column's type's words: `oldest first`.
+    pub words: &'static str,
+}
+
+impl Tools {
+    /// What `view` holds, `shown` its rows in view under the filters
+    /// applied, `counting` while the ones asked for are being built.
+    pub fn of(view: &crate::view::Controller, shown: Option<u64>, counting: bool) -> Self {
+        use crate::command::{quote, values_written};
+        use crate::filter::{Kind, Values};
+
+        let columns = view.columns();
+        let index_of = |name: &str| columns.iter().position(|column| column.name == name);
+        let written = |filter: &crate::filter::Filter| -> Vec<String> {
+            let values: Vec<_> = match &filter.value {
+                Values::None => Vec::new(),
+                Values::One(value) => vec![value],
+                Values::Many(values) => values.iter().collect(),
+            };
+            values
+                .into_iter()
+                .map(crate::command::value_written)
+                .collect()
+        };
+        let filters = view
+            .filters()
+            .iter()
+            .enumerate()
+            .filter_map(|(at, filter)| {
+                let column = index_of(&filter.column)?;
+                let kind = Kind::of(&columns[column]);
+                let values = written(filter);
+                let shown = quote(&filter.column);
+                let others: Vec<_> = view
+                    .filters()
+                    .iter()
+                    .enumerate()
+                    .filter(|&(other, kept)| other != at && kept.column == filter.column)
+                    .map(|(_, kept)| serde_json::json!({ "filter": kept }))
+                    .collect();
+                let remove = if others.is_empty() {
+                    format!("clear filter {shown}")
+                } else {
+                    let mut actions =
+                        vec![serde_json::json!({ "clear": { "filter": filter.column } })];
+                    actions.extend(others);
+                    serde_json::json!({ "actions": actions }).to_string()
+                };
+                Some(FilterFacts {
+                    column,
+                    op: filter.op.as_str(),
+                    words: filter.op.words(kind),
+                    line: format!(
+                        "filter {shown} {}{}",
+                        filter.op,
+                        values_written(filter.op, &values)
+                    ),
+                    values,
+                    remove,
+                })
+            })
+            .collect();
+        let sort = view.sort().map(|(column, direction)| SortFacts {
+            column,
+            direction: direction.as_str(),
+            words: Kind::of(&columns[column]).order_words(direction),
+        });
+        Self {
+            filters,
+            sort,
+            shown,
+            counting,
+            unsortable: view.sort_refusal().map(str::to_owned),
+        }
+    }
 }
 
 /// The table's active cell (`web/src/frame/state.ts`, `ActiveCell`).
@@ -440,6 +564,7 @@ mod web {
             ("answer", view.answer.as_ref().map_or(JsValue::NULL, json)),
             ("active", view.active.as_ref().map_or(JsValue::NULL, json)),
             ("columns", json(&view.columns.as_ref())),
+            ("tools", json(&view.tools)),
         ])
     }
 
@@ -491,6 +616,19 @@ mod web {
                 caret as usize,
                 catalog.as_ref(),
             ))
+        })
+    }
+
+    /// The filter editor's command: column `column` (its index), `op` as
+    /// the grammar spells it, and `values` as typed, each read as the
+    /// column's type and quoted where the grammar needs
+    /// (`crate::command::filter_line`); null with no file open, or no
+    /// such column or operator. At once, as `complete` is.
+    #[wasm_bindgen]
+    pub fn filter_line(column: u32, op: String, values: Vec<String>) -> Option<String> {
+        CATALOG.with_borrow(|catalog| {
+            let view = &catalog.as_ref()?.view;
+            crate::command::filter_line(view.columns(), column as usize, &op, &values)
         })
     }
 
@@ -666,6 +804,158 @@ mod tests {
                 .collect(),
             credit: None,
         }
+    }
+
+    /// GCAT's shape, in small: a number, text, and a date.
+    fn view() -> crate::view::Controller {
+        crate::view::Controller::of_file(
+            crate::view::SourceView {
+                kind: crate::view::SourceKind::Parquet,
+                name: "gcat.parquet".into(),
+                rows: 71_431,
+            },
+            &[
+                ColumnInfo::new("mass_kg", "DOUBLE"),
+                ColumnInfo::new("launch site", "VARCHAR"),
+                ColumnInfo::new("launch_date", "DATE"),
+            ],
+        )
+    }
+
+    fn filter(
+        column: &str,
+        op: crate::filter::Op,
+        value: serde_json::Value,
+    ) -> crate::filter::Filter {
+        crate::filter::Filter {
+            column: column.into(),
+            op,
+            value: serde_json::from_value(value).unwrap(),
+        }
+    }
+
+    /// What a command does to `view`, planned as the bar plans it.
+    fn run(line: &str, view: &crate::view::Controller) -> crate::view::Controller {
+        use crate::command::{Catalog, Parsed, parse, plan};
+        let Parsed::Action { steps, .. } = parse(line) else {
+            panic!("{line} isn't an action");
+        };
+        let catalog = Catalog {
+            view: view.clone(),
+            loading: false,
+        };
+        plan(&steps, &catalog)
+            .unwrap_or_else(|why| panic!("{line}: {why:?}"))
+            .view
+    }
+
+    #[test]
+    fn the_toolbar_reads_the_view() {
+        use crate::filter::{Direction, Op};
+        let mut view = view();
+        assert_eq!(Tools::of(&view, None, false), Tools::default());
+        view.add_filter(filter("mass_kg", Op::Ge, serde_json::json!(1000)))
+            .unwrap();
+        view.add_filter(filter(
+            "launch site",
+            Op::In,
+            serde_json::json!(["Baikonur", "Cape, FL"]),
+        ))
+        .unwrap();
+        view.add_filter(filter("mass_kg", Op::Le, serde_json::json!(5000)))
+            .unwrap();
+        view.add_filter(filter("launch_date", Op::IsNull, serde_json::Value::Null))
+            .unwrap();
+        view.set_sort(Some((2, Direction::Asc)));
+        let tools = Tools::of(&view, Some(18_691), false);
+        assert_eq!(tools.shown, Some(18_691));
+        assert_eq!(
+            tools.sort,
+            Some(SortFacts {
+                column: 2,
+                direction: "asc",
+                words: "oldest first"
+            })
+        );
+        let [ge, list, le, null] = tools.filters.as_slice() else {
+            panic!("four filters: {:?}", tools.filters);
+        };
+        assert_eq!((ge.column, ge.op, ge.words), (0, ">=", "is at least"));
+        assert_eq!(ge.line, "filter mass_kg >= 1000");
+        assert_eq!(list.words, "is any of");
+        assert_eq!(list.values, ["Baikonur", r#""Cape, FL""#]);
+        assert_eq!(list.line, r#"filter "launch site" in Baikonur, "Cape, FL""#);
+        assert_eq!(list.remove, r#"clear filter "launch site""#);
+        assert_eq!(null.words, "has no value");
+        assert_eq!(null.line, "filter launch_date is null");
+        // Each filter's line plans to itself.
+        for facts in &tools.filters {
+            let alone = run(&facts.line, &self::view());
+            assert_eq!(alone.filters().len(), 1, "{}", facts.line);
+        }
+        // Two on one column: removing one keeps the other, and the rest.
+        for (gone, kept) in [(ge, Op::Le), (le, Op::Ge)] {
+            let after = run(&gone.remove, &view);
+            let ops: Vec<_> = after
+                .filters()
+                .iter()
+                .filter(|filter| filter.column == "mass_kg")
+                .map(|filter| filter.op)
+                .collect();
+            assert_eq!(ops, [kept], "{}", gone.remove);
+            assert_eq!(after.filters().len(), 3);
+        }
+    }
+
+    #[test]
+    fn the_filter_editor_writes_its_command() {
+        use crate::command::filter_line;
+        use crate::filter::{Value, Values};
+        let view = view();
+        let line = |column, op, values: &[&str]| {
+            let values: Vec<String> = values.iter().map(|v| (*v).to_owned()).collect();
+            filter_line(view.columns(), column, op, &values)
+        };
+        let quoted = r#"say "hi""#;
+        assert_eq!(
+            line(0, ">=", &["90"]).as_deref(),
+            Some("filter mass_kg >= 90")
+        );
+        assert_eq!(
+            line(1, "contains", &["low earth"]).as_deref(),
+            Some(r#"filter "launch site" contains "low earth""#)
+        );
+        assert_eq!(
+            line(1, "=", &[quoted]).as_deref(),
+            Some(r#"filter "launch site" = "say ""hi""""#)
+        );
+        assert_eq!(
+            line(1, "in", &["a", "b, c"]).as_deref(),
+            Some(r#"filter "launch site" in a, "b, c""#)
+        );
+        assert_eq!(
+            line(2, "between", &["2020-01-01", "2026-11-22"]).as_deref(),
+            Some("filter launch_date between 2020-01-01 and 2026-11-22")
+        );
+        assert_eq!(
+            line(2, "not null", &[]).as_deref(),
+            Some("filter launch_date not null")
+        );
+        // Nothing typed is no value; the plan refuses it.
+        assert_eq!(line(0, ">=", &[]).as_deref(), Some("filter mass_kg >="));
+        assert_eq!(line(3, "=", &["x"]), None);
+        assert_eq!(line(0, "~", &["x"]), None);
+        // Values with a quote and a comma, read back as they were typed.
+        let after = run(&line(1, "=", &[quoted]).unwrap(), &view);
+        assert_eq!(
+            after.filters()[0].value,
+            Values::One(Value::Text(quoted.into()))
+        );
+        let after = run(&line(1, "in", &["a", "b, c"]).unwrap(), &view);
+        assert_eq!(
+            after.filters()[0].value,
+            Values::Many(vec![Value::Text("a".into()), Value::Text("b, c".into())])
+        );
     }
 
     #[test]

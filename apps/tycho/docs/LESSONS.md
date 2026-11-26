@@ -462,3 +462,11 @@ No results note: Tycho records no measurements.
 - **The bar can't say how many rows a filter kept:** it closes on a step that ran, and the count is the index's, which comes after. The count went to the log's entry instead, settled when the index answers, so the reply a step is given can change after it's written.
 - **A sort the source refuses would have been logged as run:** `sync_rows` gives the controller back the table's sort and says why in the frame's line, and `run` then logged the step with a view that no longer held it, which no command could reach until `sort` was one. A refusal that comes inside the run now gives the whole action back.
 
+
+## M15 part C: the toolbar, the editors, and the menus' items, in the DOM (2026-11-26)
+
+No results note: Tycho records no measurements.
+
+**Surprises:**
+- **A popover loses its anchor when its trigger is remounted:** the sort's chip wrapped its trigger in a span only once a sort was in effect (for its remove button), so the sort the editor itself applied remounted the trigger, and the open editor jumped to the page's top left corner. Every chip now keeps one shape whatever its state.
+- **An empty field was a filter:** the editor sent `filter jcat in ""` for nothing typed, which plans (text in a list of one empty string), so Apply looked ready. A field with nothing typed now gives no value, and the plan refuses the line.

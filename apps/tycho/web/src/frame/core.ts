@@ -21,6 +21,10 @@ export interface App {
   command(text: string, source: 'typed' | 'pasted' | 'click'): number;
   /** At once: the bar's completion, the caret in UTF-16 units. */
   complete(text: string, caret: number): Completion;
+  /** At once: the filter editor's command, column `column` (its index),
+   *  `op` as the grammar spells it, `values` as typed, each quoted where
+   *  the grammar needs; null with no file open. */
+  filter_line(column: number, op: string, values: string[]): string | null;
   /** The log's way back on an entry. */
   back_to(entry: number): void;
   /** A row's values (0-based) for the Row tab; null with no file open, no
