@@ -64,35 +64,55 @@ impl Origin {
 /// Tycho's reply.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Reply {
-    /// The view's rows and columns.
+    /// The view's rows and columns: with a filter, the rows in view `of`
+    /// the file's.
     Rows {
         rows: u64,
+        of: Option<u64>,
         columns: usize,
     },
+    /// A filter's index still being built: its rows come with it
+    /// ([`Log::settle`]).
+    Counting,
     /// A small answer.
     Answer(String),
     Error(String),
 }
 
 impl Reply {
-    /// The rows and columns of `view`.
+    /// The rows and columns of `view`, with no filter.
     pub fn of(view: &Controller) -> Self {
         Self::Rows {
             rows: view.view().source.rows,
+            of: None,
             columns: view.columns().len(),
+        }
+    }
+
+    /// The rows in view, `shown` of `view`'s file (none: every row).
+    pub fn shown(view: &Controller, shown: Option<u64>) -> Self {
+        match shown {
+            Some(rows) => Self::Rows {
+                rows,
+                of: Some(view.view().source.rows),
+                columns: view.columns().len(),
+            },
+            None => Self::of(view),
         }
     }
 
     /// Its words in the log.
     pub fn text(&self) -> String {
         match self {
-            Self::Rows { rows, columns } => format!(
-                "{} row{} · {} column{}",
+            Self::Rows { rows, of, columns } => format!(
+                "{}{} row{} · {} column{}",
                 format_count(*rows),
-                if *rows == 1 { "" } else { "s" },
+                of.map_or(String::new(), |of| format!(" of {}", format_count(of))),
+                if of.unwrap_or(*rows) == 1 { "" } else { "s" },
                 format_count(*columns as u64),
                 if *columns == 1 { "" } else { "s" },
             ),
+            Self::Counting => "Counting the rows…".into(),
             Self::Answer(text) | Self::Error(text) => text.clone(),
         }
     }
@@ -199,12 +219,17 @@ impl Log {
     }
 
     /// A CSV read on: its rows so far, in every entry's reply that counts
-    /// them, since each counts the file's rows (with no filter yet, every
-    /// view shows them all) and the opening's was the first chunk's.
+    /// them, since each counts the file's rows (a CSV loading is never
+    /// filtered, so every view shows them all) and the opening's was the
+    /// first chunk's.
     pub fn set_rows(&mut self, rows: u64) {
         let mut changed = false;
         for entry in &mut self.entries {
-            if let Reply::Rows { rows: counted, .. } = &mut entry.reply
+            if let Reply::Rows {
+                rows: counted,
+                of: None,
+                ..
+            } = &mut entry.reply
                 && *counted != rows
             {
                 *counted = rows;
@@ -225,7 +250,7 @@ impl Log {
         }
     }
 
-    /// A step that changed the view to `view`: it's current.
+    /// A step that changed the view to `view`: it's current. Its id.
     pub fn step(
         &mut self,
         command: Option<String>,
@@ -234,8 +259,76 @@ impl Log {
         origin: Origin,
         at: f64,
         view: ViewState,
-    ) {
+    ) -> u32 {
         self.push(command, words, reply, origin, at, Some(view));
+        self.next_id - 1
+    }
+
+    /// The current entry's id.
+    pub fn current_id(&self) -> Option<u32> {
+        self.current().map(|entry| entry.id)
+    }
+
+    /// Entry `id`'s reply is `reply` now: a filter's rows, counted once its
+    /// index is built.
+    pub fn settle(&mut self, id: u32, reply: Reply) {
+        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == id)
+            && entry.reply != reply
+        {
+            entry.reply = reply;
+            self.changed();
+        }
+    }
+
+    /// Entry `id` keeps its step over `filters` and `sort`, those in effect
+    /// once a filter an earlier step asked for couldn't be had: its view's
+    /// own and its reply.
+    pub fn rebase(
+        &mut self,
+        id: u32,
+        filters: &[crate::filter::Filter],
+        sort: Option<&crate::filter::SortView>,
+        reply: Reply,
+    ) {
+        if let Some(entry) = self.entries.iter_mut().find(|entry| entry.id == id)
+            && let Some(view) = &mut entry.view
+        {
+            view.filters = filters.to_vec();
+            view.sort = sort.cloned();
+            entry.reply = reply;
+            self.changed();
+        }
+    }
+
+    /// The entries `ids` asked for a filter that couldn't be built: each
+    /// is a refusal now, with no way back, and the current entry goes
+    /// back to the one they were taken from.
+    pub fn failed(&mut self, ids: &[u32], why: &str) {
+        let mut changed = false;
+        for entry in &mut self.entries {
+            if ids.contains(&entry.id) {
+                entry.reply = Reply::Error(why.to_owned());
+                entry.view = None;
+                changed = true;
+            }
+        }
+        // Where `undo` and the current entry go: past the refused ones.
+        let past = |entries: &[Entry], mut at: Option<usize>| {
+            while let Some(index) = at
+                && entries[index].view.is_none()
+            {
+                at = entries[index].from;
+            }
+            at
+        };
+        for index in 0..self.entries.len() {
+            let from = past(&self.entries, self.entries[index].from);
+            self.entries[index].from = from;
+        }
+        self.current = past(&self.entries, self.current);
+        if changed {
+            self.changed();
+        }
     }
 
     /// An entry with no way back (a refusal, an answer): the current entry
@@ -359,7 +452,9 @@ impl Log {
                     view,
                 );
             }
-            Some(Moved::Block(words)) => self.step(None, words, reply, Origin::Click, at, view),
+            Some(Moved::Block(words)) => {
+                self.step(None, words, reply, Origin::Click, at, view);
+            }
             None => {}
         }
     }
@@ -423,7 +518,7 @@ impl Log {
                             words: entry.words.clone(),
                             reply: entry.reply.text(),
                             reply_kind: match entry.reply {
-                                Reply::Rows { .. } => "rows",
+                                Reply::Rows { .. } | Reply::Counting => "rows",
                                 Reply::Answer(_) => "answer",
                                 Reply::Error(_) => "error",
                             },
@@ -905,6 +1000,97 @@ mod tests {
         assert_eq!(log.current().unwrap().words, "Clear the sort");
         // Undo goes back to the sort.
         assert_eq!(log.undo_target().unwrap().view, sorted.view());
+    }
+
+    #[test]
+    fn a_filters_rows_are_counted_once_built() {
+        let mut log = Log::default();
+        let open = file();
+        log.open("quakes.csv", &open, Origin::Drop, 0.0);
+        let id = log.step(
+            Some("filter mag >= 4".into()),
+            "Keep rows where mag is at least 4".into(),
+            Reply::Counting,
+            Origin::Typed,
+            1.0,
+            open.view(),
+        );
+        assert_eq!(log.current_id(), Some(id));
+        assert_eq!(log.view().entries[1].reply, "Counting the rows…");
+        log.settle(id, Reply::shown(&open, Some(120)));
+        let entry = &log.view().entries[1];
+        assert_eq!(entry.reply, "120 of 1,204 rows · 4 columns");
+        assert_eq!(entry.reply_kind, "rows");
+        // A CSV's growth leaves a filtered count as it is.
+        log.set_rows(30_000);
+        assert_eq!(log.view().entries[1].reply, "120 of 1,204 rows · 4 columns");
+        assert_eq!(log.view().entries[0].reply, "30,000 rows · 4 columns");
+        assert_eq!(
+            Reply::shown(&open, Some(1)).text(),
+            "1 of 1,204 rows · 4 columns"
+        );
+        assert_eq!(Reply::shown(&open, None).text(), "1,204 rows · 4 columns");
+        // A filter that couldn't be built: a refusal, the current entry
+        // the one it was taken from.
+        let pin = log.step(
+            Some("pin mag".into()),
+            "Pin mag".into(),
+            Reply::Counting,
+            Origin::Typed,
+            2.0,
+            open.view(),
+        );
+        log.failed(&[id, pin], "Couldn't filter: DuckDB is full.");
+        assert_eq!(log.current_id(), Some(0));
+        let entries = log.view().entries;
+        assert_eq!(entries[1].reply_kind, "error");
+        assert!(!entries[1].back && !entries[2].back);
+        assert_eq!(entries[2].reply, "Couldn't filter: DuckDB is full.");
+    }
+
+    #[test]
+    fn a_step_after_a_failed_filter_keeps_its_own() {
+        use crate::filter::{Filter, Op, Values};
+
+        let mut log = Log::default();
+        let open = file();
+        log.open("quakes.csv", &open, Origin::Drop, 0.0);
+        let mut filtered = open.clone();
+        filtered
+            .add_filter(Filter {
+                column: "mag".into(),
+                op: Op::IsNull,
+                value: Values::None,
+            })
+            .unwrap();
+        let filter = log.step(
+            Some("filter mag is null".into()),
+            "Keep rows where mag has no value".into(),
+            Reply::Counting,
+            Origin::Typed,
+            1.0,
+            filtered.view(),
+        );
+        let mut pinned = filtered.clone();
+        pinned.pin(2).unwrap();
+        let pin = log.step(
+            Some("pin place".into()),
+            "Pin place".into(),
+            Reply::Counting,
+            Origin::Typed,
+            2.0,
+            pinned.view(),
+        );
+        // The filter fails; the pin keeps its step over the file's rows.
+        log.failed(&[filter], "Couldn't filter: DuckDB is full.");
+        let mut kept = open.clone();
+        kept.pin(2).unwrap();
+        log.rebase(pin, &[], None, Reply::of(&kept));
+        assert_eq!(log.current_id(), Some(pin));
+        assert_eq!(log.current().unwrap().view, Some(kept.view()));
+        assert_eq!(log.current().unwrap().reply, Reply::of(&kept));
+        // Undo from the pin goes past the refused filter, to the opening.
+        assert_eq!(log.undo_target().unwrap().index, 0);
     }
 
     #[test]

@@ -1536,10 +1536,16 @@ mod tests {
         // Closed while its copy builds: the filter's index goes at once, the
         // copy once its CREATE answers.
         view.close();
-        assert!(fake.sent().contains(&"DROP TABLE IF EXISTS view.f7_v0".to_owned()));
+        assert!(
+            fake.sent()
+                .contains(&"DROP TABLE IF EXISTS view.f7_v0".to_owned())
+        );
         assert_eq!(fake.cancelled.borrow().len(), 1);
         cx.run_until_parked();
-        assert!(fake.sent().contains(&"DROP TABLE IF EXISTS view.f7_v1".to_owned()));
+        assert!(
+            fake.sent()
+                .contains(&"DROP TABLE IF EXISTS view.f7_v1".to_owned())
+        );
         assert!(!view.sorting() && !view.filtered());
     }
 

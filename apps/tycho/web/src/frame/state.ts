@@ -149,8 +149,9 @@ export interface FrameState {
 
 /** What `App.complete` returns (`crate/src/command/complete.rs`). */
 export interface Completion {
-  /** What the caret is in. */
-  part: 'none' | 'verb' | 'column' | 'row';
+  /** What the caret is in: a filter's `operator` and `value`, a sort's
+   *  `direction`, what `clear` removes, find's `text`. */
+  part: 'none' | 'verb' | 'column' | 'row' | 'operator' | 'value' | 'direction' | 'clear' | 'text';
   /** The text an item replaces, in UTF-16 offsets. */
   from: number;
   to: number;
@@ -173,12 +174,15 @@ export interface CompletionItem {
   /** What replaces the part: a name quoted where it needs to be. */
   text: string;
   label: string;
-  /** A verb's hint, a column's DuckDB type, or a later verb's goal. */
+  /** A verb's hint, a column's DuckDB type, an operator's or a
+   *  direction's words, or a later verb's goal. */
   detail: string;
   /** A verb of the grammar not built yet. */
   later: boolean;
   /** A column's kind, for its badge; null for a verb. */
   kind: 'number' | 'text' | 'time' | 'boolean' | null;
+  /** A part follows it: a space goes after it. */
+  space: boolean;
 }
 
 /** What the page is before the app's first word: the prerendered page. */

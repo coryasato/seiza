@@ -2,14 +2,19 @@
 //! JSON, both read to the same steps (`docs/DECISIONS.md`, "Scope",
 //! 2026-11-21, "A command is a verb, then a column, then its parts").
 //!
-//! A typed line is a verb, then its parts: `pin mag`, `unpin "launch
-//! date"`, `hide nst, dmin, rms`, `show all`, `jump 1,204`, `undo`. A column's name is bare, or in double
-//! quotes with a quote inside written twice; it's matched without regard to
-//! case ([`plan`]). JSON names the same verbs as keys, `{"pin": {"column":
-//! "mag"}}`, `{"hide": ["nst", "dmin"]}`, several steps under `"actions"`. The bar runs the verbs the
-//! controller can do today; every other verb of the grammar is answered
-//! with the goal it comes with ([`LATER`]), and a line that opens with no
-//! verb and reads as words is a sentence, which Tycho doesn't read
+//! A typed line is a verb, then its parts: `filter inclination_deg >= 90`,
+//! `filter owner in US, CN`, `sort launch_date desc`, `clear filters`,
+//! `find starlink`, `pin mag`, `unpin "launch date"`, `hide nst, dmin, rms`,
+//! `show all`, `jump 1,204`, `undo`. A column's name is bare, or in double
+//! quotes with a quote inside written twice; it's matched without regard
+//! to case ([`plan`]). A filter's value is read as its column's type once
+//! the column is known ([`plan`]): text in double quotes when it holds a
+//! space or a comma. JSON names the same verbs as keys, `{"filter":
+//! {"column": "inclination_deg", "op": ">=", "value": 90}}`, `{"hide":
+//! ["nst", "dmin"]}`, several steps under `"actions"`. The bar runs the
+//! verbs the controller can do today; every other verb of the grammar is
+//! answered with the goal it comes with ([`LATER`]), and a line that opens
+//! with no verb and reads as words is a sentence, which Tycho doesn't read
 //! (2026-11-24, "The first command bar runs what the controller can do
 //! today").
 //!
@@ -22,22 +27,24 @@ pub mod plan;
 pub use complete::{Completion, Item, Part, Preview, complete};
 pub use plan::{Catalog, Checked, Plan, Refusal, plan};
 
+use crate::filter::{Arity, Direction, Op, Value, Values};
+
 /// A verb the bar runs now, with what it does (completion's hint).
 pub const VERBS: &[(&str, &str)] = &[
+    ("filter", "Keep the rows that match"),
+    ("sort", "Sort the rows by a column"),
+    ("find", "Find text in every row"),
     ("pin", "Pin a column"),
     ("unpin", "Unpin a column"),
     ("hide", "Hide columns"),
     ("show", "Show hidden columns"),
     ("jump", "Jump to a row"),
+    ("clear", "Clear filters or the sort"),
     ("undo", "Go back one step"),
 ];
 
 /// The grammar's other verbs, each with the goal that builds it (`PLAN.md`).
 pub const LATER: &[(&str, &str)] = &[
-    ("filter", "sort, filter, and find"),
-    ("sort", "sort, filter, and find"),
-    ("find", "sort, filter, and find"),
-    ("clear", "sort, filter, and find"),
     ("group", "profiles and the catalog"),
     ("rows", "profiles and the catalog"),
     ("top", "profiles and the catalog"),
@@ -66,7 +73,40 @@ pub enum Step {
     ShowAll,
     /// The row's number as written (`jump.rs` reads it against the rows).
     Jump(String),
+    /// A filter: its column, its operator, and its value or values.
+    Filter {
+        column: Name,
+        op: Op,
+        value: Given,
+    },
+    /// The sort: none written takes the column's first direction.
+    Sort {
+        column: Name,
+        direction: Option<Direction>,
+    },
+    Clear(Clear),
+    /// Find's term, as written.
+    Find(String),
     Undo,
+}
+
+/// A filter's value or values as given: a typed line's words, read as the
+/// column's type once it's known ([`plan`]), or JSON's.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Given {
+    Typed(Vec<String>),
+    Json(Values),
+}
+
+/// What `clear` removes.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Clear {
+    /// Every filter on one column.
+    Filter(Name),
+    Filters,
+    Sort,
+    /// Every filter and the sort.
+    All,
 }
 
 /// A column's name as written.
@@ -98,6 +138,26 @@ impl Step {
             Self::Show(names) => format!("Show {}", spoken(names)),
             Self::ShowAll => "Show all hidden columns".into(),
             Self::Jump(row) => format!("Jump to row {}", row.trim()),
+            Self::Filter { column, op, value } => format!(
+                "Keep rows where {} {op}{}",
+                quote(&column.text),
+                given(*op, value)
+            ),
+            Self::Sort { column, direction } => format!(
+                "Sort by {}{}",
+                quote(&column.text),
+                direction.map_or(String::new(), |direction| format!(
+                    ", {}",
+                    direction.as_str()
+                ))
+            ),
+            Self::Clear(Clear::Filter(column)) => {
+                format!("Clear the filters on {}", quote(&column.text))
+            }
+            Self::Clear(Clear::Filters) => "Clear the filters".into(),
+            Self::Clear(Clear::Sort) => "Clear the sort".into(),
+            Self::Clear(Clear::All) => "Clear the filters and the sort".into(),
+            Self::Find(term) => format!("Find {}", quote(term)),
             Self::Undo => "Undo".into(),
         }
     }
@@ -111,9 +171,56 @@ impl Step {
             Self::Show(names) => format!("show {}", listed(names)),
             Self::ShowAll => "show all".into(),
             Self::Jump(row) => format!("jump {}", row.trim()),
+            Self::Filter { column, op, value } => {
+                format!("filter {} {op}{}", quote(&column.text), given(*op, value))
+            }
+            Self::Sort { column, direction } => format!(
+                "sort {}{}",
+                quote(&column.text),
+                direction.map_or(String::new(), |direction| format!(
+                    " {}",
+                    direction.as_str()
+                ))
+            ),
+            Self::Clear(Clear::Filter(column)) => format!("clear filter {}", quote(&column.text)),
+            Self::Clear(Clear::Filters) => "clear filters".into(),
+            Self::Clear(Clear::Sort) => "clear sort".into(),
+            Self::Clear(Clear::All) => "clear all".into(),
+            Self::Find(term) => format!("find {}", quote(term)),
             Self::Undo => "undo".into(),
         }
     }
+}
+
+/// A filter's values as a command writes them after its operator, with
+/// the space before them: ` 90`, ` 1 and 10`, ` mb, mww`, none for `is
+/// null`.
+pub fn values_written(op: Op, values: &[String]) -> String {
+    match (op.arity(), values) {
+        (_, []) => String::new(),
+        (Arity::Two, [low, high]) => format!(" {low} and {high}"),
+        (_, values) => format!(" {}", values.join(", ")),
+    }
+}
+
+/// A value as a command writes it: text quoted where it needs to be
+/// ([`quote`]), a number or a boolean as JSON writes it.
+pub fn value_written(value: &Value) -> String {
+    match value {
+        Value::Text(text) => quote(text),
+        other => other.to_string(),
+    }
+}
+
+/// The values given, as a command writes them.
+fn given(op: Op, given: &Given) -> String {
+    let values: Vec<String> = match given {
+        Given::Typed(words) => words.iter().map(|word| quote(word)).collect(),
+        Given::Json(Values::None) => Vec::new(),
+        Given::Json(Values::One(value)) => vec![value_written(value)],
+        Given::Json(Values::Many(values)) => values.iter().map(value_written).collect(),
+    };
+    values_written(op, &values)
 }
 
 /// Names as a command writes them: `nst, dmin, rms`.
@@ -279,6 +386,35 @@ fn parse_line(text: &str) -> Parsed {
         ));
     }
     match built(&first.text) {
+        Some("filter") => filter_step(rest).map_or_else(Parsed::Error, action),
+        Some("sort") => {
+            let (names, direction) = match rest.split_last() {
+                Some((last, names)) if !names.is_empty() => match direction(last) {
+                    Some(direction) => (names, Some(direction)),
+                    None => (rest, None),
+                },
+                _ => (rest, None),
+            };
+            column_step(names, "sort").map_or_else(Parsed::Error, |column| {
+                action(Step::Sort { column, direction })
+            })
+        }
+        Some("clear") => {
+            clear_step(rest).map_or_else(Parsed::Error, |clear| action(Step::Clear(clear)))
+        }
+        Some("find") => match rest {
+            [] => Parsed::Error("find takes the text to look for: find starlink.".into()),
+            [one] if one.quoted => action(Step::Find(one.text.clone())),
+            // Quoted words among others: their texts, a space between.
+            _ if rest.iter().any(|token| token.quoted) => action(Step::Find(
+                rest.iter()
+                    .map(|token| token.text.as_str())
+                    .collect::<Vec<_>>()
+                    .join(" "),
+            )),
+            // The rest as written: `find low earth` looks for both words.
+            _ => action(Step::Find(text[rest[0].start..].trim().to_owned())),
+        },
         Some("pin") => {
             column_step(rest, "pin").map_or_else(Parsed::Error, |name| action(Step::Pin(name)))
         }
@@ -342,6 +478,216 @@ fn column_step(rest: &[Token], verb: &str) -> Result<Name, String> {
             "{verb} takes one column; a name with a space goes in double quotes."
         )),
     }
+}
+
+/// `asc` or `desc`, bare.
+fn direction(token: &Token) -> Option<Direction> {
+    if token.quoted {
+        return None;
+    }
+    [Direction::Asc, Direction::Desc]
+        .into_iter()
+        .find(|direction| direction.as_str().eq_ignore_ascii_case(&token.text))
+}
+
+/// `clear`'s part: `filter` and a column, `filters`, `sort`, or `all`.
+fn clear_step(rest: &[Token]) -> Result<Clear, String> {
+    let word = |token: &Token, word: &str| !token.quoted && token.text.eq_ignore_ascii_case(word);
+    match rest {
+        [one] if word(one, "filters") => Ok(Clear::Filters),
+        [one] if word(one, "sort") => Ok(Clear::Sort),
+        [one] if word(one, "all") => Ok(Clear::All),
+        [one] if word(one, "filter") => Err(
+            "clear filter takes a column: clear filter mag. clear filters clears every filter."
+                .into(),
+        ),
+        [first, names @ ..] if word(first, "filter") => {
+            column_step(names, "clear filter").map(Clear::Filter)
+        }
+        _ => Err("clear takes filter and a column, filters, sort, or all: clear filters.".into()),
+    }
+}
+
+/// The words that are operators, a column's name before them.
+const OP_WORDS: &[&str] = &["contains", "starts", "in", "between", "is", "not"];
+
+/// The characters an operator like `>=` is written in.
+const OP_SYMBOLS: &[char] = &['<', '>', '=', '!'];
+
+/// A `filter` line's parts: its column's words, its operator (a word, `is
+/// null`'s words as one, or symbols, which may touch the column and the
+/// value: `mag>=4.5`), and the words after it.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct FilterLine {
+    pub column: Vec<Token>,
+    pub op: Option<Token>,
+    pub values: Vec<Token>,
+}
+
+/// Cuts a `filter` line after its verb into its parts. Only the column's
+/// words are searched for an operator: a value is taken as written.
+pub(crate) fn split_filter(rest: &[Token]) -> FilterLine {
+    let piece = |text: &str, start: usize| Token {
+        text: text.to_owned(),
+        start,
+        end: start + text.len(),
+        quoted: false,
+        closed: true,
+    };
+    let mut column = Vec::new();
+    for (index, token) in rest.iter().enumerate() {
+        if token.quoted {
+            column.push(token.clone());
+            continue;
+        }
+        let lower = token.text.to_lowercase();
+        if !column.is_empty() && OP_WORDS.contains(&lower.as_str()) {
+            let mut op = token.clone();
+            let mut words = vec![lower];
+            let mut end = index + 1;
+            // `is null`, `is not null`, `not null`: one operator.
+            while let Some(next) = rest.get(end).filter(|next| !next.quoted) {
+                let next_word = next.text.to_lowercase();
+                let follows = matches!(
+                    (words.last().map(String::as_str), next_word.as_str()),
+                    (Some("is"), "not" | "null") | (Some("not"), "null")
+                );
+                if !follows {
+                    break;
+                }
+                words.push(next_word);
+                op.end = next.end;
+                end += 1;
+            }
+            op.text = words.join(" ");
+            return FilterLine {
+                column,
+                op: Some(op),
+                values: rest[end..].to_vec(),
+            };
+        }
+        if let Some(at) = token.text.find(OP_SYMBOLS) {
+            let len = token.text[at..]
+                .find(|c: char| !OP_SYMBOLS.contains(&c))
+                .unwrap_or(token.text.len() - at);
+            let (left, symbols, right) = (
+                &token.text[..at],
+                &token.text[at..at + len],
+                &token.text[at + len..],
+            );
+            if !left.is_empty() {
+                column.push(piece(left, token.start));
+            }
+            let op = piece(symbols, token.start + at);
+            let mut values = Vec::new();
+            if !right.is_empty() {
+                values.push(piece(right, op.end));
+            }
+            values.extend_from_slice(&rest[index + 1..]);
+            return FilterLine {
+                column,
+                op: Some(op),
+                values,
+            };
+        }
+        column.push(token.clone());
+    }
+    FilterLine {
+        column,
+        op: None,
+        values: Vec::new(),
+    }
+}
+
+/// Every operator, as a reason lists them.
+fn operators() -> String {
+    list(Op::ALL.iter().map(|op| op.as_str()), "or")
+}
+
+fn filter_step(rest: &[Token]) -> Result<Step, String> {
+    const EXAMPLE: &str = "filter mag >= 4.5";
+    let line = split_filter(rest);
+    let Some(op) = line.op else {
+        return Err(if rest.is_empty() {
+            format!("filter takes a column, an operator, and a value: {EXAMPLE}.")
+        } else {
+            format!(
+                "filter takes an operator after its column ({}): {EXAMPLE}.",
+                operators()
+            )
+        });
+    };
+    if line.column.is_empty() {
+        return Err(format!(
+            "filter takes a column before its operator: {EXAMPLE}."
+        ));
+    }
+    let column = column_step(&line.column, "filter")?;
+    let op = Op::read(&op.text).ok_or_else(|| match op.text.as_str() {
+        "is" | "not" | "is not" => "is takes null: filter mag is null, or not null.".to_owned(),
+        other => format!(
+            "Tycho has no operator {other}. A filter takes {}.",
+            operators()
+        ),
+    })?;
+    let shown = quote(&column.text);
+    let values = &line.values;
+    let spaced = |values: &[Token]| values.iter().all(|value| !value.quoted);
+    let words = match op.arity() {
+        Arity::None if values.is_empty() => Vec::new(),
+        Arity::None => return Err(format!("{op} takes nothing after it.")),
+        Arity::One => match values.as_slice() {
+            [] => return Err(format!("{op} takes a value after it.")),
+            [one] => vec![one.text.clone()],
+            many if spaced(many) => {
+                let joined: Vec<&str> = many.iter().map(|value| value.text.as_str()).collect();
+                return Err(format!(
+                    "{op} takes one value; a value with a space goes in double quotes: filter {shown} {op} \"{}\".",
+                    joined.join(" ")
+                ));
+            }
+            _ => {
+                return Err(format!(
+                    "{op} takes one value; a value with a space goes in double quotes."
+                ));
+            }
+        },
+        Arity::Two => match values.as_slice() {
+            [low, and, high] if !and.quoted && and.text.eq_ignore_ascii_case("and") => {
+                vec![low.text.clone(), high.text.clone()]
+            }
+            _ => {
+                return Err(format!(
+                    "between takes two values joined by and: filter {shown} between 1 and 10."
+                ));
+            }
+        },
+        Arity::List => {
+            let mut words = Vec::new();
+            for group in groups(values) {
+                match group.words.as_slice() {
+                    [] => {}
+                    [(word, _)] => words.push(word.clone()),
+                    _ => {
+                        return Err(format!(
+                            "in takes values between commas; a value with a space goes in double quotes: filter {shown} in \"United States\", China."
+                        ));
+                    }
+                }
+            }
+            if words.is_empty() {
+                return Err(format!(
+                    "in takes one or more values between commas: filter {shown} in a, b."
+                ));
+            }
+            words
+        }
+    };
+    Ok(Step::Filter {
+        column,
+        op,
+        value: Given::Typed(words),
+    })
 }
 
 /// `show all`'s one word, bare: a column named `all` is written in quotes.
@@ -550,6 +896,87 @@ fn json_step(
         None => Err(format!("{verb} needs a \"column\".")),
     };
     match built(verb) {
+        Some("filter") => {
+            let fields = fields(&["column", "op", "value"])?;
+            let column = column(fields)?;
+            let op = match fields.get("op") {
+                Some(Value::String(op)) => Op::read(op).ok_or_else(|| {
+                    format!(
+                        "Tycho has no operator {op}. A filter takes {}.",
+                        operators()
+                    )
+                })?,
+                Some(_) => {
+                    return Err("filter's \"op\" is an operator in quotes, like \">=\".".into());
+                }
+                None => return Err("filter needs an \"op\".".into()),
+            };
+            let value = match fields.get("value") {
+                None | Some(Value::Null) => Values::None,
+                Some(value) => serde_json::from_value(value.clone()).map_err(|_| {
+                    "filter's \"value\" is a number, text, true or false, or a list of them."
+                        .to_owned()
+                })?,
+            };
+            Ok(Ok(Step::Filter {
+                column,
+                op,
+                value: Given::Json(value),
+            }))
+        }
+        Some("sort") => {
+            let fields = fields(&["column", "direction"])?;
+            let direction = match fields.get("direction") {
+                None | Some(Value::Null) => None,
+                Some(Value::String(word)) => Some(
+                    [
+                        crate::filter::Direction::Asc,
+                        crate::filter::Direction::Desc,
+                    ]
+                    .into_iter()
+                    .find(|direction| direction.as_str().eq_ignore_ascii_case(word))
+                    .ok_or("sort's \"direction\" is \"asc\" or \"desc\".")?,
+                ),
+                Some(_) => return Err("sort's \"direction\" is \"asc\" or \"desc\".".into()),
+            };
+            Ok(Ok(Step::Sort {
+                column: column(fields)?,
+                direction,
+            }))
+        }
+        Some("clear") => {
+            const FORMS: &str =
+                r#"{"clear": "filters"}, "sort", "all", or {"clear": {"filter": "mag"}}"#;
+            match parts {
+                Value::String(word) if word.eq_ignore_ascii_case("filters") => {
+                    Ok(Ok(Step::Clear(Clear::Filters)))
+                }
+                Value::String(word) if word.eq_ignore_ascii_case("sort") => {
+                    Ok(Ok(Step::Clear(Clear::Sort)))
+                }
+                Value::String(word) if word.eq_ignore_ascii_case("all") => {
+                    Ok(Ok(Step::Clear(Clear::All)))
+                }
+                Value::Object(fields) if fields.len() == 1 => match fields.get("filter") {
+                    Some(Value::String(name)) => {
+                        Ok(Ok(Step::Clear(Clear::Filter(Name::bare(name.clone())))))
+                    }
+                    _ => Err(format!("clear takes {FORMS}.")),
+                },
+                _ => Err(format!("clear takes {FORMS}.")),
+            }
+        }
+        Some("find") => {
+            let text = match parts {
+                Value::String(text) => text,
+                Value::Object(_) => match fields(&["text"])?.get("text") {
+                    Some(Value::String(text)) => text,
+                    _ => return Err("find needs a \"text\", in quotes.".into()),
+                },
+                _ => return Err(r#"find takes text: {"find": {"text": "starlink"}}."#.into()),
+            };
+            Ok(Ok(Step::Find(text.clone())))
+        }
         Some("pin") => Ok(Ok(Step::Pin(column(fields(&["column"])?)?))),
         Some("unpin") => Ok(Ok(Step::Unpin(column(fields(&["column"])?)?))),
         Some(verb @ ("hide" | "show")) => {
@@ -624,7 +1051,7 @@ pub fn quote(name: &str) -> String {
     let needs = name.is_empty()
         || name
             .chars()
-            .any(|c| c.is_whitespace() || c == '"' || c == ',')
+            .any(|c| c.is_whitespace() || c == '"' || c == ',' || OP_SYMBOLS.contains(&c))
         || name.starts_with('{')
         || name.ends_with('?')
         || word(WORDS)
@@ -740,7 +1167,7 @@ mod tests {
         );
         assert_eq!(
             error("42"),
-            "Tycho has no command 42. It runs pin, unpin, hide, show, jump, and undo."
+            "Tycho has no command 42. It runs filter, sort, find, pin, unpin, hide, show, jump, clear, and undo."
         );
         assert_eq!(
             error("hide"),
@@ -759,17 +1186,13 @@ mod tests {
     #[test]
     fn later_verbs_meet_their_goal() {
         assert_eq!(
-            parse("sort mag desc"),
+            parse("group mag"),
             Parsed::Later {
-                verb: "sort",
-                goal: "sort, filter, and find",
+                verb: "group",
+                goal: "profiles and the catalog",
                 step: None
             }
         );
-        assert!(matches!(
-            parse("group mag"),
-            Parsed::Later { verb: "group", .. }
-        ));
         assert!(matches!(
             parse("export csv"),
             Parsed::Later { verb: "export", .. }
@@ -916,12 +1339,313 @@ mod tests {
             "a step is an object with one verb."
         );
         assert_eq!(
-            parse(r#"{"actions": [{"pin": {"column": "a"}}, {"sort": {"column": "a"}}]}"#),
+            parse(r#"{"actions": [{"pin": {"column": "a"}}, {"group": {"column": "a"}}]}"#),
             Parsed::Later {
-                verb: "sort",
-                goal: "sort, filter, and find",
+                verb: "group",
+                goal: "profiles and the catalog",
                 step: Some(1)
             }
+        );
+    }
+
+    fn typed(text: &str) -> Step {
+        match parse(text) {
+            Parsed::Action { steps, form } if steps.len() == 1 => {
+                assert_eq!(form, Form::Typed);
+                steps.into_iter().next().unwrap()
+            }
+            other => panic!("{text:?} read as {other:?}"),
+        }
+    }
+
+    fn error(text: &str) -> String {
+        match parse(text) {
+            Parsed::Error(why) => why,
+            other => panic!("{text:?} read as {other:?}"),
+        }
+    }
+
+    fn filter(column: &str, op: Op, words: &[&str]) -> Step {
+        Step::Filter {
+            column: Name::bare(column),
+            op,
+            value: Given::Typed(words.iter().map(|word| (*word).to_owned()).collect()),
+        }
+    }
+
+    #[test]
+    fn filter_lines() {
+        assert_eq!(typed("filter mag >= 4.5"), filter("mag", Op::Ge, &["4.5"]));
+        // The operator against its column, or its value, or both.
+        assert_eq!(typed("filter mag>=4.5"), filter("mag", Op::Ge, &["4.5"]));
+        assert_eq!(typed("filter mag >=4.5"), filter("mag", Op::Ge, &["4.5"]));
+        assert_eq!(typed("filter mag> -3"), filter("mag", Op::Gt, &["-3"]));
+        assert_eq!(typed("filter mag == 1"), filter("mag", Op::Eq, &["1"]));
+        assert_eq!(typed("filter mag <> 1"), filter("mag", Op::Ne, &["1"]));
+        // A value is taken as written: its symbols aren't an operator.
+        assert_eq!(
+            typed("filter url contains a=b"),
+            filter("url", Op::Contains, &["a=b"])
+        );
+        assert_eq!(
+            typed(r#"filter owner = "United States""#),
+            filter("owner", Op::Eq, &["United States"])
+        );
+        assert_eq!(
+            typed(r#"filter "launch date" > 1990-01-01"#),
+            filter("launch date", Op::Gt, &["1990-01-01"])
+        );
+        assert_eq!(
+            typed("filter launch date > 1990-01-01"),
+            Step::Filter {
+                column: Name {
+                    text: "launch date".into(),
+                    spaced: true
+                },
+                op: Op::Gt,
+                value: Given::Typed(vec!["1990-01-01".into()])
+            }
+        );
+        assert_eq!(
+            typed("filter name CONTAINS starlink"),
+            filter("name", Op::Contains, &["starlink"])
+        );
+        assert_eq!(
+            typed("filter name starts Cosmos"),
+            filter("name", Op::Starts, &["Cosmos"])
+        );
+        assert_eq!(
+            typed("filter magType in mb, mww,ml"),
+            filter("magType", Op::In, &["mb", "mww", "ml"])
+        );
+        assert_eq!(
+            typed(r#"filter owner in "United States", CN"#),
+            filter("owner", Op::In, &["United States", "CN"])
+        );
+        assert_eq!(
+            typed("filter mass between 1 AND 10"),
+            filter("mass", Op::Between, &["1", "10"])
+        );
+        assert_eq!(
+            typed("filter name is null"),
+            filter("name", Op::IsNull, &[])
+        );
+        assert_eq!(
+            typed("filter name not null"),
+            filter("name", Op::NotNull, &[])
+        );
+        assert_eq!(
+            typed("filter name is not null"),
+            filter("name", Op::NotNull, &[])
+        );
+        // A column named as an operator word comes first: it's the column.
+        assert_eq!(typed("filter in = 1"), filter("in", Op::Eq, &["1"]));
+        let written = |text: &str| typed(text).written();
+        assert_eq!(written("filter mag>=4.5"), "filter mag >= 4.5");
+        assert_eq!(
+            written(r#"filter owner in "United States", CN"#),
+            r#"filter owner in "United States", CN"#
+        );
+        assert_eq!(
+            written("filter mass between 1 and 10"),
+            "filter mass between 1 and 10"
+        );
+        assert_eq!(written("filter name is null"), "filter name is null");
+    }
+
+    #[test]
+    fn filter_faults() {
+        assert_eq!(
+            error("filter"),
+            "filter takes a column, an operator, and a value: filter mag >= 4.5."
+        );
+        assert!(error("filter mag").starts_with("filter takes an operator after its column ("));
+        assert_eq!(
+            error("filter >= 4"),
+            "filter takes a column before its operator: filter mag >= 4.5."
+        );
+        assert_eq!(error("filter mag >="), ">= takes a value after it.");
+        assert_eq!(
+            error("filter owner = United States"),
+            r#"= takes one value; a value with a space goes in double quotes: filter owner = "United States"."#
+        );
+        assert_eq!(
+            error("filter mass between 1"),
+            "between takes two values joined by and: filter mass between 1 and 10."
+        );
+        assert_eq!(
+            error("filter mass between 1 or 2"),
+            "between takes two values joined by and: filter mass between 1 and 10."
+        );
+        assert_eq!(
+            error("filter m in"),
+            "in takes one or more values between commas: filter m in a, b."
+        );
+        assert!(
+            error("filter m in United States, CN").starts_with("in takes values between commas")
+        );
+        assert_eq!(
+            error("filter name is null x"),
+            "is null takes nothing after it."
+        );
+        assert_eq!(
+            error("filter name is"),
+            "is takes null: filter mag is null, or not null."
+        );
+        assert!(
+            error("filter mag => 4").starts_with("Tycho has no operator =>. A filter takes =, !=,")
+        );
+    }
+
+    #[test]
+    fn sort_clear_and_find_lines() {
+        let sort = |name: &str, direction| Step::Sort {
+            column: Name::bare(name),
+            direction,
+        };
+        assert_eq!(typed("sort mag"), sort("mag", None));
+        assert_eq!(typed("sort mag DESC"), sort("mag", Some(Direction::Desc)));
+        assert_eq!(typed("sort mag asc"), sort("mag", Some(Direction::Asc)));
+        // A column named desc, alone or in quotes.
+        assert_eq!(typed("sort desc"), sort("desc", None));
+        assert_eq!(
+            typed(r#"sort "desc" asc"#),
+            sort("desc", Some(Direction::Asc))
+        );
+        assert_eq!(
+            typed("sort launch date desc"),
+            Step::Sort {
+                column: Name {
+                    text: "launch date".into(),
+                    spaced: true
+                },
+                direction: Some(Direction::Desc)
+            }
+        );
+        assert_eq!(error("sort"), "sort takes a column: sort mag.");
+        assert_eq!(typed("clear filters"), Step::Clear(Clear::Filters));
+        assert_eq!(typed("CLEAR Sort"), Step::Clear(Clear::Sort));
+        assert_eq!(typed("clear all"), Step::Clear(Clear::All));
+        assert_eq!(
+            typed(r#"clear filter "launch date""#),
+            Step::Clear(Clear::Filter(Name::bare("launch date")))
+        );
+        assert_eq!(
+            error("clear filter"),
+            "clear filter takes a column: clear filter mag. clear filters clears every filter."
+        );
+        assert_eq!(
+            error("clear"),
+            "clear takes filter and a column, filters, sort, or all: clear filters."
+        );
+        assert_eq!(
+            error("clear everything"),
+            "clear takes filter and a column, filters, sort, or all: clear filters."
+        );
+        assert_eq!(typed("find starlink"), Step::Find("starlink".into()));
+        assert_eq!(typed("find low  earth "), Step::Find("low  earth".into()));
+        assert_eq!(typed(r#"find "a ""b""""#), Step::Find(r#"a "b""#.into()));
+        assert_eq!(
+            error("find"),
+            "find takes the text to look for: find starlink."
+        );
+        assert_eq!(typed("find low earth").written(), r#"find "low earth""#);
+        // Quoted words among others: their texts, not their quotes.
+        assert_eq!(
+            typed(r#"find "low earth" orbit"#),
+            Step::Find("low earth orbit".into())
+        );
+    }
+
+    #[test]
+    fn filter_sort_clear_and_find_json() {
+        let json = |text: &str| match parse(text) {
+            Parsed::Action { steps, form } => {
+                assert_eq!(form, Form::Json);
+                steps
+            }
+            other => panic!("{text:?} read as {other:?}"),
+        };
+        assert_eq!(
+            json(r#"{"filter": {"column": "inclination_deg", "op": ">=", "value": 90}}"#),
+            [Step::Filter {
+                column: Name::bare("inclination_deg"),
+                op: Op::Ge,
+                value: Given::Json(Values::One(Value::Number(90.into())))
+            }]
+        );
+        assert_eq!(
+            json(r#"{"filter": {"column": "name", "op": "is null"}}"#),
+            [Step::Filter {
+                column: Name::bare("name"),
+                op: Op::IsNull,
+                value: Given::Json(Values::None)
+            }]
+        );
+        assert_eq!(
+            json(r#"{"filter": {"column": "t", "op": "in", "value": ["a", "b"]}}"#),
+            [Step::Filter {
+                column: Name::bare("t"),
+                op: Op::In,
+                value: Given::Json(Values::Many(vec![
+                    Value::Text("a".into()),
+                    Value::Text("b".into())
+                ]))
+            }]
+        );
+        assert_eq!(
+            json(r#"{"sort": {"column": "mag", "direction": "desc"}}"#),
+            [Step::Sort {
+                column: Name::bare("mag"),
+                direction: Some(Direction::Desc)
+            }]
+        );
+        assert_eq!(
+            json(r#"{"sort": {"column": "mag"}}"#),
+            [Step::Sort {
+                column: Name::bare("mag"),
+                direction: None
+            }]
+        );
+        assert_eq!(
+            json(r#"{"clear": "filters"}"#),
+            [Step::Clear(Clear::Filters)]
+        );
+        assert_eq!(json(r#"{"clear": "all"}"#), [Step::Clear(Clear::All)]);
+        assert_eq!(
+            json(r#"{"clear": {"filter": "mag"}}"#),
+            [Step::Clear(Clear::Filter(Name::bare("mag")))]
+        );
+        assert_eq!(
+            json(r#"{"find": "starlink"}"#),
+            [Step::Find("starlink".into())]
+        );
+        assert_eq!(
+            json(r#"{"find": {"text": "starlink"}}"#),
+            [Step::Find("starlink".into())]
+        );
+        assert_eq!(
+            error(r#"{"filter": {"column": "mag", "op": "like", "value": 1}}"#)
+                .split('.')
+                .next(),
+            Some("Tycho has no operator like")
+        );
+        assert_eq!(
+            error(r#"{"filter": {"column": "mag", "value": 1}}"#),
+            "filter needs an \"op\"."
+        );
+        assert_eq!(
+            error(r#"{"filter": {"column": "mag", "op": "=", "value": {"a": 1}}}"#),
+            "filter's \"value\" is a number, text, true or false, or a list of them."
+        );
+        assert_eq!(
+            error(r#"{"sort": {"column": "mag", "direction": "up"}}"#),
+            "sort's \"direction\" is \"asc\" or \"desc\"."
+        );
+        assert!(error(r#"{"clear": "everything"}"#).starts_with("clear takes"));
+        assert_eq!(
+            error(r#"{"find": 3}"#),
+            r#"find takes text: {"find": {"text": "starlink"}}."#
         );
     }
 
@@ -934,8 +1658,19 @@ mod tests {
         assert_eq!(quote("Pin"), "\"Pin\"");
         assert_eq!(quote(""), "\"\"");
         assert_eq!(quote("a,b"), "\"a,b\"");
+        // An operator's symbols: a bare name with one would split.
+        assert_eq!(quote("a>b"), "\"a>b\"");
+        assert_eq!(quote("filter"), "\"filter\"");
         // What `quote` writes reads back as the name.
-        for name in ["launch date", "12\" pizza", "desc", "", "a,b", "日付"] {
+        for name in [
+            "launch date",
+            "12\" pizza",
+            "desc",
+            "",
+            "a,b",
+            "日付",
+            "a>=b",
+        ] {
             assert_eq!(
                 parse(&format!("pin {}", quote(name))),
                 pin(name),

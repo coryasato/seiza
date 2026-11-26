@@ -8,8 +8,9 @@ use std::fmt;
 
 use seiza_duckdb::sql::ColumnInfo;
 
-use super::{Name, Step, list, quote};
+use super::{Clear, Given, Name, Step, list, quote, value_written, values_written};
 use crate::dataset::format_count;
+use crate::filter::{Arity, Filter, FilterRefused, Kind, Op, Values};
 use crate::view::{Controller, HideRefused, PinRefused};
 
 /// What an action is checked against: the open file's view, and whether
@@ -44,6 +45,8 @@ pub struct Plan {
     pub changed: bool,
     /// 0-based: the last `jump`'s row.
     pub jump: Option<u64>,
+    /// The last `find`'s term.
+    pub find: Option<String>,
     pub steps: Vec<Checked>,
 }
 
@@ -80,6 +83,7 @@ impl fmt::Display for Refusal {
 pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
     let mut view = catalog.view.clone();
     let mut jump = None;
+    let mut find = None;
     let mut checked = Vec::with_capacity(steps.len());
     let several = steps.len() > 1;
     for (index, step) in steps.iter().enumerate() {
@@ -228,6 +232,174 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                     Err(refusal) => return Err(refuse(refusal.message(), true)),
                 }
             }
+            Step::Filter { column, op, value } => {
+                if catalog.loading {
+                    return Err(refuse(loading(), false));
+                }
+                let index = resolve(column, view.columns()).map_err(|why| refuse(why, true))?;
+                let info = view.columns()[index].clone();
+                let kind = Kind::of(&info);
+                let shown = quote(&info.name);
+                let value = match value {
+                    Given::Json(values) => values.clone(),
+                    Given::Typed(words) => {
+                        let mut values = words
+                            .iter()
+                            .map(|word| crate::filter::typed_value(&info, word));
+                        match op.arity() {
+                            Arity::None => Values::None,
+                            Arity::One => values.next().map_or(Values::None, Values::One),
+                            Arity::Two | Arity::List => Values::Many(values.collect()),
+                        }
+                    }
+                };
+                let filter = Filter {
+                    column: info.name.clone(),
+                    op: *op,
+                    value,
+                };
+                if let Err(why) = filter.sql(&info) {
+                    return Err(refuse(filter_refused(&why, &shown, kind), true));
+                }
+                match view.add_filter(filter.clone()) {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        return Err(refuse("That filter is in the view already.".into(), false));
+                    }
+                    Err(refused) => return Err(refuse(sentence(&refused.to_string()), true)),
+                }
+                let values = filter_values(&filter);
+                let spoken = match (op.arity(), values.as_slice()) {
+                    (_, []) => String::new(),
+                    (Arity::Two, [low, high]) => format!(" {low} and {high}"),
+                    (_, values) => format!(" {}", values.join(", ")),
+                };
+                checked.push(Checked {
+                    line: format!("filter {shown} {op}{}", values_written(*op, &values)),
+                    words: format!("Keep rows where {shown} {}{spoken}", op.words(kind)),
+                    json: serde_json::json!({ "filter": filter }),
+                    pins: None,
+                });
+            }
+            Step::Sort { column, direction } => {
+                if catalog.loading {
+                    return Err(refuse(loading(), false));
+                }
+                if let Some(why) = view.sort_refusal() {
+                    return Err(refuse(sentence(why), false));
+                }
+                let index = resolve(column, view.columns()).map_err(|why| refuse(why, true))?;
+                let info = &view.columns()[index];
+                let shown = quote(&info.name);
+                let direction = direction.unwrap_or_else(|| crate::filter::first_direction(info));
+                let words = Kind::of(info).order_words(direction);
+                if view.sort() == Some((index, direction)) {
+                    return Err(refuse(
+                        format!("The rows are sorted by {shown}, {words}, already."),
+                        false,
+                    ));
+                }
+                let name = info.name.clone();
+                view.set_sort(Some((index, direction)));
+                checked.push(Checked {
+                    line: format!("sort {shown} {}", direction.as_str()),
+                    words: format!("Sort by {shown}, {words}"),
+                    json: serde_json::json!({ "sort": { "column": name, "direction": direction } }),
+                    pins: None,
+                });
+            }
+            Step::Clear(clear) => {
+                let filters = view.filters().len();
+                let sorted = view.sort().is_some();
+                let count = |count: usize| match count {
+                    1 => "the filter".to_owned(),
+                    count => format!("{count} filters"),
+                };
+                let (line, words, json) = match clear {
+                    Clear::Filter(name) => {
+                        let index =
+                            resolve(name, view.columns()).map_err(|why| refuse(why, true))?;
+                        let name = view.columns()[index].name.clone();
+                        let shown = quote(&name);
+                        let removed = view.remove_filters(|filter| filter.column != name);
+                        if removed == 0 {
+                            return Err(refuse(format!("No filter is on {shown}."), false));
+                        }
+                        (
+                            format!("clear filter {shown}"),
+                            format!("Clear {} on {shown}", count(removed)),
+                            serde_json::json!({ "clear": { "filter": name } }),
+                        )
+                    }
+                    Clear::Filters => {
+                        if filters == 0 {
+                            return Err(refuse("No filter to clear.".into(), false));
+                        }
+                        view.remove_filters(|_| false);
+                        (
+                            "clear filters".to_owned(),
+                            format!("Clear {}", count(filters)),
+                            serde_json::json!({ "clear": "filters" }),
+                        )
+                    }
+                    Clear::Sort => {
+                        if !sorted {
+                            return Err(refuse("The rows aren't sorted.".into(), false));
+                        }
+                        view.set_sort(None);
+                        (
+                            "clear sort".to_owned(),
+                            "Clear the sort".to_owned(),
+                            serde_json::json!({ "clear": "sort" }),
+                        )
+                    }
+                    Clear::All => {
+                        let words = match (filters, sorted) {
+                            (0, false) => {
+                                return Err(refuse("No filter or sort to clear.".into(), false));
+                            }
+                            (0, true) => "Clear the sort".to_owned(),
+                            (filters, false) => format!("Clear {}", count(filters)),
+                            (filters, true) => format!("Clear {} and the sort", count(filters)),
+                        };
+                        view.remove_filters(|_| false);
+                        view.set_sort(None);
+                        (
+                            "clear all".to_owned(),
+                            words,
+                            serde_json::json!({ "clear": "all" }),
+                        )
+                    }
+                };
+                checked.push(Checked {
+                    line,
+                    words,
+                    json,
+                    pins: None,
+                });
+            }
+            Step::Find(term) => {
+                let term = term.trim();
+                if term.is_empty() {
+                    return Err(refuse(
+                        "find takes the text to look for: find starlink.".into(),
+                        true,
+                    ));
+                }
+                if term.contains('\0') {
+                    return Err(refuse(
+                        "Find's text can't hold a NUL character.".into(),
+                        true,
+                    ));
+                }
+                find = Some(term.to_owned());
+                checked.push(Checked {
+                    line: format!("find {}", quote(term)),
+                    words: format!("Find {}", quote(term)),
+                    json: serde_json::json!({ "find": { "text": term } }),
+                    pins: None,
+                });
+            }
             Step::Undo if several => {
                 return Err(refuse(
                     "undo runs on its own, not in an action of several.".into(),
@@ -247,8 +419,55 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
         view,
         changed,
         jump,
+        find,
         steps: checked,
     })
+}
+
+/// What a filter or a sort of a CSV still loading is answered.
+fn loading() -> String {
+    format!("{}.", crate::table::LOADING)
+}
+
+/// `text` as a sentence: its first letter capital, a period after it.
+fn sentence(text: &str) -> String {
+    let text = text.trim_end_matches('.');
+    let mut chars = text.chars();
+    match chars.next() {
+        Some(first) => format!("{}{}.", first.to_uppercase(), chars.as_str()),
+        None => String::new(),
+    }
+}
+
+/// A filter's values as a command writes them.
+fn filter_values(filter: &Filter) -> Vec<String> {
+    match &filter.value {
+        Values::None => Vec::new(),
+        Values::One(value) => vec![value_written(value)],
+        Values::Many(values) => values.iter().map(value_written).collect(),
+    }
+}
+
+/// Why a filter can't apply to column `shown`, which holds `kind`, said
+/// with what it takes.
+fn filter_refused(why: &FilterRefused, shown: &str, kind: Kind) -> String {
+    match why {
+        FilterRefused::Op { op, .. } => format!(
+            "{op} doesn't apply to {shown}, which holds {}: it takes {}.",
+            kind.name(),
+            list(kind.ops().map(Op::as_str), "or")
+        ),
+        FilterRefused::Values { .. } => sentence(&why.to_string()),
+        FilterRefused::Value { value, .. } => match kind {
+            Kind::Number => format!("{value} isn't a number, and {shown} holds numbers."),
+            Kind::Time => format!(
+                "{value} isn't a time {shown} holds: write a date as 1990-01-31, a time as 1990-01-31T12:30."
+            ),
+            Kind::Boolean => format!("{shown} holds true or false, and {value} is neither."),
+            Kind::Text => format!("{shown} holds text: write the value in quotes."),
+        },
+        FilterRefused::Nul => "A value can't hold a NUL character.".into(),
+    }
 }
 
 /// The file's column `name` names: written as the file does, else the one
@@ -614,6 +833,226 @@ mod tests {
         // Each step on the view the ones before it leave.
         let both = r#"{"actions": [{"hide": ["mag"]}, {"show": ["mag"]}]}"#;
         assert!(!run(both, &catalog).unwrap().changed);
+    }
+
+    #[test]
+    fn filters_are_typed_by_their_column_and_worded() {
+        let mut catalog = catalog(false);
+        let plan = run("filter mag >= 4.5", &catalog).unwrap();
+        let step = &plan.steps[0];
+        assert_eq!(step.line, "filter mag >= 4.5");
+        assert_eq!(step.words, "Keep rows where mag is at least 4.5");
+        assert_eq!(
+            plan.json(),
+            r#"{"filter":{"column":"mag","op":">=","value":4.5}}"#
+        );
+        assert_eq!(plan.view.filters().len(), 1);
+        assert!(plan.changed);
+        // Typed and pasted read to the same plan.
+        assert_eq!(
+            run(
+                r#"{"filter": {"column": "MAG", "op": ">=", "value": 4.5}}"#,
+                &catalog
+            )
+            .unwrap(),
+            plan
+        );
+        let words =
+            |text: &str, catalog: &Catalog| run(text, catalog).unwrap().steps[0].words.clone();
+        assert_eq!(
+            words(
+                r#"filter "launch date" between 1990-01-01 and 1999-12-31"#,
+                &catalog
+            ),
+            r#"Keep rows where "launch date" is between 1990-01-01 and 1999-12-31"#
+        );
+        assert_eq!(
+            words(r#"filter "launch date" < 1957-10-04"#, &catalog),
+            r#"Keep rows where "launch date" is before 1957-10-04"#
+        );
+        assert_eq!(
+            words("filter magType in mb, mww", &catalog),
+            "Keep rows where magType is any of mb, mww"
+        );
+        assert_eq!(
+            words(r#"filter place contains "of Alaska""#, &catalog),
+            r#"Keep rows where place contains "of Alaska""#
+        );
+        assert_eq!(
+            words("filter place is null", &catalog),
+            "Keep rows where place has no value"
+        );
+        // Text that reads as a number is text in a text column.
+        let plan = run("filter magType = 42", &catalog).unwrap();
+        assert_eq!(
+            plan.json(),
+            r#"{"filter":{"column":"magType","op":"=","value":"42"}}"#
+        );
+        assert_eq!(plan.steps[0].line, "filter magType = 42");
+        // A filter already in the view is an answer.
+        catalog.view = run("filter mag >= 4.5", &catalog).unwrap().view;
+        let again = run("filter mag >= 4.5", &catalog).unwrap_err();
+        assert_eq!(again.why, "That filter is in the view already.");
+        assert!(!again.error);
+        // Another on the same column is added: filters combine with AND.
+        assert_eq!(
+            run("filter mag < 6", &catalog)
+                .unwrap()
+                .view
+                .filters()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_filter_its_column_cant_take_is_refused_with_why() {
+        let catalog = catalog(false);
+        let refused = |text: &str| {
+            let refusal = run(text, &catalog).unwrap_err();
+            assert!(refusal.error, "{text}");
+            refusal.why
+        };
+        assert_eq!(
+            refused("filter mag contains 4"),
+            "contains doesn't apply to mag, which holds a number: it takes =, !=, >, >=, <, <=, in, between, is null, or not null."
+        );
+        assert_eq!(
+            refused("filter place > a"),
+            "> doesn't apply to place, which holds text: it takes =, !=, contains, starts, in, is null, or not null."
+        );
+        assert_eq!(
+            refused("filter mag > big"),
+            "big isn't a number, and mag holds numbers."
+        );
+        assert_eq!(
+            refused("filter mag in 1, two"),
+            "two isn't a number, and mag holds numbers."
+        );
+        assert_eq!(
+            refused(r#"filter "launch date" > yesterday"#),
+            r#"yesterday isn't a time "launch date" holds: write a date as 1990-01-31, a time as 1990-01-31T12:30."#
+        );
+        assert_eq!(
+            refused(r#"{"filter": {"column": "place", "op": "=", "value": 5}}"#),
+            "place holds text: write the value in quotes."
+        );
+        assert_eq!(
+            refused(r#"{"filter": {"column": "mag", "op": "between", "value": 5}}"#),
+            "Between takes two values."
+        );
+        assert_eq!(
+            refused(r#"{"filter": {"column": "place", "op": "=", "value": "a\u0000b"}}"#),
+            "A value can't hold a NUL character."
+        );
+        assert_eq!(
+            refused("filter magtyp = mb"),
+            "No column magtyp. Did you mean magType or mag?"
+        );
+        // A CSV still loading is neither filtered nor sorted: an answer.
+        let loading = run("filter mag > 1", &self::catalog(true)).unwrap_err();
+        assert_eq!(
+            loading.why,
+            "The file is still loading: sort and filter it once its rows are all in."
+        );
+        assert!(!loading.error);
+        assert_eq!(
+            run("sort mag", &self::catalog(true)).unwrap_err().why,
+            loading.why
+        );
+    }
+
+    #[test]
+    fn sort_takes_its_types_first_direction() {
+        let mut catalog = catalog(false);
+        let plan = run("sort mag", &catalog).unwrap();
+        assert_eq!(plan.view.sort(), Some((2, crate::filter::Direction::Desc)));
+        assert_eq!(plan.steps[0].line, "sort mag desc");
+        assert_eq!(plan.steps[0].words, "Sort by mag, largest first");
+        assert_eq!(
+            plan.json(),
+            r#"{"sort":{"column":"mag","direction":"desc"}}"#
+        );
+        assert_eq!(
+            run("sort place", &catalog).unwrap().steps[0].words,
+            "Sort by place, A to Z"
+        );
+        assert_eq!(
+            run(r#"sort "launch date" asc"#, &catalog).unwrap().steps[0].words,
+            r#"Sort by "launch date", oldest first"#
+        );
+        catalog.view = plan.view;
+        let again = run("sort mag desc", &catalog).unwrap_err();
+        assert_eq!(
+            again.why,
+            "The rows are sorted by mag, largest first, already."
+        );
+        assert!(!again.error);
+        // Another replaces it: one column at a time.
+        let other = run("sort id asc", &catalog).unwrap();
+        assert_eq!(other.view.sort(), Some((0, crate::filter::Direction::Asc)));
+        // A file too large to sort says why.
+        catalog.view = catalog
+            .view
+            .clone()
+            .unsortable("Sorting reads the whole file".into());
+        let refused = run("sort id", &catalog).unwrap_err();
+        assert_eq!(refused.why, "Sorting reads the whole file.");
+        assert!(!refused.error);
+    }
+
+    #[test]
+    fn clear_removes_and_counts() {
+        let mut catalog = catalog(false);
+        let answer = |text: &str, catalog: &Catalog| {
+            let refusal = run(text, catalog).unwrap_err();
+            assert!(!refusal.error, "{text}");
+            refusal.why
+        };
+        assert_eq!(answer("clear filters", &catalog), "No filter to clear.");
+        assert_eq!(answer("clear sort", &catalog), "The rows aren't sorted.");
+        assert_eq!(answer("clear all", &catalog), "No filter or sort to clear.");
+        assert_eq!(answer("clear filter mag", &catalog), "No filter is on mag.");
+        catalog.view = run(
+            r#"{"actions": [{"filter": {"column": "mag", "op": ">", "value": 1}}, {"filter": {"column": "mag", "op": "<", "value": 6}}, {"filter": {"column": "place", "op": "not null"}}, {"sort": {"column": "id"}}]}"#,
+            &catalog,
+        )
+        .unwrap()
+        .view;
+        let plan = run("clear filter MAG", &catalog).unwrap();
+        assert_eq!(plan.steps[0].words, "Clear 2 filters on mag");
+        assert_eq!(plan.steps[0].line, "clear filter mag");
+        assert_eq!(plan.view.filters().len(), 1);
+        assert_eq!(plan.json(), r#"{"clear":{"filter":"mag"}}"#);
+        let plan = run("clear filters", &catalog).unwrap();
+        assert_eq!(plan.steps[0].words, "Clear 3 filters");
+        assert!(plan.view.filters().is_empty() && plan.view.sort().is_some());
+        let plan = run("clear sort", &catalog).unwrap();
+        assert_eq!(plan.steps[0].words, "Clear the sort");
+        assert_eq!(plan.view.filters().len(), 3);
+        let plan = run("clear all", &catalog).unwrap();
+        assert_eq!(plan.steps[0].words, "Clear 3 filters and the sort");
+        assert!(plan.view.filters().is_empty() && plan.view.sort().is_none());
+        // Back to the file's own rows: the view is the opening's.
+        assert_eq!(plan.view.view(), self::catalog(false).view.view());
+    }
+
+    #[test]
+    fn find_takes_a_term_and_changes_no_view() {
+        let catalog = catalog(false);
+        let plan = run("find Alaska", &catalog).unwrap();
+        assert!(!plan.changed);
+        assert_eq!(plan.find.as_deref(), Some("Alaska"));
+        assert_eq!(plan.steps[0].words, "Find Alaska");
+        assert_eq!(plan.json(), r#"{"find":{"text":"Alaska"}}"#);
+        let plan = run(r#"{"actions": [{"filter": {"column": "mag", "op": ">", "value": 1}}, {"find": "of Alaska"}]}"#, &catalog).unwrap();
+        assert!(plan.changed);
+        assert_eq!(plan.find.as_deref(), Some("of Alaska"));
+        assert_eq!(plan.steps[1].line, r#"find "of Alaska""#);
+        assert_eq!(
+            run(r#"{"find": "  "}"#, &catalog).unwrap_err().why,
+            "find takes the text to look for: find starlink."
+        );
     }
 
     #[test]

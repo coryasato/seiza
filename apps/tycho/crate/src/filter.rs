@@ -86,8 +86,45 @@ impl Op {
         }
     }
 
+    /// The operator as the grammar reads it, case ignored: its spelling,
+    /// `==` for `=`, `<>` for `!=`, and `is not null` for `not null`.
+    pub fn read(text: &str) -> Option<Op> {
+        let lower = text.to_lowercase();
+        match lower.as_str() {
+            "==" => return Some(Op::Eq),
+            "<>" => return Some(Op::Ne),
+            "is not null" => return Some(Op::NotNull),
+            _ => {}
+        }
+        Op::ALL.into_iter().find(|op| op.as_str() == lower)
+    }
+
+    /// The operator in a filter's words, as the editor reads it: `is at
+    /// least`, and for a time `is on or after`.
+    pub fn words(self, kind: Kind) -> &'static str {
+        let time = kind == Kind::Time;
+        match self {
+            Op::Eq => "is",
+            Op::Ne => "is not",
+            Op::Gt if time => "is after",
+            Op::Gt => "is more than",
+            Op::Ge if time => "is on or after",
+            Op::Ge => "is at least",
+            Op::Lt if time => "is before",
+            Op::Lt => "is less than",
+            Op::Le if time => "is on or before",
+            Op::Le => "is at most",
+            Op::Contains => "contains",
+            Op::Starts => "starts with",
+            Op::In => "is any of",
+            Op::Between => "is between",
+            Op::IsNull => "has no value",
+            Op::NotNull => "has a value",
+        }
+    }
+
     /// How many values it takes.
-    fn arity(self) -> Arity {
+    pub fn arity(self) -> Arity {
         match self {
             Op::IsNull | Op::NotNull => Arity::None,
             Op::In => Arity::List,
@@ -118,7 +155,9 @@ impl fmt::Display for Op {
     }
 }
 
-enum Arity {
+/// How many values an operator takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Arity {
     None,
     One,
     Two,
@@ -144,6 +183,11 @@ impl Kind {
         }
     }
 
+    /// The operators a column of this kind takes, in the grammar's order.
+    pub fn ops(self) -> impl Iterator<Item = Op> {
+        Op::ALL.into_iter().filter(move |op| op.takes(self))
+    }
+
     /// A sort's direction in this kind's words: `oldest first`, `A to Z`.
     pub fn order_words(self, direction: Direction) -> &'static str {
         match (self, direction) {
@@ -159,7 +203,7 @@ impl Kind {
     }
 
     /// As a reason names it.
-    fn name(self) -> &'static str {
+    pub fn name(self) -> &'static str {
         match self {
             Kind::Number => "a number",
             Kind::Text => "text",
@@ -327,6 +371,40 @@ pub fn literal(column: &ColumnInfo, value: &Value) -> Result<String, FilterRefus
             Ok(string_literal(text))
         }
         _ => Err(wrong()),
+    }
+}
+
+/// `text`, a value as typed, read as `column`'s type: a number from its
+/// digits (`4.5`, `-3`, `1e3`, `.5`), `true` or `false` without regard to
+/// case, and any other text as text, which [`literal`] then checks (a time
+/// once it reads as ISO, a number that wasn't one refused).
+pub fn typed_value(column: &ColumnInfo, text: &str) -> Value {
+    match Kind::of(column) {
+        Kind::Number => number(text).map_or_else(|| Value::Text(text.to_owned()), Value::Number),
+        Kind::Boolean if text.eq_ignore_ascii_case("true") => Value::Bool(true),
+        Kind::Boolean if text.eq_ignore_ascii_case("false") => Value::Bool(false),
+        _ => Value::Text(text.to_owned()),
+    }
+}
+
+/// `text` as a number, as JSON reads one, or as a finite float Rust reads
+/// (`.5`, `+5`); none for anything else (`1,000`, `inf`).
+fn number(text: &str) -> Option<serde_json::Number> {
+    let text = text.trim();
+    if let Ok(number) = serde_json::from_str::<serde_json::Number>(text) {
+        return Some(number);
+    }
+    // `nan` and `inf` parse, and `from_f64` takes neither.
+    serde_json::Number::from_f64(text.parse().ok()?)
+}
+
+/// The direction a sort of `column` takes when none is written: the
+/// table's own first, a text column A to Z and every other kind the
+/// largest, latest, or true first (the tall table's `SortDirection::first`).
+pub fn first_direction(column: &ColumnInfo) -> Direction {
+    match column.tall_table_column().kind() {
+        ColumnKind::Text => Direction::Asc,
+        _ => Direction::Desc,
     }
 }
 
@@ -834,6 +912,63 @@ mod tests {
             assert_eq!(serde_json::from_str::<Op>(&json).unwrap(), op);
         }
         let _ = literal;
+    }
+
+    #[test]
+    fn typed_values_read_as_their_columns_type() {
+        let columns = columns();
+        let column = |name: &str| columns.iter().find(|c| c.name == name).unwrap();
+        let typed = |name: &str, text: &str| super::typed_value(column(name), text);
+        assert_eq!(
+            typed("satcat_no", "25544"),
+            number(serde_json::json!(25544))
+        );
+        assert_eq!(
+            typed("inclination_deg", "-0.5"),
+            number(serde_json::json!(-0.5))
+        );
+        assert_eq!(
+            typed("inclination_deg", ".5"),
+            number(serde_json::json!(0.5))
+        );
+        assert_eq!(
+            typed("inclination_deg", "1e3"),
+            number(serde_json::json!(1000.0))
+        );
+        // Not numbers: text, which `literal` refuses for a number column.
+        for text in ["1,000", "inf", "NaN", "90deg", ""] {
+            assert_eq!(
+                typed("inclination_deg", text),
+                Value::Text(text.into()),
+                "{text}"
+            );
+        }
+        assert_eq!(typed("crewed", "TRUE"), Value::Bool(true));
+        assert_eq!(typed("crewed", "false"), Value::Bool(false));
+        assert_eq!(typed("crewed", "yes"), Value::Text("yes".into()));
+        // Text stays text, digits too.
+        assert_eq!(typed("name", "42"), Value::Text("42".into()));
+        assert_eq!(
+            typed("launch_date", "1990-01-01"),
+            Value::Text("1990-01-01".into())
+        );
+        assert_eq!(Op::read(">="), Some(Op::Ge));
+        assert_eq!(Op::read("=="), Some(Op::Eq));
+        assert_eq!(Op::read("<>"), Some(Op::Ne));
+        assert_eq!(Op::read("Contains"), Some(Op::Contains));
+        assert_eq!(Op::read("IS NOT NULL"), Some(Op::NotNull));
+        assert_eq!(Op::read("=>"), None);
+        assert_eq!(Op::read("is"), None);
+        assert_eq!(
+            Kind::Boolean.ops().collect::<Vec<_>>(),
+            [Op::Eq, Op::Ne, Op::IsNull, Op::NotNull]
+        );
+        assert_eq!(super::first_direction(column("name")), Direction::Asc);
+        assert_eq!(
+            super::first_direction(column("launch_date")),
+            Direction::Desc
+        );
+        assert_eq!(super::first_direction(column("crewed")), Direction::Desc);
     }
 
     #[test]

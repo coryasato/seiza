@@ -280,9 +280,10 @@ pub struct Controller {
     filters: Vec<Filter>,
     /// The file's column, and which way.
     sort: Option<(usize, Direction)>,
-    /// Whether the table may sort this file: a header draws its arrow.
-    /// Not the view's: a file's own (`crate::table::SORT_LIMIT`).
-    sortable: bool,
+    /// Why the table may not sort this file, if it may not: no header
+    /// draws its arrow. Not the view's: a file's own
+    /// (`crate::table::SORT_LIMIT`).
+    unsortable: Option<String>,
 }
 
 impl Controller {
@@ -299,7 +300,7 @@ impl Controller {
             pinned: 0,
             filters: Vec::new(),
             sort: None,
-            sortable: true,
+            unsortable: None,
         }
     }
 
@@ -401,7 +402,7 @@ impl Controller {
             pinned: view.pinned,
             filters: view.filters.clone(),
             sort,
-            sortable: true,
+            unsortable: None,
         })
     }
 
@@ -508,7 +509,7 @@ impl Controller {
     pub fn restore(&mut self, view: &ViewState) -> Result<(), Refused> {
         let mut restored = Self::new(view, &self.file)?;
         restored.source.rows = self.source.rows;
-        restored.sortable = self.sortable;
+        restored.unsortable.clone_from(&self.unsortable);
         *self = restored;
         Ok(())
     }
@@ -555,7 +556,7 @@ impl Controller {
                     column
                         .icon(crate::table::type_icon(info))
                         .hidden(self.hidden[index])
-                        .sortable(self.sortable)
+                        .sortable(self.unsortable.is_none())
                 })
                 .collect(),
             order: self.order.clone(),
@@ -676,12 +677,17 @@ impl Controller {
 
     /// Whether the table may sort this file.
     pub fn is_sortable(&self) -> bool {
-        self.sortable
+        self.unsortable.is_none()
     }
 
-    /// The file can't be sorted: no header draws an arrow.
-    pub fn unsortable(mut self) -> Self {
-        self.sortable = false;
+    /// Why the table may not sort this file, if it may not.
+    pub fn sort_refusal(&self) -> Option<&str> {
+        self.unsortable.as_deref()
+    }
+
+    /// The file can't be sorted, and `why`: no header draws an arrow.
+    pub fn unsortable(mut self, why: String) -> Self {
+        self.unsortable = Some(why);
         self
     }
 

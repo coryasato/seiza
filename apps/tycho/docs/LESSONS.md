@@ -453,3 +453,12 @@ No results note: Tycho records no measurements; the timings that chose each way 
 - **The count was wrong in a way only DuckDB could show:** find's count summed each row's matches and never aggregated, and the Rust tests, which pin the SQL's text, passed it. Running the view's SQL on native DuckDB over GCAT against a plain query's answer caught it at once: SQL a test pins as text is checked as text only.
 - **DuckDB's memory doesn't come back after a `DROP TABLE`:** 2 MiB before the 1 GB file's indexes, 163 MiB after they were all dropped. A budget read from `duckdb_memory()` counts what's freed as held.
 - **A test that holds a query back can hold the wrong one:** the sort test held every `CREATE TABLE`, the filter's own included, and hung waiting for it. A held answer is keyed by the query the test means, and armed after the setup that sends others.
+
+## M15 part B: `filter`, `sort`, `clear`, and `find` in the command bar (2026-11-26)
+
+No results note: Tycho records no measurements.
+
+**Surprises:**
+- **The bar can't say how many rows a filter kept:** it closes on a step that ran, and the count is the index's, which comes after. The count went to the log's entry instead, settled when the index answers, so the reply a step is given can change after it's written.
+- **A sort the source refuses would have been logged as run:** `sync_rows` gives the controller back the table's sort and says why in the frame's line, and `run` then logged the step with a view that no longer held it, which no command could reach until `sort` was one. A refusal that comes inside the run now gives the whole action back.
+

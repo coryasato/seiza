@@ -46,6 +46,22 @@ pub struct Parquet {
 /// 21 s; `docs/DECISIONS.md`, "Table and paging", 2026-11-26).
 pub const SORT_LIMIT: u64 = 256 << 20;
 
+/// Why a Parquet file of `bytes` isn't sorted: none up to [`SORT_LIMIT`].
+pub fn parquet_sort_refusal(bytes: u64) -> Option<String> {
+    use crate::dataset::format_bytes;
+    (bytes > SORT_LIMIT).then(|| {
+        format!(
+            "Sorting reads the whole file into memory, and Tycho sorts Parquet files up to {}: this one is {}",
+            format_bytes(SORT_LIMIT),
+            format_bytes(bytes)
+        )
+    })
+}
+
+/// Why a CSV still loading is neither filtered nor sorted (`docs/DECISIONS.md`,
+/// "Table and paging", 2026-11-26).
+pub const LOADING: &str = "The file is still loading: sort and filter it once its rows are all in";
+
 /// The in-memory database the view's indexes and copies are written to,
 /// attached by the lockdown.
 pub const VIEW_DATABASE: &str = "tycho_view";
@@ -79,9 +95,7 @@ impl RowSource for Source {
 
     fn busy(&self) -> Option<String> {
         match self {
-            Self::Csv(chunks) if chunks.loading() => Some(
-                "The file is still loading: sort and filter it once its rows are all in".into(),
-            ),
+            Self::Csv(chunks) if chunks.loading() => Some(LOADING.into()),
             _ => None,
         }
     }
@@ -89,16 +103,7 @@ impl RowSource for Source {
     fn refuse_sort(&self, rows: u64) -> Option<String> {
         use crate::dataset::format_bytes;
         match self {
-            Self::Parquet(parquet) => {
-                let bytes = parquet.bytes?;
-                (bytes > SORT_LIMIT).then(|| {
-                    format!(
-                        "Sorting reads the whole file into memory, and Tycho sorts Parquet files up to {}: this one is {}",
-                        format_bytes(SORT_LIMIT),
-                        format_bytes(bytes)
-                    )
-                })
-            }
+            Self::Parquet(parquet) => parquet_sort_refusal(parquet.bytes?),
             // The copy takes about the rows' share of what the file's
             // tables take.
             Self::Csv(chunks) => {

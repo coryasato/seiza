@@ -384,7 +384,28 @@ struct Filtering {
     handle: seiza_duckdb::view::FilterHandle<seiza_duckdb::view::EngineRunner>,
     /// The controller's filters it's for.
     filters: Vec<crate::filter::Filter>,
+    /// The log's entries whose rows it counts, and how each asked.
+    entries: Waiting,
     task: Task<()>,
+}
+
+/// Log entries waiting for a filter's index, each with how it asked.
+#[cfg(target_family = "wasm")]
+type Waiting = Vec<(u32, Asked)>;
+
+/// How a log entry came to wait for a filter's index: what becomes of it
+/// if the index can't be built.
+#[cfg(target_family = "wasm")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Asked {
+    /// Its step changed the filters: it fails with the index.
+    Own,
+    /// A step after it (a pin, a drag): it keeps its step, with the rows
+    /// in effect.
+    Later,
+    /// The way back or `undo` gave it back: counted if the index is built,
+    /// left as it was if not.
+    Restored,
 }
 
 #[cfg(target_family = "wasm")]
@@ -451,6 +472,12 @@ pub struct Workbench {
     /// A filter's index being built, for the controller's filters then.
     #[cfg(target_family = "wasm")]
     filtering: Option<Filtering>,
+    /// The filters of the last index stopped before it was built, and its
+    /// entries: an index built again for the same filters (an action
+    /// refused and given back) counts them after all.
+    #[cfg(target_family = "wasm")]
+    uncounted: Option<(Vec<crate::filter::Filter>, Waiting)>,
+
     /// The workbench's root, where focus goes back to when the focused
     /// input or table stops rendering (see [`Workbench::new`]).
     focus_handle: FocusHandle,
@@ -572,6 +599,9 @@ impl Workbench {
             rows_applied: Vec::new(),
             #[cfg(target_family = "wasm")]
             filtering: None,
+            #[cfg(target_family = "wasm")]
+            uncounted: None,
+
             focus_handle: cx.focus_handle(),
             shown_frame: None,
             columns: Rc::from([]),
@@ -850,6 +880,7 @@ impl Workbench {
         if let Some(filtering) = self.filtering.take() {
             filtering.stop();
         }
+        self.uncounted = None;
         self.log.clear();
         self.answer = None;
         self.drawn.clear();
@@ -921,11 +952,10 @@ impl Workbench {
                                 &summary.columns,
                             );
                             // A file too large to sort draws no arrow.
-                            if summary
-                                .bytes
-                                .is_some_and(|bytes| bytes > crate::table::SORT_LIMIT)
+                            if let Some(why) =
+                                summary.bytes.and_then(crate::table::parquet_sort_refusal)
                             {
-                                view = view.unsortable();
+                                view = view.unsortable(why);
                             }
                             this.mark_shown = Some(marks);
                             this.read_counter = read_counter;
@@ -2299,8 +2329,17 @@ impl Workbench {
         };
         let before = (**view).clone();
         if view.take(event, &order, pinned) {
+            let had = self.log.current_id();
             self.log
                 .table_changed(&before, view, &self.drawn, crate::log::now());
+            // Its rows as the rows in view are: a filter's, or counting.
+            if let Some(id) = self.log.current_id()
+                && Some(id) != had
+            {
+                let reply = self.rows_reply(cx);
+                self.log.settle(id, reply);
+                self.count_current(Asked::Later);
+            }
             self.publish_view();
             cx.notify();
         }
@@ -2453,6 +2492,11 @@ impl Workbench {
         let reply = if plan.changed {
             let before = (**view).clone();
             let columns = !view.same_columns(&plan.view);
+            let asked = if view.same_rows(&plan.view) {
+                Asked::Later
+            } else {
+                Asked::Own
+            };
             **view = plan.view.clone();
             let calls = view.calls();
             // After any pin Tycho makes, the table's count into the view.
@@ -2478,29 +2522,65 @@ impl Workbench {
                 self.refused(lines, words, &refusal, origin, at, cx);
                 return;
             }
-            // The rows and the sort first: what they refuse is given back
-            // and said, so the log keeps the view in effect.
-            self.sync_rows(cx);
+            // The rows and the sort first: what they refuse at once gives
+            // the whole action back, all or none, and is said in the bar.
+            let rows_notice = self.notice.clone();
+            if !self.sync_rows(cx) {
+                let why = match self.notice.take() {
+                    Some(notice) if notice.about == About::Rows => notice.text.to_string(),
+                    other => {
+                        self.notice = other;
+                        "Couldn't filter or sort.".into()
+                    }
+                };
+                self.notice = rows_notice;
+                let Load::Open { view, .. } = &mut self.load else {
+                    return;
+                };
+                **view = before;
+                let calls = view.calls();
+                let pinned = table.update(cx, |table, cx| {
+                    calls.arrange(columns, table, cx);
+                    table.pinned()
+                });
+                view.set_pinned(pinned);
+                self.sync_rows(cx);
+                self.publish_view();
+                let refusal = crate::command::Refusal {
+                    step: None,
+                    written: lines.clone(),
+                    why,
+                    error: true,
+                };
+                self.refused(lines, words, &refusal, origin, at, cx);
+                return;
+            }
+            let reply = self.rows_reply(cx);
             let Load::Open { view, .. } = &self.load else {
                 return;
             };
-            let reply = Reply::of(view);
             self.log
                 .step(Some(lines), words, reply.clone(), origin, at, view.view());
+            self.count_current(asked);
             self.publish_view();
             reply
         } else {
             // A jump alone, or steps that undo each other (`pin x`, then
             // `unpin x`): no state to keep.
-            let reply = Reply::Answer(match plan.jump {
-                Some(row) => format!("Row {} is in view", format_count(row + 1)),
-                None => "The view is as it was.".into(),
+            let reply = Reply::Answer(match (plan.jump, &plan.find) {
+                (Some(row), _) => format!("Row {} is in view", format_count(row + 1)),
+                (None, Some(_)) => "Its matches are highlighted in the table.".into(),
+                (None, None) => "The view is as it was.".into(),
             });
             self.log.note(Some(lines), words, reply.clone(), origin, at);
             reply
         };
         if let Some(row) = plan.jump {
             table.update(cx, |table, cx| table.jump_to(row, cx));
+        }
+        // Find's term highlights its matches; the bar it opens is find's.
+        if let Some(term) = plan.find {
+            table.update(cx, |table, cx| table.set_find(Some(term.into()), cx));
         }
         let focus = table.read(cx).focus_handle().clone();
         window.focus(&focus, cx);
@@ -2554,7 +2634,17 @@ impl Workbench {
             .map_or(&self.rows_applied, |filtering| &filtering.filters);
         let mut applied = true;
         if wanted != *target {
-            if let Some(filtering) = self.filtering.take() {
+            if let Some(mut filtering) = self.filtering.take() {
+                // Its entries aren't counted, unless an index for the same
+                // filters is built again (an action refused, given back).
+                let entries = std::mem::take(&mut filtering.entries);
+                for &(id, asked) in &entries {
+                    if asked != Asked::Restored {
+                        self.log
+                            .settle(id, crate::log::Reply::Answer(NOT_COUNTED.into()));
+                    }
+                }
+                self.uncounted = Some((filtering.filters.clone(), entries));
                 filtering.stop();
             }
             if wanted == self.rows_applied {
@@ -2571,6 +2661,7 @@ impl Workbench {
                     resort(table, keys, sortable, cx)
                 });
                 self.rows_applied.clear();
+                self.clear_rows_notice();
                 let sorted = self.sort_refused(refused, cx);
                 cx.notify();
                 return sorted;
@@ -2603,9 +2694,21 @@ impl Workbench {
                                 this.filtered(&table, filters, result, cx);
                             });
                         });
+                        let entries = match self.uncounted.take() {
+                            Some((filters, entries)) if filters == wanted => {
+                                for &(id, asked) in &entries {
+                                    if asked != Asked::Restored {
+                                        self.log.settle(id, crate::log::Reply::Counting);
+                                    }
+                                }
+                                entries
+                            }
+                            _ => Vec::new(),
+                        };
                         self.filtering = Some(Filtering {
                             handle,
                             filters: wanted,
+                            entries,
                             task,
                         });
                         // Its sort goes with it, once it's built.
@@ -2650,25 +2753,45 @@ impl Workbench {
         if shown != table || !current {
             return;
         }
-        self.filtering = None;
+        let entries = self
+            .filtering
+            .take()
+            .map(|filtering| filtering.entries)
+            .unwrap_or_default();
         match result {
             Ok(Some(filtered)) => {
                 let rows = filtered.rows();
                 let (keys, sortable) = (view.sort_keys(), view.is_sortable());
+                let reply = crate::log::Reply::shown(view, Some(rows));
                 let refused = table.update(cx, |table, cx| {
                     table.delegate_mut().view_mut().set_filter(Some(filtered));
                     table.replace_rows(rows, seiza_tall_table::ViewAt::Top, cx);
                     resort(table, keys, sortable, cx)
                 });
                 self.rows_applied = filters;
-                if self
-                    .notice
-                    .as_ref()
-                    .is_some_and(|notice| notice.about == About::Rows)
-                {
-                    self.notice = None;
+                self.clear_rows_notice();
+                if !self.sort_refused(refused, cx) {
+                    // The sort the steps asked for can't be had over these
+                    // rows: they fail as a filter that couldn't be built.
+                    let why = self
+                        .notice
+                        .as_ref()
+                        .map_or_else(|| "Couldn't sort.".into(), |notice| notice.text.to_string());
+                    self.fail_entries(&entries, &why, cx);
+                    cx.notify();
+                    return;
                 }
-                self.sort_refused(refused, cx);
+                for (id, _) in entries {
+                    self.log.settle(id, reply.clone());
+                }
+                // A filter that leaves no row is applied, and said.
+                if rows == 0 && self.notice.is_none() {
+                    self.notice = Some(Notice {
+                        text: "No row matches the filters: undo, or clear one.".into(),
+                        error: false,
+                        about: About::Rows,
+                    });
+                }
             }
             Ok(None) => {}
             Err(why) => {
@@ -2678,8 +2801,10 @@ impl Workbench {
                 let (keys, sortable) = (view.sort_keys(), view.is_sortable());
                 let refused = table.update(cx, |table, cx| resort(table, keys, sortable, cx));
                 self.sort_refused(refused, cx);
+                let why = format!("Couldn't filter: {}.", why.trim_end_matches('.'));
+                self.fail_entries(&entries, &why, cx);
                 self.publish_view();
-                self.rows_notice(format!("Couldn't filter: {}.", why.trim_end_matches('.')));
+                self.rows_notice(why);
             }
         }
         cx.notify();
@@ -2730,10 +2855,11 @@ impl Workbench {
         }
         match event {
             OrderEvent::Ready { .. } => {
+                // A filter that left no row is still said.
                 if self
                     .notice
                     .as_ref()
-                    .is_some_and(|notice| notice.about == About::Rows)
+                    .is_some_and(|notice| notice.about == About::Rows && notice.error)
                 {
                     self.notice = None;
                 }
@@ -2744,6 +2870,88 @@ impl Workbench {
             }
         }
         cx.notify();
+    }
+
+    /// The frame's line about the rows (a filter or a sort refused, a
+    /// filter that left no row) goes, once one works.
+    #[cfg(target_family = "wasm")]
+    fn clear_rows_notice(&mut self) {
+        if self
+            .notice
+            .as_ref()
+            .is_some_and(|notice| notice.about == About::Rows)
+        {
+            self.notice = None;
+        }
+    }
+
+    /// The rows in view, if a filter chooses them; none for every row.
+    #[cfg(target_family = "wasm")]
+    fn shown_rows(&self, cx: &App) -> Option<u64> {
+        let Load::Open { table, .. } = &self.load else {
+            return None;
+        };
+        (!self.rows_applied.is_empty()).then(|| table.read(cx).rows())
+    }
+
+    /// The reply to a step that left the view as it is: its rows, or
+    /// counting them while a filter's index is built.
+    #[cfg(target_family = "wasm")]
+    fn rows_reply(&self, cx: &App) -> crate::log::Reply {
+        let Load::Open { view, .. } = &self.load else {
+            return crate::log::Reply::Counting;
+        };
+        if self.filtering.is_some() {
+            crate::log::Reply::Counting
+        } else {
+            crate::log::Reply::shown(view, self.shown_rows(cx))
+        }
+    }
+
+    /// The current log entry waits for the filter being built to count its
+    /// rows, having asked as `asked`.
+    #[cfg(target_family = "wasm")]
+    fn count_current(&mut self, asked: Asked) {
+        if let (Some(filtering), Some(id)) = (&mut self.filtering, self.log.current_id())
+            && !filtering.entries.iter().any(|&(entry, _)| entry == id)
+        {
+            filtering.entries.push((id, asked));
+        }
+    }
+
+    /// The entries waiting for a filter that couldn't be had, `why` said:
+    /// each whose own step changed the filters is a refusal; each after it
+    /// keeps its step over the rows and the sort in effect; one given back
+    /// stays as it was. If the current entry was refused, the log goes
+    /// back to the one it was taken from, and so do the controller and the
+    /// table, so the log describes what's shown.
+    #[cfg(target_family = "wasm")]
+    fn fail_entries(&mut self, entries: &[(u32, Asked)], why: &str, cx: &mut Context<Self>) {
+        let own: Vec<u32> = entries
+            .iter()
+            .filter(|&&(_, asked)| asked == Asked::Own)
+            .map(|&(id, _)| id)
+            .collect();
+        if own.is_empty() {
+            return;
+        }
+        let was = self.log.current_id();
+        self.log.failed(&own, why);
+        let reply = self.rows_reply(cx);
+        if let Load::Open { view, .. } = &self.load {
+            let state = view.view();
+            for &(id, asked) in entries {
+                if asked == Asked::Later {
+                    self.log
+                        .rebase(id, &state.filters, state.sort.as_ref(), reply.clone());
+                }
+            }
+        }
+        if self.log.current_id() != was
+            && let Some(state) = self.log.current().and_then(|entry| entry.view.clone())
+        {
+            let _ = self.give_back(&state, cx);
+        }
     }
 
     #[cfg(target_family = "wasm")]
@@ -2763,6 +2971,7 @@ impl Workbench {
             Some(target) => match self.restore(&target.view, window, cx) {
                 Ok(true) => {
                     self.log.go(&target);
+                    self.count_current(Asked::Restored);
                     let text = format!("Back to: {}", target.words);
                     self.say("undone", text, Vec::new(), false, cx);
                 }
@@ -2784,6 +2993,7 @@ impl Workbench {
         match self.restore(&target.view, window, cx) {
             Ok(true) => {
                 self.log.go(&target);
+                self.count_current(Asked::Restored);
                 // A refused way back's line goes with the next that works.
                 if self
                     .notice
@@ -2819,6 +3029,18 @@ impl Workbench {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Result<bool, String> {
+        let applied = self.give_back(state, cx)?;
+        if let Load::Open { table, .. } = &self.load {
+            let focus = table.read(cx).focus_handle().clone();
+            window.focus(&focus, cx);
+        }
+        Ok(applied)
+    }
+
+    /// Gives the controller, then the table, `state`: whether it could, as
+    /// [`Workbench::restore`] says, focus left where it is.
+    #[cfg(target_family = "wasm")]
+    fn give_back(&mut self, state: &ViewState, cx: &mut Context<Self>) -> Result<bool, String> {
         let Load::Open { table, view, .. } = &mut self.load else {
             return Ok(false);
         };
@@ -2836,8 +3058,6 @@ impl Workbench {
         view.set_pinned(pinned);
         let applied = self.sync_rows(cx);
         self.publish_view();
-        let focus = table.read(cx).focus_handle().clone();
-        window.focus(&focus, cx);
         Ok(applied)
     }
 
@@ -2954,6 +3174,11 @@ fn drawn_widths(table: &Entity<RowTable>, cx: &App) -> Vec<f32> {
         .map(|index| table.column_width(index).map_or(0.0, f32::from))
         .collect()
 }
+
+/// The reply of a step whose filter a later step replaced before its
+/// index was built.
+#[cfg(target_family = "wasm")]
+const NOT_COUNTED: &str = "Not counted: a later step changed the filters first.";
 
 /// A line kept in the log as written, cut at 200 characters (a pasted
 /// text can be long).

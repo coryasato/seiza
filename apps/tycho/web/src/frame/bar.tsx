@@ -54,7 +54,7 @@ function openRows(): Entry[] {
   ];
 }
 
-const VERB_ICONS: Record<string, IconName> = { pin: 'pin', unpin: 'pin', jump: 'rows', undo: 'restore' };
+const VERB_ICONS: Record<string, IconName> = { pin: 'pin', unpin: 'pin', jump: 'rows', undo: 'restore', find: 'search', clear: 'x' };
 
 const Kbd = ({ children }: { children: ReactNode }) => <kbd className="kbd">{children}</kbd>;
 
@@ -91,6 +91,9 @@ function Slots({ slots }: { slots: Completion['slots'] }) {
 
 /** The list's heading for what's being completed. */
 function groupLabel(completion: Completion, text: string): string {
+  const parts: Partial<Record<Completion['part'], string>> = { operator: 'Operators', value: 'Values', direction: 'Directions', clear: 'Clear' };
+  const named = parts[completion.part];
+  if (named) return named;
   if (completion.part !== 'column') return 'Commands';
   const typed = text.slice(completion.from, completion.to).replace(/^"/, '').trim();
   return typed ? `Columns matching "${typed}"` : 'Columns';
@@ -333,12 +336,13 @@ export function CommandBox({ place, state }: { place: Place; state: FrameState }
     setShown(ask);
   };
 
-  /** An item put in place of the part being typed; a verb takes a space
-   *  after it, ready for its part. */
+  /** An item put in place of the part being typed; one a part follows (a
+   *  verb, a filter's column or operator) takes a space after it, ready
+   *  for that part. */
   const complete = (item: CompletionItem) => {
     if (!completion) return;
     const tail = text.slice(completion.to);
-    const insert = item.text + (completion.part === 'verb' && item.label !== 'undo' && !tail.startsWith(' ') ? ' ' : '');
+    const insert = item.text + (item.space && !tail.startsWith(' ') ? ' ' : '');
     const next = text.slice(0, completion.from) + insert + tail;
     input.current?.focus();
     // The same text again renders nothing, so the caret is put now.
