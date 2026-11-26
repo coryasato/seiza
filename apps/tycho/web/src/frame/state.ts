@@ -153,6 +153,24 @@ export interface Tools {
   unsortable: string | null;
 }
 
+/** Find's bar (`crate/src/find.rs`, `FindFacts`). */
+export interface FindState {
+  /** The term set; null with no find. */
+  term: string | null;
+  /** "3 of 18", "18 matches", "Counting…", "No matches"; null with no
+   *  term. */
+  text: string | null;
+  /** `text` is a fault. */
+  error: boolean;
+  /** A step is out. */
+  stepping: boolean;
+  /** A step has landed on its cell since the term was set: Escape gives
+   *  the table focus there. */
+  landed: boolean;
+  /** Counts the bar's `find` commands: each opens find's bar on its term. */
+  opens: number;
+}
+
 export interface FrameState {
   engine: { state: 'loading' | 'ready' | 'failed' | 'stopped'; text: string };
   /** The file whose rows are shown; null on the first screen. */
@@ -176,6 +194,7 @@ export interface FrameState {
   columns: ColumnFacts[];
   /** The view's filters and sort, and the rows in view. */
   tools: Tools;
+  find: FindState;
 }
 
 /** What `App.complete` returns (`crate/src/command/complete.rs`). */
@@ -228,6 +247,7 @@ export const INITIAL: FrameState = {
   active: null,
   columns: [],
   tools: { filters: [], sort: null, shown: null, counting: false, unsortable: null },
+  find: { term: null, text: null, error: false, stepping: false, landed: false, opens: 0 },
 };
 
 let state = INITIAL;

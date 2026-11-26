@@ -5,8 +5,9 @@
  * outlined with nothing applied (Toolbar 0); a chip a kind with something
  * ("Filters · 5", "launch_date ↓" with its remove, "3 hidden"; Toolbar 1,
  * Option 1); the rows in view beside them. At a phone, the icons with
- * their counts (Option 3 at a phone, Toolbar 0 at a phone). Find's place
- * at its right comes with find's bar.
+ * their counts (Option 3 at a phone, Toolbar 0 at a phone). Find at its
+ * right (`find.tsx`): while it's open the chips step down to those icons
+ * at a wide page (Find inline), and at a phone it takes a second row.
  *
  * What each control opens: the filters' chip their list (Option 1, its
  * list open), each filter read in words and removed alone, and "Add a
@@ -25,7 +26,8 @@ import { Popover } from '@base-ui/react/popover';
 import { Select } from '@base-ui/react/select';
 import { createContext, type ReactNode, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ShowHideList, SHOW_HIDE_POPUP } from './columns.tsx';
-import { act, appNow, canvasKeys, setLogOpen, setSheetTab } from './core.ts';
+import { act, appNow, canvasKeys, closeFind, getFind, setLogOpen, setSheetTab, subscribeFind } from './core.ts';
+import { FindBar, FindButton, useFind } from './find.tsx';
 import { Badge, Icon, type IconName } from './icons.tsx';
 import { usePhone } from './log.tsx';
 import type { ColumnFacts, Completion, FilterFacts, FrameState } from './state.ts';
@@ -142,10 +144,11 @@ const holds = (control: Control, current: Open | null) =>
   !!current && (control.kind === 'filter' ? current.kind === 'filter' || current.kind === 'filters' : current.kind === control.kind);
 
 /** A wide page's control: its button, and the sort's remove beside it in
- *  one chip. Its popover keeps drawing what it held while its closing
- *  plays (Base UI drops the popup once it has), so it never fades out
- *  empty. */
-function Chip({ control, state }: { control: Control; state: FrameState }) {
+ *  one chip; `compact` while find is open, its icon and count alone (Find
+ *  inline), the same popover on it. Its popover keeps drawing what it held
+ *  while its closing plays (Base UI drops the popup once it has), so it
+ *  never fades out empty. */
+function Chip({ control, state, compact }: { control: Control; state: FrameState; compact: boolean }) {
   const current = useOpen();
   const shown = holds(control, current);
   const acted = useRef(false);
@@ -162,7 +165,7 @@ function Chip({ control, state }: { control: Control; state: FrameState }) {
     acted.current = byAction;
     setOpen(null);
   };
-  const removable = control.on && control.kind === 'sort';
+  const removable = control.on && control.kind === 'sort' && !compact;
   return (
     <Popover.Root
       open={shown}
@@ -179,11 +182,11 @@ function Chip({ control, state }: { control: Control; state: FrameState }) {
         <Popover.Trigger
           data-tool={control.kind}
           aria-label={control.aria}
-          className={`${CHIP} h-full ${removable ? 'pr-1 pl-2' : control.chevron ? 'pr-1.5 pl-2' : 'pr-[9px] pl-2'}`}
+          className={`${CHIP} h-full ${compact ? 'px-2 tabular-nums' : removable ? 'pr-1 pl-2' : control.chevron ? 'pr-1.5 pl-2' : 'pr-[9px] pl-2'}`}
         >
           <Icon name={control.icon} size={13} />
-          <span>{control.label}</span>
-          {control.chevron && <Icon name="chevd" size={11} />}
+          {compact ? control.short && <span>{control.short}</span> : <span>{control.label}</span>}
+          {control.chevron && !compact && <Icon name="chevd" size={11} />}
         </Popover.Trigger>
         {removable && (
           <button
@@ -201,6 +204,8 @@ function Chip({ control, state }: { control: Control; state: FrameState }) {
           <Popover.Popup
             data-menu
             finalFocus={() => {
+              // Find opened over it: focus is find's.
+              if (getFind()) return false;
               if (acted.current) return canvasKeys();
               const back = held?.kind === 'filter' ? held.back : null;
               return back?.isConnected ? back : true;
@@ -672,22 +677,36 @@ function IconControl({ control }: { control: Control }) {
 export function Toolbar({ state }: { state: FrameState }) {
   const phone = usePhone();
   const current = useOpen();
-  // A file closed or replaced: what was open goes with it.
+  const finding = useFind() !== null;
+  // A file closed or replaced: what was open goes with it, find too.
   const opening = state.log.entries[0]?.id ?? null;
-  useEffect(() => setOpen(null), [opening]);
+  useEffect(() => {
+    setOpen(null);
+    closeFind('none');
+  }, [opening]);
+  // Cmd/Ctrl+F with a popover or a sheet open: it closes, and find takes
+  // focus.
+  useEffect(() => subscribeFind(() => getFind() && setOpen(null)), []);
   if (!state.file) return null;
   const all = controls(state);
   return (
-    <div id="toolbar" role="toolbar" aria-label="The view" className="flex h-10 items-center justify-between gap-2 border-b border-border bg-background pr-2 pl-2.5 [grid-area:tools]">
-      <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-        {phone
-          ? all.map((control) => <IconControl key={control.kind} control={control} />)
-          : all.map((control) => (
-              <Chip key={control.kind} control={control} state={state} />
-            ))}
-        <RowCount state={state} phone={phone} />
+    <div className="flex flex-col border-b border-border bg-background [grid-area:tools]">
+      <div id="toolbar" role="toolbar" aria-label="The view" className="flex h-10 items-center justify-between gap-2 pr-2 pl-2.5">
+        <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+          {phone
+            ? all.map((control) => <IconControl key={control.kind} control={control} />)
+            : all.map((control) => <Chip key={control.kind} control={control} state={state} compact={finding} />)}
+          <RowCount state={state} phone={phone} />
+        </div>
+        <div className="flex shrink-0 items-center">{finding ? !phone && <FindBar state={state} grow={false} /> : <FindButton />}</div>
+        {phone && current && current.kind !== 'columns' && <Sheet key={current.seq} current={current} state={state} />}
       </div>
-      {phone && current && current.kind !== 'columns' && <Sheet key={current.seq} current={current} state={state} />}
+      {/* At a phone, find's own row: the first is unchanged. */}
+      {finding && phone && (
+        <div className="flex h-9 items-center pr-1.5 pb-2 pl-2.5">
+          <FindBar state={state} grow />
+        </div>
+      )}
     </div>
   );
 }

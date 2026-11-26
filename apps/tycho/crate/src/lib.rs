@@ -7,6 +7,7 @@ pub mod engine;
 #[cfg(target_family = "wasm")]
 mod files;
 pub mod filter;
+pub mod find;
 pub mod frame;
 pub mod jump;
 pub mod limits;

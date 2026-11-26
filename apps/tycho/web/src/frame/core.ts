@@ -27,6 +27,12 @@ export interface App {
   filter_line(column: number, op: string, values: string[]): string | null;
   /** The log's way back on an entry. */
   back_to(entry: number): void;
+  /** Find's text as typed: the table's highlight and the count; empty
+   *  (find closed) is no find. */
+  find(term: string): void;
+  /** Find's Enter and Next match (`backward`: Shift+Enter, Previous
+   *  match). */
+  find_step(backward: boolean): void;
   /** A row's values (0-based) for the Row tab; null with no file open, no
    *  such row, or a read that failed. */
   row(row: number): Promise<RowValues | null>;
@@ -422,6 +428,92 @@ export function backTo(entry: number): void {
   call((app) => app.back_to(entry));
 }
 
+/** Find's bar (`find.tsx` draws it, in the toolbar): opened by Cmd/Ctrl+F
+ *  once a file's rows are shown, wherever focus is, or by the bar's
+ *  `find`; closed by Escape or its Close, focus back where it was opened,
+ *  or on the table at the found cell once a step has landed
+ *  (`docs/DECISIONS.md`, "Scope", 2026-11-21, "Ctrl+F is Tycho's find on
+ *  the first press"). */
+let findOpen: { seq: number; term: string } | null = null;
+let findOpens = 0;
+let findReturn: HTMLElement | null = null;
+const findListeners = new Set<() => void>();
+export const getFind = (): { seq: number; term: string } | null => findOpen;
+export function subscribeFind(listener: () => void): () => void {
+  findListeners.add(listener);
+  return () => findListeners.delete(listener);
+}
+/** Find's input, once drawn. */
+export const findInput = (): HTMLInputElement | null => document.querySelector('#find input');
+/** Opens find's bar on `term` (the bar's `find`), or empty; open already,
+ *  its input takes focus, its text selected (and `term` put in it). */
+export function openFind(term = ''): void {
+  if (findOpen && term === '') {
+    const input = findInput();
+    input?.focus({ preventScroll: true });
+    input?.select();
+    return;
+  }
+  if (!findOpen) {
+    const active = document.activeElement;
+    findReturn = active instanceof HTMLElement && active !== document.body ? active : null;
+  }
+  findOpen = { seq: ++findOpens, term };
+  for (const listener of findListeners) listener();
+}
+/** Closes find's bar and its find: `back` (Escape, Close) puts focus where
+ *  it was opened, or on the table once a step has landed; `none` leaves it
+ *  (another file opened). */
+export function closeFind(to: 'back' | 'none'): void {
+  if (!findOpen) return;
+  findOpen = null;
+  call((app) => app.find(''));
+  for (const listener of findListeners) listener();
+  const from = findReturn;
+  findReturn = null;
+  if (to === 'none') return;
+  if (getState().find.landed) {
+    canvasKeys()?.focus({ preventScroll: true });
+  } else if (from?.matches('[data-tool=find]')) {
+    // The toolbar's Find, which the bar stood in for: drawn again once
+    // the bar's gone.
+    requestAnimationFrame(() => (document.querySelector<HTMLElement>('#toolbar [data-tool=find]') ?? canvasKeys())?.focus({ preventScroll: true }));
+  } else {
+    const back = from?.isConnected && !from.closest('#find') ? from : canvasKeys();
+    back?.focus({ preventScroll: true });
+  }
+}
+export function findTerm(term: string): void {
+  call((app) => app.find(term));
+}
+export function findStep(backward: boolean): void {
+  call((app) => app.find_step(backward));
+}
+
+/** Cmd/Ctrl+F: Tycho's find on the first press once a file's rows are
+ *  shown (its toolbar drawn), wherever focus is; the browser's in find's
+ *  input, on the first screen, and while a file opens. Cmd on a Mac,
+ *  where Ctrl+F is no find; Ctrl elsewhere. */
+function findKey(event: KeyboardEvent): boolean {
+  if (!(isMac() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey)) return false;
+  if (event.target instanceof Element && event.target.closest('#find')) return false;
+  const state = getState();
+  if (state.file === null || state.busy !== null || !document.getElementById('toolbar')) return false;
+  // Over the command bar: the bar closes, and find goes back where the
+  // bar would have. A menu, a popover, or a sheet closes itself as find
+  // opens (`menus.tsx`, `toolbar.tsx`).
+  const back = barOpen ? barReturn : undefined;
+  closeBar('none');
+  openFind();
+  if (back !== undefined) findReturn = back;
+  return true;
+}
+
+const isMac = (): boolean => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
+
+/** Find's key as the platform writes it, for its tag. */
+export const findKeyName = (): string => (isMac() ? '⌘F' : 'Ctrl+F');
+
 /** Cmd/Ctrl+K: the bar, wherever focus is. With no file, the first
  *  screen's box is the bar. */
 function commandKey(): void {
@@ -458,7 +550,9 @@ export function bindFrame(): void {
     (event) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return;
       const key = event.key.toLowerCase();
-      if (key === 'k' && !event.shiftKey) commandKey();
+      if (key === 'f' && !event.shiftKey) {
+        if (!findKey(event)) return;
+      } else if (key === 'k' && !event.shiftKey) commandKey();
       else if (!event.shiftKey) return;
       else if (key === 'l') ACTIONS.theme!();
       else if (key === 'p') call((app) => app.toggle_perf());
@@ -523,8 +617,17 @@ export function bindFrame(): void {
     // with the top bar's box, and doesn't come back open over the next.
     if (!now) closeBar('none');
     open = now;
+    // The bar's `find`: find's bar opens on its term.
+    const asked = getState().find;
+    if (asked.opens !== findAsked) {
+      findAsked = asked.opens;
+      if (now && asked.term !== null) openFind(asked.term);
+    }
   });
 }
+
+/** The last of the bar's `find` commands find's bar has opened for. */
+let findAsked = 0;
 
 /** The first screen's input takes the keys: at once, and again after the
  *  first frame, since GPUI takes focus for its own input as its window

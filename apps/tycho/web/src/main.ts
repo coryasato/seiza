@@ -8,6 +8,8 @@ import init, {
   complete,
   filter_line,
   copy,
+  find,
+  find_step,
   fit,
   open_file,
   open_row,
@@ -108,6 +110,8 @@ const hydrate = () => {
     row_text: (index, column) => row_text(index, column) as Promise<string | null>,
     select,
     open_row,
+    find,
+    find_step,
   });
   // GPUI took focus for its own input as its window opened.
   focusFirstScreen();

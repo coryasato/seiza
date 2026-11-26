@@ -31,7 +31,7 @@
 import { Drawer } from '@base-ui/react/drawer';
 import { Menu } from '@base-ui/react/menu';
 import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { act, appNow, canvasKeys, copyField, copySelection, fitColumn, focusRow, focusTable, openRow, rowValues } from './core.ts';
+import { act, appNow, canvasKeys, copyField, copySelection, fitColumn, focusRow, focusTable, getFind, openRow, rowValues, subscribeFind } from './core.ts';
 import { Badge, Icon, type IconName } from './icons.tsx';
 import { usePhone } from './log.tsx';
 import { type ColumnFacts, type FrameState, subscribePress, type TablePress } from './state.ts';
@@ -261,6 +261,8 @@ function CellHead({ column, row, value, phone }: { column: ColumnFacts; row: num
  *  has played); the table after any other item (`toTable`); else back where
  *  it came from (`true`). */
 function finalFocus(acted: Item | null, toTable: boolean): boolean | HTMLElement | null {
+  // Find opened over it (Cmd/Ctrl+F): focus is find's.
+  if (getFind()) return false;
   if (acted?.focuses) return false;
   return acted && toTable ? canvasKeys() : true;
 }
@@ -389,9 +391,13 @@ export function Menus({ state }: { state: FrameState }) {
   useEffect(() => {
     document.addEventListener('pointerdown', noteTouch, { capture: true });
     const unsubscribe = subscribePress((press) => pressed(press, phoneRef.current));
+    // Cmd/Ctrl+F with a menu open: the menu closes and find takes focus
+    // (`docs/DECISIONS.md`, "Scope", 2026-11-21, the page's keys).
+    const unfind = subscribeFind(() => getFind() && setOpen(null));
     return () => {
       document.removeEventListener('pointerdown', noteTouch, { capture: true });
       unsubscribe();
+      unfind();
     };
   }, []);
   // A file closed or replaced: its menu goes with it. A file's opening is

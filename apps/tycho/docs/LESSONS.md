@@ -470,3 +470,11 @@ No results note: Tycho records no measurements.
 **Surprises:**
 - **A popover loses its anchor when its trigger is remounted:** the sort's chip wrapped its trigger in a span only once a sort was in effect (for its remove button), so the sort the editor itself applied remounted the trigger, and the open editor jumped to the page's top left corner. Every chip now keeps one shape whatever its state.
 - **An empty field was a filter:** the editor sent `filter jcat in ""` for nothing typed, which plans (text in a list of one empty string), so Apply looked ready. A field with nothing typed now gives no value, and the plan refuses the line.
+
+## M15 part D: find (2026-11-26)
+
+No results note: Tycho records no measurements.
+
+**Surprises:**
+- **The table's events don't name every change a count depends on:** a hide, a show, or a move with no step out sends no `Found(Cancelled)`, and a CSV's growth none at all. Rather than list causes, the workbench compares what the count and the place were asked of at each render and sends them again when it differs.
+- **The control that opened a bar can be gone when it closes:** the open bar stands in for the toolbar's Find button, so "focus back where it opened" found a node no longer in the page. It's looked for again once it's drawn; and in WebKit, where a click doesn't focus a button, focus had stayed on the table, which is where it goes back.

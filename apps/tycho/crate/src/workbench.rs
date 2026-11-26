@@ -525,6 +525,8 @@ pub struct Workbench {
     /// and the cell menu's "Focus row in panel" select their cell, then open
     /// its row, and the Row tab drops an ask for a row it isn't on.
     open_after_frame: Option<(usize, u64)>,
+    /// Find's bar: its term, its step, and its counts (`crate::find`).
+    find: crate::find::Finding,
     _engine_status: Subscription,
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
@@ -617,6 +619,7 @@ impl Workbench {
             shown_catalog: None,
             active: None,
             open_after_frame: None,
+            find: Default::default(),
             // The outcome on a global while measuring, for the checks.
             clipboard: tall_table_bridge::clipboard::Clipboard::new(
                 crate::targets::measuring().then_some("__tychoCopy"),
@@ -885,6 +888,7 @@ impl Workbench {
         self.answer = None;
         self.drawn.clear();
         self.active = None;
+        self.find.set_term(None);
         self.clipboard.closed();
     }
 
@@ -1406,6 +1410,17 @@ impl Workbench {
                         | TallTableEvent::Sorted(_)
                 ) {
                     this.table_changed(&table, event, cx);
+                }
+                match event {
+                    TallTableEvent::FindStarted => {
+                        this.find.started();
+                        cx.notify();
+                    }
+                    TallTableEvent::Found(outcome) => {
+                        this.find.found(outcome);
+                        cx.notify();
+                    }
+                    _ => {}
                 }
                 if let TallTableEvent::SortRefused(_, refused) = event {
                     this.notice = Some(Notice {
@@ -2129,6 +2144,10 @@ impl Workbench {
             answer: self.answer.clone(),
             active: self.active,
             columns: self.columns.clone(),
+            find: self.find.facts(match &self.load {
+                Load::Open { table, .. } => table.read(cx).current_match().is_some(),
+                _ => false,
+            }),
             tools: match &self.load {
                 Load::Open { view, table, .. } => crate::frame::Tools::of(
                     view,
@@ -2586,8 +2605,11 @@ impl Workbench {
         if let Some(row) = plan.jump {
             table.update(cx, |table, cx| table.jump_to(row, cx));
         }
-        // Find's term highlights its matches; the bar it opens is find's.
+        // Find's term highlights its matches, and opens find's bar on it
+        // (the page opens it when `opens` changes).
         if let Some(term) = plan.find {
+            self.find.set_term(Some(term.clone()));
+            self.find.opens += 1;
             table.update(cx, |table, cx| table.set_find(Some(term.into()), cx));
         }
         let focus = table.read(cx).focus_handle().clone();
@@ -3131,6 +3153,63 @@ impl Workbench {
         }
     }
 
+    /// Find's state, for its queries' answers (`crate::find`).
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn finding(&mut self) -> &mut crate::find::Finding {
+        &mut self.find
+    }
+
+    /// Find's count and place sent again if what they count changed.
+    #[cfg(target_family = "wasm")]
+    fn sync_find(&mut self, cx: &mut Context<Self>) {
+        let shown = match &self.load {
+            // The shown columns in their drawn order, as the table's steps
+            // search them; read only while there's a term.
+            Load::Open { table, view, .. } if self.find.term.is_some() => {
+                let columns = view
+                    .order()
+                    .iter()
+                    .copied()
+                    .filter(|&index| !view.is_hidden(index))
+                    .collect();
+                Some((table.clone(), columns))
+            }
+            _ => None,
+        };
+        let filters = if shown.is_some() {
+            self.rows_applied.clone()
+        } else {
+            Vec::new()
+        };
+        self.find.sync(shown, &filters, cx);
+    }
+
+    /// Find's bar's text, as typed: the table's highlight, and the counts
+    /// with it. Empty is no find.
+    pub fn set_find(&mut self, term: String, cx: &mut Context<Self>) {
+        let term = (!term.is_empty()).then_some(term);
+        if let Load::Open { table, .. } = &self.load {
+            let shared = term.clone().map(SharedString::from);
+            table.update(cx, |table, cx| table.set_find(shared, cx));
+        }
+        self.find.set_term(term);
+        cx.notify();
+    }
+
+    /// Find's Enter (`backward`: Shift+Enter) and its buttons: the next or
+    /// the previous match, its cell selected; focus stays in the bar.
+    pub fn find_step(&mut self, backward: bool, cx: &mut Context<Self>) {
+        if let Load::Open { table, .. } = &self.load {
+            table.update(cx, |table, cx| {
+                if backward {
+                    table.find_previous(cx)
+                } else {
+                    table.find_next(cx)
+                }
+            });
+        }
+    }
+
     /// Sends the frame's state to the page when it changed.
     fn publish_frame(&mut self, cx: &App) {
         self.refresh_columns();
@@ -3209,6 +3288,8 @@ impl Render for Workbench {
         self.publish(window, cx);
         self.publish_view();
         self.publish_catalog();
+        #[cfg(target_family = "wasm")]
+        self.sync_find(cx);
         self.publish_frame(cx);
 
         div()

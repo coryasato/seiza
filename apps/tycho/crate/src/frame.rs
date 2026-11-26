@@ -51,6 +51,8 @@ pub struct FrameView {
     pub columns: std::rc::Rc<[ColumnFacts]>,
     /// The toolbar's: the view's filters and sort, and the rows in view.
     pub tools: Tools,
+    /// Find's bar: its term, its count, its step (`crate::find`).
+    pub find: crate::find::FindFacts,
 }
 
 /// What the toolbar shows of the view (`web/src/frame/state.ts`,
@@ -565,6 +567,7 @@ mod web {
             ("active", view.active.as_ref().map_or(JsValue::NULL, json)),
             ("columns", json(&view.columns.as_ref())),
             ("tools", json(&view.tools)),
+            ("find", json(&view.find)),
         ])
     }
 
@@ -745,6 +748,24 @@ mod web {
     pub fn fit(column: u32) {
         send(on_workbench(move |workbench, window, cx| {
             workbench.fit_column(column as usize, window, cx)
+        }));
+    }
+
+    /// Find's bar's text as typed: the table's highlight, and the count of
+    /// its matches; empty (find closed) is no find.
+    #[wasm_bindgen]
+    pub fn find(term: String) {
+        send(on_workbench(move |workbench, _, cx| {
+            workbench.set_find(term, cx)
+        }));
+    }
+
+    /// Find's Enter and Next match (`backward`: Shift+Enter, Previous
+    /// match): the table steps, and the match's cell is selected.
+    #[wasm_bindgen]
+    pub fn find_step(backward: bool) {
+        send(on_workbench(move |workbench, _, cx| {
+            workbench.find_step(backward, cx)
         }));
     }
 
