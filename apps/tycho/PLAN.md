@@ -1,15 +1,15 @@
 # PLAN.md — Tycho
 
-What's next for Tycho: milestone status, the next milestone's "done when" checks, the goals after it in order, and open questions. Only what's still open lives here. Context and rules are in `CLAUDE.md` here and at the repo root.
+What's next for Tycho: milestone status, the next milestone's "done when" checks, the roadmap after it in order, and open questions. Only what's still open lives here. Context and rules are in `CLAUDE.md` here and at the repo root.
 
 **Goal:** a data workbench for files too big for a spreadsheet, running entirely in the browser: open a file, understand it, check what you need, and export the part you want. The data never leaves the visitor's machine. Tycho is a utility app (root `CLAUDE.md`, "Tiers"): a public tool, built around a *controller* that sits between DuckDB-Wasm and the tall table, holds one *view state*, and can be driven by a person or by an outside LLM. Tycho hosts no model and takes no API key.
 
-**The test for every feature:** does it help someone with a large file and a question? The first release is built for the quick checker ([`docs/personas.md`](docs/personas.md)).
+**The test for every feature:** does it help someone with a large file and a question? The first release is built for the quick checker, and takes the ML engineer's JSONL with it ([`docs/personas.md`](docs/personas.md); `docs/DECISIONS.md`, "Scope", 2026-11-25).
 
-**Tycho is being rebuilt.** This plan was rewritten on 2026-11-17 and replaces the old one whole: its carried-over perf reruns, its production-performance goal, and its open questions are not carried over. The reset (M11) is done: `CLAUDE.md` and the docs beside them describe the app as it stands, the ground the goals below replace piece by piece; Tycho's measurements are retired, and the wasm's size is the one number `check` gates.
+**Tycho is being rebuilt,** locally: production stays as deployed (tag `tycho-v1`) until "Ship the rebuild", the first release's last item.
 
 **Where everything else lives:**
-- [`../../docs/research/tycho-workbench.md`](../../docs/research/tycho-workbench.md): the research behind this plan: the security model, each piece, what was tested. Every goal below links to its section and never restates it.
+- [`../../docs/research/tycho-workbench.md`](../../docs/research/tycho-workbench.md): the research behind this plan: the security model, each piece, what was tested. Every roadmap item links to its section and never restates it.
 - [`../../docs/research/tycho-sample.md`](../../docs/research/tycho-sample.md): the sample: why GCAT, its columns, and the spec its build starts from.
 - [`docs/personas.md`](docs/personas.md): who Tycho is for and what each person needs.
 - [`docs/milestones.md`](docs/milestones.md): the specs, checks, and evidence of finished milestones (history; not edited).
@@ -22,83 +22,71 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 
 | Milestone | Title | Status |
 |---|---|---|
-| M0 | Empty GPUI Kit shell on the web | Done 2026-09-23 |
-| M1 | First-paint baseline and perf overlay skeleton | Done 2026-09-23 |
-| M2 | DuckDB in a worker, prefetched after first paint | Done 2026-09-23 |
-| M3 | Asteroid sample over HTTP | Done 2026-09-24 |
-| M4 | Virtualized table over paged queries | Done 2026-09-25 |
-| M5 | Drop a Parquet file | Done 2026-09-27 |
-| M6 | Drop a CSV with progressive loading | Done 2026-09-30 |
-| M7 | Observation panel, jump to row, and hardening (parts A–G) | Done 2026-10-09 |
-| M8 | Deploy to Cloudflare | Done 2026-10-10: https://tycho.seiza.io |
-| M9 | Extract the table component and the DuckDB engine | Done 2026-10-13 |
-| M10 | `trim-paths`: no home paths in the shipped wasm, redeployed | Done 2026-11-01 |
-| — | Design session: the page, the thread, the profile, where answers show | Done 2026-11-21, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). Settled (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21): the frame, the command bar, grouping as a view tab, the first screen, the theme, the toolbar, find's bar, the views list and its names, keeping views, the Share menu, the column's and the cell's menus, the filter's and the sort's editors, the headers, the profile's stages, the cell popover, its cue, what Enter opens, the row detail view, export's items and its cap, the frame at a phone, the page's keys and Ctrl+F, the double-click and the row view's focus, the command bar's grammar, what a pasted action and an export may do, "Show rows" as a view of its own, the views' caps, a link to a dropped file's view, and the sample's credit. What it left for the build or for a later goal is in "Open questions" |
+| M0–M10 | The old Tycho: a canvas table scrolling tens of millions of rows over DuckDB-Wasm, deployed at https://tycho.seiza.io | Done 2026-09-23 to 2026-11-01; retired by M11, its last build tagged `tycho-v1` |
+| — | Design session: the page, the thread, the profile, where answers show | Done 2026-11-21, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK). What it settled: `docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21; what it left, "Open questions" |
 | — | Sample session: which data, under the static-asset limit | Done 2026-11-21: GCAT, the catalog of every object launched to orbit, as one file ([the research](../../docs/research/tycho-sample.md); `docs/DECISIONS.md`, "Sample data") |
 | M11 | Reset: the old Tycho retired, the ground cleared | Done 2026-11-23 |
 | M12 | The engine locked down, the page's frame in the DOM, the controller thin | Done 2026-11-24 |
 | M13 | The command bar and the log, minimal | Done 2026-11-24 |
 | M14 | Table basics: the menus, the columns list, the popover, and the row view | Done 2026-11-25 |
-| — | Design sync: the design canvas brought to the build, through M14 | Next, before goal 4 opens: every departure from the boards since the design session (`docs/DECISIONS.md`, "Scope", 2026-11-21 on), each board redrawn from `web/src` and the crate as built |
-| Later | The goals below, in order; the first release is everything through export, then "Ship the rebuild" | Each becomes a milestone when it's opened |
+| — | Design sync: the design canvas brought to the build, through M14 | Next, before "Sort, filter, and find" opens. The boards stay the spec for the whole app. A departure the build made on purpose (`docs/DECISIONS.md`, "Scope", 2026-11-21 on) is redrawn from `web/src` and the crate as built; what isn't built yet, or is built as a stand-in a later item replaces, keeps its markup and data, noted with the item that builds it. Answers "The canvas's stand-in data" |
+| Later | The roadmap below, in order | Each item becomes a milestone when it's opened |
 
 **Closing a milestone:** every "done when" check passes; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. Tycho records no measurements (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17); what it still checks is in M11.
 
-**Waiting on** (features of a component or engine Tycho needs; only that crate's `PLAN.md` builds them, and the session that closes one flips its row to *Ready*):
+**Waiting on** (features of a component or engine Tycho needs; only that crate's `PLAN.md` builds them, the session that closes one flips its row to *Ready*, and a row leaves when the milestone that adopts it closes):
 
 | Needs | For | Status |
 |---|---|---|
-| The tall table's `replace_rows`, then column filtering and global filtering ([its PLAN](../../components/tall-table/PLAN.md)) | "Sort and filter", below | *Ready* (2026-11-18, tall-table M18) |
-| The tall table's find | Search that keeps every row | *Ready* (2026-11-19, tall-table M20) |
-| The tall table's column visibility | Hide and show columns | *Ready* (2026-11-18, tall-table M19) |
+| The tall table's `replace_rows`, then column filtering and global filtering ([its PLAN](../../components/tall-table/PLAN.md)) | "Sort, filter, and find", below | *Ready* (2026-11-18, tall-table M18) |
+| The tall table's find | Search that keeps every row ("Sort, filter, and find") | *Ready* (2026-11-19, tall-table M20) |
 | The tall table's column summaries in the header | The column profile's strip, drawn by the table from numbers Tycho gives it. Asked for only once the panel's profile proves fast enough ("Profiles and the catalog", below) | *Not ready*, and not yet asked |
-| The tall table's header icon: an icon the host gives each column, first in its header, its press reported; drawn raised under the pointer | The column's menu button (`docs/DECISIONS.md`, "Scope", 2026-11-20) | *Ready* (2026-11-21, tall-table M22): `header-icon`; its press is an event of its own, on release, with the badge's bounds for the menu |
-| The tall table on touch: a tap on a header reported as one press, the sort arrow not a target of its own; a long press reported as a right-click is | The column's and the cell's menus at a phone | *Ready* (2026-11-22, tall-table M24): `clicks`' `set_header_tap_is_press(true)` makes a finger's tap anywhere on a header one `Clicked` (`Press` on its `Column`), a mouse's press on the arrow and band as before; a tap on the header's icon stays `HeaderIconPressed`; a long press is `Context` at its start, as built; a sort in the bare host's main-thread source froze a phone a noticeable while (the table's PLAN, "A sort's wait") |
 | The tall table's sort by several columns | The sort's editor as a list; after the first release | *Not ready* |
-| The tall table's cell popover (a cell's full value, with a button that reports an event) | The quick look before the row detail view, which its button opens ("Table basics", below); nested values shown in it ("JSONL") | *Ready* (2026-11-20, tall-table M21): a cell's exact text; a nested value's long form apart from its cell's text waits for the JSONL work (the table's `docs/DECISIONS.md`, "Features", 2026-11-19) |
-| The tall table's popover for cut text only, its cue a fade: the popover and its cue on text that is cut and nowhere else, the cue drawn as the text washing out with a chevron past it, Enter left to the host on every other cell, the button filling the popover's width | The cell popover and the way from a cell to its row (`docs/DECISIONS.md`, "Scope", 2026-11-20) | *Ready* (2026-11-22, tall-table M23): three settings of `popover`, each off by default: `PopoverCells::CutText` (the cue and Enter on a text column's cut cells alone; `open_popover` still opens any cell), `PopoverCue::fade()` and `open_icon`, `PopoverButton::fill()` |
-| The tall table's row marks | The investigator's bookmarks and tags ([`docs/personas.md`](docs/personas.md)); no goal holds them yet | *Not ready* |
-| The tall table's fit as a call: a column fitted to its values by the host, as a double-click on its header's edge fits it | The column's menu's "Fit to its values" (M14 part B; `docs/DECISIONS.md`, "Scope", 2026-11-24) | *Ready* (2026-11-24, tall-table M25): `TallTableState::fit_column(column, window, cx)`, by index, the double-click's fit; a pinned column fitted past half the table's width leaves the run, `Pinned` heard before the widths (the table's `docs/DECISIONS.md`, "Features", 2026-11-24) |
-| The tall table's selection in view as a call: a selection the host sets, scrolled into view the least distance as a key's move scrolls it | The Row tab's Previous row and Next row (M14 part C; `docs/DECISIONS.md`, "Scope", 2026-11-24) | *Ready* (2026-11-24, tall-table M26): `TallTableState::select_in_view(selection, cx)`, `set_selection`'s setting then its head scrolled into view the least distance as a key's move scrolls it, again for the selection in effect, never for one cleared or refused; a popover the active cell left closed (the table's `docs/DECISIONS.md`, "Features", 2026-11-24) |
-| The tall table's built features | "Table basics", below | *Ready:* `custom-cells`, `live`, `follow`, `resize`, `select`, `copy`, `sort`, `pin`, `density`, `format`, `reorder`, `clicks`, `group-headers` (their dates: the table's `docs/milestones.md`) |
+| The tall table's row marks | The investigator's bookmarks and tags ([`docs/personas.md`](docs/personas.md)); no roadmap item holds them yet | *Not ready* |
 
 ---
 
-## Goals, in order
+## Roadmap
 
-Not milestones yet. Each links to its section of [the research](../../docs/research/tycho-workbench.md), which holds the reasoning and what's marked decided, proposed, or open; a proposed item is checked and reviewed when its goal is opened, before it's built. **The first release is everything through "Export", the connection policy if it's taken, and then "Ship the rebuild".** It is built locally: production stays as deployed until it ships.
+Each item becomes a milestone when it's opened. Each links to its section of [the research](../../docs/research/tycho-workbench.md), which holds the reasoning and what's marked decided, proposed, or open; a proposed part is checked and reviewed when its item is opened, before it's built.
 
-1. **The controller, thin, and the engine's lockdown.** *Done as M12, with the page's frame in the DOM added to it ([`docs/milestones.md`](docs/milestones.md)).*
-2. **The command bar and the log, minimal.** *Done as M13 ([`docs/milestones.md`](docs/milestones.md)).*
-3. **Table basics.** *Done as M14 ([`docs/milestones.md`](docs/milestones.md)).*
-4. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order, its `WHERE`, and its find are unbuilt engine work; the table's parts, `replace_rows` for filtering and `find`, are ready ("Waiting on"). *("The controller".)*
-5. **Profiles and the catalog,** grouping included, whose result is a new view. The profile comes in three stages, in the columns panel first. If it's too slow in use, a session of its own makes the sample faster before anything is cut; the header strip is asked of the tall table only after the panel's proves itself. *("The catalog"; "The column profile's cost", which holds the timings and that session's starting points.)*
-6. **Export,** and the view copied as SQL. Its size plan is a cap (`docs/DECISIONS.md`, "Scope", 2026-11-21); the cap is measured and the storage route tested first (question 5). *("The table's own tools".)*
-7. **The connection policy.** *Proposed* as part of the first release, since the input is drivable from the day it ships. *("Trust".)*
-8. **Ship the rebuild.** The new Tycho replaces the deployed one: the deploy; Gaia and the asteroids out of production's R2, which then holds DuckDB-Wasm's two wasm bundles alone; the zone's WAF rules and rate limit looked at again against the new build's requests, right after; and `README.md` and the root README's row as a visitor finds the app. It comes after the last goal the first release takes. (Kirkwood moved to `kirkwood.seiza.io` on 2026-11-23, so nothing of its runs on Tycho's hostname: the zone's redirect for its old path answers before Tycho's rules and Worker.) *The owner confirms every deletion in production and the deploy.* *(`docs/DECISIONS.md`, "Hosting", 2026-11-23.)*
-9. **Open from a URL:** Parquet only, read by range, on a route of its own. It changes what the first screen's input takes: a Parquet file's URL alone ("Paste a Parquet file's URL", as the Start boards draw it), anything else answered with an error, the command answers there now a stand-in it replaces; a URL pasted before React loads opens too (`docs/DECISIONS.md`, "Scope", 2026-11-24). *("Opening a file".)*
-10. **The instructions, and the clipboard and agent routes.** *("How an LLM reaches it".)*
-11. **Trust:** offline, and the panel. *("Trust".)*
-12. **JSONL,** then nested values: the engine's half (how a `LIST`, `STRUCT`, or `MAP` becomes cells and short text) and their full form in the cell popover and the row detail view. *("Opening a file".)*
-13. **More than one file,** and joins. *("Opening a file".)*
-14. **Charts,** after a planning session of their own. *("Charts".)*
-15. **Checked SQL expressions,** after an ideation session of their own. *("Later: checked SQL expressions".)*
-16. **A SQL editor,** once the lockdown is proven. *("Later: a SQL editor".)*
-17. **More samples,** each with a job the others don't do. GCAT's is "readable, with stories"; the next is "too big for a spreadsheet, and still instant": over a million rows, with text and categories a visitor recognizes. Its data is its own research, and the asteroids aren't a candidate: they left Tycho in the reset. If a sample is one another app builds too, its fetch moves to a folder both read; until then each built file has one owner, the app that reads it (`docs/DECISIONS.md`, "Sample data", 2026-11-23). No sample goes in R2: one Tycho serves stays under the static-asset limit, and a larger one is a Parquet file on someone else's host, read by range through "Open from a URL". A second sample reopens the first screen's one sample row. *([The sample's research](../../docs/research/tycho-sample.md).)*
+### The first release
+
+Built locally; production stays as deployed until its last item. The order is decided in `docs/DECISIONS.md`, "Scope", 2026-11-25.
+
+1. **Sort, filter, and find,** with filter by a cell. Not thin: the DuckDB source's order, its `WHERE`, and its find are unbuilt engine work; the table's parts, `replace_rows` for filtering and `find`, are ready ("Waiting on"). *("The controller".)*
+2. **Profiles and the catalog,** grouping included, whose result is a new view. The profile comes in three stages, in the columns panel first. If it's too slow in use, a session of its own makes the sample faster before anything is cut; the header strip is asked of the tall table only after the panel's proves itself. *("The catalog"; "The column profile's cost", which holds the timings and that session's starting points.)*
+3. **Export,** and the view copied as SQL. Its size plan is a cap (`docs/DECISIONS.md`, "Scope", 2026-11-21); the cap is measured and the storage route tested first ("Export's cap", below). *("The table's own tools".)*
+4. **Open from a URL:** Parquet only, read by range, on a route of its own. It changes what the first screen's input takes: a Parquet file's URL alone ("Paste a Parquet file's URL", as the Start boards draw it), anything else answered with an error, the command answers there now a stand-in it replaces; a URL pasted before React loads opens too (`docs/DECISIONS.md`, "Scope", 2026-11-24). It comes before the connection policy, which has to know how this route loosens it. *("Opening a file".)*
+5. **The instructions, and the clipboard and agent routes:** the Share menu's "Copy context", and the instructions an agent reads. *("How an LLM reaches it".)*
+6. **Trust: the connection policy, offline, and the panel.** The policy is built against the URL route and the agent route as they stand, since it exists because the input is drivable. *("Trust".)*
+7. **Views kept on the device, and the link to a view:** the views list's "Keep on this device" and "Forget", and the Share menu's "Copy link", as the design settled them (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21: "Views last for the session", "One Share menu", "A link to a view of a dropped file"). Where a kept view is stored is the policy's question, so it follows Trust.
+8. **JSONL,** then nested values: the engine's half (how a `LIST`, `STRUCT`, or `MAP` becomes cells and short text) and their full form in the cell popover and the row detail view. A long form in the popover apart from the cell's text would be a new ask of the tall table (its `docs/DECISIONS.md`, "Features", 2026-11-19). *("Opening a file".)*
+9. **Ship the rebuild.** The new Tycho replaces the deployed one: the deploy; Gaia and the asteroids out of production's R2, which then holds DuckDB-Wasm's two wasm bundles alone; the zone's WAF rules and rate limit looked at again against the new build's requests, right after; and `README.md` and the root README's row as a visitor finds the app. Nothing of Kirkwood runs on Tycho's hostname: the zone's redirect for its old path answers before Tycho's rules and Worker. *The owner confirms every deletion in production and the deploy.* *(`docs/DECISIONS.md`, "Hosting", 2026-11-23.)*
+
+### After the first release
+
+1. **More than one file,** and joins. *("Opening a file".)*
+2. **Charts,** after a planning session of their own. *("Charts".)*
+3. **More samples,** each with a job the others don't do. GCAT's is "readable, with stories"; the next is "too big for a spreadsheet, and still instant": over a million rows, with text and categories a visitor recognizes. Its data is its own research, and the asteroids aren't a candidate: they left Tycho in the reset. If a sample is one another app builds too, its fetch moves to a folder both read; until then each built file has one owner, the app that reads it (`docs/DECISIONS.md`, "Sample data", 2026-11-23). No sample goes in R2: one Tycho serves stays under the static-asset limit, and a larger one is a Parquet file on someone else's host, read by range through "Open from a URL". A second sample reopens the first screen's one sample row. *([The sample's research](../../docs/research/tycho-sample.md).)*
+4. **Checked SQL expressions,** after an ideation session of their own. *("Later: checked SQL expressions".)*
+5. **A SQL editor,** once the lockdown is proven. *("Later: a SQL editor".)*
 
 ---
 
 ## Open questions
 
-1. The profile's speed: how the engine keeps page reads ahead of a profile query, and whether a smarter sample is needed, tried before the graphic is cut (the build, then a session of its own). The engine's speed has had no measurement of its own since Tycho's were retired, so this is where its page reads and CSV loading are timed again if a number is needed.
-2. How column names, which are the file's text, go out in the copied context and the capability schema.
-3. The connection policy: what DuckDB-Wasm needs it to allow, how the URL route loosens it, and where anything saved in the browser is stored, kept views first. Kirkwood no longer shares the origin (it moved to `kirkwood.seiza.io`, 2026-11-23).
-4. The lockdown in a browser: answered for a dropped file's handle and the engine unlocked until `LOAD parquet` succeeds (M12 part A). Left: a remote file in Chromium (a 416 on a URL the page had downloaded whole; "Open from a URL"), and an export handed to the page (export).
-5. Export: the cap's size, measured; whether a file can be written to the browser's own storage and saved from there, with the engine locked down, which would lift the cap (tested before export is built).
-6. JSONL's size limit, if it loads into memory as a CSV does, and what the engine's reader does with nested values today.
-7. Whether the URL route takes dropped files.
-8. Where WebMCP and on-device models stand.
-9. *Answered 2026-11-24:* the panels' sheet opens at 62% of the page's height and drags to its height under the top bar (`docs/DECISIONS.md`, "Scope"). Kept so the questions after it keep their numbers.
-10. Left by the design session for the build: what `undo` does after a command that opened a view; a kept view's size, measured against the caps' estimate; and Ctrl+F from the table, taken on the way down as the page's other keys are (a key the canvas has focus for may never bubble up: M12 part B), checked when find is built. Cmd/Ctrl+K from the table reached the page in three browsers (M13 part B).
-11. The design canvas still draws its stand-in earthquakes, the first screen's sample row included: whether its boards are redrawn with GCAT before the build.
-12. A link that holds a view: the design decided what it holds and how it opens (`docs/DECISIONS.md`, "Scope", 2026-11-20 and 2026-11-21), but no goal builds it. Which goal takes it, with the Share menu.
+Named, not numbered: a question leaves when it's answered, its answer in `docs/DECISIONS.md`.
+
+- **The profile's speed.** How the engine keeps page reads ahead of a profile query, and whether a smarter sample is needed, tried before the graphic is cut (the build, then a session of its own). The engine's speed has had no measurement of its own since Tycho's were retired, so this is where its page reads and CSV loading are timed again if a number is needed.
+- **Column names going out.** How column names, which are the file's text, go out in the copied context and the capability schema.
+- **The policy and the URL route.** What DuckDB-Wasm needs the connection policy to allow, how the URL route loosens it, and where anything saved in the browser is stored, kept views first.
+- **The lockdown in a browser.** A dropped file's handle is answered, with the engine unlocked until `LOAD parquet` succeeds (M12 part A). Left: a remote file in Chromium (a 416 on a URL the page had downloaded whole; "Open from a URL"), and an export handed to the page ("Export").
+- **Export's cap.** The cap's size, measured; and whether a file can be written to the browser's own storage and saved from there, with the engine locked down, which would lift the cap (tested before export is built).
+- **JSONL's size limit,** if it loads into memory as a CSV does, and what the engine's reader does with nested values today.
+- **Dropped files on the URL route.** Whether the URL route takes them.
+- **WebMCP and on-device models.** Where each stands in the browsers that ship today.
+- **`undo` after a view opens.** What `undo` does after a command that opened a view (left by the design session for the build).
+- **A kept view's size,** measured against the caps' estimate ("Views kept on the device").
+- **Ctrl+F from the table.** Taken on the way down as the page's other keys are (a key the canvas has focus for may never bubble up: M12 part B), checked when find is built. Cmd/Ctrl+K from the table reached the page in three browsers (M13 part B).
+- **The canvas's stand-in data.** The design canvas still draws its stand-in earthquakes, the first screen's sample row included: whether its boards are redrawn with GCAT (the design sync).

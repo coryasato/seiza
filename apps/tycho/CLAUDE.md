@@ -8,7 +8,7 @@ The project's claim, as Tycho takes it: the canvas for the GPUI components, the 
 
 ---
 
-**Tycho is being rebuilt** as a public data workbench (`PLAN.md`; the research, `docs/research/tycho-workbench.md` at the repo root; who it's for, `docs/personas.md`). The reset is done: this file and each folder's describe the app as it stands, the ground the plan's goals replace piece by piece. Follow `PLAN.md` where the two differ.
+**Tycho is being rebuilt** as a public data workbench (`PLAN.md`; the research, `docs/research/tycho-workbench.md` at the repo root; who it's for, `docs/personas.md`). The reset is done: this file and each folder's describe the app as it stands, the ground the plan's roadmap replaces piece by piece. Follow `PLAN.md` where the two differ.
 
 This is Tycho's context. What's next is in `PLAN.md`; why things are built this way, in `docs/DECISIONS.md`; the sample and the Cloudflare setup, in `docs/data.md` and `docs/hosting.md`; finished milestones, in `docs/milestones.md`; the one budget, the wasm's size, in `perf/budgets.json` (the root `CLAUDE.md`, "Docs: one home per fact", says what goes where). The repo-wide rules in the root `CLAUDE.md` apply here too, but for rules 1 and 3 and the measurement protocol: Tycho is exempt from them, records no measurement, and its `check` times nothing (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17). Paint before heavy loads (rule 2), the canvas tradeoffs (rule 4), and `shared/`'s conventions bind it, and so do `.claude/rules/` (the GPUI Kit gotchas, the perf harness, Cloudflare). Paths below are relative to `apps/tycho/` unless they start with `shared/` or `shared-web/`.
 
@@ -19,9 +19,9 @@ This is Tycho's context. What's next is in `PLAN.md`; why things are built this 
 These add to the repo-wide rules.
 
 1. **Never block the shell on DuckDB.** Paint first. Start loading the engine from `shared/`'s post-paint callback. The UI must stay usable (and say "engine loading…") until DuckDB is ready.
-2. **Keep the bridge narrow.** Three calls cross the Rust ↔ JS boundary (`registerFile`, `query`, `cancel`): the engine's rule, `engines/duckdb/CLAUDE.md`, rule 2. Get schema, row count, and metadata with SQL through `query`. What comes in goes through `registerFile`: a dropped file, the sample (downloaded whole, then registered as a `File`), and a URL (it takes one already, for "Open from a URL"). Export is the first thing that needs bytes to come *out* of DuckDB: if it needs a fourth call, that goal changes the engine's rule, in the engine's files, before it's built.
+2. **Keep the bridge narrow.** Three calls cross the Rust ↔ JS boundary (`registerFile`, `query`, `cancel`): the engine's rule, `engines/duckdb/CLAUDE.md`, rule 2. Get schema, row count, and metadata with SQL through `query`. What comes in goes through `registerFile`: a dropped file, the sample (downloaded whole, then registered as a `File`), and a URL (it takes one already, for "Open from a URL"). Export is the first thing that needs bytes to come *out* of DuckDB: if it needs a fourth call, export changes the engine's rule, in the engine's files, before it's built.
 3. **Query per viewport.** The table fetches only the visible rows plus a buffer. The app never loads the whole result into memory.
-4. **Scope grows through `PLAN.md`.** What Tycho builds next is what `PLAN.md` holds: its goals in order, each opened as a milestone, and the table's features as each is ready ("Waiting on"). Anything it doesn't hold goes into `PLAN.md` as a goal first, and a goal marked *proposed* in the research is reviewed when its goal opens. If one seems necessary mid-milestone, stop and ask.
+4. **Scope grows through `PLAN.md`.** What Tycho builds next is what `PLAN.md` holds: its roadmap in order, each item opened as a milestone, and the table's features as each is ready ("Waiting on"). Anything it doesn't hold goes into `PLAN.md`'s roadmap first, and a part marked *proposed* in the research is reviewed when its item opens. If one seems necessary mid-milestone, stop and ask.
 
 ## Where the detail is
 
@@ -56,7 +56,7 @@ apps/tycho/
   docs/             # DECISIONS.md (by area), LESSONS.md (surprises, per milestone), milestones.md (finished specs), data.md, hosting.md, personas.md (who Tycho is for and what each needs); private/ is gitignored
   README.md         # for visitors: the rebuild's note, canvas tradeoffs, file size limits, how to run it
   CLAUDE.md         # this file: context and rules
-  PLAN.md           # what's next: status, the active milestone, long-term goals, open questions
+  PLAN.md           # what's next: status, the active milestone, the roadmap, open questions
   justfile          # loaded from the root as the `tycho` module
 ```
 

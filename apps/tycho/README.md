@@ -86,7 +86,7 @@ Each browser check runs against the dev server by default; pass the preview's UR
 |---|---|
 | [`CLAUDE.md`](CLAUDE.md) | Rules, architecture, every command. Written for contributors and Claude Code alike. |
 | [`engines/duckdb/`](../../engines/duckdb/) | The DuckDB engine Tycho runs on: its API, rules, DuckDB-Wasm gotchas, and decisions. |
-| [`PLAN.md`](PLAN.md) | What's next: status, the rebuild's goals, open questions. |
+| [`PLAN.md`](PLAN.md) | What's next: status, the rebuild's roadmap, open questions. |
 | [`docs/DECISIONS.md`](docs/DECISIONS.md) | Why Tycho is built the way it is, by area, with the numbers behind each choice. |
 | [`docs/LESSONS.md`](docs/LESSONS.md) | What surprised us, milestone by milestone. |
 | [`docs/milestones.md`](docs/milestones.md) | The specs and evidence of each milestone. |
