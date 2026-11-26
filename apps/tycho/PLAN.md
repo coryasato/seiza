@@ -29,7 +29,7 @@ What's next for Tycho: milestone status, the next milestone's "done when" checks
 | M12 | The engine locked down, the page's frame in the DOM, the controller thin | Done 2026-11-24 |
 | M13 | The command bar and the log, minimal | Done 2026-11-24 |
 | M14 | Table basics: the menus, the columns list, the popover, and the row view | Done 2026-11-25 |
-| — | Design sync: the design canvas brought to the build, through M14 | Next, before "Sort, filter, and find" opens. The boards stay the spec for the whole app. A departure the build made on purpose (`docs/DECISIONS.md`, "Scope", 2026-11-21 on) is redrawn from `web/src` and the crate as built; what isn't built yet, or is built as a stand-in a later item replaces, keeps its markup and data, noted with the item that builds it. Answers "The canvas's stand-in data" |
+| — | Design sync: the design canvas brought to the build, through M14 | Done 2026-11-25, on [the design canvas](https://claude.ai/artifact/CR8skvUDrUsVxE4zXJtRmK): the boards stay the spec for the whole app, redrawn where the build decided otherwise and drawn with GCAT; each page's note says what's built of it and which item builds the rest (`docs/DECISIONS.md`, "Scope", 2026-11-25) |
 | Later | The roadmap below, in order | Each item becomes a milestone when it's opened |
 
 **Closing a milestone:** every "done when" check passes; new decisions are in `docs/DECISIONS.md`; a `docs/LESSONS.md` entry is written; and the milestone's spec and evidence move from here to the end of `docs/milestones.md`, leaving one row above. Tycho records no measurements (root `docs/DECISIONS.md`, "Measurement protocol", 2026-11-17); what it still checks is in M11.
@@ -89,4 +89,3 @@ Named, not numbered: a question leaves when it's answered, its answer in `docs/D
 - **`undo` after a view opens.** What `undo` does after a command that opened a view (left by the design session for the build).
 - **A kept view's size,** measured against the caps' estimate ("Views kept on the device").
 - **Ctrl+F from the table.** Taken on the way down as the page's other keys are (a key the canvas has focus for may never bubble up: M12 part B), checked when find is built. Cmd/Ctrl+K from the table reached the page in three browsers (M13 part B).
-- **The canvas's stand-in data.** The design canvas still draws its stand-in earthquakes, the first screen's sample row included: whether its boards are redrawn with GCAT (the design sync).
