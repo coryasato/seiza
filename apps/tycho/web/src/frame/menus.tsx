@@ -57,8 +57,18 @@ const subscribe = (listener: () => void) => {
 };
 const getOpen = () => open;
 function setOpen(next: Open | null): void {
+  if (next) closedByFind = false;
   open = next && { ...next, seq: ++opened };
   for (const listener of listeners) listener();
+}
+/** Whether find closed what was open (Cmd/Ctrl+F over it): its closing
+ *  leaves focus to find. Any other closing, find open or not, puts focus
+ *  where it puts it. */
+let closedByFind = false;
+function closeForFind(): void {
+  if (!getFind() || !open) return;
+  closedByFind = true;
+  setOpen(null);
 }
 
 /** A field's menu, opened from its button in the Row tab: `known` is its
@@ -262,7 +272,7 @@ function CellHead({ column, row, value, phone }: { column: ColumnFacts; row: num
  *  it came from (`true`). */
 function finalFocus(acted: Item | null, toTable: boolean): boolean | HTMLElement | null {
   // Find opened over it (Cmd/Ctrl+F): focus is find's.
-  if (getFind()) return false;
+  if (closedByFind) return false;
   if (acted?.focuses) return false;
   return acted && toTable ? canvasKeys() : true;
 }
@@ -393,7 +403,7 @@ export function Menus({ state }: { state: FrameState }) {
     const unsubscribe = subscribePress((press) => pressed(press, phoneRef.current));
     // Cmd/Ctrl+F with a menu open: the menu closes and find takes focus
     // (`docs/DECISIONS.md`, "Scope", 2026-11-21, the page's keys).
-    const unfind = subscribeFind(() => getFind() && setOpen(null));
+    const unfind = subscribeFind(closeForFind);
     return () => {
       document.removeEventListener('pointerdown', noteTouch, { capture: true });
       unsubscribe();

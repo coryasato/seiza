@@ -77,14 +77,16 @@ pub fn text(count: Count, place: Option<Count>, said: Option<&Said>) -> (String,
 
 /// What a count was asked of: the shown table, the term, the shown
 /// columns in their drawn order, the filters the rows are chosen by, and
-/// the rows (a CSV's grow).
+/// the rows (a CSV's grow), none while the source is still loading: a
+/// count of a CSV still growing is sent once, and again when it's done,
+/// not after each chunk, which would cancel each before it answered.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Key {
     pub table: u64,
     pub term: String,
     pub columns: Vec<usize>,
     pub filters: Vec<crate::filter::Filter>,
-    pub rows: u64,
+    pub rows: Option<u64>,
 }
 
 /// What a place was asked of: the count's, the sort (the order the steps
@@ -96,8 +98,18 @@ pub struct PlaceKey {
     pub cell: seiza_tall_table::FoundCell,
 }
 
-/// How long after a count fails it's sent again.
+/// How long after a count first fails it's sent again; each failure since
+/// what it counts last changed doubles it, to [`RETRY_MAX_MS`].
 pub const RETRY_MS: u64 = 5_000;
+pub const RETRY_MAX_MS: u64 = 60_000;
+
+/// The wait before a count that has failed `failures` times in a row is
+/// sent again.
+pub fn retry_after(failures: u32) -> u64 {
+    RETRY_MS
+        .saturating_mul(1 << failures.saturating_sub(1).min(4))
+        .min(RETRY_MAX_MS)
+}
 
 /// Find's state in the workbench.
 #[derive(Default)]
@@ -114,6 +126,8 @@ pub struct Finding {
     /// failed): what it counts may not have changed (a file registered
     /// again after a failed read keeps its table and its term).
     pub retry: bool,
+    /// The failures in a row since what the counts ask of last changed.
+    pub failures: u32,
     #[cfg(target_family = "wasm")]
     pub count_out: Option<Out>,
     #[cfg(target_family = "wasm")]
@@ -240,7 +254,16 @@ mod web {
                 term,
                 columns,
                 filters: filters.to_vec(),
-                rows: shown.rows(),
+                rows: {
+                    use seiza_duckdb::view::RowSource;
+                    shown
+                        .delegate()
+                        .view()
+                        .query()
+                        .busy()
+                        .is_none()
+                        .then(|| shown.rows())
+                },
             };
             let place = shown.current_match().map(|cell| PlaceKey {
                 count: key.clone(),
@@ -259,10 +282,13 @@ mod web {
                 (None, None) => false,
                 _ => true,
             };
-            if count_again {
+            let asked_again = self.count.as_ref().is_none_or(|(asked, _)| *asked != key);
+            if asked_again {
                 // What a step said was of the rows and columns before:
-                // the new count speaks for the new ones.
+                // the new count speaks for the new ones, and its failures
+                // are its own.
                 self.said = None;
+                self.failures = 0;
             }
             if !count_again && !place_again {
                 return;
@@ -345,17 +371,28 @@ mod web {
                     Some(Value::UInt(n)) => Count::Done(n),
                     _ => Count::Failed,
                 }),
-                Err(seiza_duckdb::EngineError::Cancelled) => None,
+                // Its `Out` dropped would have dropped this task too: a
+                // cancel that reaches it came from elsewhere (the engine
+                // stopped), and the count is sent again as a failure is.
                 Err(_) => Some(Count::Failed),
             };
             let failed = count == Some(Count::Failed);
-            let _ = this.update(cx, |this, cx| {
-                this.finding().answered(which, id, count);
+            let Ok(failures) = this.update(cx, |this, cx| {
+                let finding = this.finding();
+                finding.answered(which, id, count);
+                if failed {
+                    finding.failures += 1;
+                }
                 cx.notify();
-            });
+                finding.failures
+            }) else {
+                return;
+            };
             if failed {
                 cx.background_executor()
-                    .timer(std::time::Duration::from_millis(super::RETRY_MS))
+                    .timer(std::time::Duration::from_millis(super::retry_after(
+                        failures,
+                    )))
                     .await;
                 let _ = this.update(cx, |this, cx| {
                     this.finding().retry = true;
@@ -374,6 +411,13 @@ mod web {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_count_backs_off_to_a_minute() {
+        let waits: Vec<u64> = (1..=6).map(retry_after).collect();
+        assert_eq!(waits, [5_000, 10_000, 20_000, 40_000, 60_000, 60_000]);
+        assert_eq!(retry_after(0), RETRY_MS);
+    }
 
     #[test]
     fn the_bar_counts_then_places() {

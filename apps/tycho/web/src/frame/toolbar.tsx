@@ -52,8 +52,18 @@ const subscribe = (listener: () => void) => {
 };
 const getOpen = () => open;
 function setOpen(next: Open | null): void {
+  if (next) closedByFind = false;
   open = next && { ...next, seq: ++opened };
   for (const listener of listeners) listener();
+}
+/** Whether find closed what was open (Cmd/Ctrl+F over it): its closing
+ *  leaves focus to find. Any other closing, find open or not, puts focus
+ *  where it puts it. */
+let closedByFind = false;
+function closeForFind(): void {
+  if (!getFind() || !open) return;
+  closedByFind = true;
+  setOpen(null);
 }
 const useOpen = () => useSyncExternalStore(subscribe, getOpen, () => null);
 
@@ -205,7 +215,7 @@ function Chip({ control, state, compact }: { control: Control; state: FrameState
             data-menu
             finalFocus={() => {
               // Find opened over it: focus is find's.
-              if (getFind()) return false;
+              if (closedByFind) return false;
               if (acted.current) return canvasKeys();
               const back = held?.kind === 'filter' ? held.back : null;
               return back?.isConnected ? back : true;
@@ -627,7 +637,7 @@ function Sheet({ current, state }: { current: Open & { seq: number }; state: Fra
           <Drawer.Popup
             data-menu
             aria-label={label}
-            finalFocus={() => (acted.current ? canvasKeys() : true)}
+            finalFocus={() => (closedByFind ? false : acted.current ? canvasKeys() : true)}
             className="w-full overflow-hidden rounded-t-[14px] border-t border-border-strong bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-12px_32px_var(--shadow)] outline-none select-none [transform:translateY(var(--drawer-swipe-movement-y))] transition-transform duration-[300ms] ease-[cubic-bezier(0.32,0.72,0,1)] data-[ending-style]:[transform:translateY(calc(100%+2px))] data-[starting-style]:[transform:translateY(calc(100%+2px))] motion-reduce:transition-none"
           >
             <div aria-hidden="true" className="flex h-3.5 items-center justify-center">
@@ -686,7 +696,7 @@ export function Toolbar({ state }: { state: FrameState }) {
   }, [opening]);
   // Cmd/Ctrl+F with a popover or a sheet open: it closes, and find takes
   // focus.
-  useEffect(() => subscribeFind(() => getFind() && setOpen(null)), []);
+  useEffect(() => subscribeFind(closeForFind), []);
   if (!state.file) return null;
   const all = controls(state);
   return (

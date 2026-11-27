@@ -167,3 +167,14 @@ view url="http://localhost:5173/":
 # preview's URL for the release build; --only names browsers.
 table url="http://localhost:5173/" *args:
     node {{app_dir}}/perf/table.ts {{url}} {{args}}
+
+# Sort, filter, and find in Chromium, Firefox, and WebKit, on the sample: a
+# header's arrow, `sort` typed and the chip's remove, a filter from the
+# editor's Apply, one typed and one pasted as JSON, `undo` and the way back,
+# `clear all`, keep and leave out from a cell's menu, a filter leaving no
+# row, and find from the table (Cmd/Ctrl+F twice, a step, Escape's focus);
+# at 390×760, the toolbar's icons and find's second row. Against the dev
+# server by default; pass the preview's URL for the release build; --only
+# names browsers.
+filter url="http://localhost:5173/" *args:
+    node {{app_dir}}/perf/filter.ts {{url}} {{args}}

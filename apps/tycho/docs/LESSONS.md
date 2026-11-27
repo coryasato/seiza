@@ -478,3 +478,12 @@ No results note: Tycho records no measurements.
 **Surprises:**
 - **The table's events don't name every change a count depends on:** a hide, a show, or a move with no step out sends no `Found(Cancelled)`, and a CSV's growth none at all. Rather than list causes, the workbench compares what the count and the place were asked of at each render and sends them again when it differs.
 - **The control that opened a bar can be gone when it closes:** the open bar stands in for the toolbar's Find button, so "focus back where it opened" found a node no longer in the page. It's looked for again once it's drawn; and in WebKit, where a click doesn't focus a button, focus had stayed on the table, which is where it goes back.
+
+## M15 part E: the browser check, the docs, and the close (2026-11-26)
+
+No results note: Tycho records no measurements.
+
+**Surprises:**
+- **A command typed while the last one's bar is closing is lost:** `clear all` typed straight after `sort launch_date` never ran, and nothing said so: the second Cmd/Ctrl+K landed on the bar that was still going, so the check waits for the bar to close before opening it again. The earlier checks never sent two commands back to back.
+- **The page's own key is invisible from `window`'s bubble phase:** the page takes Cmd/Ctrl+F on `document` in the capture phase and stops it there, so a listener on `window` heard only the second press, the one let through. Whether the first was taken is read from the event itself, kept from `window`'s capture phase (before the page's) and read after dispatch.
+- **With the log panel open, most of GCAT's columns are off the canvas:** `mass_kg`'s arrow and `launch_site`'s cells are in the layout but not on screen, and a press there lands nowhere, failing as a timeout several steps later. The check presses columns at the table's left.

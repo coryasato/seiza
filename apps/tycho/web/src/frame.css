@@ -73,6 +73,11 @@
   [data-menu] {
     user-select: none;
   }
+  /* A field in it is text: its term or value selects as typed (WebKit can
+     refuse a selection under a `user-select: none` ancestor). */
+  :is(header, footer, #first, #log, #log-sheet, #columns, #toolbar, [data-menu]) input {
+    user-select: text;
+  }
   button {
     font: inherit;
   }

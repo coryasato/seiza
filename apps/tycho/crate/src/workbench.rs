@@ -2145,7 +2145,12 @@ impl Workbench {
             active: self.active,
             columns: self.columns.clone(),
             find: self.find.facts(match &self.load {
-                Load::Open { table, .. } => table.read(cx).current_match().is_some(),
+                // A match in a column hidden since has no place: not
+                // landed, so Escape goes back where find opened.
+                Load::Open { table, view, .. } => table
+                    .read(cx)
+                    .current_match()
+                    .is_some_and(|cell| !view.is_hidden(cell.column)),
                 _ => false,
             }),
             tools: match &self.load {

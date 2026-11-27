@@ -452,6 +452,8 @@ export function openFind(term = ''): void {
     const input = findInput();
     input?.focus({ preventScroll: true });
     input?.select();
+    // A menu or a popover opened over the bar closes as find takes focus.
+    for (const listener of findListeners) listener();
     return;
   }
   if (!findOpen) {
@@ -466,13 +468,17 @@ export function openFind(term = ''): void {
  *  (another file opened). */
 export function closeFind(to: 'back' | 'none'): void {
   if (!findOpen) return;
+  const text = findInput()?.value ?? '';
   findOpen = null;
   call((app) => app.find(''));
   for (const listener of findListeners) listener();
   const from = findReturn;
   findReturn = null;
   if (to === 'none') return;
-  if (getState().find.landed) {
+  // A landing counts for the term it landed under: typed past since, the
+  // frame that says so may not have come yet.
+  const found = getState().find;
+  if (found.landed && found.term === text) {
     canvasKeys()?.focus({ preventScroll: true });
   } else if (from?.matches('[data-tool=find]')) {
     // The toolbar's Find, which the bar stood in for: drawn again once
@@ -502,7 +508,8 @@ function findKey(event: KeyboardEvent): boolean {
   // Over the command bar: the bar closes, and find goes back where the
   // bar would have. A menu, a popover, or a sheet closes itself as find
   // opens (`menus.tsx`, `toolbar.tsx`).
-  const back = barOpen ? barReturn : undefined;
+  // Find open already keeps where it was opened from.
+  const back = barOpen && !findOpen ? barReturn : undefined;
   closeBar('none');
   openFind();
   if (back !== undefined) findReturn = back;

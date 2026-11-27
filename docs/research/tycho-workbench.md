@@ -60,16 +60,18 @@ What someone needs to check something in a large file, with no LLM anywhere:
 | Tool | State |
 |---|---|
 | Resize, select, copy, pin, reorder | Built in the tall table and adopted in Tycho: a column's menu (from its header's badge), a cell's menu, and the column list |
-| Sort, format, density | Built in the tall table; not yet adopted (sorting with filtering, next) |
+| Sort | Built in the tall table and adopted in Tycho: a header's arrow, a column's menu, the toolbar's editor, and `sort`, one column at a time, over a sorted copy of the rows in view (a Parquet file over 256 MiB isn't sorted) |
+| Format, density | Built in the tall table; not yet adopted |
 | Jump to row | Built in Tycho |
-| Filter a column; search across columns | Candidates in the tall table's PLAN, after its `replace_rows` |
-| Find (keep every row, step through matches) | A candidate in the tall table's PLAN |
+| Filter a column | Built in Tycho over the table's `replace_rows`: the toolbar's editor, its list, and `filter`, each filter a column, an operator, and a value, combined with `AND`, over an index of row numbers |
+| Search across columns (keep the rows any column matches) | Not adopted: find steps through matches and keeps every row; a filter over every column is the table's global filtering, built in its PLAN |
+| Find (keep every row, step through matches) | Built in the tall table and adopted in Tycho: find's bar (Cmd/Ctrl+F on the first press, the second the browser's), its count and place, and `find` |
 | Hide and show columns | Built in the tall table and adopted in Tycho: the menus, the column list, `hide` and `show` |
 | A column profile: type, null share, distinct count, min and max, top values, a small histogram | New, Tycho's |
 | Totals of the selection (count, sum, average) | New, Tycho's: a query over the selection's range in the catalog, since most of a large selection isn't loaded |
 | Export the current view as CSV or Parquet (and so convert between them) | New, Tycho's and the engine's; needs a size plan (below) |
 | Schema and file facts (types, row groups, compression) | New, Tycho's |
-| Filter by a cell: every row that shares this value, or every row that doesn't | New, Tycho's; **decided** |
+| Filter by a cell: every row that shares this value, or every row that doesn't | Built in Tycho: a cell's menu and a Row tab field's, keep and leave out |
 | A row detail view: one row opened and read in full, long text and nested values included | Built in Tycho (the panel's Row tab, opened from the cell popover, Enter, or a double-click), nested values aside until JSONL |
 | The view copied as SQL, to continue in another tool | New, Tycho's; **decided** |
 

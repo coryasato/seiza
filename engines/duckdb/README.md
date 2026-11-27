@@ -71,6 +71,16 @@ let state = cx.new(|cx| {
 - `ColumnInfo::tall_table_column()`: the table's `ColumnKind` for a DuckDB type.
 - `QueryResult` is a `TallTablePage`.
 
+**A view of a source** (`view`, with `tall-table`): `ViewRows<Q: RowSource, R: Runner>` is a table delegate over a source's rows chosen by a filter and ordered by a sort, built in an in-memory database the host attaches `(COMPRESS)` before any lockdown (`ViewSettings`: the database, a prefix of the view's own for its tables' names, and the DuckDB memory past which nothing more is built).
+
+- `RowSource`: a `PageQuery` that can number its rows in the source's order (`numbered_sql`, the row number in `ROW`), read a range of them, and say why it can't be filtered or sorted now (`busy`) or sorted at all (`refuse_sort`). `ParquetFile` is one; a host's CSV is its own.
+- **A filter** is an index of row numbers written by one query, in the source's order: `filter_job(where_sql)` gives the `CREATE TABLE` to run (off the table, cancelled by its `FilterHandle`), and `set_filter(Some(Filtered))` gives the table its result, whose `rows()` is the new count for `replace_rows`. A page is its slice of the index joined to the source's rows between the slice's first and last row number, so a Parquet file reads only those row groups. The host writes the `WHERE`: `ViewRows` takes it as SQL.
+- **A sort** (feature `sort`, which turns on the table's): the delegate's `sort` writes a sorted copy of the rows in view and pages it by `rowid`; `on_order` hears when one starts, is built, or fails.
+- **Find** (feature `find`, which turns on the table's): the delegate's `find` searches the rows in view in their order, in windows from 16,384 rows doubling to 1,048,576, each a query of its own, a cancel landing between them; `find_count_sql` and `find_place_sql` are the host's queries for the count of matching cells and the current match's place among them.
+- `Runner` sends a query: the `Engine`, or a test's stand-in. `close()` drops the view's tables.
+
+Every index and copy is checked against the count it was built from, and DuckDB's memory against the budget before it's built: a short one fails, never "no rows" (Limits, below).
+
 **JS (`@seiza/duckdb`):**
 
 - `createBridge({ refusal?, extensionDir?, extensionBase? })`: the three calls (`registerFile`, `query`, `cancel`). `refusal(response)` gives the message for a URL whose server answered the range probe with something other than 206 on purpose (a pause switch, say). `extensionDir` is the directory under the host's Vite `base` the extensions load from: one name, no slashes, `duckdb-ext` by default. A host that picks another (`duckdb`) gives `duckdb()` and `extensions.ts <public dir> duckdb` the same name; a name with a slash throws. `extensionBase` is the path that directory sits under (starting and ending in `/`), Vite's `BASE_URL` by default: a host whose builds share one engine path apart from their bases (the observatory's contenders, `/observatory/duckdb/`) names it, and serves the directory there itself.
@@ -85,6 +95,8 @@ A host must be cross-origin isolated (COOP/COEP): the read counters are `SharedA
 |---|---|---|---|
 | *(base)* | The client, its status and events, the Arrow reader, and the SQL helpers | +12.3 KiB when first built, with Tycho's bridge self-test (arrow-rs would have added 127 KiB more) | [Tycho's 2026-09-23 note](../../apps/tycho/perf/results/2026-09-23-m2.md) |
 | `tall-table` | A `seiza-tall-table` source: query results as pages, Parquet files read a page at a time, their summary | — | [Tycho's results](../../apps/tycho/perf/results/) |
+| `sort` | A view's sort: a sorted copy of the rows in view; turns on the table's `sort` | With Tycho's filter and its controller, +20.0 KiB on Tycho; the table's own `sort` +23.4 KiB in its bare host | [Tycho's milestones](../../apps/tycho/docs/milestones.md) ("Sort, filter, and find") |
+| `find` | A view's find: the rows in view searched in windows, and the count's and the place's SQL; turns on the table's `find` | In the same +20.0 KiB; the table's own `find` +7.4 KiB in its bare host | [Tycho's milestones](../../apps/tycho/docs/milestones.md) ("Sort, filter, and find") |
 
 The JS side loads after first paint and costs no first-paint bytes: the engine chunk (38.8 KiB br), DuckDB's worker (~152 KiB br), its wasm (~5 MiB br, EH), and the Parquet extension (~487 KiB br), as Tycho's `just tycho build` reports them.
 
@@ -95,6 +107,7 @@ The JS side loads after first paint and costs no first-paint bytes: the engine c
 - **One query runs at a time;** pending ones share the worker round-robin, and a started read can't be cancelled.
 - **Registered files stay registered** for the session, and each Parquet file's parsed footer stays in memory (~2.2 MiB per open of a 1,378-group file; [Tycho's measurement](../../apps/tycho/perf/results/2026-10-08-m7-footers.json)).
 - **In-memory tables stop storing anything past ~2.1 GiB** in a browser tab, silently ([`CLAUDE.md`](CLAUDE.md), gotchas).
+- **A view's sort copies the rows in view into memory,** reading the whole source: ~145 MiB and 7.5–8 s for a 108 MiB Parquet file's 4.7 M rows; a sorted index paged instead reads every row group a page (~2 s a page there). A filter's index holds row numbers alone. A host refuses a sort its source is too large for (`RowSource::refuse_sort`). Find's count and place are each a whole scan (67 s on a 970 MiB file). Every number: [`docs/DECISIONS.md`](docs/DECISIONS.md), "Table source", 2026-11-26.
 - **Locked (`start_locked`), a query reaches the directory's files and nothing else:** a URL, a file outside it, a `../` path, `COPY` outside it or to a URL, `ATTACH` of a file or URL, `LOAD` of an extension not yet loaded, and every `SET` and `RESET` are refused. Still allowed, since none reaches outside: `ATTACH ':memory:'`, an `ATTACH` or `COPY` inside the directory, `LOAD` of a loaded extension, and `INSTALL` (DuckDB-Wasm fetches at `LOAD`). Checked in Chromium, Firefox, and WebKit by Tycho's `perf/lockdown.ts`.
 
 ## Docs
