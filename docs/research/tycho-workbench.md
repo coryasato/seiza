@@ -214,7 +214,7 @@ What follows from it:
 
 Planned 2026-11-27 (`apps/tycho/docs/DECISIONS.md`, "Scope"). Today the dialect and the types come from one `sniff_csv` of the first chunk, and a later value that doesn't fit widens its column to text. What's left is the guess that parses and is wrong.
 
-- **Decided:** the visitor sees what was chosen and can correct it: a column read as text, dates day-first, the delimiter, the header row. The file is then read again from its start, as a task.
+- **Decided:** the visitor sees what was chosen and can correct it: a column read as text, dates day-first, a decimal comma, the delimiter, the header row. The file is then read again from its start, as a task.
 - **Decided:** the corrections are part of the view state's source, so a link to the view asks for the file and reads it the same way; without them a filter on `zip = '02134'` would meet a number column.
 - **Proposed:** they are `read_csv`'s own options (`types`, `dateformat`, `delim`, `header`) over the sniffer's answer, so nothing new is parsed by Tycho; the scanner's record boundaries don't depend on them, the quote aside.
 - **Decided (2026-11-27, from the boards):** a column whose values start with zeros is kept as text by Tycho, over the sniffer's guess, and the opening's log entry says so with the way back; the table never shows 2134 for 02134. It is decided on the first chunk's text, where the sniffer's types are, so the file is read once.
