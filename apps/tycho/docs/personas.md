@@ -15,11 +15,13 @@ Has a file and a question, and ten minutes: an analyst with a CRM export, an ope
 - **Why Tycho:** it's a link. Nothing to install, nothing uploaded, which matters most on a work laptop where neither is allowed. A spreadsheet stops near a million rows and rewrites types; a notebook needs an environment and code for every look; DuckDB's command line needs an install and fluent SQL.
 - **Needs:**
   - open the file and see rows at once, whatever its size
+  - a file read as it was written: a ZIP code keeps its zeros, a date isn't misread, and a wrong guess can be corrected
   - a profile of each column before asking anything: type, nulls, distinct values, range, top values
   - find a value, filter, sort
   - totals of what's selected
   - group by a column and count or total another (a pivot)
   - a chart of the answer
+  - two files compared: what changed since last month's export, which rows are in one and not the other
   - come back to their work: a link to the view, or the view saved in their own browser if they ask for it
   - take the answer away: a piece of the file, or the view as SQL to continue in their own tool
 - **Where Tycho stops:** after the first look. Repeatable analysis, modeling, and a report to share belong to their normal tools; Tycho hands off to them.

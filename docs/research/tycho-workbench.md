@@ -68,7 +68,7 @@ What someone needs to check something in a large file, with no LLM anywhere:
 | Find (keep every row, step through matches) | Built in the tall table and adopted in Tycho: find's bar (Cmd/Ctrl+F on the first press, the second the browser's), its count and place, and `find` |
 | Hide and show columns | Built in the tall table and adopted in Tycho: the menus, the column list, `hide` and `show` |
 | A column profile: type, null share, distinct count, min and max, top values, a small histogram | New, Tycho's |
-| Totals of the selection (count, sum, average) | New, Tycho's: a query over the selection's range in the catalog, since most of a large selection isn't loaded |
+| Totals of the selection (count, sum, average, minimum, maximum) | New, Tycho's: a query over the selection's range in the catalog, since most of a large selection isn't loaded ("The selection's summary", below) |
 | Export the current view as CSV or Parquet (and so convert between them) | New, Tycho's and the engine's; needs a size plan (below) |
 | Schema and file facts (types, row groups, compression) | New, Tycho's |
 | Filter by a cell: every row that shares this value, or every row that doesn't | Built in Tycho: a cell's menu and a Row tab field's, keep and leave out |
@@ -76,6 +76,12 @@ What someone needs to check something in a large file, with no LLM anywhere:
 | The view copied as SQL, to continue in another tool | New, Tycho's; **decided** |
 
 **Export's size, decided 2026-11-21:** a cap with a clear message, in every browser, and a test of writing to the browser's own storage first, which would lift it (`apps/tycho/docs/DECISIONS.md`, "Scope"). What was open: an export is written inside DuckDB-Wasm before the browser saves it (to confirm how), so a large one could run out of memory. The choices: a cap with a clear message, which covers the common case of a small piece of a big file; or writing in pieces to a file the visitor picks (the save-file picker, Chromium only). It also needs a call the bridge doesn't have. Decided before export is built.
+
+**The selection's summary, planned 2026-11-27** (`apps/tycho/docs/DECISIONS.md`, "Scope"): a line at the status bar's right end, never the table's footer row, which is the view's totals.
+
+- **Decided:** one query over the selection's range in the view (its filter's index and its sorted copy, as page reads use them), sent in the engine's background as a profile's are, so it counts cells that were never loaded.
+- **Proposed:** a count for any cells; a sum, an average, a minimum, and a maximum for numbers, and the earliest and latest for dates; infinities and NaN left out and counted, as the profile does.
+- **Open:** a whole column selected (the profile's exact stage holds the same figures: read from it, or asked again), a range across columns of different types, a selection of several ranges, a CSV still loading, and a phone, which has no status bar.
 
 ### 3. The catalog: formulas by type
 
@@ -203,6 +209,21 @@ What follows from it:
 - **Decided:** Parquet only, read by range: the footer and then only the row groups in view, as the samples are today, so part of a huge remote file opens quickly (a file on Hugging Face, say: checked 2026-11-17, its `resolve` URL answers a cross-origin request, allows the `Range` header in a preflight, and redirects to a CDN that answers `206` with `Access-Control-Allow-Origin: *`; each read pays that redirect). What the engine needs of any host is narrower than "allows cross-origin reads": a ranged `HEAD` answered with 206, and `Content-Range` exposed to the page, since that is how it sizes the file (`engines/duckdb/CLAUDE.md`; `remoteSize` in the engine's `engine.ts`). Hugging Face does both, through the redirect, checked with `curl` and not yet through DuckDB in a browser. A remote CSV has no index and isn't offered.
 - **Proposed:** no proxy through our Worker (the data would pass through us). The remote host must allow cross-origin reads, and the page says so when one doesn't.
 - **Proposed, to research before it's built:** URL opening gets a route of its own with a looser connection policy, so the drop-a-file page keeps the strict one (below). That route holds only what anyone can fetch, so it takes no dropped files: a private file never sits on the page where the browser allows other hosts. The engine's lockdown likely holds here too: the remote file is registered under the allowed directory and read by that name, so a query still can't name a host (to test in a browser).
+
+#### A CSV read wrongly
+
+Planned 2026-11-27 (`apps/tycho/docs/DECISIONS.md`, "Scope"). Today the dialect and the types come from one `sniff_csv` of the first chunk, and a later value that doesn't fit widens its column to text. What's left is the guess that parses and is wrong.
+
+- **Decided:** the visitor sees what was chosen and can correct it: a column read as text, dates day-first, the delimiter, the header row. The file is then read again from its start, as a task.
+- **Decided:** the corrections are part of the view state's source, so a link to the view asks for the file and reads it the same way; without them a filter on `zip = '02134'` would meet a number column.
+- **Proposed:** they are `read_csv`'s own options (`types`, `dateformat`, `delim`, `header`) over the sniffer's answer, so nothing new is parsed by Tycho; the scanner's record boundaries don't depend on them, the quote aside.
+- **Open:** how a wrong guess is noticed (a number column whose text has leading zeros; a date column where both readings parse), and what a correction does to the views and the log of the file as first read.
+- **Deferred:** other encodings. The scanner finds record boundaries in bytes, so UTF-16 is its own work, and DuckDB reads only a few encodings without an extension. Until then a file that isn't UTF-8 is refused with the way on, and so is a spreadsheet's file: save a UTF-8 CSV from the spreadsheet app in use.
+- **To research, after the first release:** a spreadsheet's file opened. Whether DuckDB's Excel reader runs in DuckDB-Wasm, what it weighs, and how it loads when the lockdown refuses `LOAD` after the lock (before it for every visitor, or the engine started again for such a file); a workbook's sheets would each be a source. No `.xlsx` is exported.
+
+#### Two files compared
+
+- **Decided (2026-11-27):** named within "more than one file": the rows only in one, only in the other, and those whose values differ, matched on a key. Its shape waits for a join's. A join that adds a column from another file is a lookup in the menus and the help.
 
 ### 7. Trust
 
