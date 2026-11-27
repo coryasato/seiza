@@ -766,7 +766,7 @@ pub fn publish(view: Option<&ViewState>) {
 /// Freezes `value` and every object and array in it: the probe is
 /// read-only all the way down.
 #[cfg(target_family = "wasm")]
-fn freeze(value: &wasm_bindgen::JsValue) {
+pub(crate) fn freeze(value: &wasm_bindgen::JsValue) {
     use wasm_bindgen::JsCast as _;
 
     let Some(object) = value.dyn_ref::<js_sys::Object>() else {

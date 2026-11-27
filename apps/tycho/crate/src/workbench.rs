@@ -136,6 +136,20 @@ impl Marks {
     }
 }
 
+/// What the profiles were synced for (`Workbench::sync_profile`): the
+/// shown table, its file, its rows, whether they're all in, the filters
+/// applied, and how many columns it has.
+#[cfg(target_family = "wasm")]
+#[derive(Debug, Clone, PartialEq)]
+struct ProfileSeen {
+    table: u64,
+    file: Option<String>,
+    rows: u64,
+    loading: bool,
+    filters: Vec<crate::filter::Filter>,
+    columns: usize,
+}
+
 #[cfg_attr(
     not(target_family = "wasm"),
     expect(dead_code, reason = "only the web build opens files")
@@ -527,6 +541,21 @@ pub struct Workbench {
     open_after_frame: Option<(usize, u64)>,
     /// Find's bar: its term, its step, and its counts (`crate::find`).
     find: crate::find::Finding,
+    /// The columns' profiles, read in stages (`crate::profile`).
+    profiling: crate::profile::Profiling,
+    /// The profiles last published to `globalThis.__tychoProfile` (while
+    /// measuring), so they're published only when they change.
+    #[cfg(target_family = "wasm")]
+    shown_profile: Option<String>,
+    /// What the profiles were last synced for, so a render of a scroll
+    /// with nothing new does nothing (`sync_profile`).
+    #[cfg(target_family = "wasm")]
+    profile_seen: Option<ProfileSeen>,
+    /// The vertical scrollbar's track and thumb last reported: a thumb that
+    /// moves at the same size on the same track is a scroll; any other
+    /// change (rows, a resize) isn't.
+    #[cfg(target_family = "wasm")]
+    last_thumb: Option<(Bounds<Pixels>, Bounds<Pixels>)>,
     _engine_status: Subscription,
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
@@ -620,6 +649,13 @@ impl Workbench {
             active: None,
             open_after_frame: None,
             find: Default::default(),
+            profiling: Default::default(),
+            #[cfg(target_family = "wasm")]
+            shown_profile: None,
+            #[cfg(target_family = "wasm")]
+            profile_seen: None,
+            #[cfg(target_family = "wasm")]
+            last_thumb: None,
             // The outcome on a global while measuring, for the checks.
             clipboard: tall_table_bridge::clipboard::Clipboard::new(
                 crate::targets::measuring().then_some("__tychoCopy"),
@@ -1400,6 +1436,19 @@ impl Workbench {
                     && track.size.height > px(0.)
                 {
                     this.laid_out = Some(table.entity_id());
+                }
+                // Page reads go first: a profile out waits while it scrolls.
+                #[cfg(target_family = "wasm")]
+                if let TallTableEvent::Scrollbar { track, thumb } = event {
+                    let moved = this.last_thumb.is_some_and(|(last_track, last_thumb)| {
+                        last_track == *track
+                            && last_thumb.size == thumb.size
+                            && last_thumb.origin != thumb.origin
+                    });
+                    this.last_thumb = Some((*track, *thumb));
+                    if moved {
+                        this.profiling.scrolled(seiza::marks::now());
+                    }
                 }
                 if matches!(
                     event,
@@ -3164,6 +3213,105 @@ impl Workbench {
         &mut self.find
     }
 
+    /// The profiles' state, for their queries' answers (`crate::profile`).
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn profiling(&mut self) -> &mut crate::profile::Profiling {
+        &mut self.profiling
+    }
+
+    /// The columns to profile, by name (the panel's open column, the filter
+    /// editor's); none closes every profile, canceling what's out.
+    pub fn ask_profiles(&mut self, columns: Vec<String>, cx: &mut Context<Self>) {
+        self.profiling.ask(columns);
+        cx.notify();
+    }
+
+    /// The profiles' queries sent, or canceled, for the rows in view: the
+    /// shown table's source, the filters applied, and the file's columns.
+    #[cfg(target_family = "wasm")]
+    fn sync_profile(&mut self, cx: &mut Context<Self>) {
+        use seiza_duckdb::view::RowSource;
+
+        use crate::profile::{Key, Scan};
+        use crate::table::Source;
+
+        // The table renders the workbench every frame of a scroll: what the
+        // profiles are read of is compared cheaply, and their SQL written
+        // only when it, or the profiles themselves, changed.
+        let seen = match &self.load {
+            Load::Open { table, view, .. } => {
+                let source = table.read(cx).delegate().view().query();
+                Some(ProfileSeen {
+                    table: table.entity_id().as_u64(),
+                    file: match source {
+                        Source::Parquet(parquet) => Some(parquet.file.name().to_string()),
+                        Source::Csv(_) => None,
+                    },
+                    rows: source.rows(),
+                    loading: source.busy().is_some(),
+                    filters: self.rows_applied.clone(),
+                    columns: view.columns().len(),
+                })
+            }
+            _ => None,
+        };
+        if !self.profiling.take_changed() && self.profile_seen == seen {
+            return;
+        }
+        self.profile_seen = seen;
+        let Load::Open { table, view, .. } = &self.load else {
+            self.profiling.sync(None, None, &[], false, cx);
+            return;
+        };
+        let columns = view.columns().to_vec();
+        let shown = table.read(cx);
+        let source = shown.delegate().view().query();
+        let loading = source.busy().is_some();
+        let (scan, parquet) = match source {
+            Source::Parquet(parquet) => (
+                Scan::parquet(parquet.file.name(), parquet.rows),
+                Some(parquet.file.name().to_string()),
+            ),
+            Source::Csv(chunks) => (
+                Scan::relation(&chunks.numbered_sql(None), chunks.rows()),
+                None,
+            ),
+        };
+        // The filters applied, as the table's rows are: written by the one
+        // function that writes them for the index.
+        // Filters the columns can't write (a column retyped since) leave
+        // the profiles as they were until they can.
+        let Ok(condition) = crate::filter::where_sql(&self.rows_applied, &columns) else {
+            return;
+        };
+        let key = Key {
+            table: table.entity_id().as_u64(),
+            scan: scan.filtered(condition),
+        };
+        self.profiling
+            .sync(Some(key), parquet.as_deref(), &columns, loading, cx);
+    }
+
+    /// Publishes the asked columns' profiles and the footer's null counts
+    /// to `globalThis.__tychoProfile` when they changed, while measuring:
+    /// read-only, for the checks.
+    #[cfg(target_family = "wasm")]
+    fn publish_profile(&mut self) {
+        if !crate::targets::measuring() {
+            return;
+        }
+        let facts = serde_json::json!({
+            "profiles": self.profiling.facts(seiza::marks::now()),
+            "footerNulls": self.profiling.footer_nulls(),
+        })
+        .to_string();
+        if self.shown_profile.as_deref() == Some(facts.as_str()) {
+            return;
+        }
+        crate::profile::publish(&facts);
+        self.shown_profile = Some(facts);
+    }
+
     /// Find's count and place sent again if what they count changed.
     #[cfg(target_family = "wasm")]
     fn sync_find(&mut self, cx: &mut Context<Self>) {
@@ -3294,7 +3442,11 @@ impl Render for Workbench {
         self.publish_view();
         self.publish_catalog();
         #[cfg(target_family = "wasm")]
-        self.sync_find(cx);
+        {
+            self.sync_find(cx);
+            self.sync_profile(cx);
+            self.publish_profile();
+        }
         self.publish_frame(cx);
 
         div()

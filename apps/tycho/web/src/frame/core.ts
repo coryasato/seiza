@@ -33,6 +33,9 @@ export interface App {
   /** Find's Enter and Next match (`backward`: Shift+Enter, Previous
    *  match). */
   find_step(backward: boolean): void;
+  /** The columns whose profiles are read, by name: the panel's open
+   *  column and the filter editor's; none closes them. */
+  profile(columns: string[]): void;
   /** A row's values (0-based) for the Row tab; null with no file open, no
    *  such row, or a read that failed. */
   row(row: number): Promise<RowValues | null>;
@@ -67,6 +70,12 @@ function call(run: (app: App) => void): void {
 /** The app's calls, or null before the first frame: `complete` answers at
  *  once, so it isn't queued. */
 export const appNow = (): App | null => app;
+
+/** The columns whose profiles are read (`App.profile`), queued until the
+ *  first frame. */
+export function askProfiles(columns: string[]): void {
+  call((app) => app.profile(columns));
+}
 
 /** The first frame is up: the calls made before it run now. Not sooner,
  *  though the wasm is in before it: a press on the sample's row would

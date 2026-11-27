@@ -26,7 +26,7 @@ extern "C" {
     fn register_file(this: &Bridge, name: &str, source: &JsValue) -> Promise;
 
     #[wasm_bindgen(method)]
-    fn query(this: &Bridge, sql: &str, request_id: u32) -> Promise;
+    fn query(this: &Bridge, sql: &str, request_id: u32, options: &JsValue) -> Promise;
 
     #[wasm_bindgen(method)]
     fn cancel(this: &Bridge, request_id: u32);
@@ -356,12 +356,42 @@ impl Engine {
         RequestId,
         impl Future<Output = Result<QueryResult, EngineError>> + 'static,
     ) {
+        self.send(sql, false)
+    }
+
+    /// As [`Engine::query`], but run only while no other query is in flight
+    /// (`web/src/engine.ts`, `QueryOptions`): a page read then waits for no
+    /// more than the one slice of it already running. It can wait as long
+    /// as other queries keep coming, so the host says when it's waiting.
+    pub fn query_background(
+        &self,
+        sql: &str,
+    ) -> (
+        RequestId,
+        impl Future<Output = Result<QueryResult, EngineError>> + 'static,
+    ) {
+        self.send(sql, true)
+    }
+
+    fn send(
+        &self,
+        sql: &str,
+        background: bool,
+    ) -> (
+        RequestId,
+        impl Future<Output = Result<QueryResult, EngineError>> + 'static,
+    ) {
         let id = self.next_request.get();
         self.next_request.set(id.wrapping_add(1));
         let promise = if self.down.get() {
             Promise::reject(&js_sys::Error::new(&Self::down_error().to_string()))
+        } else if background {
+            let options = js_sys::Object::new();
+            // Setting a plain property on a new object can't fail.
+            let _ = js_sys::Reflect::set(&options, &"background".into(), &JsValue::TRUE);
+            self.bridge.query(sql, id, &options)
         } else {
-            self.bridge.query(sql, id)
+            self.bridge.query(sql, id, &JsValue::UNDEFINED)
         };
         self.watch(&promise);
         let sent = JsFuture::from(promise);

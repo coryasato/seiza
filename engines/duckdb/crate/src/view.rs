@@ -99,6 +99,13 @@ pub trait Runner: Clone + 'static {
     /// Sends `sql` now.
     fn query(&self, sql: &str) -> (Self::Id, QueryLoad);
 
+    /// Sends `sql` now, to run only while no other query is in flight
+    /// ([`crate::Engine::query_background`]); a runner with one lane runs it
+    /// as any other.
+    fn query_background(&self, sql: &str) -> (Self::Id, QueryLoad) {
+        self.query(sql)
+    }
+
     /// Stops a query; its answer resolves as cancelled unless it's in.
     fn cancel(&self, id: Self::Id);
 }
@@ -109,6 +116,11 @@ impl Runner for crate::Engine {
 
     fn query(&self, sql: &str) -> (Self::Id, QueryLoad) {
         let (id, result) = crate::Engine::query(self, sql);
+        (id, Box::pin(result))
+    }
+
+    fn query_background(&self, sql: &str) -> (Self::Id, QueryLoad) {
+        let (id, result) = crate::Engine::query_background(self, sql);
         (id, Box::pin(result))
     }
 
@@ -173,11 +185,9 @@ impl Filtered {
     }
 }
 
-/// A sort's state: its copy, built or being built.
-#[cfg_attr(
-    not(feature = "sort"),
-    expect(dead_code, reason = "only a sort builds an order")
-)]
+/// A sort's state: its copy, built or being built. Without `sort` none is
+/// built, but `set_order` still reads one's fields, so the struct isn't
+/// dead code (its methods are).
 struct Ordered<Id> {
     table: String,
     gate: Gate,

@@ -43,7 +43,19 @@ const RANGE_READS_ONLY = { reliableHeadRequests: true, allowFullHTTPReads: false
 
 export interface Engine {
   registerFile(name: string, source: File | string): Promise<FileInfo>;
-  query(sql: string, signal: AbortSignal): Promise<Uint8Array>;
+  query(sql: string, signal: AbortSignal, options?: QueryOptions): Promise<Uint8Array>;
+}
+
+export interface QueryOptions {
+  /**
+   * Runs the query only while no foreground query is in flight: DuckDB-Wasm
+   * runs pending queries a slice at a time, round-robin, and a background
+   * query asks for its next slice only once the foreground ones have
+   * answered. A page read then waits for no more than the one background
+   * slice already running. It can wait as long as foreground queries keep
+   * coming; the host says so where it shows the answer. Off by default.
+   */
+  background?: boolean;
 }
 
 export interface EngineOptions {
@@ -66,6 +78,17 @@ export interface EngineOptions {
    * apart from their own bases names it here (and serves it there).
    */
   extensionBase?: string;
+  /**
+   * How long DuckDB runs a query before it answers a poll, in milliseconds
+   * (DuckDB-Wasm's `queryPollingInterval`), or undefined for DuckDB-Wasm's
+   * own. One setting for every query: a page read sent while another query
+   * runs waits for at most one slice of it, so a host that runs long
+   * queries beside page reads (in the background, `QueryOptions`) sets a
+   * short one. On Tycho's release build, 10 ms left a page read beside a
+   * background query as fast as one alone (`docs/DECISIONS.md`, "Engine
+   * and bridge", 2026-11-27).
+   */
+  sliceMs?: number;
 }
 
 /** The name of the error every call rejects with once DuckDB's worker has
@@ -112,7 +135,10 @@ export async function startEngine(options: EngineOptions = {}): Promise<Engine> 
     await guard(
       (async () => {
         await db.instantiate(mainModule);
-        await db.open({ filesystem: RANGE_READS_ONLY });
+        await db.open({
+          filesystem: RANGE_READS_ONLY,
+          ...(options.sliceMs === undefined ? {} : { query: { queryPollingInterval: options.sliceMs } }),
+        });
         await useSelfHostedExtensions(db, extensions);
       })(),
     );
@@ -122,6 +148,7 @@ export async function startEngine(options: EngineOptions = {}): Promise<Engine> 
   }
   ready = true;
   performance.mark(ENGINE_READY_MARK);
+  const lanes = new Lanes();
 
   return {
     registerFile: (name, source) =>
@@ -140,7 +167,7 @@ export async function startEngine(options: EngineOptions = {}): Promise<Engine> 
           return { name, size: source.size, bytesRead };
         })(),
       ),
-    query: (sql, signal) => guard(runQuery(db, sql, signal)),
+    query: (sql, signal, options) => guard(lanes.run(options?.background ?? false, signal, (between) => runQuery(db, sql, signal, between))),
   };
 }
 
@@ -296,11 +323,57 @@ function startWorker(scriptUrl: string): Worker {
 }
 
 /**
+ * The foreground queries in flight, which background ones wait for. One per
+ * engine: a replaced engine starts with none.
+ */
+class Lanes {
+  private foreground = 0;
+  private waiting = new Set<() => void>();
+
+  /** Runs `query`, counted as foreground unless `background`; it calls
+   *  `between` before it starts and between its slices. */
+  async run<T>(background: boolean, signal: AbortSignal, query: (between: () => Promise<void>) => Promise<T>): Promise<T> {
+    if (background) return query(() => this.clear(signal));
+    this.foreground++;
+    try {
+      return await query(async () => {});
+    } finally {
+      if (--this.foreground === 0) {
+        const waiting = [...this.waiting];
+        this.waiting.clear();
+        for (const wake of waiting) wake();
+      }
+    }
+  }
+
+  /** Resolves once no foreground query is in flight, or rejects when
+   *  `signal` aborts first. */
+  private async clear(signal: AbortSignal): Promise<void> {
+    while (this.foreground > 0) {
+      signal.throwIfAborted();
+      await new Promise<void>((resolve) => {
+        const wake = () => {
+          signal.removeEventListener('abort', wake);
+          this.waiting.delete(wake);
+          resolve();
+        };
+        this.waiting.add(wake);
+        signal.addEventListener('abort', wake, { once: true });
+      });
+    }
+    signal.throwIfAborted();
+  }
+}
+
+/**
  * Runs one query on its own connection, so queries can interleave and each
  * can be cancelled alone. DuckDB-Wasm executes a pending query in slices
- * (`pollPendingQuery`); a cancel lands between two slices.
+ * (`pollPendingQuery`); a cancel lands between two slices, and `between`
+ * runs before the first and between each two (a background query waits
+ * there).
  */
-async function runQuery(db: AsyncDuckDB, sql: string, signal: AbortSignal): Promise<Uint8Array> {
+async function runQuery(db: AsyncDuckDB, sql: string, signal: AbortSignal, between: () => Promise<void>): Promise<Uint8Array> {
+  await between();
   const conn = await db.connectInternal();
   const onAbort = () => void db.cancelPendingQuery(conn).catch(() => {});
   signal.addEventListener('abort', onAbort, { once: true });
@@ -310,6 +383,7 @@ async function runQuery(db: AsyncDuckDB, sql: string, signal: AbortSignal): Prom
     let header = await db.startPendingQuery(conn, sql, false);
     while (header === null) {
       signal.throwIfAborted();
+      await between();
       header = await db.pollPendingQuery(conn);
     }
     signal.throwIfAborted();

@@ -487,3 +487,17 @@ No results note: Tycho records no measurements.
 - **A command typed while the last one's bar is closing is lost:** `clear all` typed straight after `sort launch_date` never ran, and nothing said so: the second Cmd/Ctrl+K landed on the bar that was still going, so the check waits for the bar to close before opening it again. The earlier checks never sent two commands back to back.
 - **The page's own key is invisible from `window`'s bubble phase:** the page takes Cmd/Ctrl+F on `document` in the capture phase and stops it there, so a listener on `window` heard only the second press, the one let through. Whether the first was taken is read from the event itself, kept from `window`'s capture phase (before the page's) and read after dispatch.
 - **With the log panel open, most of GCAT's columns are off the canvas:** `mass_kg`'s arrow and `launch_site`'s cells are in the layout but not on screen, and a press there lands nowhere, failing as a timeout several steps later. The check presses columns at the table's left.
+
+## M16 part A: the profile's engine half, timed, in Rust (2026-11-27)
+
+No results note: Tycho records no measurements; the timings are in `docs/DECISIONS.md`, "Scope", 2026-11-27, and the engine's, "Engine and bridge" and "Table source", 2026-11-27.
+
+**Surprises:**
+- **A text comparison in a `WHERE` on a Parquet file is about 10× slower in DuckDB-Wasm than the same test as a `CASE`:** a filtered profile on 42 M rows took 22 s against 4.8 s unfiltered, and native DuckDB ran both in the same 33 ms, so nothing but a browser run would have shown it. The filter's index pays it too (10.4 s against 1.6 s), which put a part in the milestone that wasn't planned.
+- **A 1% sample of a small file is no rows:** `TABLESAMPLE SYSTEM` takes whole 2,048-row vectors, and GCAT has about 35. A sample's share has to follow the rows; and on a large file the share hardly matters, since the row groups' setup is most of a sample's cost.
+- **Sampling doesn't cheapen a text column with many values:** its pages are decoded whole, so a sample of 42 M rows' `full_name` cost 5.3 s against 8.8 s for every row.
+- **`approx_count_distinct` was 13–18% off even over every row,** so "about N" would have been wrong in the way that matters, and a sample's own count, a floor, is the honest figure.
+- **The engine's round-robin isn't the whole story of a page's wait:** a background lane brought a page beside a profile from ~1.0 s to ~0.6 s on 42 M rows, and the rest was the slice already running, about 100 ms; a 10 ms slice took that away too, at no cost found.
+- **A test caught the footer's null shares under a filter:** the footer is kept under an unfiltered key, so "is the view unfiltered" read its own key and always passed. The view in front's filters are now kept apart from the footer's.
+- **An engine's change runs every app's check that builds it, and the observatory's hadn't run since the last one:** its lint failed on `HEAD`, an `expect(dead_code)` the sort's work left on a struct whose fields a path without `sort` still reads. The engine's own clippy, with every feature, couldn't see it.
+

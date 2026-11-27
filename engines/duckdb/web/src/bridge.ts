@@ -8,9 +8,9 @@
  * about the engine can delay it.
  */
 
-import type { Engine, EngineOptions } from './engine.ts';
+import type { Engine, EngineOptions, QueryOptions } from './engine.ts';
 
-export type { EngineOptions as BridgeOptions } from './engine.ts';
+export type { EngineOptions as BridgeOptions, QueryOptions } from './engine.ts';
 
 export interface FileInfo {
   name: string;
@@ -26,8 +26,10 @@ export interface Bridge {
   /** Makes a dropped `File` or a same-origin URL readable from SQL as `name`. */
   registerFile(name: string, source: File | string): Promise<FileInfo>;
   /** Runs `sql`; resolves to the whole result as Arrow IPC stream bytes.
-   *  Rejects with an `AbortError` if `cancel(requestId)` is called first. */
-  query(sql: string, requestId: number): Promise<Uint8Array>;
+   *  Rejects with an `AbortError` if `cancel(requestId)` is called first.
+   *  `options.background` runs it only while no other query is in flight
+   *  (engine.ts, `QueryOptions`). */
+  query(sql: string, requestId: number, options?: QueryOptions): Promise<Uint8Array>;
   /** Stops the query with this id. Unknown or finished ids are ignored. */
   cancel(requestId: number): void;
 }
@@ -81,13 +83,13 @@ export function createBridge(options: EngineOptions = {}): Bridge {
     registerFile(name, source) {
       return call((loaded) => loaded.registerFile(name, source));
     },
-    async query(sql, requestId) {
+    async query(sql, requestId, queryOptions) {
       const controller = new AbortController();
       inFlight.set(requestId, controller);
       try {
         return await call((loaded) => {
           controller.signal.throwIfAborted();
-          return loaded.query(sql, controller.signal);
+          return loaded.query(sql, controller.signal, queryOptions);
         });
       } finally {
         inFlight.delete(requestId);

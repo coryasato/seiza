@@ -760,6 +760,15 @@ mod web {
         }));
     }
 
+    /// The columns whose profiles are read, by name: the panel's open
+    /// column and the filter editor's. None closes every profile.
+    #[wasm_bindgen]
+    pub fn profile(columns: Vec<String>) {
+        send(on_workbench(move |workbench, _, cx| {
+            workbench.ask_profiles(columns, cx)
+        }));
+    }
+
     /// Find's Enter and Next match (`backward`: Shift+Enter, Previous
     /// match): the table steps, and the match's cell is selected.
     #[wasm_bindgen]

@@ -10,6 +10,7 @@ import init, {
   copy,
   find,
   find_step,
+  profile,
   fit,
   open_file,
   open_row,
@@ -30,7 +31,7 @@ import { createBridge } from '@seiza/duckdb/bridge';
 // asset; vite.config.ts checks it against data/MANIFEST.json. Fetched only
 // when its row is pressed.
 import sampleUrl from '../../data/gcat.parquet?url';
-import { bindFrame, connectApp, focusFirstScreen, isDark, slotCanvas } from './frame/core.ts';
+import { askProfiles, bindFrame, connectApp, focusFirstScreen, isDark, slotCanvas } from './frame/core.ts';
 import { type Completion, frameSink, type RowValues } from './frame/state.ts';
 // The page's other weights (the canvas draws Regular alone), the same
 // release of Plex Sans as the UI face; fetched after the first frame.
@@ -45,12 +46,18 @@ import monoUrl from './fonts/IBMPlexMono-Regular.woff2?url';
 bindFrame();
 slotCanvas(document.getElementById('table-slot')!);
 
-const bridge = createBridge();
+// Short slices, so a page read waits little behind the profile's queries,
+// which run in the engine's background (the engine's `sliceMs`).
+const bridge = createBridge({ sliceMs: 10 });
 // `?bench`: the perf scripts query the same engine the app uses (row counts,
 // paging experiments), and read the app's wasm memory to check the perf
 // panel's. The bridge loads nothing until its first call.
 const bench = new URLSearchParams(location.search).has('bench');
-if (bench) (globalThis as { __tychoBridge?: typeof bridge }).__tychoBridge = bridge;
+if (bench) {
+  (globalThis as { __tychoBridge?: typeof bridge }).__tychoBridge = bridge;
+  // The profiles a check asks for before the column list opens one.
+  (globalThis as { __tychoProfileAsk?: typeof askProfiles }).__tychoProfileAsk = askProfiles;
+}
 
 const instantiate = async () => {
   const exports = await init({ module_or_path: wasmUrl });
@@ -112,6 +119,7 @@ const hydrate = () => {
     open_row,
     find,
     find_step,
+    profile,
   });
   // GPUI took focus for its own input as its window opened.
   focusFirstScreen();
