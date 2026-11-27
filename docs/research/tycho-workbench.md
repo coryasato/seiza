@@ -80,8 +80,8 @@ What someone needs to check something in a large file, with no LLM anywhere:
 **The selection's summary, planned 2026-11-27** (`apps/tycho/docs/DECISIONS.md`, "Scope"): a line at the status bar's right end, never the table's footer row, which is the view's totals.
 
 - **Decided:** one query over the selection's range in the view (its filter's index and its sorted copy, as page reads use them), sent in the engine's background as a profile's are, so it counts cells that were never loaded.
-- **Proposed:** a count for any cells; a sum, an average, a minimum, and a maximum for numbers, and the earliest and latest for dates; infinities and NaN left out and counted, as the profile does.
-- **Open:** a whole column selected (the profile's exact stage holds the same figures: read from it, or asked again), a range across columns of different types, a selection of several ranges, a CSV still loading, and a phone, which has no status bar.
+- **Decided (2026-11-27, from the boards):** a count for any cells; a sum, an average, a minimum, and a maximum for numbers, and the earliest and latest for dates; nulls, infinities, and NaN left out and counted, as the profile does. A range across columns sums every number in it and says how many are numbers, which a pivot's spread columns need. A whole column is every row in view, read from the profile's exact stage where it has the figures. A phone has no summary. `density` is adopted with it, as Comfortable and Compact.
+- **Open:** a selection of several ranges, and a CSV still loading (proposed: the figures wait for the load).
 
 ### 3. The catalog: formulas by type
 
@@ -217,7 +217,9 @@ Planned 2026-11-27 (`apps/tycho/docs/DECISIONS.md`, "Scope"). Today the dialect 
 - **Decided:** the visitor sees what was chosen and can correct it: a column read as text, dates day-first, the delimiter, the header row. The file is then read again from its start, as a task.
 - **Decided:** the corrections are part of the view state's source, so a link to the view asks for the file and reads it the same way; without them a filter on `zip = '02134'` would meet a number column.
 - **Proposed:** they are `read_csv`'s own options (`types`, `dateformat`, `delim`, `header`) over the sniffer's answer, so nothing new is parsed by Tycho; the scanner's record boundaries don't depend on them, the quote aside.
-- **Open:** how a wrong guess is noticed (a number column whose text has leading zeros; a date column where both readings parse), and what a correction does to the views and the log of the file as first read.
+- **Decided (2026-11-27, from the boards):** a column whose values start with zeros is kept as text by Tycho, over the sniffer's guess, and the opening's log entry says so with the way back; the table never shows 2134 for 02134. It is decided on the first chunk's text, where the sniffer's types are, so the file is read once.
+- **Decided (2026-11-27, from the boards):** a correction is a step in the log, undone by `undo` (another whole read), and the views are kept.
+- **Open:** the test's edges (how many values, a lone "0", a sign, a decimal point); a date column where both readings parse, which nothing notices yet; and a filter or a grouping on a column whose type a correction changes.
 - **Deferred:** other encodings. The scanner finds record boundaries in bytes, so UTF-16 is its own work, and DuckDB reads only a few encodings without an extension. Until then a file that isn't UTF-8 is refused with the way on, and so is a spreadsheet's file: save a UTF-8 CSV from the spreadsheet app in use.
 - **To research, after the first release:** a spreadsheet's file opened. Whether DuckDB's Excel reader runs in DuckDB-Wasm, what it weighs, and how it loads when the lockdown refuses `LOAD` after the lock (before it for every visitor, or the engine started again for such a file); a workbook's sheets would each be a source. No `.xlsx` is exported.
 
