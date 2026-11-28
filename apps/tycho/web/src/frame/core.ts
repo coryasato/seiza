@@ -27,6 +27,8 @@ export interface App {
   filter_line(column: number, op: string, values: string[]): string | null;
   /** The log's way back on an entry. */
   back_to(entry: number): void;
+  /** Escape in the bar while a question is out: it's canceled. */
+  cancel_question(): void;
   /** Find's text as typed: the table's highlight and the count; empty
    *  (find closed) is no find. */
   find(term: string): void;

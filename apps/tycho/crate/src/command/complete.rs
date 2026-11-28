@@ -28,7 +28,8 @@ pub struct Completion {
     /// the bar runs: `pin` then `column`, `hide` then `columns`, `jump`
     /// then `row`, `filter` then `column`, `operator`, and `value`, `sort`
     /// then `column` and `direction`, `clear` then `what`, `find` then
-    /// `text`, `undo` alone.
+    /// `text`, `undo` alone, a catalog entry its parts (`top` then
+    /// `column` and `count`).
     pub slots: Vec<Slot>,
 }
 
@@ -60,6 +61,8 @@ pub enum Part {
     Clear,
     /// Find's text.
     Text,
+    /// A catalog entry's count, after its column (`top orbit 10`).
+    Count,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -237,6 +240,9 @@ fn part_at(
             });
             (Part::Column, span, items)
         }
+        word if let Some(entry) = crate::catalog::entry(word) => {
+            ask_part(text, entry, rest, caret, catalog)
+        }
         "jump" => {
             let start = tokens.get(1).map_or(caret, |token| token.start);
             (
@@ -247,6 +253,48 @@ fn part_at(
         }
         _ => (Part::None, caret..caret, Vec::new()),
     }
+}
+
+/// A bare count, as `parse` reads one after an entry's column.
+fn is_count(token: &Token) -> bool {
+    !token.quoted && token.text.chars().all(|c| c.is_ascii_digit() || c == ',')
+}
+
+/// A catalog entry's parts: its column, the columns of a type it takes;
+/// then its count, if it takes one, once the column is written.
+fn ask_part(
+    text: &str,
+    entry: &'static crate::catalog::Entry,
+    rest: &[Token],
+    caret: usize,
+    catalog: Option<&Catalog>,
+) -> (Part, std::ops::Range<usize>, Vec<Item>) {
+    let counted = entry.count_part().is_some();
+    if counted && let Some(catalog) = catalog {
+        // The caret in or just after a number after the column.
+        if let Some((last, names)) = rest.split_last()
+            && is_count(last)
+            && caret >= last.start
+            && caret <= last.end
+            && column_of(names, catalog).is_some()
+        {
+            return (Part::Count, last.start..last.end, Vec::new());
+        }
+        // The caret past a whole column, a space after it.
+        if let Some(last) = rest.last()
+            && caret > last.end
+        {
+            if is_count(last) && rest.len() > 1 {
+                return (Part::None, caret..caret, Vec::new());
+            }
+            if column_of(rest, catalog).is_some() {
+                return (Part::Count, caret..caret, Vec::new());
+            }
+        }
+    }
+    column_part(text, rest, caret, catalog, counted, |catalog, index| {
+        entry.takes(Kind::of(&catalog.view.columns()[index]))
+    })
 }
 
 /// The span of a command's one column, written in `names` (the words after
@@ -561,6 +609,17 @@ fn verbs(typed: &str) -> Vec<Item> {
             kind: None,
             space: *verb != "undo",
         });
+    let asks = crate::catalog::ENTRIES
+        .iter()
+        .filter(|entry| entry.name.starts_with(&typed))
+        .map(|entry| Item {
+            text: entry.name.into(),
+            label: entry.name.into(),
+            detail: entry.hint.into(),
+            later: false,
+            kind: None,
+            space: true,
+        });
     // The later verbs only once something is typed: an empty bar lists
     // what runs.
     let later = LATER
@@ -574,7 +633,7 @@ fn verbs(typed: &str) -> Vec<Item> {
             kind: None,
             space: false,
         });
-    built.chain(later).collect()
+    built.chain(asks).chain(later).collect()
 }
 
 /// The name the caret is in, of a command that takes several between
@@ -650,7 +709,11 @@ fn columns(
             Item {
                 text: quote(&info.name),
                 label: info.name.clone(),
-                detail: info.data_type.clone(),
+                detail: catalog
+                    .lines
+                    .get(&info.name)
+                    .cloned()
+                    .unwrap_or_else(|| info.data_type.clone()),
                 later: false,
                 kind: Some(kind(info)),
                 space,
@@ -727,6 +790,18 @@ fn slots(text: &str, part: Part, preview: &Preview) -> Vec<Slot> {
         "jump" => (&["row"], vec![all]),
         "find" => (&["text"], vec![all]),
         "undo" => (&[], Vec::new()),
+        word if let Some(entry) = crate::catalog::entry(word) => match rest.split_last() {
+            Some((last, names))
+                if entry.count_part().is_some() && !names.is_empty() && is_count(last) =>
+            {
+                (
+                    &["column", "count"],
+                    vec![span(names), Some(last.text.clone())],
+                )
+            }
+            _ if entry.count_part().is_some() => (&["column", "count"], vec![all, None]),
+            _ => (&["column"], vec![all]),
+        },
         "filter" => {
             let line = split_filter(rest);
             (
@@ -765,7 +840,7 @@ fn slots(text: &str, part: Part, preview: &Preview) -> Vec<Slot> {
     let now = match part {
         Part::Column => names.iter().position(|name| name.starts_with("column")),
         Part::Row | Part::Clear | Part::Text => Some(0),
-        Part::Operator | Part::Direction => Some(1),
+        Part::Operator | Part::Direction | Part::Count => Some(1),
         Part::Value => Some(2),
         Part::Verb | Part::None => None,
     };
@@ -852,6 +927,7 @@ mod tests {
         Catalog {
             view,
             loading: false,
+            lines: Default::default(),
         }
     }
 
@@ -874,7 +950,8 @@ mod tests {
         assert_eq!(
             labels(&empty),
             [
-                "filter", "sort", "find", "pin", "unpin", "hide", "show", "jump", "clear", "undo"
+                "filter", "sort", "find", "pin", "unpin", "hide", "show", "jump", "clear", "undo",
+                "top", "nulls", "distinct"
             ]
         );
         // A verb takes a space after it, ready for its part; undo none.
@@ -1070,6 +1147,7 @@ mod tests {
                 &file,
             ),
             loading: false,
+            lines: Default::default(),
         };
         let at = |text: &str| complete(text, text.encode_utf16().count(), Some(&catalog));
         assert_eq!(
@@ -1104,6 +1182,7 @@ mod tests {
         let large = Catalog {
             view: catalog.view.clone().unsortable("too large".into()),
             loading: false,
+            lines: Default::default(),
         };
         let refused = complete("sort ", 5, Some(&large));
         assert!(refused.items.is_empty());
@@ -1329,5 +1408,53 @@ mod tests {
             .collect();
         assert!(kinds.contains(&("mag".into(), Some("number"))), "{kinds:?}");
         assert!(at_end("p").items.iter().all(|item| item.kind.is_none()));
+    }
+
+    #[test]
+    fn the_catalogs_verbs_take_a_column_then_a_count() {
+        assert!(labels(&at_end("")).contains(&"top"));
+        let verbs = at_end("n");
+        assert_eq!(labels(&verbs), ["nulls"]);
+        assert!(verbs.items[0].space);
+        assert_eq!(verbs.items[0].detail, "Count the empty cells in a column");
+        let columns = at_end("top ma");
+        assert_eq!(columns.part, Part::Column);
+        assert_eq!(labels(&columns), ["mag", "magType"]);
+        // A count follows top's column: a space after it.
+        assert!(columns.items[0].space);
+        assert!(!at_end("nulls ma").items[0].space);
+        let count = at_end("top mag ");
+        assert_eq!(count.part, Part::Count);
+        assert!(count.items.is_empty());
+        let slots: Vec<(&str, &str)> = count
+            .slots
+            .iter()
+            .map(|slot| (slot.text.as_str(), slot.state))
+            .collect();
+        assert_eq!(slots, [("top", "done"), ("mag", "done"), ("count", "now")]);
+        assert_eq!(count.preview.kind, "command");
+        assert_eq!(count.preview.steps, ["The 5 most common values of mag"]);
+        let typed = at_end("top mag 12");
+        assert_eq!(typed.part, Part::Count);
+        assert_eq!(typed.preview.steps, ["The 12 most common values of mag"]);
+        assert_eq!(
+            typed.preview.json.as_deref(),
+            Some(r#"{"top":{"column":"mag","count":12}}"#)
+        );
+        // Bare words read as one name until the column is whole.
+        assert_eq!(at_end(r#"nulls "launch d"#).part, Part::Column);
+        assert_eq!(
+            at_end("nulls mag ").preview.steps,
+            ["Count the nulls in mag"]
+        );
+    }
+
+    #[test]
+    fn a_columns_line_is_the_profiles_where_it_knows_it_else_its_type() {
+        let mut catalog = catalog();
+        catalog.lines.insert("mag".into(), "-1.2 to 9.1".into());
+        let items = complete("pin ma", 6, Some(&catalog)).items;
+        let details: Vec<&str> = items.iter().map(|item| item.detail.as_str()).collect();
+        assert_eq!(details, ["-1.2 to 9.1", "VARCHAR"]);
     }
 }

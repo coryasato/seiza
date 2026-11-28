@@ -19,6 +19,9 @@ use crate::view::{Controller, HideRefused, PinRefused};
 pub struct Catalog {
     pub view: Controller,
     pub loading: bool,
+    /// Each column's line in the bar's list where the profile knows it
+    /// (`Profiling::lines`), by name: else its type.
+    pub lines: std::collections::HashMap<String, String>,
 }
 
 /// A step that will run: its command line, the file's names in it, and its
@@ -47,7 +50,22 @@ pub struct Plan {
     pub jump: Option<u64>,
     /// The last `find`'s term.
     pub find: Option<String>,
+    /// A catalog entry's question, asked on its own: the workbench reads
+    /// its answer.
+    pub ask: Option<Ask>,
     pub steps: Vec<Checked>,
+}
+
+/// A catalog entry's question of one column, checked.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ask {
+    pub entry: &'static crate::catalog::Entry,
+    /// Its index in the file.
+    pub column: usize,
+    /// The column's name as a command writes it.
+    pub shown: String,
+    /// `top`'s count; 0 for an entry with none.
+    pub count: u64,
 }
 
 /// Why an action doesn't run: nothing of it does.
@@ -84,6 +102,7 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
     let mut view = catalog.view.clone();
     let mut jump = None;
     let mut find = None;
+    let mut ask = None;
     let mut checked = Vec::with_capacity(steps.len());
     let several = steps.len() > 1;
     for (index, step) in steps.iter().enumerate() {
@@ -400,6 +419,59 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                     pins: None,
                 });
             }
+            Step::Ask { .. } if several => {
+                return Err(refuse(
+                    "A question runs on its own, not in an action of several: its answer goes in the log.".into(),
+                    true,
+                ));
+            }
+            Step::Ask {
+                entry,
+                column,
+                count,
+            } => {
+                if catalog.loading {
+                    return Err(refuse(loading(), false));
+                }
+                let index = resolve(column, view.columns()).map_err(|why| refuse(why, true))?;
+                let info = &view.columns()[index];
+                let shown = quote(&info.name);
+                let kind = Kind::of(info);
+                if !entry.takes(kind) {
+                    return Err(refuse(entry.refusal(&shown, kind), true));
+                }
+                let Some(count) = entry.count_of(count.as_deref()) else {
+                    let most = entry.count_part().map_or(0, |(_, most)| most);
+                    return Err(refuse(
+                        format!(
+                            "{} takes a count from 1 to {most}: {}.",
+                            entry.name, entry.example
+                        ),
+                        true,
+                    ));
+                };
+                let mut json = serde_json::json!({ "column": info.name });
+                let mut line = format!("{} {shown}", entry.name);
+                if entry
+                    .count_part()
+                    .is_some_and(|(default, _)| default != count)
+                {
+                    json["count"] = count.into();
+                    line.push_str(&format!(" {count}"));
+                }
+                checked.push(Checked {
+                    line,
+                    words: entry.words(&shown, Some(count)),
+                    json: serde_json::json!({ entry.name: json }),
+                    pins: None,
+                });
+                ask = Some(Ask {
+                    entry,
+                    column: index,
+                    shown,
+                    count,
+                });
+            }
             Step::Undo if several => {
                 return Err(refuse(
                     "undo runs on its own, not in an action of several.".into(),
@@ -420,6 +492,7 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
         changed,
         jump,
         find,
+        ask,
         steps: checked,
     })
 }
@@ -606,6 +679,7 @@ mod tests {
                 &file,
             ),
             loading,
+            lines: Default::default(),
         }
     }
 
@@ -1073,6 +1147,76 @@ mod tests {
         assert_eq!(
             run("jump soon", &catalog(false)).unwrap_err().why,
             "Type a row number, like 1,000."
+        );
+    }
+
+    #[test]
+    fn a_question_is_checked_on_its_own_and_changes_no_view() {
+        let catalog = catalog(false);
+        let plan = run("top magType", &catalog).unwrap();
+        assert!(!plan.changed);
+        let ask = plan.ask.clone().unwrap();
+        assert_eq!((ask.entry.name, ask.column, ask.count), ("top", 3, 5));
+        assert_eq!(plan.steps[0].line, "top magType");
+        assert_eq!(plan.steps[0].words, "The 5 most common values of magType");
+        assert_eq!(plan.json(), r#"{"top":{"column":"magType"}}"#);
+        let plan = run("top MAGTYPE 1,0", &catalog).unwrap();
+        assert_eq!(plan.ask.as_ref().unwrap().count, 10);
+        assert_eq!(plan.steps[0].line, "top magType 10");
+        assert_eq!(plan.json(), r#"{"top":{"column":"magType","count":10}}"#);
+        let plan = run(r#"{"nulls": {"column": "launch date"}}"#, &catalog).unwrap();
+        assert_eq!(plan.steps[0].line, r#"nulls "launch date""#);
+        assert_eq!(plan.steps[0].words, r#"Count the nulls in "launch date""#);
+        assert_eq!(
+            run("top mag 0", &catalog).unwrap_err().why,
+            "top takes a count from 1 to 50: top orbit 10."
+        );
+        assert_eq!(
+            run("top mag 51", &catalog).unwrap_err().why,
+            "top takes a count from 1 to 50: top orbit 10."
+        );
+        assert_eq!(
+            run("distinct magtyp", &catalog).unwrap_err().why,
+            "No column magtyp. Did you mean magType or mag?"
+        );
+        let several = run(
+            r#"{"actions": [{"pin": {"column": "mag"}}, {"nulls": {"column": "mag"}}]}"#,
+            &catalog,
+        )
+        .unwrap_err();
+        assert!(several.why.starts_with("A question runs on its own"));
+        // A CSV still loading has rows to come: no exact answer yet.
+        assert!(!run("nulls mag", &catalog_loading()).unwrap_err().error);
+    }
+
+    fn catalog_loading() -> Catalog {
+        catalog(true)
+    }
+
+    #[test]
+    fn a_question_of_a_type_its_entry_doesnt_take_is_refused_with_the_types_it_does() {
+        static NUMBERS: crate::catalog::Entry = crate::catalog::Entry {
+            which: crate::catalog::Which::Distinct,
+            name: "spread",
+            hint: "",
+            takes: &[Kind::Number, Kind::Time],
+            parts: &[],
+            answers: crate::catalog::Answers::Log,
+            example: "spread mag",
+        };
+        let step = Step::Ask {
+            entry: &NUMBERS,
+            column: Name {
+                text: "place".into(),
+                spaced: false,
+            },
+            count: None,
+        };
+        let refusal = plan(&[step], &catalog(false)).unwrap_err();
+        assert!(refusal.error);
+        assert_eq!(
+            refusal.why,
+            "spread doesn't apply to place, which holds text: it takes a number or a time."
         );
     }
 }

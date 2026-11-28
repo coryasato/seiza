@@ -29,7 +29,7 @@ Each folder's architecture, gotchas, and commands are in its own `CLAUDE.md`, wh
 
 | Folder | What it is | Its file |
 |---|---|---|
-| `crate/` | The app: the workbench, the controller and its view state (filters and sort), find, the command bar's grammar and the log, the frame's state and the page's calls, the theme, the table's source, the engine's events, files, CSV, errors and limits | `crate/CLAUDE.md` |
+| `crate/` | The app: the workbench, the controller and its view state (filters and sort), find, the column profile, the catalog's questions, the command bar's grammar and the log, the frame's state and the page's calls, the theme, the table's source, the engine's events, files, CSV, errors and limits | `crate/CLAUDE.md` |
 | `web/` | The Vite host and the page's frame (React, prerendered): the top bar, the first screen, the command bar, the toolbar and its editors, find's bar, the log's panel, the status bar, the token file, the canvas's slot | `web/CLAUDE.md` |
 | `worker/` | Hosting: the Worker, R2 (DuckDB's two wasm bundles), the deploy, production's pause switch | `worker/CLAUDE.md` |
 | `data/` | The sample's build (GCAT), and the test files built from the observatory's asteroid sample | `data/CLAUDE.md` |

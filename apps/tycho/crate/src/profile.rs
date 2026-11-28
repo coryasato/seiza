@@ -118,6 +118,18 @@ impl Scan {
         )
     }
 
+    /// `value` as `v` for every row in view: the source read whole, the
+    /// filters' `CASE` kept to its true rows (none to keep unfiltered). The
+    /// one way an exact query reads the rows in view, the catalog's too.
+    pub(crate) fn kept(&self, value: &str) -> String {
+        let inner = self.rows_sql(value, None);
+        if self.unfiltered() {
+            format!("SELECT v FROM ({inner})")
+        } else {
+            format!("SELECT v FROM ({inner}) WHERE k")
+        }
+    }
+
     /// Whether a row is in view, as a value the scan can't push down.
     fn keep(&self) -> String {
         match &self.condition {
@@ -167,7 +179,7 @@ fn position(time: bool) -> &'static str {
 }
 
 /// Whether `v` is a finite value: a date or a timestamp can be infinite too.
-fn finite(time: bool) -> &'static str {
+pub(crate) fn finite(time: bool) -> &'static str {
     if time {
         "v IS NOT NULL AND isfinite(v)"
     } else {
@@ -290,12 +302,7 @@ pub fn sample_sql(scan: &Scan, column: &ColumnInfo, percent: f64) -> String {
 /// [`sample_sql`]'s.
 pub fn exact_sql(scan: &Scan, column: &ColumnInfo) -> String {
     let read = Read::of(column);
-    let inner = scan.rows_sql(&value_sql(column, read), None);
-    let rows = if scan.unfiltered() {
-        format!("SELECT v FROM ({inner})")
-    } else {
-        format!("SELECT v FROM ({inner}) WHERE k")
-    };
+    let rows = scan.kept(&value_sql(column, read));
     match read {
         Read::Numeric { time } => {
             let (finite, position) = (finite(time), position(time));
@@ -419,7 +426,7 @@ pub struct Profile {
 
 /// Why a profile's answer couldn't be read.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Unreadable(String);
+pub struct Unreadable(pub(crate) String);
 
 impl std::fmt::Display for Unreadable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -427,7 +434,7 @@ impl std::fmt::Display for Unreadable {
     }
 }
 
-fn count(result: &QueryResult, row: usize, column: usize) -> Result<u64, Unreadable> {
+pub(crate) fn count(result: &QueryResult, row: usize, column: usize) -> Result<u64, Unreadable> {
     match result.value(row, column) {
         Some(Value::Int(n)) => u64::try_from(n).map_err(|_| Unreadable(format!("a count of {n}"))),
         Some(Value::UInt(n)) => Ok(n),
@@ -435,7 +442,7 @@ fn count(result: &QueryResult, row: usize, column: usize) -> Result<u64, Unreada
     }
 }
 
-fn text(result: &QueryResult, row: usize, column: usize) -> Option<String> {
+pub(crate) fn text(result: &QueryResult, row: usize, column: usize) -> Option<String> {
     match result.value(row, column) {
         Some(Value::Str(text)) => Some(text.to_string()),
         _ => None,
@@ -771,6 +778,12 @@ pub struct Profiling {
     /// Something changed that the next sync has to see (an ask, an answer,
     /// a wait ended), whatever the rows in view.
     changed: bool,
+    /// The rows in view the last sync read for: what a profile must have
+    /// been read of to speak for a column's line (`lines`).
+    key: Option<Key>,
+    /// Counts what `due` and `answer` may have changed, so the bar's
+    /// column lines are written again only then (`lines`).
+    revision: u64,
     #[cfg(target_family = "wasm")]
     outs: web::Outs,
 }
@@ -798,6 +811,9 @@ impl Profiling {
     /// isn't the one asked for). An ask made while the next opens is kept.
     pub fn forget(&mut self) {
         self.ask(Vec::new());
+        // Nothing read of it speaks for the next file's lines.
+        self.key = None;
+        self.revision += 1;
     }
 
     pub fn asked(&self) -> &[String] {
@@ -958,6 +974,43 @@ impl Profiling {
             .collect()
     }
 
+    /// What the bar's column lines may have changed since: a count.
+    pub fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    /// Each column's line in the bar's list, where a profile read of the
+    /// rows in view (or the footer, for an unfiltered view) knows it: a
+    /// number's or a time's range, a text column's count of values
+    /// (`docs/DECISIONS.md`, "Scope", 2026-11-27). A column with none keeps
+    /// its type.
+    pub fn lines(&self, columns: &[ColumnInfo]) -> HashMap<String, String> {
+        let Some(key) = &self.key else {
+            return HashMap::new();
+        };
+        if self.refused.is_some() || self.loading {
+            return HashMap::new();
+        }
+        columns
+            .iter()
+            .filter_map(|column| {
+                // A sample's range is the sample's, not the column's: the
+                // footer's, if there's one, or the type until every row's.
+                let profile = self
+                    .entries
+                    .get(&column.name)
+                    .filter(|entry| entry.key == *key)
+                    .and_then(|entry| entry.profile.clone())
+                    .filter(|profile| {
+                        !(matches!(profile.stage, Stage::Sample(_))
+                            && matches!(Read::of(column), Read::Numeric { .. }))
+                    })
+                    .or_else(|| self.footer_profile(&column.name))?;
+                Some((column.name.clone(), line(column, &profile)?))
+            })
+            .collect()
+    }
+
     /// The footer's stage 1 of `column`, if the view is unfiltered.
     fn footer_profile(&self, column: &str) -> Option<Profile> {
         let Footer {
@@ -995,6 +1048,8 @@ impl Profiling {
         now: f64,
     ) -> (Vec<Due>, Option<f64>) {
         self.loading = loading;
+        self.revision += 1;
+        self.key = key.cloned();
         self.unfiltered = self.refused.is_none() && key.is_some_and(|key| key.scan.unfiltered());
         let Some(key) = key else {
             self.entries.clear();
@@ -1123,6 +1178,7 @@ impl Profiling {
                 footer.out = false;
                 footer.columns = result.ok().and_then(|result| read_footer(&result).ok());
                 self.changed = true;
+                self.revision += 1;
             }
             return;
         };
@@ -1137,6 +1193,7 @@ impl Profiling {
         }
         entry.out = false;
         self.changed = true;
+        self.revision += 1;
         let read = result.and_then(|result| {
             match entry.next {
                 Next::Sample(percent) => read_sample(column, percent, &result).map(|profile| {
@@ -1176,6 +1233,43 @@ impl Profiling {
     }
 }
 
+/// `profile`'s facts as `column`'s line in the bar's list: `1957-10-04 to
+/// 2026-11-22`, `1957 to 2026` for a timestamp across years, `0 to 179.6`,
+/// `46 values`, `at least 2,249 values` from a sample. None with nothing
+/// read that the line says.
+fn line(column: &ColumnInfo, profile: &Profile) -> Option<String> {
+    match Read::of(column) {
+        Read::Numeric { time } => {
+            let (lo, hi) = (profile.lo.as_deref()?, profile.hi.as_deref()?);
+            let timestamp = time && column.data_type.starts_with("TIMESTAMP");
+            let year = |at: &str| at.get(..4).map(str::to_owned);
+            let date = |at: &str| at.split([' ', 'T']).next().map(str::to_owned);
+            let (lo, hi) = match (timestamp, year(lo), year(hi)) {
+                (true, Some(from), Some(to)) if from != to => (from, to),
+                (true, ..) => (date(lo)?, date(hi)?),
+                _ => (lo.to_owned(), hi.to_owned()),
+            };
+            Some(if lo == hi {
+                lo
+            } else {
+                format!("{lo} to {hi}")
+            })
+        }
+        Read::Values => {
+            let (floor, n) = match profile.distinct? {
+                Distinct::Exact(n) => (false, n),
+                Distinct::AtLeast(n) | Distinct::AllUnique(n) => (true, n),
+            };
+            Some(format!(
+                "{}{} value{}",
+                if floor { "at least " } else { "" },
+                crate::dataset::format_count(n),
+                if n == 1 { "" } else { "s" }
+            ))
+        }
+    }
+}
+
 /// The SQL an entry sends next, if any.
 fn next_sql(entry: &Entry, column: &ColumnInfo) -> Option<String> {
     let scan = &entry.key.scan;
@@ -1203,6 +1297,9 @@ pub fn publish(json: &str) {
 }
 
 #[cfg(target_family = "wasm")]
+pub(crate) use web::Out;
+
+#[cfg(target_family = "wasm")]
 mod web {
     use std::collections::HashMap;
 
@@ -1213,11 +1310,12 @@ mod web {
     use crate::Workbench;
 
     /// A query out: canceled in DuckDB when dropped, its task with it.
-    struct Out {
-        engine: seiza_duckdb::Engine,
-        id: seiza_duckdb::RequestId,
+    /// The catalog's question is one too (`Workbench::ask`).
+    pub(crate) struct Out {
+        pub(crate) engine: seiza_duckdb::Engine,
+        pub(crate) id: seiza_duckdb::RequestId,
         /// None once it has answered: nothing to cancel.
-        task: Option<Task<()>>,
+        pub(crate) task: Option<Task<()>>,
     }
 
     impl Drop for Out {
@@ -2099,5 +2197,118 @@ mod tests {
             (bins[10], bins[19], bins.iter().sum::<u64>()),
             (65_934, 2, 65_936)
         );
+    }
+
+    #[test]
+    fn a_columns_line_in_the_bar_is_its_range_or_its_values_where_read() {
+        let columns = [
+            column("launch_date", "DATE"),
+            column("launch_time", "TIMESTAMP"),
+            column("inclination_deg", "DOUBLE"),
+            column("orbit", "VARCHAR"),
+        ];
+        let mut profiling = Profiling::default();
+        profiling.ask(vec!["orbit".into()]);
+        let all = key(1, 71_431, None);
+        let (due, _) = profiling.due(Some(&all), Some("tycho/f.parquet"), &columns, false, 0.0);
+        let footer = due.iter().find(|due| due.column.is_none()).unwrap().clone();
+        let orbit = due.iter().find(|due| due.column.is_some()).unwrap().clone();
+        assert!(profiling.lines(&columns).is_empty());
+        let before = profiling.revision();
+        profiling.answer(
+            &footer,
+            &columns,
+            Ok(result(vec![
+                (
+                    "name",
+                    strings(&[
+                        Some("launch_date"),
+                        Some("launch_time"),
+                        Some("inclination_deg"),
+                    ]),
+                ),
+                ("nulls", ints(&[0, 0, 3])),
+                ("nulls_known", Arc::new(BooleanArray::from(vec![true; 3]))),
+                (
+                    "lo",
+                    strings(&[Some("1957-10-04"), Some("1957-10-04 19:28:34"), Some("0.0")]),
+                ),
+                (
+                    "hi",
+                    strings(&[
+                        Some("2026-11-22"),
+                        Some("2026-11-22 03:00:00"),
+                        Some("179.6"),
+                    ]),
+                ),
+                ("range_known", Arc::new(BooleanArray::from(vec![true; 3]))),
+            ])),
+        );
+        assert!(profiling.revision() > before);
+        profiling.answer(
+            &orbit,
+            &columns,
+            Ok(result(vec![
+                ("n", ints(&[71_431, 71_431])),
+                ("present", ints(&[71_345, 71_345])),
+                ("distinct_values", ints(&[46, 46])),
+                ("v", strings(&[Some("LEO/I"), Some("GEO/S")])),
+                ("c", ints(&[40_000, 2_000])),
+            ])),
+        );
+        let lines = profiling.lines(&columns);
+        assert_eq!(lines["launch_date"], "1957-10-04 to 2026-11-22");
+        assert_eq!(lines["launch_time"], "1957 to 2026");
+        assert_eq!(lines["inclination_deg"], "0.0 to 179.6");
+        assert_eq!(lines["orbit"], "46 values");
+        // Filtered: the footer no longer speaks, and the column read of
+        // every row isn't of these rows.
+        let some = key(1, 71_431, Some("true"));
+        profiling.due(Some(&some), Some("tycho/f.parquet"), &columns, false, 1.0);
+        assert!(profiling.lines(&columns).is_empty());
+    }
+
+    #[test]
+    fn a_samples_range_is_never_a_columns_line_and_a_closed_files_lines_go_with_it() {
+        let columns = [column("H", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        profiling.ask(vec!["H".into()]);
+        let all = key(1, 42_323_121, None);
+        let (due, _) = profiling.due(Some(&all), Some("tycho/f.parquet"), &columns, false, 0.0);
+        let footer = due.iter().find(|due| due.column.is_none()).unwrap().clone();
+        let sample = due.iter().find(|due| due.column.is_some()).unwrap().clone();
+        profiling.answer(
+            &footer,
+            &columns,
+            Ok(result(vec![
+                ("name", strings(&[Some("H")])),
+                ("nulls", ints(&[0])),
+                ("nulls_known", Arc::new(BooleanArray::from(vec![true]))),
+                ("lo", strings(&[Some("-1.5")])),
+                ("hi", strings(&[Some("33.2")])),
+                ("range_known", Arc::new(BooleanArray::from(vec![true]))),
+            ])),
+        );
+        // The sample's narrower range doesn't replace the footer's.
+        profiling.answer(
+            &sample,
+            &columns,
+            Ok(numeric_rows(200_000, 200_000, 0, 2_000, [10_000; BINS])),
+        );
+        assert!(matches!(
+            profiling.facts(1.0)[0].profile.as_ref().unwrap().stage,
+            Stage::Sample(_)
+        ));
+        assert_eq!(profiling.lines(&columns)["H"], "-1.5 to 33.2");
+        // Filtered, with only a sample read: no line but the type.
+        let some = key(1, 42_323_121, Some("true"));
+        profiling.due(Some(&some), Some("tycho/f.parquet"), &columns, false, 2.0);
+        assert!(profiling.lines(&columns).is_empty());
+        // The file closed: nothing of it speaks for the next.
+        profiling.due(Some(&all), Some("tycho/f.parquet"), &columns, false, 3.0);
+        let before = profiling.revision();
+        profiling.forget();
+        assert!(profiling.revision() > before);
+        assert!(profiling.lines(&columns).is_empty());
     }
 }

@@ -165,7 +165,8 @@ pub enum Arity {
 }
 
 /// What a column holds, as a filter reads its values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum Kind {
     Number,
     Text,

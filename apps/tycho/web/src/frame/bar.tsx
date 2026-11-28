@@ -18,6 +18,7 @@ import { type KeyboardEvent, type ReactNode, useEffect, useLayoutEffect, useMemo
 import sample from 'virtual:tycho-sample';
 import { appNow, closeBar, isBarOpen, modKey, openBar, subscribeBar } from './core.ts';
 import { Badge, Icon, type IconName } from './icons.tsx';
+import { TopValues } from './log.tsx';
 import { type Completion, type CompletionItem, type FrameState, takeBarFrom } from './state.ts';
 
 type Place = 'first' | 'bar';
@@ -54,7 +55,7 @@ function openRows(): Entry[] {
   ];
 }
 
-const VERB_ICONS: Record<string, IconName> = { pin: 'pin', unpin: 'pin', jump: 'rows', undo: 'restore', find: 'search', clear: 'x' };
+const VERB_ICONS: Record<string, IconName> = { pin: 'pin', unpin: 'pin', jump: 'rows', undo: 'restore', find: 'search', clear: 'x', top: 'rows', nulls: 'hash', distinct: 'hash' };
 
 const Kbd = ({ children }: { children: ReactNode }) => <kbd className="kbd">{children}</kbd>;
 
@@ -182,8 +183,9 @@ function BarRow({ entry, typed, onComplete }: { entry: Entry; typed: string; onC
 function Preview({ completion, answer, onCommands }: { completion: Completion | null; answer: FrameState['answer']; onCommands: () => void }) {
   if (answer) {
     return (
-      <div role={answer.error ? 'alert' : 'status'} className={`px-3.5 py-3 text-[13px] leading-[19px] ${answer.error ? 'text-error' : 'text-foreground-muted'}`}>
-        {answer.text}
+      <div role={answer.error ? 'alert' : 'status'} className={`flex flex-col gap-2 px-3.5 py-3 text-[13px] leading-[19px] ${answer.error ? 'text-error' : 'text-foreground-muted'}`}>
+        <span>{answer.text}</span>
+        {answer.values.length > 0 && <TopValues values={answer.values} />}
       </div>
     );
   }
@@ -261,8 +263,9 @@ function Preview({ completion, answer, onCommands }: { completion: Completion | 
 }
 
 /** The foot's keys for what's shown. */
-function footKeys(completion: Completion | null, text: string, answered: boolean): { pairs: [string, string][]; right?: string } {
+function footKeys(completion: Completion | null, text: string, answered: FrameState['answer']): { pairs: [string, string][]; right?: string } {
   const kind = completion?.preview.kind ?? 'empty';
+  if (answered?.kind === 'asking') return { pairs: [['esc', 'cancel']] };
   if (answered) return { pairs: [['esc', 'close']] };
   if (text.trim() === '') return { pairs: [['↑↓', 'move'], ['↵', 'choose'], ['esc', 'close']], right: 'Or paste an action from your assistant' };
   if (kind === 'command') return { pairs: [['↵', 'run'], ['esc', 'close']] };
@@ -359,11 +362,18 @@ export function CommandBox({ place, state }: { place: Place; state: FrameState }
 
   const groups = groupsOf(place, completion, text);
 
+  /** The bar closed by Escape or its button: a question it shows still
+   *  out is canceled (the next command cancels one too, in the app). */
+  const close = () => {
+    if (answer?.kind === 'asking') appNow()?.cancel_question();
+    closeBar('back');
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement> & { preventBaseUIHandler: () => void }) => {
     if (event.key === 'Escape' && place === 'bar') {
       event.preventBaseUIHandler();
       event.preventDefault();
-      closeBar('back');
+      close();
     } else if (event.key === 'Tab' && !event.shiftKey && completion && completion.items.length > 0 && text.trim() !== '') {
       event.preventBaseUIHandler();
       event.preventDefault();
@@ -384,7 +394,7 @@ export function CommandBox({ place, state }: { place: Place; state: FrameState }
   };
 
   const busy = (action: string) => (action === 'pick' ? state.busy === 'file' : state.busy === 'sample');
-  const keys = footKeys(completion, text, answer !== null);
+  const keys = footKeys(completion, text, answer);
   const typed = completion ? partOf(completion, text) : '';
 
   return (
@@ -442,7 +452,7 @@ export function CommandBox({ place, state }: { place: Place; state: FrameState }
           <button
             type="button"
             aria-label="Close the command bar"
-            onClick={() => closeBar('back')}
+            onClick={close}
             className="flex size-[26px] shrink-0 cursor-pointer items-center justify-center rounded-md text-foreground-muted hover:bg-surface-raised sm:hidden"
           >
             <Icon name="x" />

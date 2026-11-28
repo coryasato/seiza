@@ -38,12 +38,23 @@ export interface LogEntry {
   /** Its plain words, a line a step. */
   words: string;
   reply: string;
-  replyKind: 'rows' | 'answer' | 'error';
+  /** `asking`: a catalog entry's question still out. */
+  replyKind: 'rows' | 'answer' | 'asking' | 'error';
+  /** `top`'s values, most first; empty for any other reply. */
+  values: TopValue[];
   origin: Origin;
   /** Wall-clock ms since the epoch. */
   at: number;
   /** It has a way back. */
   back: boolean;
+}
+
+/** One of `top`'s values, its count and its share of the rows in view
+ *  written as the app writes them (`crate/src/catalog.rs`, `TopValue`). */
+export interface TopValue {
+  value: string;
+  count: string;
+  share: string;
 }
 
 /** The command bar's last answer (`crate/src/frame.rs`, `Answer`). */
@@ -53,12 +64,16 @@ export interface Answer {
   /** The command it answers (what `App.command` returned); 0 for an
    *  answer to no command. */
   ask: number;
-  kind: 'done' | 'refused' | 'sentence' | 'later' | 'open' | 'nofile' | 'undone' | 'nothing';
+  /** `asking`: a catalog entry's question out, answered by a later
+   *  `answer` (or `refused`) with the same `ask`. */
+  kind: 'done' | 'asking' | 'answer' | 'refused' | 'sentence' | 'later' | 'open' | 'nofile' | 'undone' | 'nothing';
   text: string;
   /** The steps that ran, in plain words. */
   steps: string[];
   /** A fault, in the error color. */
   error: boolean;
+  /** `top`'s values, for its `answer`. */
+  values: TopValue[];
 }
 
 /** The table's active cell: its selection's anchor (`crate/src/frame.rs`,
@@ -201,7 +216,7 @@ export interface FrameState {
 export interface Completion {
   /** What the caret is in: a filter's `operator` and `value`, a sort's
    *  `direction`, what `clear` removes, find's `text`. */
-  part: 'none' | 'verb' | 'column' | 'row' | 'operator' | 'value' | 'direction' | 'clear' | 'text';
+  part: 'none' | 'verb' | 'column' | 'row' | 'operator' | 'value' | 'direction' | 'clear' | 'text' | 'count';
   /** The text an item replaces, in UTF-16 offsets. */
   from: number;
   to: number;

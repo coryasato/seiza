@@ -515,6 +515,11 @@ pub struct Workbench {
     /// The command being run (`crate::frame::command`'s number), which
     /// its answer carries; 0 between commands.
     asking: u32,
+    /// A catalog entry's question out: its log entry, the command it
+    /// answers, and its query, canceled in DuckDB when dropped (Escape in
+    /// the bar, the next command, the file closed).
+    #[cfg(target_family = "wasm")]
+    question: Option<Question>,
     /// The table that has been laid out at a width (its scrollbar's track
     /// reported with a height): until then its pinned run in effect reads
     /// 0, which says nothing of what it will draw.
@@ -527,6 +532,8 @@ pub struct Workbench {
     /// What completion last read (`crate::frame::set_catalog`), and
     /// whether it has.
     shown_catalog: Option<Option<Catalog>>,
+    /// The profiles' revision its column lines were written at.
+    catalog_lines: u64,
     /// The table's active cell, by the column's index: its selection's
     /// anchor, which the Row tab follows; none for a range of columns,
     /// which picks no row.
@@ -555,6 +562,17 @@ pub struct Workbench {
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
     _focus_lost: Subscription,
+}
+
+/// A catalog entry's question out: its log entry, the command it answers,
+/// the filters of the rows it was asked of, and its query, canceled in
+/// DuckDB when dropped.
+#[cfg(target_family = "wasm")]
+struct Question {
+    entry: u32,
+    ask: u32,
+    filters: Vec<crate::filter::Filter>,
+    out: crate::profile::Out,
 }
 
 impl Workbench {
@@ -637,10 +655,13 @@ impl Workbench {
             answer: None,
             answers: 0,
             asking: 0,
+            #[cfg(target_family = "wasm")]
+            question: None,
             laid_out: None,
             origin: Origin::Pick,
             drawn: Vec::new(),
             shown_catalog: None,
+            catalog_lines: 0,
             active: None,
             open_after_frame: None,
             find: Default::default(),
@@ -916,6 +937,7 @@ impl Workbench {
             filtering.stop();
         }
         self.uncounted = None;
+        self.question = None;
         self.log.clear();
         self.answer = None;
         self.drawn.clear();
@@ -2349,15 +2371,18 @@ impl Workbench {
             loading: csv
                 .as_ref()
                 .is_some_and(|load| load.state == IngestState::Loading),
+            lines: self.profiling.lines(view.columns()),
         })
     }
 
     /// Gives completion the open file's view when it changed: compared in
     /// place, since this runs every render.
     fn publish_catalog(&mut self) {
+        let lines = self.profiling.revision();
         let same = match (&self.shown_catalog, &self.load) {
             (Some(Some(shown)), Load::Open { view, csv, .. }) => {
-                shown.view == **view
+                self.catalog_lines == lines
+                    && shown.view == **view
                     && shown.loading
                         == csv
                             .as_ref()
@@ -2373,6 +2398,7 @@ impl Workbench {
         #[cfg(target_family = "wasm")]
         crate::frame::set_catalog(catalog.clone());
         self.shown_catalog = Some(catalog);
+        self.catalog_lines = lines;
     }
 
     /// The log starts again with the file just opened.
@@ -2435,6 +2461,8 @@ impl Workbench {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        // The next command cancels a question still out.
+        self.cancel_question();
         // Every answer the command gives is given before it returns.
         self.asking = ask;
         if origin == Origin::Click
@@ -2548,6 +2576,11 @@ impl Workbench {
     ) {
         use crate::log::Reply;
 
+        if let Some(ask) = plan.ask.clone() {
+            let step = &plan.steps[0];
+            self.ask(ask, step.line.clone(), step.words.clone(), origin, at, cx);
+            return;
+        }
         let Load::Open { table, view, .. } = &mut self.load else {
             return;
         };
@@ -3157,8 +3190,157 @@ impl Workbench {
             text,
             steps,
             error,
+            values: Vec::new(),
         });
         cx.notify();
+    }
+
+    /// Asks a catalog entry's question of the rows in view (the
+    /// controller's filters, as the log's current entry has them), exact,
+    /// in the engine's background: logged at once as asked, and answered in
+    /// its entry and the bar when it comes (`docs/DECISIONS.md`, "Scope",
+    /// 2026-11-27). It changes no view, so `undo` and the way back pass
+    /// over it.
+    #[cfg(target_family = "wasm")]
+    fn ask(
+        &mut self,
+        ask: crate::command::plan::Ask,
+        line: String,
+        words: String,
+        origin: Origin,
+        at: f64,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::log::Reply;
+
+        let Some(scan) = self.source_scan(cx) else {
+            return;
+        };
+        let Load::Open { view, .. } = &self.load else {
+            return;
+        };
+        let columns = view.columns().to_vec();
+        let scan = match crate::filter::where_sql(view.filters(), &columns) {
+            Ok(condition) => scan.filtered(condition),
+            Err((_, why)) => {
+                let why = format!("The filters can't be read: {why}.");
+                self.log
+                    .note(Some(line), words, Reply::Error(why.clone()), origin, at);
+                self.say("refused", why, Vec::new(), true, cx);
+                return;
+            }
+        };
+        let sql = ask.entry.sql(&scan, &columns[ask.column], ask.count);
+        let asking = ask.entry.asking(&ask.shown);
+        let entry = self.log.note(
+            Some(line),
+            words.clone(),
+            Reply::Asking(asking.clone()),
+            origin,
+            at,
+        );
+        let engine = cx.global::<seiza_duckdb::Engine>().clone();
+        let (request, result) = engine.query_background(&sql);
+        let (question, shown) = (ask.entry, ask.shown);
+        let filters = view.filters().to_vec();
+        let task = cx.spawn(async move |this: WeakEntity<Self>, cx: &mut AsyncApp| {
+            let result = result.await.map_err(|error| error.to_string());
+            let _ = this.update(cx, |this, cx| {
+                let answer = result.and_then(|result| question.read(&shown, &result));
+                this.answered(entry, answer, cx);
+            });
+        });
+        self.question = Some(Question {
+            entry,
+            ask: self.asking,
+            filters,
+            out: crate::profile::Out {
+                engine,
+                id: request,
+                task: Some(task),
+            },
+        });
+        self.say("asking", asking, vec![words], false, cx);
+    }
+
+    /// A question's answer, or why it has none: in its log entry, and in
+    /// the bar if the bar still shows its command.
+    #[cfg(target_family = "wasm")]
+    fn answered(
+        &mut self,
+        entry: u32,
+        answer: Result<crate::catalog::Answer, String>,
+        cx: &mut Context<Self>,
+    ) {
+        use crate::log::Reply;
+
+        let Some(mut question) = self.question.take_if(|question| question.entry == entry) else {
+            return;
+        };
+        // Answered: nothing to cancel, and this task is the one running.
+        if let Some(task) = question.out.task.take() {
+            task.detach();
+        }
+        let asked = question.entry;
+        let asking = std::mem::replace(&mut self.asking, question.ask);
+        match answer {
+            Ok(answer) => {
+                self.log.settle(asked, Reply::Found(answer.clone()));
+                self.say("answer", answer.text, Vec::new(), false, cx);
+                if let Some(said) = &mut self.answer {
+                    said.values = answer.values;
+                }
+            }
+            Err(why) => {
+                let why = format!("Couldn't answer: {why}");
+                self.log.settle(asked, Reply::Error(why.clone()));
+                self.say("refused", why, Vec::new(), true, cx);
+            }
+        }
+        self.asking = asking;
+    }
+
+    /// Cancels the question out, if one is: in DuckDB, and in its entry.
+    #[cfg(target_family = "wasm")]
+    pub(crate) fn cancel_question(&mut self) {
+        if let Some(question) = self.question.take() {
+            self.log.settle(
+                question.entry,
+                crate::log::Reply::Answer("Canceled before it answered.".into()),
+            );
+        }
+    }
+
+    /// Cancels the question out if the rows it was asked of are no longer
+    /// the view's: the filters changed without a command (the log's way
+    /// back, a filter that couldn't be built given back). Its answer would
+    /// speak of rows the view no longer has.
+    #[cfg(target_family = "wasm")]
+    fn question_outlived(&mut self) {
+        let outlived = match (&self.question, &self.load) {
+            (Some(question), Load::Open { view, .. }) => question.filters != view.filters(),
+            (Some(_), _) => true,
+            (None, _) => false,
+        };
+        if outlived {
+            self.cancel_question();
+        }
+    }
+
+    /// The shown table's source as the profile and the catalog read it,
+    /// unfiltered: a Parquet file by its SQL name, a CSV's tables.
+    #[cfg(target_family = "wasm")]
+    fn source_scan(&self, cx: &App) -> Option<crate::profile::Scan> {
+        use crate::profile::Scan;
+        use crate::table::Source;
+
+        let Load::Open { table, .. } = &self.load else {
+            return None;
+        };
+        Some(match table.read(cx).delegate().view().query() {
+            Source::Parquet(parquet) => Scan::parquet(parquet.file.name(), parquet.rows),
+            Source::Csv(chunks) => Scan::relation(&chunks.numbered_sql(None), chunks.rows()),
+        })
     }
 
     /// Publishes the open file's view to `globalThis.__tychoView` when it
@@ -3226,7 +3408,7 @@ impl Workbench {
     fn sync_profile(&mut self, cx: &mut Context<Self>) {
         use seiza_duckdb::view::RowSource;
 
-        use crate::profile::{Scan, Waiting};
+        use crate::profile::Waiting;
         use crate::table::Source;
 
         // What a query out waits behind, if it's the workbench's own: read
@@ -3268,18 +3450,17 @@ impl Workbench {
             return;
         };
         let columns = view.columns().to_vec();
-        let shown = table.read(cx);
-        let source = shown.delegate().view().query();
+        let source = table.read(cx).delegate().view().query();
         let loading = source.busy().is_some();
-        let (scan, parquet) = match source {
-            Source::Parquet(parquet) => (
-                Scan::parquet(parquet.file.name(), parquet.rows),
-                Some(parquet.file.name().to_string()),
-            ),
-            Source::Csv(chunks) => (
-                Scan::relation(&chunks.numbered_sql(None), chunks.rows()),
-                None,
-            ),
+        let parquet = match source {
+            Source::Parquet(parquet) => Some(parquet.file.name().to_string()),
+            Source::Csv(_) => None,
+        };
+        let Some(scan) = self.source_scan(cx) else {
+            return;
+        };
+        let Load::Open { table, .. } = &self.load else {
+            return;
         };
         // The filters applied, as the table's rows are: written by the one
         // function that writes them for the index. Filters the columns
@@ -3442,13 +3623,16 @@ impl Render for Workbench {
         }
         self.publish(window, cx);
         self.publish_view();
-        self.publish_catalog();
         #[cfg(target_family = "wasm")]
         {
+            self.question_outlived();
             self.sync_find(cx);
             self.sync_profile(cx);
             self.publish_profile();
         }
+        // After the profiles' sync: the bar's column lines are of the rows
+        // it has just read for.
+        self.publish_catalog();
         self.publish_frame(cx);
 
         div()

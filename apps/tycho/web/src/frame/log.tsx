@@ -21,7 +21,7 @@ import { ColumnList } from './columns.tsx';
 import { backTo, canvasKeys, getPanelTab, getSheetTab, isLogOpen, type PanelTab, setLogOpen, setPanelTab, setSheetTab, type SheetTab, subscribeLog, subscribePanelTab, subscribeSheetTab } from './core.ts';
 import { Icon, type IconName } from './icons.tsx';
 import { RowView } from './rowview.tsx';
-import type { FrameState, LogEntry, Origin } from './state.ts';
+import type { FrameState, LogEntry, Origin, TopValue } from './state.ts';
 
 export const useLogOpen = (): boolean => useSyncExternalStore(subscribeLog, isLogOpen, () => false);
 
@@ -49,6 +49,26 @@ const ORIGIN_ICONS: Record<Origin, IconName> = {
 };
 
 const clock = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+
+/** `top`'s values as a short table: each value, its rows, and its share of
+ *  the rows in view, most first (the log's entry and the bar's answer). */
+export function TopValues({ values }: { values: TopValue[] }) {
+  return (
+    <table data-values className="w-full border-collapse text-xs leading-[17px] tabular-nums">
+      <tbody>
+        {values.map((value, index) => (
+          <tr key={index} className="border-t border-border-subtle first:border-t-0">
+            <td className="max-w-0 truncate py-0.5 pr-3 text-foreground" title={value.value}>
+              {value.value}
+            </td>
+            <td className="w-px py-0.5 pr-2 text-right whitespace-nowrap text-foreground-muted">{value.count}</td>
+            <td className="w-px py-0.5 text-right whitespace-nowrap text-foreground-subtle">{value.share}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
 function Entry({ entry, current }: { entry: LogEntry; current: boolean }) {
   return (
@@ -83,6 +103,7 @@ function Entry({ entry, current }: { entry: LogEntry; current: boolean }) {
         )}
       </div>
       <div className={`text-xs leading-[17px] [overflow-wrap:anywhere] tabular-nums ${entry.replyKind === 'error' ? 'text-error' : 'text-foreground-muted'}`}>{entry.reply}</div>
+      {entry.values.length > 0 && <TopValues values={entry.values} />}
       <div className="flex items-center gap-[5px] text-[10.5px] text-foreground-subtle">
         <Icon name={ORIGIN_ICONS[entry.origin]} size={11} />
         <span>

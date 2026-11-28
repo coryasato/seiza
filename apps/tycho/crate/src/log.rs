@@ -76,6 +76,11 @@ pub enum Reply {
     Counting,
     /// A small answer.
     Answer(String),
+    /// A catalog entry's question still out, in words ("Counting the
+    /// nulls in end_date…"): its answer comes with it ([`Log::settle`]).
+    Asking(String),
+    /// A catalog entry's answer: its line, and `top`'s values.
+    Found(crate::catalog::Answer),
     Error(String),
 }
 
@@ -113,7 +118,8 @@ impl Reply {
                 if *columns == 1 { "" } else { "s" },
             ),
             Self::Counting => "Counting the rows…".into(),
-            Self::Answer(text) | Self::Error(text) => text.clone(),
+            Self::Answer(text) | Self::Asking(text) | Self::Error(text) => text.clone(),
+            Self::Found(answer) => answer.text.clone(),
         }
     }
 }
@@ -171,8 +177,10 @@ pub struct EntryView {
     pub command: Option<String>,
     pub words: String,
     pub reply: String,
-    /// `rows`, `answer`, or `error`.
+    /// `rows`, `answer`, `asking` (a question still out), or `error`.
     pub reply_kind: &'static str,
+    /// `top`'s values, most first: none for any other reply.
+    pub values: Vec<crate::catalog::TopValue>,
     pub origin: Origin,
     pub at: f64,
     /// It has a way back.
@@ -332,7 +340,7 @@ impl Log {
     }
 
     /// An entry with no way back (a refusal, an answer): the current entry
-    /// stays.
+    /// stays. Its id, for an answer still to come ([`Log::settle`]).
     pub fn note(
         &mut self,
         command: Option<String>,
@@ -340,8 +348,9 @@ impl Log {
         reply: Reply,
         origin: Origin,
         at: f64,
-    ) {
+    ) -> u32 {
         self.push(command, words, reply, origin, at, None);
+        self.next_id - 1
     }
 
     fn push(
@@ -519,8 +528,13 @@ impl Log {
                             reply: entry.reply.text(),
                             reply_kind: match entry.reply {
                                 Reply::Rows { .. } | Reply::Counting => "rows",
-                                Reply::Answer(_) => "answer",
+                                Reply::Answer(_) | Reply::Found(_) => "answer",
+                                Reply::Asking(_) => "asking",
                                 Reply::Error(_) => "error",
+                            },
+                            values: match &entry.reply {
+                                Reply::Found(answer) => answer.values.clone(),
+                                _ => Vec::new(),
                             },
                             origin: entry.origin,
                             at: entry.at,
@@ -1123,5 +1137,53 @@ mod tests {
         log.go(&target);
         log.table_changed(&other, &widened(&other, 2, 300.0), &drawn, 5.0);
         assert_eq!(log.entries().len(), 5);
+    }
+
+    #[test]
+    fn a_question_is_answered_in_its_entry_and_undo_passes_over_it() {
+        let mut log = Log::default();
+        let open = file();
+        log.open("quakes.csv", &open, Origin::Drop, 0.0);
+        let mut pinned = open.clone();
+        pinned.pin(2).unwrap();
+        let pin = log.step(
+            Some("pin place".into()),
+            "Pin place".into(),
+            Reply::of(&pinned),
+            Origin::Typed,
+            1.0,
+            pinned.view(),
+        );
+        let asked = log.note(
+            Some("top place".into()),
+            "The 5 most common values of place".into(),
+            Reply::Asking("Reading the most common values of place…".into()),
+            Origin::Typed,
+            2.0,
+        );
+        let entry = &log.view().entries[2];
+        assert_eq!(entry.reply_kind, "asking");
+        assert!(!entry.back);
+        log.settle(
+            asked,
+            Reply::Found(crate::catalog::Answer {
+                text: "All 2 values · 3 rows in view".into(),
+                values: vec![crate::catalog::TopValue {
+                    value: "Alaska".into(),
+                    count: "2".into(),
+                    share: "66.7%".into(),
+                }],
+            }),
+        );
+        let entry = &log.view().entries[2];
+        assert_eq!(
+            (entry.reply.as_str(), entry.reply_kind),
+            ("All 2 values · 3 rows in view", "answer")
+        );
+        assert_eq!(entry.values[0].value, "Alaska");
+        // The answer changed no view: the pin is current, and undo goes
+        // from it to the opening.
+        assert_eq!(log.current_id(), Some(pin));
+        assert_eq!(log.undo_target().unwrap().index, 0);
     }
 }

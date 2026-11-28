@@ -27,6 +27,7 @@ pub mod plan;
 pub use complete::{Completion, Item, Part, Preview, complete};
 pub use plan::{Catalog, Checked, Plan, Refusal, plan};
 
+use crate::catalog::{self, Entry};
 use crate::filter::{Arity, Direction, Op, Value, Values};
 
 /// A verb the bar runs now, with what it does (completion's hint).
@@ -45,11 +46,8 @@ pub const VERBS: &[(&str, &str)] = &[
 
 /// The grammar's other verbs, each with the goal that builds it (`PLAN.md`).
 pub const LATER: &[(&str, &str)] = &[
-    ("group", "profiles and the catalog"),
-    ("rows", "profiles and the catalog"),
-    ("top", "profiles and the catalog"),
-    ("nulls", "profiles and the catalog"),
-    ("distinct", "profiles and the catalog"),
+    ("group", "views and grouping"),
+    ("rows", "views and grouping"),
     ("sql", "export"),
     ("export", "export"),
 ];
@@ -87,6 +85,13 @@ pub enum Step {
     Clear(Clear),
     /// Find's term, as written.
     Find(String),
+    /// A catalog entry's question of a column: its count as written, if
+    /// the entry takes one and it's given.
+    Ask {
+        entry: &'static Entry,
+        column: Name,
+        count: Option<String>,
+    },
     Undo,
 }
 
@@ -158,6 +163,11 @@ impl Step {
             Self::Clear(Clear::Sort) => "Clear the sort".into(),
             Self::Clear(Clear::All) => "Clear the filters and the sort".into(),
             Self::Find(term) => format!("Find {}", quote(term)),
+            Self::Ask {
+                entry,
+                column,
+                count,
+            } => entry.words(&quote(&column.text), entry.count_of(count.as_deref())),
             Self::Undo => "Undo".into(),
         }
     }
@@ -187,6 +197,18 @@ impl Step {
             Self::Clear(Clear::Sort) => "clear sort".into(),
             Self::Clear(Clear::All) => "clear all".into(),
             Self::Find(term) => format!("find {}", quote(term)),
+            Self::Ask {
+                entry,
+                column,
+                count,
+            } => format!(
+                "{} {}{}",
+                entry.name,
+                quote(&column.text),
+                count
+                    .as_deref()
+                    .map_or(String::new(), |count| format!(" {}", count.trim()))
+            ),
             Self::Undo => "undo".into(),
         }
     }
@@ -407,7 +429,7 @@ fn parse_line(text: &str) -> Parsed {
     if first.quoted {
         return Parsed::Error(format!(
             "A command starts with its verb: {}.",
-            list(VERBS.iter().map(|(verb, _)| *verb), "or")
+            list(runs(), "or")
         ));
     }
     match built(&first.text) {
@@ -468,6 +490,9 @@ fn parse_line(text: &str) -> Parsed {
             }
         }
         None if first.text.eq_ignore_ascii_case("open") => Parsed::Open,
+        None if let Some(entry) = catalog::entry(&first.text) => {
+            ask_step(entry, rest).map_or_else(Parsed::Error, action)
+        }
         None => match later(&first.text) {
             Some((verb, goal)) => Parsed::Later {
                 verb,
@@ -503,6 +528,35 @@ fn column_step(rest: &[Token], verb: &str) -> Result<Name, String> {
             "{verb} takes one column; a name with a space goes in double quotes."
         )),
     }
+}
+
+/// A catalog entry's question: its column, then its count if it takes one
+/// (`top orbit 10`), a bare number after the column's words.
+fn ask_step(entry: &'static Entry, rest: &[Token]) -> Result<Step, String> {
+    let counted = entry.count_part().is_some();
+    let (names, count) = match rest.split_last() {
+        Some((last, names))
+            if counted
+                && !names.is_empty()
+                && !last.quoted
+                && last.text.chars().all(|c| c.is_ascii_digit() || c == ',') =>
+        {
+            (names, Some(last.text.clone()))
+        }
+        _ => (rest, None),
+    };
+    let column = column_step(names, entry.name).map_err(|why| {
+        if rest.is_empty() {
+            format!("{} takes a column: {}.", entry.name, entry.example)
+        } else {
+            why
+        }
+    })?;
+    Ok(Step::Ask {
+        entry,
+        column,
+        count,
+    })
 }
 
 /// `asc` or `desc`, bare.
@@ -815,9 +869,7 @@ fn no_verb(word: &str, tokens: &[Token]) -> Parsed {
         return Parsed::Sentence;
     }
     let lower = word.to_lowercase();
-    let near = VERBS
-        .iter()
-        .map(|(verb, _)| *verb)
+    let near = runs()
         .chain(LATER.iter().map(|(verb, _)| *verb))
         .filter(|verb| distance(verb, &lower) <= 1 + verb.len() / 5)
         .min_by_key(|verb| distance(verb, &lower));
@@ -829,8 +881,16 @@ fn no_verb(word: &str, tokens: &[Token]) -> Parsed {
     }
     Parsed::Error(format!(
         "Tycho has no command {word}. It runs {}.",
-        list(VERBS.iter().map(|(verb, _)| *verb), "and")
+        list(runs(), "and")
     ))
+}
+
+/// Every verb the bar runs: the controller's, then the catalog's.
+pub fn runs() -> impl Iterator<Item = &'static str> {
+    VERBS
+        .iter()
+        .map(|(verb, _)| *verb)
+        .chain(catalog::ENTRIES.iter().map(|entry| entry.name))
 }
 
 // --- JSON ---
@@ -1059,6 +1119,31 @@ fn json_step(
             Value::Object(fields) if fields.is_empty() => Ok(Ok(Step::Undo)),
             _ => Err("undo takes nothing: {\"undo\": {}}.".into()),
         },
+        None if let Some(entry) = catalog::entry(verb) => {
+            let allowed: Vec<&str> = entry.parts.iter().map(|part| part.name).collect();
+            let fields = fields(&allowed)?;
+            let count = match fields.get("count") {
+                None | Some(Value::Null) => None,
+                // A whole number an agent wrote as a float (`10.0`) is that
+                // count, as `jump` reads a row.
+                Some(Value::Number(count)) => Some(match (count.as_u64(), count.as_f64()) {
+                    (Some(count), _) => count.to_string(),
+                    (None, Some(float))
+                        if float >= 0.0 && float.fract() == 0.0 && float < u64::MAX as f64 =>
+                    {
+                        (float as u64).to_string()
+                    }
+                    _ => count.to_string(),
+                }),
+                Some(Value::String(count)) => Some(count.clone()),
+                Some(_) => return Err(format!("{verb}'s \"count\" is a whole number.")),
+            };
+            Ok(Ok(Step::Ask {
+                entry,
+                column: column(fields)?,
+                count,
+            }))
+        }
         None => match later(verb) {
             Some(later) => Ok(Err(later)),
             None => Err(format!("Tycho has no command {verb}.")),
@@ -1080,9 +1165,7 @@ pub fn quote(name: &str) -> String {
         || name.starts_with('{')
         || name.ends_with('?')
         || word(WORDS)
-        || VERBS
-            .iter()
-            .any(|(verb, _)| verb.eq_ignore_ascii_case(name))
+        || runs().any(|verb| verb.eq_ignore_ascii_case(name))
         || LATER
             .iter()
             .any(|(verb, _)| verb.eq_ignore_ascii_case(name));
@@ -1192,7 +1275,7 @@ mod tests {
         );
         assert_eq!(
             error("42"),
-            "Tycho has no command 42. It runs filter, sort, find, pin, unpin, hide, show, jump, clear, and undo."
+            "Tycho has no command 42. It runs filter, sort, find, pin, unpin, hide, show, jump, clear, undo, top, nulls, and distinct."
         );
         assert_eq!(
             error("hide"),
@@ -1214,7 +1297,7 @@ mod tests {
             parse("group mag"),
             Parsed::Later {
                 verb: "group",
-                goal: "profiles and the catalog",
+                goal: "views and grouping",
                 step: None
             }
         );
@@ -1367,7 +1450,7 @@ mod tests {
             parse(r#"{"actions": [{"pin": {"column": "a"}}, {"group": {"column": "a"}}]}"#),
             Parsed::Later {
                 verb: "group",
-                goal: "profiles and the catalog",
+                goal: "views and grouping",
                 step: Some(1)
             }
         );
@@ -1672,6 +1755,77 @@ mod tests {
             error(r#"{"find": 3}"#),
             r#"find takes text: {"find": {"text": "starlink"}}."#
         );
+    }
+
+    #[test]
+    fn the_catalogs_questions_typed_and_as_json() {
+        let ask = |name: &str, column: &str, count: Option<&str>| Step::Ask {
+            entry: catalog::entry(name).unwrap(),
+            column: Name::bare(column),
+            count: count.map(str::to_owned),
+        };
+        assert_eq!(typed("top orbit"), ask("top", "orbit", None));
+        assert_eq!(typed("TOP orbit 10"), ask("top", "orbit", Some("10")));
+        assert_eq!(typed("nulls end_date"), ask("nulls", "end_date", None));
+        assert_eq!(typed("distinct owner"), ask("distinct", "owner", None));
+        // A number after a column the entry counts nothing of is a name.
+        assert_eq!(
+            typed("nulls launch 2"),
+            Step::Ask {
+                entry: catalog::entry("nulls").unwrap(),
+                column: Name {
+                    text: "launch 2".into(),
+                    spaced: true
+                },
+                count: None
+            }
+        );
+        // A column named as a number, in quotes.
+        assert_eq!(typed(r#"top "10""#), ask("top", "10", None));
+        assert_eq!(error("top"), "top takes a column: top orbit 10.");
+        assert_eq!(error("nulls"), "nulls takes a column: nulls end_date.");
+        let json = |text: &str| match parse(text) {
+            Parsed::Action { steps, form } => {
+                assert_eq!(form, Form::Json);
+                steps
+            }
+            other => panic!("{text:?} read as {other:?}"),
+        };
+        assert_eq!(
+            json(r#"{"top": {"column": "orbit", "count": 10}}"#),
+            [ask("top", "orbit", Some("10"))]
+        );
+        assert_eq!(
+            json(r#"{"top": {"column": "orbit", "count": 10.0}}"#),
+            [ask("top", "orbit", Some("10"))]
+        );
+        // A count the entry doesn't take: words with none, not the default.
+        assert_eq!(
+            typed("top orbit 1,000").words(),
+            "The most common values of orbit"
+        );
+        assert_eq!(
+            typed("top orbit 0").words(),
+            "The most common values of orbit"
+        );
+        assert_eq!(
+            json(r#"{"nulls": {"column": "end_date"}}"#),
+            [ask("nulls", "end_date", None)]
+        );
+        assert_eq!(
+            error(r#"{"nulls": {"column": "x", "count": 3}}"#),
+            "nulls has no part \"count\"."
+        );
+        assert_eq!(
+            error(r#"{"top": {"column": "x", "count": [1]}}"#),
+            "top's \"count\" is a whole number."
+        );
+        assert_eq!(typed("top orbit 10").written(), "top orbit 10");
+        assert_eq!(
+            typed("top orbit").words(),
+            "The 5 most common values of orbit"
+        );
+        assert_eq!(quote("top"), "\"top\"");
     }
 
     #[test]

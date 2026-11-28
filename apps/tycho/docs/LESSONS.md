@@ -502,3 +502,12 @@ No results note: Tycho records no measurements; the timings are in `docs/DECISIO
 - **An engine's change runs every app's check that builds it, and the observatory's hadn't run since the last one:** its lint failed on `HEAD`, an `expect(dead_code)` the sort's work left on a struct whose fields a path without `sort` still reads. The engine's own clippy, with every feature, couldn't see it.
 - **The addendum, after the code review: a background lane waits behind Tycho's own queries as much as behind page reads.** On 42 M rows find's count for "2001" held a profile's sample for 84 s, longer than every stage of the profile together, and nothing said so; the profile's line now names it. The review's other findings were all wait bookkeeping (a wake scheduled before what it wakes was out, every scroll frame syncing), each invisible on GCAT, whose queries answer within a frame or two.
 
+
+## M16 part B: the catalog, and `top`, `nulls`, and `distinct` (2026-11-27)
+
+No results note: Tycho records no measurements.
+
+**Surprises:**
+- **The grammar already had a `Catalog`:** `command::plan::Catalog` is the open file's view that an action is checked against, and completion reads it, so the catalog of questions became `crate::catalog` beside it, and the two names now mean different things. The bar's column lines ride on the old one (`Catalog::lines`), since that's the copy completion reads.
+- **None of the first three entries refuses a type:** `top`, `nulls`, and `distinct` take every column, so the type refusal B2 asks for runs only against an entry made for the test. It will first matter with the entries that take numbers or text alone.
+- **A question's answer arrives after its command returns, under that command's number:** the bar showed only answers to its own command, which kept working once the workbench said its answer again under the number it kept with the query. A first hand check read the bar before the question's entry was in the log, so it saw the preview and looked like a fault; wait for the entry, then for its reply to stop reading `asking`.

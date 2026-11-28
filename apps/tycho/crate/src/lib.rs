@@ -1,5 +1,6 @@
 //! Tycho: a local-first data workbench. DuckDB-Wasm queries, GPUI draws.
 
+pub mod catalog;
 pub mod command;
 pub mod csv;
 pub mod dataset;

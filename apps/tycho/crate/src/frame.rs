@@ -261,15 +261,19 @@ pub struct Answer {
     /// own command's answer alone: one to an earlier command can arrive
     /// after the next is sent.
     pub ask: u32,
-    /// `done` (the steps that ran, `text` the reply), `refused`,
-    /// `sentence`, `later`, `open`, `nofile`, `undone`, or `nothing` (no
-    /// step to undo).
+    /// `done` (the steps that ran, `text` the reply), `asking` (a
+    /// catalog entry's question out, its words in `steps`), `answer` (its
+    /// answer, `top`'s values in `values`), `refused`, `sentence`,
+    /// `later`, `open`, `nofile`, `undone`, or `nothing` (no step to
+    /// undo).
     pub kind: &'static str,
     pub text: String,
     /// The steps that ran, in plain words.
     pub steps: Vec<String>,
     /// A fault, in the error color.
     pub error: bool,
+    /// `top`'s values, for an `answer` to it.
+    pub values: Vec<crate::catalog::TopValue>,
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -778,6 +782,16 @@ mod web {
         }));
     }
 
+    /// Escape in the bar while a catalog entry's question is out: it's
+    /// canceled, in DuckDB and in its log entry.
+    #[wasm_bindgen]
+    pub fn cancel_question() {
+        send(on_workbench(|workbench, _, cx| {
+            workbench.cancel_question();
+            cx.notify();
+        }));
+    }
+
     /// The log's way back on entry `entry`.
     #[wasm_bindgen]
     pub fn back_to(entry: u32) {
@@ -873,6 +887,7 @@ mod tests {
         let catalog = Catalog {
             view: view.clone(),
             loading: false,
+            lines: Default::default(),
         };
         plan(&steps, &catalog)
             .unwrap_or_else(|why| panic!("{line}: {why:?}"))
