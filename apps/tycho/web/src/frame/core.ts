@@ -79,6 +79,60 @@ export function askProfiles(columns: string[]): void {
   call((app) => app.profile(columns));
 }
 
+/** The column whose profile is open in the column list, by name, and the
+ *  file it was opened in (its log's first entry): one at a time, kept
+ *  while the list is closed, and closed by another file. `focus`: its row
+ *  takes focus once drawn ("Show its profile", Escape in it). */
+export interface OpenProfile {
+  column: string;
+  file: number;
+  focus: boolean;
+  /** Counts the asks, so a row already drawn hears one. */
+  seq: number;
+}
+let openProfile: OpenProfile | null = null;
+let profileAsks = 0;
+const profileListeners = new Set<() => void>();
+export const getOpenProfile = (): OpenProfile | null => openProfile;
+export function subscribeOpenProfile(listener: () => void): () => void {
+  profileListeners.add(listener);
+  return () => profileListeners.delete(listener);
+}
+export function setOpenProfile(column: string | null, file: number, focus = false): void {
+  openProfile = column === null ? null : { column, file, focus, seq: ++profileAsks };
+  for (const listener of profileListeners) listener();
+}
+/** The focus ask taken by the row that drew it. */
+export function takeProfileFocus(): void {
+  if (openProfile) openProfile = { ...openProfile, focus: false };
+}
+
+/** Which asks for profiles are in, by who asks (each drawn column list's
+ *  open profile; the filter editor's comes with its preview): their union is
+ *  `App.profile`'s, sent only when it changes. */
+const profileAskers = new Map<string, string>();
+let profilesAsked = '';
+export function askProfileFor(who: string, column: string | null): void {
+  if (column === null) profileAskers.delete(who);
+  else profileAskers.set(who, column);
+  const columns = [...new Set(profileAskers.values())];
+  const key = JSON.stringify(columns);
+  if (key === profilesAsked) return;
+  profilesAsked = key;
+  askProfiles(columns);
+}
+
+/** "Show its profile", from a column's menu: the column list opened (at a
+ *  phone, the panels' sheet on Columns) with its profile open and focus on
+ *  its row. */
+export function showProfile(column: string, file: number, phone: boolean): void {
+  setOpenProfile(column, file, true);
+  if (phone) {
+    setSheetTab('columns');
+    setLogOpen(true);
+  } else setColumnsOpen(true);
+}
+
 /** The first frame is up: the calls made before it run now. Not sooner,
  *  though the wasm is in before it: a press on the sample's row would
  *  start its download before first paint (rule 2). */

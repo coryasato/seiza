@@ -279,7 +279,7 @@ function Sheet({ state, open }: { state: FrameState; open: boolean }) {
                 }
               />
               <Tabs.Panel value="columns" render={<Drawer.Content />} className="flex min-h-0 flex-1 flex-col outline-none touch-auto">
-                <ColumnList columns={state.columns} />
+                <ColumnList state={state} />
               </Tabs.Panel>
               <Tabs.Panel value="row" render={<Drawer.Content />} className="flex min-h-0 flex-1 flex-col outline-none touch-auto">
                 <RowView state={state} />

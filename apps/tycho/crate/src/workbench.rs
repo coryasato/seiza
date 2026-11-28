@@ -136,6 +136,15 @@ impl Marks {
     }
 }
 
+/// The panel's profiles and null shares as last written, and what from
+/// (`Workbench::panel`). Shared, so a frame's copy is a pointer's.
+#[derive(Clone)]
+struct PanelWritten {
+    key: (bool, crate::profile::PanelKey),
+    profiles: Rc<[crate::panel::PanelProfile]>,
+    null_shares: Rc<std::collections::BTreeMap<String, String>>,
+}
+
 /// What the profiles were synced for (`Workbench::sync_profile`): the
 /// shown table, its file, its rows, whether they're all in, the filters
 /// applied, and how many columns it has.
@@ -550,6 +559,10 @@ pub struct Workbench {
     find: crate::find::Finding,
     /// The columns' profiles, read in stages (`crate::profile`).
     profiling: crate::profile::Profiling,
+    /// The panel's profiles and null shares last written, and what they
+    /// were written from: the table renders the workbench every frame of a
+    /// scroll, and they're written again only when that changes.
+    panel_written: std::cell::RefCell<Option<PanelWritten>>,
     /// The profiles last published to `globalThis.__tychoProfile` (while
     /// measuring), so they're published only when they change.
     #[cfg(target_family = "wasm")]
@@ -666,6 +679,7 @@ impl Workbench {
             open_after_frame: None,
             find: Default::default(),
             profiling: Default::default(),
+            panel_written: Default::default(),
             #[cfg(target_family = "wasm")]
             shown_profile: None,
             #[cfg(target_family = "wasm")]
@@ -2199,6 +2213,7 @@ impl Workbench {
             Load::Opening { .. } => Some("file"),
             _ => None,
         };
+        let panel = self.panel();
         FrameView {
             engine: EngineView::of(&engine),
             file,
@@ -2226,7 +2241,57 @@ impl Workbench {
                 ),
                 _ => crate::frame::Tools::default(),
             },
+            profiles: panel.profiles,
+            null_shares: panel.null_shares,
         }
+    }
+
+    /// The asked columns' profiles as the left panel draws them, and each
+    /// column's null share: written again only when what they're drawn
+    /// from changed (`Profiling::panel_key`), else the last ones.
+    fn panel(&self) -> PanelWritten {
+        #[cfg(target_family = "wasm")]
+        let now = seiza::marks::now();
+        #[cfg(not(target_family = "wasm"))]
+        let now = 0.0;
+        let open = matches!(self.load, Load::Open { .. });
+        let key = (open, self.profiling.panel_key(now));
+        if let Some(written) = &*self.panel_written.borrow()
+            && written.key == key
+        {
+            return written.clone();
+        }
+        let written = PanelWritten {
+            key,
+            profiles: self.panel_profiles(now),
+            null_shares: if open {
+                std::rc::Rc::new(crate::panel::null_shares(&self.profiling.null_counts()))
+            } else {
+                Default::default()
+            },
+        };
+        *self.panel_written.borrow_mut() = Some(written.clone());
+        written
+    }
+
+    /// The asked columns' profiles as the left panel draws them, of the
+    /// open file's columns.
+    fn panel_profiles(&self, now: f64) -> std::rc::Rc<[crate::panel::PanelProfile]> {
+        let Load::Open { view, .. } = &self.load else {
+            return std::rc::Rc::from([]);
+        };
+        let footer = self.profiling.footer_nulls();
+        self.profiling
+            .facts(now)
+            .iter()
+            .filter_map(|facts| {
+                let column = view
+                    .columns()
+                    .iter()
+                    .find(|column| column.name == facts.column)?;
+                Some(crate::panel::PanelProfile::of(facts, column, &footer))
+            })
+            .collect()
     }
 
     /// The Row tab's Previous row and Next row (`crate::frame`'s

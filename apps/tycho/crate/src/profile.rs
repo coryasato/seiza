@@ -723,8 +723,43 @@ pub struct ProfileFacts {
     pub profile: Option<Profile>,
     /// Whether a later stage is still to come.
     pub reading: bool,
+    /// What reads next, while `reading`: the stage's line names it.
+    pub next: Option<Reading>,
     pub waiting: Option<Waiting>,
     pub failed: Option<String>,
+}
+
+/// What the panel's profiles are drawn from (`Profiling::panel_key`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PanelKey {
+    revision: u64,
+    loading: bool,
+    foreground: Option<Waiting>,
+    scrolling: bool,
+    refused: bool,
+}
+
+/// What a profile reads next, as its line says it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Reading {
+    /// A sample.
+    Sample,
+    /// Every row in view's figures.
+    Rows,
+    /// Every row in view's bins, the figures in.
+    Shape,
+}
+
+impl Next {
+    fn reading(self) -> Option<Reading> {
+        match self {
+            Self::Sample(_) => Some(Reading::Sample),
+            Self::Exact => Some(Reading::Rows),
+            Self::Bins(..) => Some(Reading::Shape),
+            Self::Done => None,
+        }
+    }
 }
 
 /// A query a profile sends: for a column, or the footer.
@@ -797,6 +832,7 @@ impl Profiling {
     pub fn ask(&mut self, columns: Vec<String>) {
         let before = std::mem::replace(&mut self.asked, columns);
         self.changed = true;
+        self.revision += 1;
         for (name, entry) in &mut self.entries {
             if !self.asked.contains(name) {
                 entry.out = false;
@@ -935,6 +971,7 @@ impl Profiling {
                         column: column.clone(),
                         profile: None,
                         reading: false,
+                        next: None,
                         waiting: None,
                         failed: Some(format!("there's no column {column}")),
                     };
@@ -944,6 +981,7 @@ impl Profiling {
                         column: column.clone(),
                         profile: None,
                         reading: false,
+                        next: None,
                         waiting: None,
                         failed: Some(format!("the filters can't be read: {why}")),
                     };
@@ -967,11 +1005,61 @@ impl Profiling {
                         .or_else(|| self.footer_profile(column)),
                     reading: entry
                         .is_none_or(|entry| entry.next != Next::Done && entry.failed.is_none()),
+                    next: match entry {
+                        Some(entry) if entry.failed.is_none() => entry.next.reading(),
+                        Some(_) => None,
+                        None => self
+                            .key
+                            .as_ref()
+                            .and_then(|key| Next::first(&key.scan).reading()),
+                    },
                     waiting,
                     failed: entry.and_then(|entry| entry.failed.clone()),
                 }
             })
             .collect()
+    }
+
+    /// Each column's rows with no value and the rows they're of, where
+    /// that's known of every row in view: an exact profile of them, or,
+    /// while the view is unfiltered, the footer. A sample's count is never
+    /// one, nor a whole file's beside a filtered view.
+    pub fn null_counts(&self) -> HashMap<String, (u64, u64)> {
+        let mut counts = self.footer_nulls();
+        if self.refused.is_some() || self.loading {
+            return counts;
+        }
+        let Some(key) = &self.key else {
+            return counts;
+        };
+        for (name, entry) in &self.entries {
+            if entry.key != *key {
+                continue;
+            }
+            if let Some(Profile {
+                stage: Stage::Exact,
+                rows,
+                nulls: Some(nulls),
+                ..
+            }) = &entry.profile
+            {
+                counts.insert(name.clone(), (*nulls, *rows));
+            }
+        }
+        counts
+    }
+
+    /// What `facts` and `null_counts` are drawn from at page time `now`,
+    /// as a key compared cheaply: the panel's profiles are written again
+    /// only when it changes, not on every frame of a scroll.
+    pub fn panel_key(&self, now: f64) -> PanelKey {
+        PanelKey {
+            revision: self.revision,
+            loading: self.loading,
+            foreground: self.foreground,
+            scrolling: self.scrolled.is_some_and(|at| now - at < SCROLL_MS),
+            refused: self.refused.is_some(),
+        }
     }
 
     /// What the bar's column lines may have changed since: a count.
@@ -1669,6 +1757,29 @@ mod tests {
         let some = key(1, 71_431, Some("true"));
         profiling.due(Some(&some), Some("tycho/f.parquet"), &columns, false, 1.0);
         assert!(profiling.footer_nulls().is_empty());
+    }
+
+    #[test]
+    fn null_counts_are_of_every_row_in_view_never_a_sample_or_the_file_beside_a_filter() {
+        let columns = [column("H", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        profiling.ask(vec!["H".into()]);
+        let some = key(1, 42_323_121, Some(r#"("class" = 'MCA')"#));
+        let (due, _) = profiling.due(Some(&some), None, &columns, false, 0.0);
+        // 12 nulls in the sample.
+        let sample = numeric_rows(200_000, 199_988, 0, 50, [9_999; BINS]);
+        profiling.answer(&due[0], &columns, Ok(sample));
+        assert_eq!(profiling.facts(1.0)[0].next, Some(Reading::Rows));
+        assert!(profiling.null_counts().is_empty());
+        let (due, _) = profiling.due(Some(&some), None, &columns, false, 2.0);
+        profiling.answer(&due[0], &columns, Ok(figures(813_348, 2_735, 0.0, 1.0)));
+        assert_eq!(profiling.null_counts()["H"], (0, 813_348));
+        assert_eq!(profiling.facts(3.0)[0].next, Some(Reading::Shape));
+        // The filters changed: what was read of the last rows isn't these.
+        let other = key(1, 42_323_121, Some(r#"("class" = 'APO')"#));
+        profiling.due(Some(&other), None, &columns, false, 4.0);
+        assert!(profiling.null_counts().is_empty());
+        assert_eq!(profiling.facts(5.0)[0].next, Some(Reading::Sample));
     }
 
     #[test]

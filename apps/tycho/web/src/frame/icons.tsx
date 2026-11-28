@@ -20,6 +20,12 @@ const PATHS = {
     </>
   ),
   chevr: <path d="M6 3.5L10.5 8 6 12.5" />,
+  info: (
+    <>
+      <circle cx="8" cy="8" r="5.5" />
+      <path d="M8 7.3v3.4M8 5.2h.01" />
+    </>
+  ),
   lock: (
     <>
       <rect x="3.5" y="7" width="9" height="6.5" rx="1.5" />

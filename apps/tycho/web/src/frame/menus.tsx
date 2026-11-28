@@ -4,9 +4,10 @@
  * "Scope", 2026-11-24): a column's sort either way, "Filter this column"
  * (the toolbar's filter editor on it, `toolbar.tsx`), Pin to the left
  * (Unpin on a pinned one), Hide (Show on a hidden one), and Fit to its
- * values; a cell's keep and leave out its value, Copy, and Focus row in
- * panel. Grouping and the profile join with their goal, where Columns 1
- * draws them.
+ * values, then Show its profile (the column list opened on it); a cell's
+ * keep and leave out its value, Copy, and Focus row in panel. Grouping
+ * joins with its goal, where Columns 1 draws it. The profile's Sort opens
+ * a menu of the column's sort alone (`openSortMenu`).
  *
  * Opened by the table's presses (`state.ts`, `TablePress`: the header
  * icon's under its bounds, a header's or a cell's context press at the
@@ -31,7 +32,7 @@
 import { Drawer } from '@base-ui/react/drawer';
 import { Menu } from '@base-ui/react/menu';
 import { type ReactNode, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { act, appNow, canvasKeys, copyField, copySelection, fitColumn, focusRow, focusTable, getFind, openRow, rowValues, subscribeFind } from './core.ts';
+import { act, appNow, canvasKeys, copyField, copySelection, fitColumn, focusRow, focusTable, getFind, openRow, rowValues, showProfile, subscribeFind } from './core.ts';
 import { Badge, Icon, type IconName } from './icons.tsx';
 import { usePhone } from './log.tsx';
 import { type ColumnFacts, type FrameState, subscribePress, type TablePress } from './state.ts';
@@ -43,6 +44,7 @@ type Anchor = Element | { getBoundingClientRect(): DOMRect };
 
 type Open =
   | { kind: 'column'; index: number; anchor: Anchor; fromTable: boolean }
+  | { kind: 'sort'; index: number; anchor: Element }
   | { kind: 'cell'; index: number; row: number; value: string | null; anchor: Anchor }
   | { kind: 'field'; index: number; row: number; value: string | null; known: string | null; anchor: Element };
 
@@ -92,6 +94,12 @@ export function useFieldMenu(): { index: number; row: number } | null {
 /** A column's menu, opened from the column list's row `row`. */
 export function openColumnMenu(index: number, row: HTMLElement): void {
   setOpen({ kind: 'column', index, anchor: row, fromTable: false });
+}
+
+/** The profile's Sort (`columns.tsx`): the column's sort either way,
+ *  under its button. */
+export function openSortMenu(index: number, button: HTMLElement): void {
+  setOpen({ kind: 'sort', index, anchor: button });
 }
 
 /** A box `at` of the canvas, in the page: the press's coordinates are the
@@ -154,13 +162,15 @@ function sortItems(column: ColumnFacts, sortable: boolean): Item[] {
 
 /** A column's items, in Columns 1's places: its sort either way, "Filter
  *  this column" (the filter editor on it, which takes focus), then Pin or
- *  Unpin, Hide, and Fit; a hidden column's only Show (it can't be pinned,
- *  and has no width to fit). */
-function columnItems(column: ColumnFacts, sortable: boolean, anchor: Anchor): Item[][] {
+ *  Unpin, Hide, and Fit, then "Show its profile" (the column list opened on
+ *  it, focus on its row); a hidden column's only Show and its profile (it
+ *  can't be pinned, and has no width to fit). */
+function columnItems(column: ColumnFacts, sortable: boolean, anchor: Anchor, file: number, phone: boolean): Item[][] {
   // Where the editor's Escape goes: the column list's row the menu came
   // from, or the table.
   const back = () => (anchor instanceof HTMLElement ? anchor : canvasKeys());
-  if (column.hidden) return [[{ icon: 'eye', label: 'Show', run: () => act(`show ${column.typed}`) }]];
+  const profile: Item[] = [{ icon: 'info', label: 'Show its profile', focuses: true, run: () => showProfile(column.name, file, phone) }];
+  if (column.hidden) return [[{ icon: 'eye', label: 'Show', run: () => act(`show ${column.typed}`) }], profile];
   const sorts = sortItems(column, sortable);
   return [
     ...(sorts.length ? [sorts] : []),
@@ -172,6 +182,7 @@ function columnItems(column: ColumnFacts, sortable: boolean, anchor: Anchor): It
       { icon: 'eyeoff', label: 'Hide', run: () => act(`hide ${column.typed}`) },
       { icon: 'columns', label: 'Fit to its values', run: () => fitColumn(column.index) },
     ],
+    profile,
   ];
 }
 
@@ -423,9 +434,14 @@ export function Menus({ state }: { state: FrameState }) {
   // (an item run, its closing) never carries over.
   const key = current.seq;
   if (current.kind === 'column') {
-    const items = columnItems(column, state.tools.unsortable === null, current.anchor);
+    const items = columnItems(column, state.tools.unsortable === null, current.anchor, opening ?? 0, phone);
     if (phone) return <SheetMenu key={key} label={`${column.name}'s menu`} head={<ColumnHead column={column} phone />} items={items} done={done} />;
     return <PopupMenu key={key} head={<ColumnHead column={column} phone={false} />} items={items} anchor={current.anchor} width={236} side={current.fromTable ? 'bottom' : 'right'} done={done} />;
+  }
+  if (current.kind === 'sort') {
+    const items = [sortItems(column, state.tools.unsortable === null)];
+    if (phone) return <SheetMenu key={key} label={`Sort ${column.name}`} head={<ColumnHead column={column} phone />} items={items} done={done} />;
+    return <PopupMenu key={key} head={null} items={items} anchor={current.anchor} width={200} side="bottom" done={done} />;
   }
   const head = <CellHead column={column} row={current.row} value={current.value} phone={phone} />;
   if (current.kind === 'field') {

@@ -210,10 +210,12 @@ async function menuText(page: Page): Promise<string> {
   return (await page.locator('[data-menu]').last().textContent()) ?? '';
 }
 
-/** Runs the open menu's item `label` (its name may go on with a key's
- *  hint, "Copy⌘C"), then waits for the menu to be gone. */
+/** Runs the open menu's item `label`, its label's span whole (its name
+ *  may go on with a key's hint, "Copy⌘C" or "Copy Ctrl C"; "Show" isn't
+ *  "Show its profile"), then waits for the menu to be gone. */
 async function runItem(page: Page, label: string): Promise<void> {
-  await page.locator('[data-menu]').last().getByRole('menuitem', { name: new RegExp(`^${label}(?!\\w)`) }).click();
+  const span = page.locator('span', { hasText: new RegExp(`^${label}$`) });
+  await page.locator('[data-menu]').last().getByRole('menuitem').filter({ has: span }).click();
   await page.waitForSelector('[data-menu]', { state: 'detached', timeout: STEP }).catch(() => {});
 }
 
@@ -352,15 +354,18 @@ async function wide(page: Page, browser: string, check: Check): Promise<void> {
   check('undo gives the hide back', !!column(undone, 'purpose')?.hidden && !!column(undone, 'object_detail')?.hidden, `purpose hidden ${column(undone, 'purpose')?.hidden ?? false}`);
   await focusIs(page, 'table');
 
-  // 4. The column list: search, Enter on a row, Show.
+  // 4. The column list: search, Enter on a row (its profile), More, Show.
   await page.click('header [data-action=columns]');
   await page.fill('#columns input[aria-label="Search columns"]', 'obj');
   const rows = await until(page, (p) => p.$$eval('#columns button[data-column]', (b) => b.map((b) => b.getAttribute('aria-label') ?? '')), (r) => r.length === 2);
   check('the list\'s search filters it', rows.length === 2 && rows.includes('object_type') && rows.includes('object_detail, hidden'), rows.join('; '));
   await page.focus('#columns button[aria-label="object_detail, hidden"]');
   await page.keyboard.press('Enter');
+  const profileOpened = await page.waitForSelector('#columns [data-profile="object_detail"]', { timeout: STEP }).then(() => true, () => false);
+  check('Enter on a row opens its profile under it', profileOpened, `expanded ${await page.getAttribute('#columns button[aria-label="object_detail, hidden"]', 'aria-expanded')}`);
+  await page.click('#columns [data-profile="object_detail"] button[aria-label=More]');
   const rowMenu = await menuText(page);
-  check('Enter on a hidden column\'s row opens its menu, Show alone', rowMenu.includes('object_detail') && rowMenu.includes('Show') && !rowMenu.includes('Hide'), JSON.stringify(rowMenu.slice(0, 80)));
+  check('More on a hidden column\'s profile opens its menu, Show and its profile', rowMenu.includes('object_detail') && rowMenu.includes('Show') && rowMenu.includes('Show its profile') && !rowMenu.includes('Hide'), JSON.stringify(rowMenu.slice(0, 80)));
   await runItem(page, 'Show');
   const shown = await until(page, view, (v) => !column(v, 'object_detail')?.hidden);
   const showEntryRow = await newest(page, (e) => e?.command === 'show object_detail');

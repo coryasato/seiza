@@ -511,3 +511,15 @@ No results note: Tycho records no measurements.
 - **The grammar already had a `Catalog`:** `command::plan::Catalog` is the open file's view that an action is checked against, and completion reads it, so the catalog of questions became `crate::catalog` beside it, and the two names now mean different things. The bar's column lines ride on the old one (`Catalog::lines`), since that's the copy completion reads.
 - **None of the first three entries refuses a type:** `top`, `nulls`, and `distinct` take every column, so the type refusal B2 asks for runs only against an entry made for the test. It will first matter with the entries that take numbers or text alone.
 - **A question's answer arrives after its command returns, under that command's number:** the bar showed only answers to its own command, which kept working once the workbench said its answer again under the number it kept with the query. A first hand check read the bar before the question's entry was in the log, so it saw the preview and looked like a fault; wait for the entry, then for its reply to stop reading `asking`.
+
+
+## M16 part C: the profile in the panel, in the DOM (2026-11-27)
+
+No results note: Tycho records no measurements.
+
+**Surprises:**
+- **The board's foot doesn't hold four buttons.** Panel 1 to 3 draw Filter, Sort, and Hide in 264 px; More, added at the milestone's opening, wrapped to a line of its own in every browser, so it's an icon with "More" as its name. A floor's figure ("at least 2,249") truncated "Distinct" in the board's two columns too: the grid falls to one column when a pair won't fit.
+- **The toolbar's sort editor has no column,** so the profile's Sort, which the boards draw as one button, needed a menu of its own: the column menu's two sort items alone, the same code.
+- **A sample's range is the sample's.** On 42 M rows Panel 1 draws the footer's -1.26 to 34.06, Panel 2 the sample's 2.13 to 32.66 under its bars, Panel 3 the footer's again: the bins are over each stage's own range, so the labels follow them, and the range narrows and widens back as the stages come.
+- **WebKit's keys need Option+Tab and a focus a click doesn't give:** a scripted check of the profile's foot in WebKit tabs with Alt+Tab (Safari's default skips buttons) and focuses the row itself before Escape, as `filter.ts` already allows for the Find button. Not a fault of the page: a visitor in Safari tabs with Option.
+- **A matching name isn't the name:** a press found by text ("orbit") lands on `days_in_orbit`; the checks find a row by its name's span, whole.

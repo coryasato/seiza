@@ -186,6 +186,33 @@ export interface FindState {
   opens: number;
 }
 
+/** A column's profile, as the left panel draws it (`crate/src/panel.rs`,
+ *  `PanelProfile`): every word is the app's. */
+export interface PanelProfile {
+  column: string;
+  /** What it has read: Panel 1 (`none`, `footer`), Panel 2 (`sample`),
+   *  Panel 3 (`exact`), or `failed`. */
+  stage: 'none' | 'footer' | 'sample' | 'exact' | 'failed';
+  /** At the head's right: "from a 1% sample · reading every row…". */
+  line: string;
+  error: boolean;
+  /** A later stage is still to come. */
+  reading: boolean;
+  /** A number's or a time's rows per bin, low to high; null for text, or
+   *  before any are read (the placeholder bars). */
+  bins: number[] | null;
+  /** The bars or the values are a sample's: drawn muted. */
+  sampled: boolean;
+  /** Under the bars: low and high. */
+  range: [string, string] | null;
+  /** A text column's most common values, most first. */
+  top: { value: string; count: number; words: string }[] | null;
+  /** "the 6 most common of 1,985 values". */
+  topLine: string | null;
+  figures: { label: string; value: string }[];
+  note: string | null;
+}
+
 export interface FrameState {
   engine: { state: 'loading' | 'ready' | 'failed' | 'stopped'; text: string };
   /** The file whose rows are shown; null on the first screen. */
@@ -210,6 +237,11 @@ export interface FrameState {
   /** The view's filters and sort, and the rows in view. */
   tools: Tools;
   find: FindState;
+  /** The asked columns' profiles (the panel's open column). */
+  profiles: PanelProfile[];
+  /** Each column's null share by name, where it has nulls and the share is
+   *  known of every row in view: "0.3% null". */
+  nullShares: Record<string, string>;
 }
 
 /** What `App.complete` returns (`crate/src/command/complete.rs`). */
@@ -263,6 +295,8 @@ export const INITIAL: FrameState = {
   columns: [],
   tools: { filters: [], sort: null, shown: null, counting: false, unsortable: null },
   find: { term: null, text: null, error: false, stepping: false, landed: false, opens: 0 },
+  profiles: [],
+  nullShares: {},
 };
 
 let state = INITIAL;

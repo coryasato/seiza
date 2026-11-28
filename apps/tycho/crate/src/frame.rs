@@ -53,6 +53,14 @@ pub struct FrameView {
     pub tools: Tools,
     /// Find's bar: its term, its count, its step (`crate::find`).
     pub find: crate::find::FindFacts,
+    /// The asked columns' profiles, as the left panel draws them
+    /// (`crate::panel`).
+    /// Shared, so the frame's comparison every render is a pointer's
+    /// while they're unchanged.
+    pub profiles: std::rc::Rc<[crate::panel::PanelProfile]>,
+    /// Each column's null share, by name, where it has nulls and the share
+    /// is known of every row in view: "0.3% null".
+    pub null_shares: std::rc::Rc<std::collections::BTreeMap<String, String>>,
 }
 
 /// What the toolbar shows of the view (`web/src/frame/state.ts`,
@@ -572,6 +580,8 @@ mod web {
             ("columns", json(&view.columns.as_ref())),
             ("tools", json(&view.tools)),
             ("find", json(&view.find)),
+            ("profiles", json(&view.profiles.as_ref())),
+            ("nullShares", json(&*view.null_shares)),
         ])
     }
 
