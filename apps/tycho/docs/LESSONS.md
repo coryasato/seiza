@@ -532,3 +532,15 @@ No results note: Tycho records no measurements.
 - **The bars had no edges.** The panel only needed each bin's count and the figures' range as text; marking what a filter keeps needs the range the bins were cut over, as numbers, and on a large file that isn't the figures' range: every row's figures come seconds before every row's bins, and the sample's bars stay meanwhile. So the bins' range now travels with the bins, and the panel's range under its bars, which had read every row's ends under a sample's bars, follows them too.
 - **A field's text outlived its type.** The editor kept what was typed across a change of column; `9x` left in a number's field became a text column's typed list, which then held the checklist back (no value matched). A column of another type now starts empty.
 - **The sample's line didn't fit under the bars.** "from a 0.48% sample of the rows in view · reading every row…" wrapped to two lines between the range's ends in the editor's 372 px; it's the panel's shorter words there.
+
+## M16 part E: the filter's index as a `CASE` (2026-11-27)
+
+No results note: Tycho records no measurements; the timings are the engine's decision (`engines/duckdb/docs/DECISIONS.md`, "Table source", 2026-11-27).
+
+**Surprises:**
+- **A mixed filter paid twice what a text one did.** `class = 'MCA' AND H >= 18` built its index in 25 s on ×27 against the text filter's 12 s, though it keeps fewer rows and its number test alone costs little. As a `CASE` it's 2.1 s.
+- **Find's count was paying it too.** The count of matches over a filtered view scans the filter's rows again, so it fell with the index: 21.6 s to 3.7 s on ×27 under the text filter.
+- **A number alone is a little slower as a `CASE`** (0.55 s to 0.76 s on ×27): the scan's own pushdown helps a number test. Kept as one form.
+- **A bin's edge isn't where the SQL cuts it.** The preview put the whole numbers from `ceil(lo + i·w)` in bin i, but `15 × 16.6` is 249.00000000000003 while DuckDB's `floor(249 / 332 * 20)` is 15: computing edges and computing a value's bin round apart. The preview now asks the SQL's own sum of each value near an edge.
+- **DuckDB writes a timestamp before year 1 with its era in the middle,** `0044-03-15 (BC) 12:30:00`, so cutting at the first space kept the date and lost the era.
+- **Native clippy doesn't see the workbench:** it's wasm-only, so a borrow error in `ask` passed `cargo clippy` and the native tests and failed only `just tycho check`'s wasm build.

@@ -59,6 +59,14 @@ impl Origin {
             _ => Self::Typed,
         }
     }
+
+    /// Whether it came from the command bar, whose next command cancels a
+    /// question still out. A click (a menu, the profile's foot, the filter
+    /// editor's Apply) doesn't: one that changes the filters cancels it as
+    /// the rows change (`Workbench::question_outlived`).
+    pub fn from_the_bar(self) -> bool {
+        matches!(self, Self::Typed | Self::Pasted)
+    }
 }
 
 /// Tycho's reply.
@@ -733,6 +741,15 @@ mod tests {
     use seiza_duckdb::sql::ColumnInfo;
 
     use super::*;
+
+    #[test]
+    fn only_the_bars_commands_cancel_a_question() {
+        assert!(Origin::named("typed").from_the_bar());
+        assert!(Origin::named("pasted").from_the_bar());
+        for word in ["click", "drop", "pick", "sample"] {
+            assert!(!Origin::named(word).from_the_bar(), "{word}");
+        }
+    }
     use crate::view::{SourceKind, SourceView};
 
     fn file() -> Controller {

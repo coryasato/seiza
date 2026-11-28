@@ -32,6 +32,15 @@ pub fn quote_identifier(name: &str) -> String {
     format!("\"{}\"", name.replace('"', "\"\""))
 }
 
+/// Whether `condition` holds for a row, as a value a Parquet scan can't
+/// push down: `CASE WHEN … THEN true ELSE false END`, never NULL. Keep the
+/// rows where it's true rather than writing `condition` in a `WHERE`: in
+/// DuckDB-Wasm a text comparison pushed into a Parquet scan runs about 10×
+/// slower (`docs/DECISIONS.md`, "Table source", 2026-11-27).
+pub fn keep_case(condition: &str) -> String {
+    format!("CASE WHEN {condition} THEN true ELSE false END")
+}
+
 /// The index of `result`'s column named `name`.
 pub fn column(result: &QueryResult, name: &str) -> Result<usize, String> {
     result

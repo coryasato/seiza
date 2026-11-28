@@ -14,7 +14,8 @@
 //!
 //! The view's filters reach every query as a `CASE` projection the query
 //! keeps the rows of, never a `WHERE`: DuckDB-Wasm pushes a text comparison
-//! into a Parquet scan and runs it about 10× slower ([`Scan::keep`]). Every
+//! into a Parquet scan and runs it about 10× slower (the engine's
+//! `sql::keep_case`, which the filters' index is written with too). Every
 //! name is quoted by `quote_identifier` and every value written by
 //! `filter::literal`, through the filters' SQL. Infinities and NaN are left
 //! out of a number's figures and counted. Each query is sent in the engine's
@@ -24,7 +25,7 @@ use std::collections::HashMap;
 
 use gpui_kit::{Bounds, Pixels};
 use seiza_duckdb::arrow::{QueryResult, Value};
-use seiza_duckdb::sql::{ColumnInfo, quote_identifier, string_literal};
+use seiza_duckdb::sql::{ColumnInfo, keep_case, quote_identifier, string_literal};
 use serde::Serialize;
 
 use crate::filter::Kind;
@@ -135,7 +136,7 @@ impl Scan {
     /// Whether a row is in view, as a value the scan can't push down.
     fn keep(&self) -> String {
         match &self.condition {
-            Some(condition) => format!("CASE WHEN {condition} THEN true ELSE false END"),
+            Some(condition) => keep_case(condition),
             None => "true".into(),
         }
     }
@@ -1357,16 +1358,15 @@ impl Profiling {
 /// 2026-11-22`, `1957 to 2026` for a timestamp across years, `0 to 179.6`,
 /// `46 values`, `at least 2,249 values` from a sample. None with nothing
 /// read that the line says.
-fn line(column: &ColumnInfo, profile: &Profile) -> Option<String> {
+pub(crate) fn line(column: &ColumnInfo, profile: &Profile) -> Option<String> {
     match Read::of(column) {
         Read::Numeric { time } => {
             let (lo, hi) = (profile.lo.as_deref()?, profile.hi.as_deref()?);
             let timestamp = time && column.data_type.starts_with("TIMESTAMP");
-            let year = |at: &str| at.get(..4).map(str::to_owned);
-            let date = |at: &str| at.split([' ', 'T']).next().map(str::to_owned);
-            let (lo, hi) = match (timestamp, year(lo), year(hi)) {
+            use crate::panel::{date_text, year_text};
+            let (lo, hi) = match (timestamp, year_text(lo), year_text(hi)) {
                 (true, Some(from), Some(to)) if from != to => (from, to),
-                (true, ..) => (date(lo)?, date(hi)?),
+                (true, ..) => (date_text(lo), date_text(hi)),
                 _ => (lo.to_owned(), hi.to_owned()),
             };
             Some(if lo == hi {

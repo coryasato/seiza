@@ -2527,8 +2527,11 @@ impl Workbench {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        // The next command cancels a question still out.
-        self.cancel_question();
+        // The bar's next command cancels a question still out; a click
+        // leaves it unless it changes the rows (`question_outlived`).
+        if origin.from_the_bar() {
+            self.cancel_question();
+        }
         // Every answer the command gives is given before it returns.
         self.asking = ask;
         if origin == Origin::Click
@@ -3298,6 +3301,9 @@ impl Workbench {
         };
         let sql = ask.entry.sql(&scan, &columns[ask.column], ask.count);
         let asking = ask.entry.asking(&ask.shown);
+        let filters = view.filters().to_vec();
+        // One question at a time: another still out is canceled, and said.
+        self.cancel_question();
         let entry = self.log.note(
             Some(line),
             words.clone(),
@@ -3308,7 +3314,6 @@ impl Workbench {
         let engine = cx.global::<seiza_duckdb::Engine>().clone();
         let (request, result) = engine.query_background(&sql);
         let (question, shown) = (ask.entry, ask.shown);
-        let filters = view.filters().to_vec();
         let task = cx.spawn(async move |this: WeakEntity<Self>, cx: &mut AsyncApp| {
             let result = result.await.map_err(|error| error.to_string());
             let _ = this.update(cx, |this, cx| {

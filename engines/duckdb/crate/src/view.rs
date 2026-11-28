@@ -31,7 +31,7 @@ use seiza_tall_table::{PageError, PageLoad, TallTableDelegate};
 
 use crate::EngineError;
 use crate::arrow::{QueryResult, Value};
-use crate::sql::{column, quote_identifier, string_literal};
+use crate::sql::{column, keep_case, quote_identifier, string_literal};
 use crate::tall_table::{PageQuery, ParquetFile};
 
 /// The row number's column in [`RowSource::numbered_sql`]'s relation, and
@@ -39,6 +39,32 @@ use crate::tall_table::{PageQuery, ParquetFile};
 pub const ROW: &str = "__seiza_row";
 /// A row's position in the view, where a query needs it.
 const AT: &str = "__seiza_at";
+/// Whether a filter keeps a row, in [`kept_sql`].
+const KEEP: &str = "__seiza_keep";
+/// The names the view's own SQL gives its columns beside the source's.
+const RESERVED: [&str; 3] = [ROW, AT, KEEP];
+
+/// Why a source with `columns` can't be filtered, sorted, or searched, if
+/// one is named as a column of the view's own: its SQL would name two.
+fn reserved_column(columns: &[String]) -> Option<String> {
+    let name = columns
+        .iter()
+        .find(|name| RESERVED.contains(&name.as_str()))?;
+    Some(format!(
+        "Its column {name} has a name the table keeps for itself"
+    ))
+}
+
+/// `numbered`'s rows that `where_sql` keeps, every column of it: kept by
+/// its [`keep_case`], never a `WHERE`. Every filtered query reads its rows
+/// through this: the index, its recount, a sort's copy, and find's count
+/// and place.
+fn kept_sql(numbered: &str, where_sql: &str) -> String {
+    format!(
+        "SELECT * EXCLUDE ({KEEP}) FROM (SELECT *, {} AS {KEEP} FROM ({numbered})) WHERE {KEEP}",
+        keep_case(where_sql)
+    )
+}
 
 /// A source whose rows can be read as one relation, numbered.
 pub trait RowSource: PageQuery {
@@ -310,6 +336,9 @@ impl<Q: RowSource + Clone, R: Runner> ViewRows<Q, R> {
         if let Some(busy) = self.query.busy() {
             return Err(busy);
         }
+        if let Some(reserved) = reserved_column(&self.columns) {
+            return Err(reserved);
+        }
         Ok(FilterJob {
             runner: self.runner.clone(),
             numbered: self.query.numbered_sql(None),
@@ -421,6 +450,10 @@ impl<Q: RowSource + Clone, R: Runner> ViewRows<Q, R> {
     /// the view's rows and columns `columns` (by index): its answer's
     /// `matches`.
     pub fn find_count_sql(&self, term: &str, columns: &[usize]) -> Option<String> {
+        // A count would fail as find does (`reserved_column`).
+        if reserved_column(&self.columns).is_some() {
+            return None;
+        }
         let sum = match_sum(&self.columns, term, columns)?;
         Some(format!(
             "SELECT coalesce(sum({sum}), 0)::BIGINT AS matches FROM ({})",
@@ -440,6 +473,10 @@ impl<Q: RowSource + Clone, R: Runner> ViewRows<Q, R> {
         column: usize,
     ) -> Option<String> {
         let place = columns.iter().position(|&index| index == column)?;
+        // A count would fail as find does (`reserved_column`).
+        if reserved_column(&self.columns).is_some() {
+            return None;
+        }
         let before = match_sum(&self.columns, term, columns)?;
         let within = match_sum(&self.columns, term, &columns[..=place])?;
         let at = match self.kind() {
@@ -466,11 +503,12 @@ impl<Q: RowSource + Clone, R: Runner> ViewRows<Q, R> {
             ),
             Kind::Copy(table) => format!("SELECT rowid AS {AT}, * FROM {table}"),
             Kind::Index(_) => {
-                let filter = self.filter.as_ref().map_or("", |f| f.where_sql.as_str());
-                format!(
-                    "SELECT {ROW} AS {AT}, * FROM ({}) WHERE {filter}",
-                    self.query.numbered_sql(None)
-                )
+                let numbered = self.query.numbered_sql(None);
+                let rows = match &self.filter {
+                    Some(filter) => kept_sql(&numbered, &filter.where_sql),
+                    None => numbered,
+                };
+                format!("SELECT {ROW} AS {AT}, * FROM ({rows})")
             }
         }
     }
@@ -575,8 +613,9 @@ impl<R: Runner> FilterJob<R> {
     /// the source's order.
     pub fn create_sql(&self) -> String {
         format!(
-            "CREATE TABLE {} AS SELECT {ROW} FROM ({}) WHERE {} ORDER BY {ROW}",
-            self.table, self.numbered, self.where_sql
+            "CREATE TABLE {} AS SELECT {ROW} FROM ({}) ORDER BY {ROW}",
+            self.table,
+            kept_sql(&self.numbered, &self.where_sql)
         )
     }
 
@@ -611,8 +650,8 @@ impl<R: Runner> FilterJob<R> {
         // stored count against the filter's own.
         if rows == 0 && memory >= self.budget / 2 {
             let (_, counted) = self.runner.query(&format!(
-                "SELECT count(*) AS Count FROM ({}) WHERE {}",
-                self.numbered, self.where_sql
+                "SELECT count(*) AS Count FROM ({})",
+                kept_sql(&self.numbered, &self.where_sql)
             ));
             let counted = created_count(&counted.await.map_err(|error| error.to_string())?)?;
             if counted > 0 {
@@ -832,6 +871,9 @@ impl<Q: RowSource + Clone, R: Runner> TallTableDelegate for ViewRows<Q, R> {
         if let Some(busy) = self.query.busy() {
             return Err(SortRefused::new(busy));
         }
+        if let Some(reserved) = reserved_column(&self.columns) {
+            return Err(SortRefused::new(reserved));
+        }
         let Some(name) = self.columns.get(key.column) else {
             return Err(SortRefused::new("There's no such column"));
         };
@@ -840,14 +882,13 @@ impl<Q: RowSource + Clone, R: Runner> TallTableDelegate for ViewRows<Q, R> {
             _ => "DESC",
         };
         let table = self.table_name();
-        let filter = self
-            .filter
-            .as_ref()
-            .map(|filter| format!(" WHERE {}", filter.where_sql))
-            .unwrap_or_default();
+        let numbered = self.query.numbered_sql(None);
+        let source = match &self.filter {
+            Some(filter) => kept_sql(&numbered, &filter.where_sql),
+            None => numbered,
+        };
         let create = format!(
-            "CREATE TABLE {table} AS SELECT * FROM ({}){filter} ORDER BY {} {direction} NULLS LAST, {ROW}",
-            self.query.numbered_sql(None),
+            "CREATE TABLE {table} AS SELECT * FROM ({source}) ORDER BY {} {direction} NULLS LAST, {ROW}",
             quote_identifier(name)
         );
         let order = Ordered {
@@ -919,6 +960,19 @@ impl<Q: RowSource + Clone, R: Runner> TallTableDelegate for ViewRows<Q, R> {
     ) -> Option<(ViewRequest, seiza_tall_table::FindLoad)> {
         let flags = match_flags(&self.columns, query.term(), &query.columns)?;
         let (id, request) = self.request();
+        if let Some(message) = reserved_column(&self.columns) {
+            let requests = self.requests.clone();
+            return Some((
+                id,
+                Box::pin(async move {
+                    requests.borrow_mut().retain(|(held, _)| *held != id.0);
+                    Err(PageError::Failed {
+                        message,
+                        read_failure: false,
+                    })
+                }),
+            ));
+        }
         let reader = Reader {
             runner: self.runner.clone(),
             request,
@@ -1272,6 +1326,10 @@ mod tests {
             .unwrap()
     }
 
+    /// `mass > 1`'s rows of the fake source, as every filtered query reads
+    /// them.
+    const KEPT: &str = "SELECT * EXCLUDE (__seiza_keep) FROM (SELECT *, CASE WHEN mass > 1 THEN true ELSE false END AS __seiza_keep FROM (NUMBERED)) WHERE __seiza_keep";
+
     #[test]
     fn a_filter_is_an_index_of_row_numbers_in_the_sources_order() {
         let fake = Fake::default();
@@ -1280,9 +1338,7 @@ mod tests {
         assert_eq!(filtered.rows(), 40);
         assert_eq!(
             fake.sent()[1],
-            format!(
-                "CREATE TABLE view.v0 AS SELECT {ROW} FROM (NUMBERED) WHERE mass > 1 ORDER BY {ROW}"
-            )
+            format!("CREATE TABLE view.v0 AS SELECT {ROW} FROM ({KEPT}) ORDER BY {ROW}")
         );
         // A busy source can't be filtered.
         let busy = ViewRows::new(
@@ -1301,6 +1357,35 @@ mod tests {
         );
     }
 
+    #[gpui_kit::test]
+    fn a_column_named_as_the_views_own_is_refused_not_sent(cx: &mut TestAppContext) {
+        use seiza_tall_table::{FindQuery, Sort, SortDirection};
+
+        for name in ["__seiza_row", "__seiza_at", "__seiza_keep"] {
+            let fake = Fake::default();
+            let mut view = ViewRows::new(
+                fake.clone(),
+                Source {
+                    rows: 100,
+                    busy: false,
+                    refuse: None,
+                },
+                vec!["name".into(), name.into()],
+                settings(),
+            );
+            let refused = view.filter_job("mass > 1".into()).err().unwrap();
+            assert!(refused.contains(name), "{refused}");
+            let sort = cx.update(|cx| view.sort(&[Sort::new(0, SortDirection::Ascending)], cx));
+            assert!(sort.is_err());
+            let query = FindQuery::new("x", vec![0], None, None, false);
+            let found = cx.update(|cx| view.find(&query, cx)).unwrap().1;
+            assert!(matches!(block_on(found), Err(PageError::Failed { .. })));
+            assert!(view.find_count_sql("x", &[0]).is_none());
+            assert!(view.find_place_sql("x", &[0], 1, 0).is_none());
+            assert!(fake.sent().is_empty(), "{name}: {:?}", fake.sent());
+        }
+    }
+
     #[test]
     fn a_full_duckdb_builds_nothing_and_a_short_index_is_refused() {
         let fake = Fake::default();
@@ -1316,6 +1401,10 @@ mod tests {
         fake.answer("SELECT count(*)", count(7));
         let short = block_on(view.filter_job("TRUE".into()).unwrap().run()).unwrap_err();
         assert!(short.contains("stored 0 of the 7 rows"), "{short}");
+        assert!(fake.sent().iter().any(|sql| sql
+            == "SELECT count(*) AS Count FROM (SELECT * EXCLUDE (__seiza_keep) FROM \
+                (SELECT *, CASE WHEN TRUE THEN true ELSE false END AS __seiza_keep FROM (NUMBERED)) \
+                WHERE __seiza_keep)"));
         assert!(
             fake.sent()
                 .iter()
@@ -1447,7 +1536,7 @@ mod tests {
         assert_eq!(
             create,
             format!(
-                "CREATE TABLE view.v1 AS SELECT * FROM (NUMBERED) WHERE mass > 1 ORDER BY \"mass\" DESC NULLS LAST, {ROW}"
+                "CREATE TABLE view.v1 AS SELECT * FROM ({KEPT}) ORDER BY \"mass\" DESC NULLS LAST, {ROW}"
             )
         );
         // A page waits for the copy.
@@ -1630,5 +1719,22 @@ mod tests {
             "{place}"
         );
         assert!(view.find_place_sql("Ce", &[1], 7, 0).is_none());
+        // Filtered, both scan the rows the filter's `CASE` keeps.
+        let filter = filtered(&fake, &view, 40);
+        view.set_filter(Some(filter));
+        let count = view.find_count_sql("Ce", &[1, 0]).unwrap();
+        assert!(
+            count.ends_with(&format!(
+                "FROM (SELECT {ROW} AS __seiza_at, * FROM ({KEPT}))"
+            )),
+            "{count}"
+        );
+        let place = view.find_place_sql("Ce", &[1, 0], 7, 0).unwrap();
+        assert!(
+            place.contains(&format!(
+                "FROM (SELECT {ROW} AS __seiza_at, * FROM ({KEPT}))"
+            )) && place.contains("(SELECT __seiza_row FROM view.v0 WHERE rowid = 7)"),
+            "{place}"
+        );
     }
 }

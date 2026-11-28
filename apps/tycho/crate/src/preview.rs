@@ -121,9 +121,37 @@ fn whole_numbers(column: &ColumnInfo) -> bool {
 
 /// The bins over `span` as the profile's SQL cuts them (`bin_sql`): a bin
 /// from `lo + i·w` up to `lo + (i+1)·w`, the last its top too; a range of
-/// one value all in the first. `whole`: the values are whole numbers.
+/// one value all in the first. `whole`: the values are whole numbers, each
+/// in the bin the SQL's own sum puts it in.
 fn bins((lo, hi): (f64, f64), whole: bool) -> impl Iterator<Item = Bin> {
     let width = (hi - lo) / BINS as f64;
+    // `bin_sql`'s sum, in the same order of operations: an edge `lo + i·w`
+    // can round either side of a whole number (0 to 332: 15·16.6 is
+    // 249.00000000000003, yet 249 is bin 15's).
+    let bin_of = move |v: f64| {
+        ((v - lo) / (hi - lo) * BINS as f64)
+            .floor()
+            .min((BINS - 1) as f64)
+    };
+    let (least, most) = (lo.ceil(), hi.floor());
+    // The least whole number from `least` whose bin is `i` or past it,
+    // found from the edge a step or two either way (past 2^53 a step is
+    // no step, so a few at most).
+    let first_of = move |i: usize| -> f64 {
+        let i = i as f64;
+        let mut v = (lo + i * width).ceil().max(least);
+        for _ in 0..4 {
+            if v > least && bin_of(v - 1.0) >= i {
+                v -= 1.0;
+            }
+        }
+        for _ in 0..4 {
+            if bin_of(v) < i {
+                v += 1.0;
+            }
+        }
+        v
+    };
     (0..BINS).map(move |i| {
         if hi == lo {
             // The one value is the first bin's; the rest hold none.
@@ -151,8 +179,10 @@ fn bins((lo, hi): (f64, f64), whole: bool) -> impl Iterator<Item = Bin> {
                 open: !last,
             };
         }
-        // The whole numbers from `from` up to `to` (`to` too in the last).
-        let (min, max) = (from.ceil(), if last { to.floor() } else { to.ceil() - 1.0 });
+        // The whole numbers the SQL bins here: from this bin's first up to
+        // the next's (the top too in the last).
+        let min = if i == 0 { least } else { first_of(i) };
+        let max = if last { most } else { first_of(i + 1) - 1.0 };
         if min > max {
             Bin::NONE
         } else {
@@ -180,7 +210,7 @@ fn position(column: &ColumnInfo, kind: Kind, text: &str) -> Option<f64> {
 }
 
 /// A time's position (seconds since 1970-01-01, UTC) as its date,
-/// `1957-10-04`: the bars' ends.
+/// `1957-10-04` (`0044-03-15 (BC)` before year 1): the bars' ends.
 pub fn date_of(seconds: f64) -> String {
     let days = (seconds / 86_400.0).floor() as i64;
     // The civil date from days (Howard Hinnant's algorithm).
@@ -193,7 +223,12 @@ pub fn date_of(seconds: f64) -> String {
     let day = doy - (153 * mp + 2) / 5 + 1;
     let month = if mp < 10 { mp + 3 } else { mp - 9 };
     let year = yoe + era * 400 + i64::from(month <= 2);
-    format!("{year:04}-{month:02}-{day:02}")
+    // As DuckDB writes it: year 0 is 1 BC.
+    if year <= 0 {
+        format!("{:04}-{month:02}-{day:02} (BC)", 1 - year)
+    } else {
+        format!("{year:04}-{month:02}-{day:02}")
+    }
 }
 
 /// An ISO date or timestamp (`iso_time`'s normal form) as seconds since
@@ -346,6 +381,27 @@ mod tests {
     }
 
     #[test]
+    fn a_whole_number_is_in_the_bin_the_sql_puts_it_in() {
+        // 0 to 332: bin 15's edge, 15 × 16.6, is 249.00000000000003, but
+        // `floor(249 / 332 * 20)` is 15, so 249 is bin 15's, not 14's.
+        let n = ColumnInfo::new("n", "INTEGER");
+        let span = (0.0, 332.0);
+        assert_eq!(of(&n, "=", &["249"], span), Some(vec![15]));
+        assert_eq!(of(&n, "<", &["249"], span), Some((0..15).collect()));
+        // Every whole number in its SQL bin, over ranges where edges round.
+        for hi in [332.0, 644.0, 1_288.0, 1_328.0, 999.0, 37.0] {
+            let bins: Vec<Bin> = bins((0.0, hi), true).collect();
+            for v in 0..=(hi as i64) {
+                let v = v as f64;
+                let sql = ((v / hi) * BINS as f64).floor().min((BINS - 1) as f64) as usize;
+                assert!(bins[sql].holds(v), "{v} over 0 to {hi}: bin {sql}");
+                let others = (0..BINS).filter(|i| *i != sql && bins[*i].holds(v)).count();
+                assert_eq!(others, 0, "{v} over 0 to {hi} in another bin");
+            }
+        }
+    }
+
+    #[test]
     fn a_time_is_placed_by_its_seconds() {
         assert_eq!(epoch_seconds("1970-01-01"), Some(0.0));
         assert_eq!(epoch_seconds("2000-03-01"), Some(951_868_800.0));
@@ -357,6 +413,9 @@ mod tests {
         assert_eq!(date_of(-386_310_686.0), "1957-10-04");
         assert_eq!(date_of(951_868_800.0), "2000-03-01");
         assert_eq!(date_of(1_795_305_600.0), "2026-11-22");
+        // Before year 1 as DuckDB writes it (its epochs): year 0 is 1 BC.
+        assert_eq!(date_of(-62_167_219_200.0), "0001-01-01 (BC)");
+        assert_eq!(date_of(-63_517_824_000.0), "0044-03-15 (BC)");
         let launch = ColumnInfo::new("launch_date", "TIMESTAMP");
         // 2000 to 2020 in bins of a year: 2019-06 is the last.
         let span = (

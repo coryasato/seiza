@@ -162,17 +162,21 @@ impl PanelProfile {
             });
             // The filter editor's: a time across years by its years, as
             // Filter 3 draws it; a number as Filter 1 writes it, `0`.
-            view.preview_range = view.range.clone().map(|(lo, hi)| {
-                let year = |at: &str| at.get(..4).map(str::to_owned);
-                match (time, year(&lo), year(&hi)) {
-                    (true, Some(from), Some(to)) if from != to => (from, to),
-                    (true, ..) => (lo, hi),
-                    (false, ..) => (number_figure(&lo, false), number_figure(&hi, false)),
-                }
-            });
+            view.preview_range =
+                view.range
+                    .clone()
+                    .map(|(lo, hi)| match (time, year_text(&lo), year_text(&hi)) {
+                        (true, Some(from), Some(to)) if from != to => (from, to),
+                        (true, ..) => (lo, hi),
+                        (false, ..) => (number_figure(&lo, false), number_figure(&hi, false)),
+                    });
         }
         view.preview_line = preview_line(facts, profile, &view.line);
+        // Only a VARCHAR's: the profile reads any other text kind's values
+        // cast to text (a LIST's `[1, 2]`), which an `in` filter on the
+        // column itself can't match.
         if kind == Kind::Text
+            && column.data_type == "VARCHAR"
             && let Some(Profile {
                 stage: Stage::Exact,
                 shape_stage: Some(Stage::Exact),
@@ -388,7 +392,7 @@ fn span_ends((lo, hi): (f64, f64), time: bool) -> (String, String) {
 /// date, a number as DuckDB wrote it.
 fn end(column: &ColumnInfo, value: &str) -> String {
     if column.data_type.starts_with("TIMESTAMP") {
-        value.split([' ', 'T']).next().unwrap_or(value).to_owned()
+        date_text(value)
     } else {
         value.to_owned()
     }
@@ -438,11 +442,40 @@ fn number_figure(text: &str, sampled: bool) -> String {
 /// A time's median: its date, a sample's "about" its month.
 fn time_figure(text: &str, sampled: bool) -> String {
     let date = text.split([' ', 'T']).next().unwrap_or(text);
+    let era = if is_bc(text) { " (BC)" } else { "" };
     if sampled {
-        format!("about {}", date.get(..7).unwrap_or(date))
+        format!("about {}{era}", date.get(..7).unwrap_or(date))
+    } else {
+        format!("{date}{era}")
+    }
+}
+
+/// Whether DuckDB wrote `text`, a date or a timestamp, before year 1: it
+/// writes the era after the date, `0044-03-15 (BC)`, and a timestamp's
+/// before its time, `0044-03-15 (BC) 12:30:00`.
+fn is_bc(text: &str) -> bool {
+    text.contains("(BC)")
+}
+
+/// A date or a timestamp as DuckDB writes it, to its date: `1957-10-04`,
+/// or `0044-03-15 (BC)` before year 1.
+pub(crate) fn date_text(text: &str) -> String {
+    let date = text.split([' ', 'T']).next().unwrap_or(text);
+    if is_bc(text) {
+        format!("{date} (BC)")
     } else {
         date.to_owned()
     }
+}
+
+/// Its year: `1957`, or `0044 (BC)` before year 1.
+pub(crate) fn year_text(text: &str) -> Option<String> {
+    let year = text.get(..4)?;
+    Some(if is_bc(text) {
+        format!("{year} (BC)")
+    } else {
+        year.to_owned()
+    })
 }
 
 fn round_significant(value: f64, figures: i32) -> f64 {
@@ -750,6 +783,39 @@ mod tests {
     }
 
     #[test]
+    fn a_time_before_year_1_keeps_its_era() {
+        // DuckDB's own text: the era after a date, before a time.
+        assert_eq!(date_text("0044-03-15 (BC)"), "0044-03-15 (BC)");
+        assert_eq!(date_text("0044-03-15 (BC) 12:30:00"), "0044-03-15 (BC)");
+        assert_eq!(date_text("1957-10-04 19:28:34"), "1957-10-04");
+        assert_eq!(year_text("0044-03-15 (BC)").as_deref(), Some("0044 (BC)"));
+        assert_eq!(year_text("0044-03-15").as_deref(), Some("0044"));
+        assert_eq!(
+            time_figure("0044-03-15 (BC) 12:30:00", false),
+            "0044-03-15 (BC)"
+        );
+        assert_eq!(time_figure("0044-03-15 (BC)", true), "about 0044-03 (BC)");
+        let time = ColumnInfo::new("at", "TIMESTAMP");
+        assert_eq!(end(&time, "0044-03-15 (BC) 12:30:00"), "0044-03-15 (BC)");
+        // The column's line: a BC year and an AD year of the same digits
+        // aren't one year.
+        let mut profile = figures(10, Stage::Exact);
+        profile.lo = Some("0044-03-15 (BC) 12:30:00".into());
+        profile.hi = Some("0044-05-01 00:00:00".into());
+        assert_eq!(
+            crate::profile::line(&time, &profile).as_deref(),
+            Some("0044 (BC) to 0044")
+        );
+        let date = ColumnInfo::new("on", "DATE");
+        profile.hi = Some("2020-01-01".into());
+        profile.lo = Some("0044-03-15 (BC)".into());
+        assert_eq!(
+            crate::profile::line(&date, &profile).as_deref(),
+            Some("0044-03-15 (BC) to 2020-01-01")
+        );
+    }
+
+    #[test]
     fn figures_round_and_group() {
         assert_eq!(number_figure("1234.5678", false), "1,234.57");
         assert_eq!(number_figure("0.0012345", false), "0.00123");
@@ -902,7 +968,24 @@ mod tests {
         );
         // A sample can miss a rare value: the typed list until every row.
         assert_eq!(
-            of(profile(Stage::Sample(0.5), Distinct::AtLeast(9), values)).values,
+            of(profile(
+                Stage::Sample(0.5),
+                Distinct::AtLeast(9),
+                values.clone()
+            ))
+            .values,
+            None
+        );
+        // A text kind that isn't VARCHAR: its values are its cast text,
+        // which `in` can't match, so the typed list.
+        let list = ColumnInfo::new("orbit", "VARCHAR[]");
+        let mut facts = facts(
+            Some(profile(Stage::Exact, Distinct::Exact(9), values)),
+            None,
+        );
+        facts.column = "orbit".into();
+        assert_eq!(
+            PanelProfile::of(&facts, &list, &HashMap::new()).values,
             None
         );
     }
