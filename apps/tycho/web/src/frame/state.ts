@@ -211,6 +211,15 @@ export interface PanelProfile {
   topLine: string | null;
   figures: { label: string; value: string }[];
   note: string | null;
+  /** The filter editor's line under its bars or checklist: "from the
+   *  profile of the 29,118 rows in view". */
+  previewLine: string;
+  /** The filter editor's range under its bars (a timestamp across years
+   *  by its years). */
+  previewRange: [string, string] | null;
+  /** Every value of a text column with few, most first, once every row in
+   *  view is read: the filter editor's checklist; null for the typed list. */
+  values: { value: string; count: number; words: string }[] | null;
 }
 
 export interface FrameState {

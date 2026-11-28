@@ -928,6 +928,7 @@ mod tests {
             view,
             loading: false,
             lines: Default::default(),
+            spans: Default::default(),
         }
     }
 
@@ -1148,6 +1149,7 @@ mod tests {
             ),
             loading: false,
             lines: Default::default(),
+            spans: Default::default(),
         };
         let at = |text: &str| complete(text, text.encode_utf16().count(), Some(&catalog));
         assert_eq!(
@@ -1183,6 +1185,7 @@ mod tests {
             view: catalog.view.clone().unsortable("too large".into()),
             loading: false,
             lines: Default::default(),
+            spans: Default::default(),
         };
         let refused = complete("sort ", 5, Some(&large));
         assert!(refused.items.is_empty());

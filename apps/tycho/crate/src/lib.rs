@@ -14,6 +14,7 @@ pub mod jump;
 pub mod limits;
 pub mod log;
 pub mod panel;
+pub mod preview;
 pub mod profile;
 pub mod row;
 #[cfg(target_family = "wasm")]

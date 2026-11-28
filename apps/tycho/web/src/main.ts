@@ -8,6 +8,7 @@ import init, {
   command,
   complete,
   filter_line,
+  filter_bins,
   copy,
   find,
   find_step,
@@ -110,6 +111,7 @@ const hydrate = () => {
     // Typed by the crate (`command::Completion`); wasm-bindgen says `any`.
     complete: (text, caret) => complete(text, caret) as Completion,
     filter_line: (column, op, values) => filter_line(column, op, values) ?? null,
+    filter_bins: (column, op, values) => filter_bins(column, op, values) ?? null,
     back_to,
     cancel_question,
     // Typed by the crate (`row::RowValues`).

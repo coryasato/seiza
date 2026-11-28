@@ -40,8 +40,10 @@ pub const SAMPLE_ROWS: u64 = 200_000;
 /// A histogram's bins.
 pub const BINS: usize = 20;
 
-/// The most common values a text column's profile lists.
-pub const TOP: usize = 10;
+/// The most common values a text column's profile lists: the panel shows
+/// a few, and the filter editor's checklist every value of a column with
+/// at most this many (`crate::panel::PanelProfile::values`).
+pub const TOP: usize = 20;
 
 /// The sample's seed, so a stage read twice reads the same rows.
 const SEED: u32 = 42;
@@ -262,7 +264,7 @@ pub fn footer_sql(file: &str, columns: &[ColumnInfo]) -> Option<String> {
 /// Stage 2: `column`'s figures and shape from a sample of `percent` of the
 /// source, in one query. A number's or a time's: 20 rows, one a bin (`n`,
 /// `present`, `nonfinite`, `lo`, `hi`, `mean`, `median`, `distinct`, then
-/// `bin` and `c`); a text column's: a row a common value (`n`, `present`,
+/// `bin` and `c`, then the bins' range as positions, `lo_at` and `hi_at`); a text column's: a row a common value (`n`, `present`,
 /// `distinct`, `v`, `c`), or one with no value when there's none. The
 /// sample is small, so it's held once and read twice.
 pub fn sample_sql(scan: &Scan, column: &ColumnInfo, percent: f64) -> String {
@@ -285,7 +287,7 @@ pub fn sample_sql(scan: &Scan, column: &ColumnInfo, percent: f64) -> String {
                  min({position}) FILTER ({finite}) AS lo_at, max({position}) FILTER ({finite}) AS hi_at FROM s), \
                  h AS (SELECT {bin} AS bin, count(*) AS c FROM s, b WHERE {finite} GROUP BY bin) \
                  SELECT a.n, a.present, a.nonfinite, b.lo, b.hi, b.mean, b.median, b.distinct_values, \
-                 CAST(g.bin AS INTEGER) AS bin, coalesce(h.c, 0) AS c \
+                 CAST(g.bin AS INTEGER) AS bin, coalesce(h.c, 0) AS c, b.lo_at, b.hi_at \
                  FROM a, b, range({BINS}) AS g(bin) LEFT JOIN h ON h.bin = g.bin ORDER BY g.bin",
                 mean = mean(time, finite),
                 bin = bin_sql(position, "b.lo_at", "b.hi_at"),
@@ -422,6 +424,12 @@ pub struct Profile {
     /// The stage the shape came from: a sample's bars stay while every
     /// row's figures are in and its bins are still being read.
     pub shape_stage: Option<Stage>,
+    /// A number's or a time's bins' range, as positions (a number as a
+    /// `DOUBLE`, a time as seconds since the epoch): bin `i` of [`BINS`]
+    /// holds `lo + i·w` up to `lo + (i+1)·w`, the last its top too. Read
+    /// with the shape, so the filter editor knows which bars a filter
+    /// keeps (`crate::preview`).
+    pub span: Option<(f64, f64)>,
 }
 
 /// Why a profile's answer couldn't be read.
@@ -502,6 +510,7 @@ impl FooterColumn {
             distinct: None,
             shape: None,
             shape_stage: None,
+            span: None,
         }
     }
 }
@@ -546,6 +555,7 @@ pub fn read_exact(
                 Profile {
                     shape: Some(Shape::Bins(vec![0; BINS])),
                     shape_stage: Some(Stage::Exact),
+                    span: None,
                     ..profile
                 }
             } else {
@@ -590,6 +600,7 @@ fn read_figures(result: &QueryResult, row: usize, stage: Stage) -> Result<Profil
         distinct: Some(Distinct::Exact(count(result, row, 7)?)),
         shape: None,
         shape_stage: None,
+        span: None,
     })
 }
 
@@ -606,6 +617,7 @@ fn read_numeric(result: &QueryResult, stage: Stage) -> Result<Profile, Unreadabl
     }
     profile.shape = Some(Shape::Bins(bins));
     profile.shape_stage = Some(stage);
+    profile.span = float(result, 0, 10).zip(float(result, 0, 11));
     Ok(profile)
 }
 
@@ -635,6 +647,7 @@ fn read_values(result: &QueryResult, stage: Stage) -> Result<Profile, Unreadable
         distinct: Some(Distinct::Exact(count(result, 0, 2)?)),
         shape: Some(Shape::Top(top)),
         shape_stage: Some(stage),
+        span: None,
     })
 }
 
@@ -1099,6 +1112,23 @@ impl Profiling {
             .collect()
     }
 
+    /// Each column's bins' range as positions (`Profile::span`), where a
+    /// profile read of the rows in view has bins: the filter editor's
+    /// bars are drawn from the same profile (`crate::preview`).
+    pub fn spans(&self) -> HashMap<String, (f64, f64)> {
+        let Some(key) = &self.key else {
+            return HashMap::new();
+        };
+        if self.refused.is_some() || self.loading {
+            return HashMap::new();
+        }
+        self.entries
+            .iter()
+            .filter(|(_, entry)| entry.key == *key)
+            .filter_map(|(name, entry)| Some((name.clone(), entry.profile.as_ref()?.span?)))
+            .collect()
+    }
+
     /// The footer's stage 1 of `column`, if the view is unfiltered.
     fn footer_profile(&self, column: &str) -> Option<Profile> {
         let Footer {
@@ -1295,6 +1325,7 @@ impl Profiling {
                             if let Some(previous) = entry.profile.take() {
                                 profile.shape = previous.shape;
                                 profile.shape_stage = previous.shape_stage;
+                                profile.span = previous.span;
                             }
                             Next::Bins(lo, hi)
                         }
@@ -1303,10 +1334,11 @@ impl Profiling {
                     entry.profile = Some(profile);
                     next
                 }),
-                Next::Bins(..) => read_bins(&result).map(|shape| {
+                Next::Bins(lo, hi) => read_bins(&result).map(|shape| {
                     if let Some(profile) = &mut entry.profile {
                         profile.shape = Some(shape);
                         profile.shape_stage = Some(Stage::Exact);
+                        profile.span = Some((lo, hi));
                     }
                     Next::Done
                 }),
@@ -1651,6 +1683,9 @@ mod tests {
             facts.profile.as_ref().unwrap().shape_stage,
             Some(Stage::Exact)
         );
+        // The bins' range, for the filter editor's bars, with the shape.
+        assert_eq!(facts.profile.as_ref().unwrap().span, Some((0.0, 150.97)));
+        assert_eq!(profiling.spans()["inclination_deg"], (0.0, 150.97));
     }
 
     #[test]
@@ -2223,6 +2258,8 @@ mod tests {
                 Arc::new(Int32Array::from((0..BINS as i32).collect::<Vec<_>>())),
             ),
             ("c", ints(&counts)),
+            ("lo_at", Arc::new(Float64Array::from(vec![0.0; BINS]))),
+            ("hi_at", Arc::new(Float64Array::from(vec![150.97; BINS]))),
         ])
     }
 
@@ -2238,6 +2275,8 @@ mod tests {
         assert_eq!(profile.distinct, Some(Distinct::AtLeast(400)));
         assert_eq!(profile.median.as_deref(), Some("53.22"));
         assert!(matches!(&profile.shape, Some(Shape::Bins(bins)) if bins[0] == 400));
+        // The bins' range, as positions, for the filter editor's bars.
+        assert_eq!(profile.span, Some((0.0, 150.97)));
         // Every finite value differs: likely an ID, not a floor.
         let profile =
             read_sample(&inclination, 0.48, &numeric_rows(1000, 999, 9, 990, counts)).unwrap();

@@ -523,3 +523,12 @@ No results note: Tycho records no measurements.
 - **A sample's range is the sample's.** On 42 M rows Panel 1 draws the footer's -1.26 to 34.06, Panel 2 the sample's 2.13 to 32.66 under its bars, Panel 3 the footer's again: the bins are over each stage's own range, so the labels follow them, and the range narrows and widens back as the stages come.
 - **WebKit's keys need Option+Tab and a focus a click doesn't give:** a scripted check of the profile's foot in WebKit tabs with Alt+Tab (Safari's default skips buttons) and focuses the row itself before Escape, as `filter.ts` already allows for the Find button. Not a fault of the page: a visitor in Safari tabs with Option.
 - **A matching name isn't the name:** a press found by text ("orbit") lands on `days_in_orbit`; the checks find a row by its name's span, whole.
+
+## M16 part D: the filter editor's preview (2026-11-27)
+
+No results note: Tycho records no measurements.
+
+**Surprises:**
+- **The bars had no edges.** The panel only needed each bin's count and the figures' range as text; marking what a filter keeps needs the range the bins were cut over, as numbers, and on a large file that isn't the figures' range: every row's figures come seconds before every row's bins, and the sample's bars stay meanwhile. So the bins' range now travels with the bins, and the panel's range under its bars, which had read every row's ends under a sample's bars, follows them too.
+- **A field's text outlived its type.** The editor kept what was typed across a change of column; `9x` left in a number's field became a text column's typed list, which then held the checklist back (no value matched). A column of another type now starts empty.
+- **The sample's line didn't fit under the bars.** "from a 0.48% sample of the rows in view · reading every row…" wrapped to two lines between the range's ends in the editor's 372 px; it's the panel's shorter words there.

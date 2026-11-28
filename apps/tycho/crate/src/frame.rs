@@ -649,6 +649,22 @@ mod web {
         })
     }
 
+    /// The filter editor's bars: for each of the profile's bins of column
+    /// `column` (its index), 1 where the filter `op` `values` (as typed)
+    /// keeps some of it, else 0 (`crate::preview::keeps`); null with no
+    /// bins read of the rows in view, or nothing yet to mark. At once, as
+    /// `filter_line` is: nothing is queried as the visitor types.
+    #[wasm_bindgen]
+    pub fn filter_bins(column: u32, op: String, values: Vec<String>) -> Option<Vec<u8>> {
+        CATALOG.with_borrow(|catalog| {
+            let catalog = catalog.as_ref()?;
+            let info = catalog.view.columns().get(column as usize)?;
+            let span = *catalog.spans.get(&info.name)?;
+            let keeps = crate::preview::keeps(info, &op, &values, span)?;
+            Some(keeps.into_iter().map(u8::from).collect())
+        })
+    }
+
     /// Row `row`'s values (0-based), for the Row tab: a promise of
     /// `crate::row::RowValues`, or null with no file open, no such row, or
     /// its read failed. From the page the table holds when it's loaded, else
@@ -898,6 +914,7 @@ mod tests {
             view: view.clone(),
             loading: false,
             lines: Default::default(),
+            spans: Default::default(),
         };
         plan(&steps, &catalog)
             .unwrap_or_else(|why| panic!("{line}: {why:?}"))

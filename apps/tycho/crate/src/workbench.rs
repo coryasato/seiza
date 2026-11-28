@@ -2437,6 +2437,7 @@ impl Workbench {
                 .as_ref()
                 .is_some_and(|load| load.state == IngestState::Loading),
             lines: self.profiling.lines(view.columns()),
+            spans: self.profiling.spans(),
         })
     }
 
@@ -3369,10 +3370,26 @@ impl Workbench {
     #[cfg(target_family = "wasm")]
     pub(crate) fn cancel_question(&mut self) {
         if let Some(question) = self.question.take() {
-            self.log.settle(
-                question.entry,
-                crate::log::Reply::Answer("Canceled before it answered.".into()),
-            );
+            const CANCELED: &str = "Canceled before it answered.";
+            self.log
+                .settle(question.entry, crate::log::Reply::Answer(CANCELED.into()));
+            // A bar still open on it (canceled by the view's filters
+            // changing, not by its Escape) says so, under its command.
+            if let Some(answer) = &self.answer
+                && answer.ask == question.ask
+                && answer.kind == "asking"
+            {
+                self.answers += 1;
+                self.answer = Some(Answer {
+                    seq: self.answers,
+                    ask: question.ask,
+                    kind: "answer",
+                    text: CANCELED.into(),
+                    steps: Vec::new(),
+                    error: false,
+                    values: Vec::new(),
+                });
+            }
         }
     }
 

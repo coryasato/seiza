@@ -412,7 +412,7 @@ pub fn first_direction(column: &ColumnInfo) -> Direction {
 /// `text` as an ISO date (`2024-03-01`), or with `timestamp` also a date and
 /// a time (`2024-03-01T12:30`, seconds and their fraction optional, a
 /// space for the `T`): its normal form, or none.
-fn iso_time(text: &str, timestamp: bool) -> Option<String> {
+pub(crate) fn iso_time(text: &str, timestamp: bool) -> Option<String> {
     let text = text.trim();
     let (date, time) = match text.split_once(['T', ' ']) {
         Some((date, time)) if timestamp => (date, Some(time)),

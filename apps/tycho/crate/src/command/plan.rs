@@ -22,6 +22,9 @@ pub struct Catalog {
     /// Each column's line in the bar's list where the profile knows it
     /// (`Profiling::lines`), by name: else its type.
     pub lines: std::collections::HashMap<String, String>,
+    /// Each column's bins' range where the profile has bins of the rows in
+    /// view (`Profiling::spans`), by name: the filter editor's bars.
+    pub spans: std::collections::HashMap<String, (f64, f64)>,
 }
 
 /// A step that will run: its command line, the file's names in it, and its
@@ -433,7 +436,30 @@ pub fn plan(steps: &[Step], catalog: &Catalog) -> Result<Plan, Refusal> {
                 if catalog.loading {
                     return Err(refuse(loading(), false));
                 }
-                let index = resolve(column, view.columns()).map_err(|why| refuse(why, true))?;
+                let index = resolve(column, view.columns()).map_err(|why| {
+                    // `top launch 2` of a column named `launch 2`: the
+                    // name's last word read as the count. Said, with the
+                    // quotes that ask for the column.
+                    let whole = count.as_ref().and_then(|count| {
+                        let name = Name {
+                            text: format!("{} {count}", column.text),
+                            spaced: true,
+                        };
+                        resolve(&name, view.columns()).ok()
+                    });
+                    match whole {
+                        Some(index) => refuse(
+                            format!(
+                                "No column {}. A name that ends in a number goes in double quotes: {} {}.",
+                                quote(&column.text),
+                                entry.name,
+                                quote(&view.columns()[index].name)
+                            ),
+                            true,
+                        ),
+                        None => refuse(why, true),
+                    }
+                })?;
                 let info = &view.columns()[index];
                 let shown = quote(&info.name);
                 let kind = Kind::of(info);
@@ -680,6 +706,7 @@ mod tests {
             ),
             loading,
             lines: Default::default(),
+            spans: Default::default(),
         }
     }
 
@@ -1191,6 +1218,34 @@ mod tests {
 
     fn catalog_loading() -> Catalog {
         catalog(true)
+    }
+
+    #[test]
+    fn a_name_ending_in_a_number_is_said_to_go_in_quotes() {
+        let file = [
+            ColumnInfo::new("launch 2", "VARCHAR"),
+            ColumnInfo::new("place", "VARCHAR"),
+        ];
+        let catalog = Catalog {
+            view: Controller::of_file(
+                SourceView {
+                    kind: SourceKind::Csv,
+                    name: "launches.csv".into(),
+                    rows: 10,
+                },
+                &file,
+            ),
+            loading: false,
+            lines: Default::default(),
+            spans: Default::default(),
+        };
+        let refusal = run("top launch 2", &catalog).unwrap_err();
+        assert_eq!(
+            refusal.why,
+            r#"No column launch. A name that ends in a number goes in double quotes: top "launch 2"."#
+        );
+        assert!(run(r#"top "launch 2""#, &catalog).is_ok());
+        assert!(run("top place 2", &catalog).is_ok());
     }
 
     #[test]

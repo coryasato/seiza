@@ -1353,6 +1353,7 @@ mod tests {
             view: controller.borrow().clone(),
             loading: false,
             lines: Default::default(),
+            spans: Default::default(),
         };
         let plan = plan(&steps, &catalog).unwrap();
         let columns = !catalog.view.same_columns(&plan.view);

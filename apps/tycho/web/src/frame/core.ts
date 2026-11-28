@@ -25,6 +25,10 @@ export interface App {
    *  `op` as the grammar spells it, `values` as typed, each quoted where
    *  the grammar needs; null with no file open. */
   filter_line(column: number, op: string, values: string[]): string | null;
+  /** At once: for each of the profile's bins of column `column`, 1 where
+   *  the filter `op` `values` (as typed) keeps some of it; null with no
+   *  bins read of the rows in view, or nothing yet to mark. */
+  filter_bins(column: number, op: string, values: string[]): Uint8Array | null;
   /** The log's way back on an entry. */
   back_to(entry: number): void;
   /** Escape in the bar while a question is out: it's canceled. */

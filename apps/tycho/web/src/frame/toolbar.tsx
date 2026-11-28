@@ -12,7 +12,7 @@
  * What each control opens: the filters' chip their list (Option 1, its
  * list open), each filter read in words and removed alone, and "Add a
  * filter"; Filter, and "Filter this column" in a column's menu, the filter
- * editor (Filter 1 to 3, the profile's preview left for the profile); the
+ * editor (Filter 1 to 3, its preview drawn from the column's profile); the
  * sort's the sort editor (Columns 3); the hidden chip, or Columns, the
  * show-and-hide list (Columns 4). At a wide page each is a popover under
  * its control; at a phone a sheet from the bottom, but Columns, which
@@ -24,13 +24,13 @@
 import { Drawer } from '@base-ui/react/drawer';
 import { Popover } from '@base-ui/react/popover';
 import { Select } from '@base-ui/react/select';
-import { createContext, type ReactNode, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { ShowHideList, SHOW_HIDE_POPUP } from './columns.tsx';
-import { act, appNow, canvasKeys, closeFind, getFind, setLogOpen, setSheetTab, subscribeFind } from './core.ts';
+import { act, appNow, askProfileFor, canvasKeys, closeFind, getFind, setLogOpen, setSheetTab, subscribeFind } from './core.ts';
 import { FindBar, FindButton, useFind } from './find.tsx';
 import { Badge, Icon, type IconName } from './icons.tsx';
 import { usePhone } from './log.tsx';
-import type { ColumnFacts, Completion, FilterFacts, FrameState } from './state.ts';
+import type { ColumnFacts, ColumnType, Completion, FilterFacts, FrameState, PanelProfile } from './state.ts';
 
 /** What the toolbar has open: the filters' list, the filter editor (on
  *  `column`, its index, or the first one shown), the sort editor, or the
@@ -415,14 +415,108 @@ function isoDay(days: number, from = new Date()): string {
   return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
 }
 
-/** The filter editor, as Filter 1 to 3 draw it but for the profile's
- *  preview (`docs/DECISIONS.md`, "Scope", 2026-11-26): "Keep rows where",
- *  a column, an operator in words, its value or values (a span's From and
- *  To, a time's shortcuts), `is any of` a typed list until the profile, the
- *  command at its foot, Cancel and Apply. The operators and their words
- *  are the crate's completion's after the column; the command is the
- *  crate's (`App.filter_line`), and so is what's wrong with it, read as
- *  the bar would read it (`Completion.preview`). */
+/** The bars' color, by the column's type, as the column list's. */
+const BAR: Record<ColumnType, string> = {
+  number: 'bg-type-number',
+  time: 'bg-type-time',
+  text: 'bg-type-text',
+  boolean: 'bg-type-boolean',
+};
+
+/** Filter 1's and 3's histogram under the fields: the profile's bars, those
+ *  the filter keeps in the accent as the value changes (`keeps`, the
+ *  crate's `App.filter_bins`; none marked until a value is one), the range
+ *  under them with the line between its ends. Until bars are read, the
+ *  column list's placeholders. */
+function PreviewBars({ profile, type, keeps }: { profile: PanelProfile | undefined; type: ColumnType; keeps: Uint8Array | null }) {
+  const bins = profile?.bins ?? null;
+  const most = bins ? Math.max(1, ...bins) : 1;
+  const range = profile?.previewRange;
+  return (
+    <div data-preview="bars" className="flex flex-col gap-1">
+      <div aria-hidden="true" data-bars={bins ? (keeps ? 'marked' : profile?.sampled ? 'sampled' : 'exact') : 'waiting'} className="flex h-10 items-end gap-[2px]">
+        {(bins ?? Array.from({ length: 20 }, () => -1)).map((count, i) => {
+          if (count < 0) return <span key={i} className="h-2.5 flex-1 rounded-[1px] bg-border-strong" />;
+          if (count === 0) return <span key={i} className="h-px flex-1 bg-border" />;
+          const kept = keeps ? keeps[i] === 1 : null;
+          const height = Math.max(2, Math.round((count / most) * 40));
+          return (
+            <span
+              key={i}
+              data-kept={kept === null ? undefined : kept}
+              style={{ height, opacity: kept === null ? (profile?.sampled ? 0.32 : 0.7) : kept ? 0.9 : 0.35 }}
+              className={`flex-1 rounded-[1px] ${kept ? 'bg-accent' : BAR[type]}`}
+            />
+          );
+        })}
+      </div>
+      <div className="flex justify-between gap-2 text-[10.5px] text-foreground-subtle tabular-nums">
+        <span className="shrink-0">{range?.[0] ?? ''}</span>
+        <span data-preview-line className={`min-w-0 text-center ${profile?.error ? 'text-error' : ''}`}>
+          {profile?.previewLine ?? ''}
+        </span>
+        <span className="shrink-0">{range?.[1] ?? ''}</span>
+      </div>
+    </div>
+  );
+}
+
+/** How many values Filter 2's checklist shows unsearched, as it draws them. */
+const CHECKLIST_SHOWN = 6;
+
+/** Filter 2's checklist: a text column's values with their bars and counts,
+ *  the search in the field's place narrowing them, the values checked
+ *  always among them; a value checked writes `in`'s list. */
+function Checklist({ values, checked, query, onToggle, phone }: { values: NonNullable<PanelProfile['values']>; checked: string[]; query: string; onToggle: (value: string) => void; phone: boolean }) {
+  const needle = query.trim().toLowerCase();
+  const matching = needle ? values.filter((value) => value.value.toLowerCase().includes(needle)) : values;
+  const cut = matching.slice(0, CHECKLIST_SHOWN);
+  const shown = [...cut, ...values.filter((value) => checked.includes(value.value) && !cut.includes(value))];
+  const most = Math.max(1, ...values.map((value) => value.count));
+  const said =
+    shown.length === values.length
+      ? values.length === 1
+        ? 'its one value'
+        : `all ${values.length.toLocaleString('en-US')} values`
+      : `${shown.length.toLocaleString('en-US')} of ${values.length.toLocaleString('en-US')} values shown`;
+  return (
+    <div data-preview="values" className="flex flex-col">
+      {shown.map((value) => {
+        const on = checked.includes(value.value);
+        return (
+          <label key={value.value} className={`flex cursor-pointer items-center gap-2 px-0.5 ${phone ? 'h-11' : 'h-7'}`}>
+            <input type="checkbox" checked={on} onChange={() => onToggle(value.value)} className="m-0 size-3.5 shrink-0 cursor-pointer accent-[var(--accent-fill)]" />
+            <span title={value.value} className="w-[108px] shrink-0 truncate text-[12.5px] text-foreground">
+              {value.value}
+            </span>
+            <span aria-hidden="true" className="flex h-1.5 min-w-0 flex-1">
+              <span style={{ width: `${Math.max(1, (value.count / most) * 100)}%`, opacity: on ? 0.8 : 0.35 }} className="h-1.5 rounded-[2px] bg-type-text" />
+            </span>
+            <span className="w-[60px] shrink-0 text-right text-[11.5px] text-foreground-subtle tabular-nums">{value.words}</span>
+          </label>
+        );
+      })}
+      {shown.length === 0 && <span className="px-0.5 py-1.5 text-[11.5px] text-foreground-subtle">No value holds &ldquo;{query.trim()}&rdquo;.</span>}
+      <span data-preview-line className="px-0.5 pt-1 text-[11px] text-foreground-subtle">
+        {said} · counts from the profile of the rows in view
+      </span>
+    </div>
+  );
+}
+
+/** The filter editor, as Filter 1 to 3 draw it (`docs/DECISIONS.md`,
+ *  "Scope", 2026-11-26 and 2026-11-27): "Keep rows where", a column, an
+ *  operator in words, its value or values (a span's From and To, a time's
+ *  shortcuts), the preview, the command at its foot, Cancel and Apply. The
+ *  operators and their words are the crate's completion's after the
+ *  column; the command is the crate's (`App.filter_line`), and so is what's
+ *  wrong with it, read as the bar would read it (`Completion.preview`). The
+ *  preview is the column's profile, asked for while the editor is on it
+ *  (`askProfileFor`) and read again by nothing typed: a number's or a
+ *  time's bars, those the filter keeps marked (`App.filter_bins`), and a
+ *  text column's `is any of` a checklist of its values once every row in
+ *  view is read and it has few (`PanelProfile.values`), else a typed
+ *  list. */
 function FilterEditor({ state, column: asked, phone }: { state: FrameState; column: number | null; phone: boolean }) {
   const done = useDone();
   const close = useContext(Close);
@@ -430,7 +524,40 @@ function FilterEditor({ state, column: asked, phone }: { state: FrameState; colu
   const column = state.columns.find((column) => column.index === index);
   const [op, setOp] = useState(() => (column ? FIRST_OP[column.type] : '='));
   const [values, setValues] = useState<string[]>(['', '']);
+  const [checked, setChecked] = useState<string[]>([]);
+  const [query, setQuery] = useState('');
   const first = useRef<HTMLInputElement>(null);
+  // The preview's profile, read while the editor is on its column; a
+  // boolean has none.
+  const asker = useId();
+  const asking = column && column.type !== 'boolean' ? column.name : null;
+  useEffect(() => {
+    askProfileFor(asker, asking);
+    return () => askProfileFor(asker, null);
+  }, [asker, asking]);
+  const profile = column && state.profiles.find((profile) => profile.column === column.name);
+  const listed = column?.type === 'text' && op === 'in' ? (profile?.values ?? null) : null;
+  const typedList = values[0]!.split(',').map((value) => value.trim()).filter((value) => value !== '');
+  // The checklist replaces the typed list once the values are known, if
+  // what's typed is all among them (else the typed list stays as typed).
+  // Decided when the values come or go, or the column or the operator
+  // changes, never by a key: a value typed whole doesn't swap the field
+  // being typed in. What's checked outlives an operator's change; what's
+  // typed, all among the values, is checked.
+  const [listing, setListing] = useState(false);
+  const focusSearch = useRef(false);
+  useEffect(() => {
+    const fits = listed !== null && typedList.every((value) => listed.some((item) => item.value === value));
+    if (fits && typedList.length) setChecked(typedList);
+    // Focus in the typed field moves to the search that takes its place.
+    if (fits) focusSearch.current = first.current !== null && document.activeElement === first.current;
+    setListing(fits);
+  }, [index, op, listed !== null]);
+  const checklist = listing && listed !== null;
+  useEffect(() => {
+    if (checklist && focusSearch.current) first.current?.focus();
+    focusSearch.current = false;
+  }, [checklist]);
   if (!column) return null;
   const ops = (completion(`filter ${column.typed} `)?.items ?? []).map((item) => ({ value: item.text, label: item.detail }));
   const arity = op === 'is null' || op === 'not null' ? 0 : op === 'between' ? 2 : op === 'in' ? -1 : 1;
@@ -444,7 +571,9 @@ function FilterEditor({ state, column: asked, phone }: { state: FrameState; colu
           ? []
           : values.slice(0, 2)
         : arity === -1
-          ? values[0]!.split(',').map((value) => value.trim()).filter((value) => value !== '')
+          ? checklist
+            ? listed.filter((item) => checked.includes(item.value)).map((item) => item.value)
+            : typedList
           : values[0] === ''
             ? []
             : [values[0]!];
@@ -464,8 +593,16 @@ function FilterEditor({ state, column: asked, phone }: { state: FrameState; colu
     if (!to) return;
     setIndex(next);
     // Another type starts on its own first operator, as its board draws it.
-    if (to.type !== column.type) setOp(FIRST_OP[to.type]);
+    // and with its fields empty: a number typed isn't a value of text.
+    if (to.type !== column.type) {
+      setOp(FIRST_OP[to.type]);
+      setValues(['', '']);
+    }
+    setChecked([]);
+    setQuery('');
   };
+  const toggle = (value: string) => setChecked((now) => (now.includes(value) ? now.filter((item) => item !== value) : [...now, value]));
+  const keeps = column.type === 'number' || column.type === 'time' ? (appNow()?.filter_bins(column.index, op, given) ?? null) : null;
   const field = (at: number, label: string, placeholder: string) => (
     <label className="flex h-7 min-w-0 flex-1 items-center rounded-md border border-border-strong bg-background px-2 focus-within:border-accent">
       <input
@@ -506,7 +643,28 @@ function FilterEditor({ state, column: asked, phone }: { state: FrameState; colu
         <div className="flex gap-1.5">
           <Choice label="Operator" value={op} items={ops} onChange={setOp} width={150} />
           {arity === 1 && field(0, 'The value', '')}
-          {arity === -1 && field(0, 'The values', 'Values, between commas')}
+          {arity === -1 && !checklist && field(0, 'The values', 'Values, between commas')}
+          {arity === -1 && checklist && (
+            <label className="flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border-strong bg-background px-2 focus-within:border-accent">
+              <Icon name="search" size={12} className="shrink-0 text-foreground-subtle" />
+              <input
+                ref={first}
+                type="text"
+                aria-label="Search the values"
+                value={query}
+                spellCheck={false}
+                autoComplete="off"
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    apply();
+                  }
+                }}
+                className="w-full min-w-0 border-0 bg-transparent text-[12.5px] text-foreground outline-none"
+              />
+            </label>
+          )}
         </div>
         {arity === 2 && (
           <div className="flex items-center gap-1.5">
@@ -522,6 +680,13 @@ function FilterEditor({ state, column: asked, phone }: { state: FrameState; colu
             {shortcut('This year', `${new Date().getFullYear()}-01-01`)}
           </div>
         )}
+        {checklist && <Checklist values={listed} checked={checked} query={query} onToggle={toggle} phone={phone} />}
+        {arity === -1 && !checklist && column.type === 'text' && profile?.reading && (
+          <span data-preview-line className="-mt-1 text-[11px] text-foreground-subtle">
+            {profile.previewLine}
+          </span>
+        )}
+        {(column.type === 'number' || column.type === 'time') && <PreviewBars profile={profile} type={column.type} keeps={keeps} />}
         {fault && (
           <span role="status" className="text-[11.5px] leading-4 text-error">
             {fault}
