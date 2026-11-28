@@ -327,6 +327,12 @@ mod web {
             }
         }
 
+        /// Whether the count or the place is out: a foreground query, which
+        /// a profile's waits behind.
+        pub fn out(&self) -> bool {
+            self.count_out.is_some() || self.place_out.is_some()
+        }
+
         /// Nothing out, nothing counted.
         fn stop(&mut self) {
             self.count_out = None;

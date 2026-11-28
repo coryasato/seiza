@@ -551,11 +551,6 @@ pub struct Workbench {
     /// with nothing new does nothing (`sync_profile`).
     #[cfg(target_family = "wasm")]
     profile_seen: Option<ProfileSeen>,
-    /// The vertical scrollbar's track and thumb last reported: a thumb that
-    /// moves at the same size on the same track is a scroll; any other
-    /// change (rows, a resize) isn't.
-    #[cfg(target_family = "wasm")]
-    last_thumb: Option<(Bounds<Pixels>, Bounds<Pixels>)>,
     _engine_status: Subscription,
     /// The panel's visibility is part of the frame's state.
     _panel: Subscription,
@@ -654,8 +649,6 @@ impl Workbench {
             shown_profile: None,
             #[cfg(target_family = "wasm")]
             profile_seen: None,
-            #[cfg(target_family = "wasm")]
-            last_thumb: None,
             // The outcome on a global while measuring, for the checks.
             clipboard: tall_table_bridge::clipboard::Clipboard::new(
                 crate::targets::measuring().then_some("__tychoCopy"),
@@ -889,6 +882,9 @@ impl Workbench {
                 }
             }
             Load::Open { table, csv, .. } => {
+                // The columns asked were this file's (an ask made while the
+                // next opens is kept).
+                self.profiling.forget();
                 table.update(cx, |table, cx| {
                     table.delegate_mut().view_mut().close();
                     table.close(cx);
@@ -1440,15 +1436,13 @@ impl Workbench {
                 // Page reads go first: a profile out waits while it scrolls.
                 #[cfg(target_family = "wasm")]
                 if let TallTableEvent::Scrollbar { track, thumb } = event {
-                    let moved = this.last_thumb.is_some_and(|(last_track, last_thumb)| {
-                        last_track == *track
-                            && last_thumb.size == thumb.size
-                            && last_thumb.origin != thumb.origin
-                    });
-                    this.last_thumb = Some((*track, *thumb));
-                    if moved {
-                        this.profiling.scrolled(seiza::marks::now());
-                    }
+                    this.profiling.scrollbar(
+                        table.entity_id().as_u64(),
+                        table.read(cx).rows(),
+                        *track,
+                        *thumb,
+                        seiza::marks::now(),
+                    );
                 }
                 if matches!(
                     event,
@@ -3232,9 +3226,19 @@ impl Workbench {
     fn sync_profile(&mut self, cx: &mut Context<Self>) {
         use seiza_duckdb::view::RowSource;
 
-        use crate::profile::{Key, Scan};
+        use crate::profile::{Scan, Waiting};
         use crate::table::Source;
 
+        // What a query out waits behind, if it's the workbench's own: read
+        // every render, by `facts`.
+        self.profiling.set_foreground(match &self.load {
+            Load::Open { .. } if self.filtering_now() => Some(Waiting::Filter),
+            Load::Open { table, .. } if table.read(cx).delegate().view().sorting() => {
+                Some(Waiting::Sort)
+            }
+            Load::Open { .. } if self.find.out() => Some(Waiting::Find),
+            _ => None,
+        });
         // The table renders the workbench every frame of a scroll: what the
         // profiles are read of is compared cheaply, and their SQL written
         // only when it, or the profiles themselves, changed.
@@ -3278,16 +3282,14 @@ impl Workbench {
             ),
         };
         // The filters applied, as the table's rows are: written by the one
-        // function that writes them for the index.
-        // Filters the columns can't write (a column retyped since) leave
-        // the profiles as they were until they can.
-        let Ok(condition) = crate::filter::where_sql(&self.rows_applied, &columns) else {
-            return;
-        };
-        let key = Key {
-            table: table.entity_id().as_u64(),
-            scan: scan.filtered(condition),
-        };
+        // function that writes them for the index. Filters the columns
+        // can't write (a column retyped since) read nothing until they can
+        // (`Profiling::key_of`).
+        let condition =
+            crate::filter::where_sql(&self.rows_applied, &columns).map_err(|(_, why)| why);
+        let key = self
+            .profiling
+            .key_of(table.entity_id().as_u64(), scan, condition);
         self.profiling
             .sync(Some(key), parquet.as_deref(), &columns, loading, cx);
     }

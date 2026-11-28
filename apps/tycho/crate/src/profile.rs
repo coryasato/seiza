@@ -22,6 +22,7 @@
 
 use std::collections::HashMap;
 
+use gpui_kit::{Bounds, Pixels};
 use seiza_duckdb::arrow::{QueryResult, Value};
 use seiza_duckdb::sql::{ColumnInfo, quote_identifier, string_literal};
 use serde::Serialize;
@@ -636,7 +637,9 @@ fn read_values(result: &QueryResult, stage: Stage) -> Result<Profile, Unreadable
 pub const PAUSE_MS: f64 = 300.0;
 
 /// How recently the table scrolled for a profile query out to be said to
-/// wait for it: page reads go first.
+/// wait for it: page reads go first. Any move of the table's view is a
+/// scroll (a drag, a wheel, `jump`, a find step, the Row tab's Next): each
+/// reads its pages first.
 pub const SCROLL_MS: f64 = 500.0;
 
 /// What a profile waits for, as its line says it.
@@ -645,6 +648,12 @@ pub const SCROLL_MS: f64 = 500.0;
 pub enum Waiting {
     /// A CSV still loading: its rows aren't all in.
     Loading,
+    /// The filters' index is being built, in the foreground.
+    Filter,
+    /// A sort's copy is being built, in the foreground.
+    Sort,
+    /// Find's count or its place is out, in the foreground.
+    Find,
     /// Page reads go first, and the table is reading them.
     Scrolling,
 }
@@ -653,6 +662,9 @@ impl Waiting {
     pub fn words(self) -> &'static str {
         match self {
             Self::Loading => "waiting for the file to finish loading",
+            Self::Filter => "waiting for the filter to finish",
+            Self::Sort => "waiting for the sort to finish",
+            Self::Find => "waiting for find to finish",
             Self::Scrolling => "waiting for scrolling to settle",
         }
     }
@@ -691,7 +703,8 @@ struct Entry {
     after: f64,
     /// Its next query is out.
     out: bool,
-    /// Why its last query failed, if it did (read again on the next change).
+    /// Why its last query failed, if it did: read again when its rows
+    /// change or it's asked again after it was closed.
     failed: Option<String>,
 }
 
@@ -739,6 +752,9 @@ pub struct Profiling {
     footer: Option<Footer>,
     /// When the table last scrolled, in page time.
     scrolled: Option<f64>,
+    /// The shown table's vertical scrollbar last reported: the table, its
+    /// rows, its track, and its thumb (`scrollbar`).
+    thumb: Option<(u64, u64, Bounds<Pixels>, Bounds<Pixels>)>,
     /// Whether the source's rows are all in (a CSV still loading isn't).
     loading: bool,
     /// Whether the view in front keeps every row: the footer speaks for it
@@ -746,6 +762,12 @@ pub struct Profiling {
     unfiltered: bool,
     /// The asked columns the file doesn't have.
     missing: Vec<String>,
+    /// Why the filters applied can't be written as SQL, if they can't (a
+    /// column retyped since): nothing is read until they can.
+    refused: Option<String>,
+    /// The workbench's own long foreground query in flight (the filters'
+    /// index, a sort's copy, find's count), which a query out waits behind.
+    foreground: Option<Waiting>,
     /// Something changed that the next sync has to see (an ask, an answer,
     /// a wait ended), whatever the rows in view.
     changed: bool,
@@ -757,24 +779,102 @@ impl Profiling {
     /// The columns to profile, by name. Another's query out is no longer
     /// out (the workbench cancels it, `Profiling::dropped`); what it read
     /// is kept.
+    /// A column asked again after it was closed is read again if its last
+    /// query failed.
     pub fn ask(&mut self, columns: Vec<String>) {
-        self.asked = columns;
+        let before = std::mem::replace(&mut self.asked, columns);
         self.changed = true;
         for (name, entry) in &mut self.entries {
             if !self.asked.contains(name) {
                 entry.out = false;
+            } else if !before.contains(name) {
+                entry.failed = None;
             }
         }
+    }
+
+    /// The file the columns were asked of is closed or replaced: they
+    /// aren't asked of the next (a column of the same name in another file
+    /// isn't the one asked for). An ask made while the next opens is kept.
+    pub fn forget(&mut self) {
+        self.ask(Vec::new());
     }
 
     pub fn asked(&self) -> &[String] {
         &self.asked
     }
 
-    /// The table scrolled at page time `now`.
+    /// The shown table's vertical scrollbar, as it reported at page time
+    /// `now` with the table's `rows`: a thumb moved at the same size on the
+    /// same track of the same table with the same rows is a scroll; any
+    /// other change (rows, a resize, another table) isn't. The rows are
+    /// compared too: on a large table the thumb is at its least size, and a
+    /// new row count moves it without resizing it.
+    pub fn scrollbar(
+        &mut self,
+        table: u64,
+        rows: u64,
+        track: Bounds<Pixels>,
+        thumb: Bounds<Pixels>,
+        now: f64,
+    ) {
+        let moved = self
+            .thumb
+            .is_some_and(|(last_table, last_rows, last_track, last_thumb)| {
+                last_table == table
+                    && last_rows == rows
+                    && last_track == track
+                    && last_thumb.size == thumb.size
+                    && last_thumb.origin != thumb.origin
+            });
+        self.thumb = Some((table, rows, track, thumb));
+        if moved {
+            self.scrolled(now);
+        }
+    }
+
+    /// The table scrolled at page time `now`. Only a scroll that starts a
+    /// wait (a query out, no scroll within `SCROLL_MS`) has the next sync
+    /// do anything: it schedules the wait's end, and each end the next
+    /// (`due`), so the frames of a scroll sync nothing.
     pub fn scrolled(&mut self, now: f64) {
+        let starts = self.scrolled.is_none_or(|at| now - at >= SCROLL_MS)
+            && self.entries.values().any(|entry| entry.out);
         self.scrolled = Some(now);
-        self.changed = true;
+        self.changed |= starts;
+    }
+
+    /// The workbench's own long foreground query in flight, if any: one of
+    /// `Waiting`'s `Filter`, `Sort`, or `Find`. Read by `facts`.
+    pub fn set_foreground(&mut self, query: Option<Waiting>) {
+        self.foreground = query;
+    }
+
+    /// What `table`'s rows are read of: `scan` kept to the filters'
+    /// `condition`. If the filters can't be written (a column retyped
+    /// since), which rows are in view isn't known: nothing is read, what's
+    /// out is canceled, and each asked column says why (`due`, `facts`)
+    /// until they can.
+    pub fn key_of(
+        &mut self,
+        table: u64,
+        scan: Scan,
+        condition: Result<Option<String>, String>,
+    ) -> Key {
+        let condition = match condition {
+            Ok(condition) => {
+                self.refused = None;
+                condition
+            }
+            Err(why) => {
+                self.refused = Some(why);
+                None
+            }
+        };
+        Key {
+            table,
+            scan: scan.filtered(condition),
+        }
     }
 
     /// Whether something changed since the last sync that it has to see;
@@ -823,14 +923,26 @@ impl Profiling {
                         failed: Some(format!("there's no column {column}")),
                     };
                 }
+                if let Some(why) = &self.refused {
+                    return ProfileFacts {
+                        column: column.clone(),
+                        profile: None,
+                        reading: false,
+                        waiting: None,
+                        failed: Some(format!("the filters can't be read: {why}")),
+                    };
+                }
                 let entry = self.entries.get(column);
                 let out = entry.is_some_and(|entry| entry.out);
+                let scrolling = self.scrolled.is_some_and(|at| now - at < SCROLL_MS);
                 let waiting = if self.loading {
                     Some(Waiting::Loading)
-                } else if out && self.scrolled.is_some_and(|at| now - at < SCROLL_MS) {
-                    Some(Waiting::Scrolling)
-                } else {
+                } else if !out {
                     None
+                } else if self.foreground.is_some() {
+                    self.foreground
+                } else {
+                    scrolling.then_some(Waiting::Scrolling)
                 };
                 ProfileFacts {
                     column: column.clone(),
@@ -871,7 +983,9 @@ impl Profiling {
     /// file's name, whose footer is read once; `columns`: the file's;
     /// `loading`: a CSV whose rows aren't all in, which nothing reads.
     /// Returns the queries, and the page time the next is due if one waits
-    /// for a pause.
+    /// for a pause or a scroll. The columns asked are kept with no key (a
+    /// file opening): the workbench forgets them when a file closes
+    /// (`forget`).
     pub fn due(
         &mut self,
         key: Option<&Key>,
@@ -881,7 +995,7 @@ impl Profiling {
         now: f64,
     ) -> (Vec<Due>, Option<f64>) {
         self.loading = loading;
-        self.unfiltered = key.is_some_and(|key| key.scan.unfiltered());
+        self.unfiltered = self.refused.is_none() && key.is_some_and(|key| key.scan.unfiltered());
         let Some(key) = key else {
             self.entries.clear();
             self.footer = None;
@@ -905,7 +1019,7 @@ impl Profiling {
             .filter(|name| !columns.iter().any(|column| column.name == **name))
             .cloned()
             .collect();
-        if loading {
+        if loading || self.refused.is_some() {
             for entry in self.entries.values_mut() {
                 entry.out = false;
             }
@@ -939,14 +1053,6 @@ impl Profiling {
             None => self.footer = None,
         }
         let mut wake: Option<f64> = None;
-        // A query out while the table scrolled says so until the scroll is
-        // over: the next sync, then, says it no longer is.
-        if let Some(at) = self.scrolled
-            && at + SCROLL_MS > now
-            && self.entries.values().any(|entry| entry.out)
-        {
-            wake = Some(at + SCROLL_MS);
-        }
         for name in self.asked.clone() {
             let Some(column) = columns.iter().find(|column| column.name == name) else {
                 continue;
@@ -988,6 +1094,16 @@ impl Profiling {
                     sql,
                 });
             }
+        }
+        // A query out while the table scrolled (one sent just now included)
+        // says so until the scroll is over: the next sync, then, says it no
+        // longer is.
+        if let Some(at) = self.scrolled
+            && at + SCROLL_MS > now
+            && self.entries.values().any(|entry| entry.out)
+        {
+            let end = at + SCROLL_MS;
+            wake = Some(wake.map_or(end, |at: f64| at.min(end)));
         }
         (due, wake)
     }
@@ -1566,6 +1682,191 @@ mod tests {
         let (_, wake) = profiling.due(Some(&key), None, &columns, false, 150.0);
         assert_eq!(wake, Some(100.0 + SCROLL_MS));
         assert_eq!(profiling.facts(150.0)[0].waiting, Some(Waiting::Scrolling));
+    }
+
+    #[test]
+    fn a_profile_asked_while_scrolling_is_woken_when_the_scroll_is_over() {
+        let columns = [column("H", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        profiling.scrolled(100.0);
+        profiling.ask(vec!["H".into()]);
+        let (due, wake) = profiling.due(Some(&key(1, 10, None)), None, &columns, false, 150.0);
+        assert_eq!(due.len(), 1);
+        assert_eq!(profiling.facts(150.0)[0].waiting, Some(Waiting::Scrolling));
+        assert_eq!(wake, Some(100.0 + SCROLL_MS));
+    }
+
+    #[test]
+    fn only_a_scroll_that_starts_a_wait_has_the_sync_do_anything() {
+        let columns = [column("H", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        // Nothing out: a scroll changes nothing a sync would see.
+        profiling.scrolled(0.0);
+        assert!(!profiling.take_changed());
+        profiling.ask(vec!["H".into()]);
+        profiling.due(Some(&key(1, 10, None)), None, &columns, false, 1_000.0);
+        assert!(profiling.take_changed());
+        profiling.scrolled(1_000.0);
+        assert!(profiling.take_changed());
+        for frame in 1..30 {
+            profiling.scrolled(1_000.0 + 16.0 * f64::from(frame));
+            assert!(!profiling.take_changed(), "frame {frame}");
+        }
+        // Its end is scheduled from the last move.
+        let (_, wake) = profiling.due(Some(&key(1, 10, None)), None, &columns, false, 1_500.0);
+        assert_eq!(wake, Some(1_000.0 + 16.0 * 29.0 + SCROLL_MS));
+        // A scroll after that one settled starts another wait.
+        profiling.scrolled(3_000.0);
+        assert!(profiling.take_changed());
+    }
+
+    #[test]
+    fn a_scroll_is_the_thumb_moved_on_one_table_with_the_same_rows() {
+        let bounds = |y: f32, h: f32| Bounds {
+            origin: gpui_kit::point(gpui_kit::px(0.), gpui_kit::px(y)),
+            size: gpui_kit::size(gpui_kit::px(10.), gpui_kit::px(h)),
+        };
+        let track = bounds(0., 800.);
+        let mut profiling = Profiling::default();
+        profiling.scrollbar(1, 100, track, bounds(300., 40.), 0.0);
+        // Another table's first report, its thumb at the top: no scroll.
+        profiling.scrollbar(2, 100, track, bounds(0., 40.), 10.0);
+        assert_eq!(profiling.scrolled, None);
+        // New rows (another size) or a resize (another track): no scroll.
+        profiling.scrollbar(2, 90, track, bounds(20., 60.), 20.0);
+        profiling.scrollbar(2, 90, bounds(0., 700.), bounds(30., 60.), 30.0);
+        assert_eq!(profiling.scrolled, None);
+        // A filter on a large table: the thumb at its least size, moved to
+        // the top by the new rows, isn't a scroll.
+        profiling.scrollbar(2, 42_000_000, bounds(0., 700.), bounds(300., 24.), 35.0);
+        profiling.scrollbar(2, 813_348, bounds(0., 700.), bounds(0., 24.), 36.0);
+        assert_eq!(profiling.scrolled, None);
+        // The same thumb moved on the same track, whatever moved it.
+        profiling.scrollbar(2, 813_348, bounds(0., 700.), bounds(90., 24.), 40.0);
+        assert_eq!(profiling.scrolled, Some(40.0));
+    }
+
+    #[test]
+    fn a_failed_profile_is_read_again_when_it_is_asked_again() {
+        let columns = [column("H", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        let key = key(1, 10, None);
+        profiling.ask(vec!["H".into()]);
+        let (due, _) = profiling.due(Some(&key), None, &columns, false, 0.0);
+        profiling.answer(&due[0], &columns, Err("out of memory".into()));
+        assert_eq!(
+            profiling.facts(1.0)[0].failed.as_deref(),
+            Some("out of memory")
+        );
+        // Still open: said, not sent again.
+        profiling.ask(vec!["H".into()]);
+        assert!(
+            profiling
+                .due(Some(&key), None, &columns, false, 2.0)
+                .0
+                .is_empty()
+        );
+        // Closed, then asked again: read again.
+        profiling.ask(Vec::new());
+        profiling.due(Some(&key), None, &columns, false, 3.0);
+        profiling.ask(vec!["H".into()]);
+        let (due, _) = profiling.due(Some(&key), None, &columns, false, 4.0);
+        assert_eq!(due.len(), 1);
+        assert_eq!(profiling.facts(4.0)[0].failed, None);
+    }
+
+    #[test]
+    fn filters_that_cant_be_written_read_nothing_and_say_why() {
+        let columns = [column("H", "DOUBLE"), column("e", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        let scan = || Scan::parquet("tycho/f.parquet", 10);
+        let some = profiling.key_of(1, scan(), Ok(Some(r#"("H" > 1)"#.into())));
+        profiling.ask(vec!["H".into()]);
+        let (due, _) = profiling.due(Some(&some), Some("tycho/f.parquet"), &columns, false, 0.0);
+        assert_eq!(due.len(), 2);
+        // A column retyped since: the rows in view aren't known. Nothing is
+        // read, what's out is no longer out (so canceled), an ask is kept,
+        // and each column says why; the footer speaks for no filtered view.
+        let refused = profiling.key_of(1, scan(), Err("there's no column H".into()));
+        profiling.ask(vec!["H".into(), "e".into()]);
+        let (due, _) = profiling.due(
+            Some(&refused),
+            Some("tycho/f.parquet"),
+            &columns,
+            false,
+            1.0,
+        );
+        assert!(due.iter().all(|due| due.column.is_none()));
+        assert!(!profiling.entries["H"].out);
+        let facts = profiling.facts(1.0);
+        assert!(facts.iter().all(|facts| facts.failed.as_deref()
+            == Some("the filters can't be read: there's no column H")
+            && facts.profile.is_none()
+            && !facts.reading));
+        assert!(profiling.footer_nulls().is_empty());
+        // Written again: `e`, never read, at once; `H`, read before of
+        // these rows' table, after the pause.
+        let again = profiling.key_of(1, scan(), Ok(Some(r#"("H" > 2)"#.into())));
+        let (due, _) = profiling.due(Some(&again), Some("tycho/f.parquet"), &columns, false, 2.0);
+        assert_eq!(
+            due.iter()
+                .filter_map(|due| due.column.as_deref())
+                .collect::<Vec<_>>(),
+            ["e"]
+        );
+        let (due, _) = profiling.due(
+            Some(&again),
+            Some("tycho/f.parquet"),
+            &columns,
+            false,
+            2.0 + PAUSE_MS,
+        );
+        assert_eq!(
+            due.iter()
+                .filter_map(|due| due.column.as_deref())
+                .collect::<Vec<_>>(),
+            ["H"]
+        );
+    }
+
+    #[test]
+    fn a_closed_file_forgets_the_columns_asked_and_an_ask_while_opening_is_kept() {
+        let columns = [column("H", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        profiling.ask(vec!["H".into()]);
+        profiling.due(Some(&key(1, 10, None)), None, &columns, false, 0.0);
+        // Closed: forgotten, so a column of the same name in the next file
+        // isn't read.
+        profiling.forget();
+        profiling.due(None, None, &[], false, 1.0);
+        let (due, _) = profiling.due(Some(&key(2, 10, None)), None, &columns, false, 2.0);
+        assert!(due.is_empty() && profiling.asked().is_empty());
+        // Asked while the next file opens (no key, render after render):
+        // read once it's open.
+        profiling.forget();
+        profiling.ask(vec!["H".into()]);
+        profiling.due(None, None, &[], false, 3.0);
+        profiling.due(None, None, &[], false, 4.0);
+        let (due, _) = profiling.due(Some(&key(3, 10, None)), None, &columns, false, 5.0);
+        assert_eq!(due.len(), 1);
+    }
+
+    #[test]
+    fn a_query_out_says_which_foreground_query_it_waits_behind() {
+        let columns = [column("H", "DOUBLE")];
+        let mut profiling = Profiling::default();
+        profiling.set_foreground(Some(Waiting::Find));
+        profiling.ask(vec!["H".into()]);
+        // Nothing out yet: nothing waits.
+        assert_eq!(profiling.facts(0.0)[0].waiting, None);
+        profiling.due(Some(&key(1, 10, None)), None, &columns, false, 0.0);
+        profiling.scrolled(0.0);
+        assert_eq!(profiling.facts(1.0)[0].waiting, Some(Waiting::Find));
+        profiling.set_foreground(Some(Waiting::Sort));
+        assert_eq!(profiling.facts(1.0)[0].waiting, Some(Waiting::Sort));
+        profiling.set_foreground(None);
+        assert_eq!(profiling.facts(1.0)[0].waiting, Some(Waiting::Scrolling));
+        assert_eq!(Waiting::Filter.words(), "waiting for the filter to finish");
     }
 
     #[test]
